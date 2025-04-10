@@ -44,6 +44,13 @@ def print_connections_status():
     print("=======================")
 
 
+def status_printer():
+    """Imprime o status das conexões a cada 1 minuto."""
+    while True:
+        time.sleep(60)
+        print_connections_status()
+
+
 def session_manager():
     """
     Remove periodicamente clientes inativos.
@@ -59,7 +66,6 @@ def session_manager():
                         f"Cliente {client_addr} desconectado por inatividade no Arduino {arduino_id}."
                     )
                     del authorized_clients[arduino_id][client_addr]
-                    print_connections_status()
         time.sleep(5)
 
 
@@ -87,7 +93,6 @@ def udp_server():
             arduino_queues[arduino_id] = queue.Queue()
             authorized_clients[arduino_id] = {}
             print(f"Novo dispositivo registrado com ID {arduino_id}.")
-            print_connections_status()
 
         if msg_type == "STATUS":
             # Mensagem enviada pelo Arduino para atualizar seu status (online/offline, etc.)
@@ -97,7 +102,7 @@ def udp_server():
             for client_addr in authorized_clients.get(arduino_id, {}):
                 forward_message = f"{arduino_id};STATUS;{payload}"
                 sock.sendto(forward_message.encode("utf-8"), client_addr)
-            print_connections_status()
+            # NÃO imprime status aqui; será impresso pela thread status_printer a cada 1 minuto
 
         elif msg_type == "LOGIN":
             # Login do cliente que deseja enviar comandos ao Arduino
@@ -113,7 +118,6 @@ def udp_server():
                 success_msg = f"{arduino_id};LOGIN_OK;Conectado com sucesso."
                 sock.sendto(success_msg.encode("utf-8"), addr)
                 print(f"Cliente {addr} autenticado para o Arduino {arduino_id}.")
-                print_connections_status()
             else:
                 error_msg = f"{arduino_id};LOGIN_FAIL;Senha incorreta."
                 sock.sendto(error_msg.encode("utf-8"), addr)
@@ -148,6 +152,7 @@ def udp_server():
 if __name__ == "__main__":
     try:
         threading.Thread(target=session_manager, daemon=True).start()
+        threading.Thread(target=status_printer, daemon=True).start()
         threading.Thread(target=udp_server, daemon=True).start()
 
         print("Servidor iniciado. Aguardando conexões...")
