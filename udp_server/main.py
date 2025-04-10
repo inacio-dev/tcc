@@ -4,22 +4,22 @@ import socket
 import threading
 import time
 
-# Dicionário para armazenar informações dos Arduinos:
+# Armazena informações dos Arduinos:
 # Chave: ID do Arduino
 # Valor: {"address": (ip, port), "status": último status recebido}
 arduinos = {}
 
-# Cada Arduino terá sua própria fila (pode ser utilizada para logs, se necessário)
+# Cada Arduino terá sua própria fila (opcional, para logs locais)
 arduino_queues = {}
 
-# Dicionário com as senhas configuradas para cada Arduino
+# Senhas configuradas para cada Arduino – utilizadas pelo cliente que deseja logar para enviar comandos
 arduino_passwords = {
     "1": "senha1",
     "2": "senha2",
     # Adicione outros IDs e senhas conforme necessário
 }
 
-# Dicionário para armazenar os clientes autorizados para cada Arduino
+# Armazena os clientes autorizados para cada Arduino:
 # Chave: ID do Arduino; Valor: dict com {cliente_addr: timestamp_última_atividade}
 authorized_clients = {}
 
@@ -33,11 +33,11 @@ CLIENT_TIMEOUT = 30
 
 
 def print_connections_status():
-    """Exibe um resumo minimalista dos Arduinos e clientes conectados."""
+    """Exibe um resumo dos Arduinos e clientes conectados."""
     print("=== Conexões Atuais ===")
     for arduino_id, info in arduinos.items():
         status = "conectado" if info["address"] else "offline"
-        print(f"Arduino {arduino_id}: {status}")
+        print(f"Arduino {arduino_id}: {status}, status: {info['status']}")
     for aid, clients in authorized_clients.items():
         if clients:
             print(f"Clientes no Arduino {aid}: {list(clients.keys())}")
@@ -46,8 +46,9 @@ def print_connections_status():
 
 def session_manager():
     """
-    Verifica periodicamente a atividade dos clientes.
-    Se um cliente não enviar keepalive por CLIENT_TIMEOUT segundos, sua sessão é removida.
+    Remove periodicamente clientes inativos.
+    Se um cliente não enviar KEEPALIVE por CLIENT_TIMEOUT segundos,
+    sua sessão é removida.
     """
     while True:
         current_time = time.time()
@@ -55,7 +56,7 @@ def session_manager():
             for client_addr, last_active in list(clients.items()):
                 if current_time - last_active > CLIENT_TIMEOUT:
                     print(
-                        f"Cliente {client_addr} desconectado por inatividade do Arduino {arduino_id}."
+                        f"Cliente {client_addr} desconectado por inatividade no Arduino {arduino_id}."
                     )
                     del authorized_clients[arduino_id][client_addr]
                     print_connections_status()
@@ -70,8 +71,6 @@ def udp_server():
     while True:
         data, addr = sock.recvfrom(BUFFER_SIZE)
         message = data.decode("utf-8").strip()
-
-        # Espera-se o formato: "ID;TIPO;DADOS"
         try:
             parts = message.split(";")
             if len(parts) < 3:
@@ -87,11 +86,21 @@ def udp_server():
             arduinos[arduino_id] = {"address": None, "status": ""}
             arduino_queues[arduino_id] = queue.Queue()
             authorized_clients[arduino_id] = {}
-            print(f"Novo Arduino registrado com ID {arduino_id}.")
+            print(f"Novo dispositivo registrado com ID {arduino_id}.")
             print_connections_status()
 
-        if msg_type == "LOGIN":
-            # Verificação de senha para login do cliente
+        if msg_type == "STATUS":
+            # Mensagem enviada pelo Arduino para atualizar seu status (online/offline, etc.)
+            arduinos[arduino_id]["address"] = addr
+            arduinos[arduino_id]["status"] = payload
+            # Encaminha o status para os clientes autorizados, se houver
+            for client_addr in authorized_clients.get(arduino_id, {}):
+                forward_message = f"{arduino_id};STATUS;{payload}"
+                sock.sendto(forward_message.encode("utf-8"), client_addr)
+            print_connections_status()
+
+        elif msg_type == "LOGIN":
+            # Login do cliente que deseja enviar comandos ao Arduino
             expected_password = arduino_passwords.get(arduino_id)
             if expected_password is None:
                 error_msg = (
@@ -103,7 +112,7 @@ def udp_server():
                 authorized_clients[arduino_id][addr] = time.time()
                 success_msg = f"{arduino_id};LOGIN_OK;Conectado com sucesso."
                 sock.sendto(success_msg.encode("utf-8"), addr)
-                print(f"Cliente {addr} autenticado no Arduino {arduino_id}.")
+                print(f"Cliente {addr} autenticado para o Arduino {arduino_id}.")
                 print_connections_status()
             else:
                 error_msg = f"{arduino_id};LOGIN_FAIL;Senha incorreta."
@@ -111,26 +120,19 @@ def udp_server():
             continue
 
         elif msg_type == "KEEPALIVE":
+            # Atualiza timestamp dos clientes que mandam KEEPALIVE
             if addr in authorized_clients.get(arduino_id, {}):
                 authorized_clients[arduino_id][addr] = time.time()
                 sock.sendto(f"{arduino_id};KEEPALIVE_OK;".encode("utf-8"), addr)
             continue
 
-        elif msg_type == "STATUS":
-            # Atualiza status do Arduino e encaminha para os clientes autorizados
-            arduinos[arduino_id]["address"] = addr
-            arduinos[arduino_id]["status"] = payload
-            for client_addr in authorized_clients.get(arduino_id, {}):
-                forward_message = f"{arduino_id};STATUS;{payload}"
-                sock.sendto(forward_message.encode("utf-8"), client_addr)
-            print_connections_status()
-
         elif msg_type == "CMD":
-            # Processa comandos enviados por clientes autorizados ao Arduino
+            # Encaminha comandos do cliente para o Arduino, se o cliente estiver autenticado
             if addr not in authorized_clients.get(arduino_id, {}):
                 error_msg = f"{arduino_id};CMD_FAIL;Cliente não autenticado."
                 sock.sendto(error_msg.encode("utf-8"), addr)
                 continue
+            # Atualiza o timestamp do cliente para manter a sessão ativa
             authorized_clients[arduino_id][addr] = time.time()
             arduino_addr = arduinos[arduino_id]["address"]
             if arduino_addr:
@@ -139,9 +141,8 @@ def udp_server():
             else:
                 error_msg = f"{arduino_id};CMD_FAIL;Arduino offline ou não registrado."
                 sock.sendto(error_msg.encode("utf-8"), addr)
-        # Ignora quaisquer outros tipos de mensagens
         else:
-            continue
+            continue  # Ignora outros tipos de mensagens
 
 
 if __name__ == "__main__":
