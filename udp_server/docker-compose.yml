@@ -2,7 +2,6 @@ services:
   servidor_udp:
     container_name: servidor_udp
     build: .
-    ports:
-      - "5005:5005/udp"
+    network_mode: "host"
     restart: "always"
 
