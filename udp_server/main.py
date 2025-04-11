@@ -105,23 +105,36 @@ def udp_server():
             # NÃO imprime status aqui; será impresso pela thread status_printer a cada 1 minuto
 
         elif msg_type == "LOGIN":
-            # Login do cliente que deseja enviar comandos ao Arduino
-            expected_password = arduino_passwords.get(arduino_id)
-            if expected_password is None:
-                error_msg = (
-                    f"{arduino_id};LOGIN_FAIL;Arduino não configurado para acesso."
-                )
-                sock.sendto(error_msg.encode("utf-8"), addr)
+                print(f"Processando LOGIN de {addr} para Arduino {arduino_id}")
+                expected_password = arduino_passwords.get(arduino_id)
+                if expected_password is None:
+                    error_msg = f"{arduino_id};LOGIN_FAIL;Arduino não configurado para acesso."
+                    print(f"Enviando resposta: {error_msg} para {addr}")
+                    try:
+                        bytes_sent = sock.sendto(error_msg.encode("utf-8"), addr)
+                        print(f"Bytes enviados: {bytes_sent}")
+                    except Exception as e:
+                        print(f"ERRO ao enviar resposta: {str(e)}")
+                    continue
+                if payload == expected_password:
+                    authorized_clients[arduino_id][addr] = time.time()
+                    success_msg = f"{arduino_id};LOGIN_OK;Conectado com sucesso."
+                    print(f"Enviando resposta: {success_msg} para {addr}")
+                    try:
+                        bytes_sent = sock.sendto(success_msg.encode("utf-8"), addr)
+                        print(f"Bytes enviados: {bytes_sent}")
+                    except Exception as e:
+                        print(f"ERRO ao enviar resposta: {str(e)}")
+                    print(f"Cliente {addr} autenticado para o Arduino {arduino_id}.")
+                else:
+                    error_msg = f"{arduino_id};LOGIN_FAIL;Senha incorreta."
+                    print(f"Enviando resposta: {error_msg} para {addr}")
+                    try:
+                        bytes_sent = sock.sendto(error_msg.encode("utf-8"), addr)
+                        print(f"Bytes enviados: {bytes_sent}")
+                    except Exception as e:
+                        print(f"ERRO ao enviar resposta: {str(e)}")
                 continue
-            if payload == expected_password:
-                authorized_clients[arduino_id][addr] = time.time()
-                success_msg = f"{arduino_id};LOGIN_OK;Conectado com sucesso."
-                sock.sendto(success_msg.encode("utf-8"), addr)
-                print(f"Cliente {addr} autenticado para o Arduino {arduino_id}.")
-            else:
-                error_msg = f"{arduino_id};LOGIN_FAIL;Senha incorreta."
-                sock.sendto(error_msg.encode("utf-8"), addr)
-            continue
 
         elif msg_type == "KEEPALIVE":
             # Atualiza timestamp dos clientes que mandam KEEPALIVE
