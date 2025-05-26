@@ -6,6 +6,8 @@ sudo apt install libcamera-apps python3-libcamera
 
 pip install --upgrade pip wheel
 pip install -r requirements.txt
+
+sudo apt install python3-opencv python3-numpy python3-picamera2 python3-libcamera
 ```
 
 ```

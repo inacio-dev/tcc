@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-# Cliente UDP com interface de vídeo e console de log separados
-# Permite selecionar, copiar e pausar os logs para análise
+# Cliente UDP com interface de vídeo e dados de sensores
+# Recebe frames + dados de sensores do Raspberry Pi
 
+import json
 import queue
 import socket
 import struct
@@ -20,17 +21,18 @@ HOST_IP = "0.0.0.0"  # Escuta em todas as interfaces
 PORT = 9999  # Porta do servidor UDP
 
 # Configurações do buffer
-BUFFER_SIZE = 65536  # Tamanho do buffer UDP
+BUFFER_SIZE = 131072  # 128KB para comportar frame + dados de sensor
 
 # Configuração da interface
 VIDEO_WIDTH = 854
 VIDEO_HEIGHT = 480
-CONSOLE_WIDTH = 500
-CONSOLE_HEIGHT = 600
+CONSOLE_WIDTH = 600
+CONSOLE_HEIGHT = 700
 
-# Fila para comunicação entre threads
+# Filas para comunicação entre threads
 log_queue = queue.Queue()
 status_queue = queue.Queue()
+sensor_queue = queue.Queue()
 
 # Classes de nível de log
 LOG_INFO = "INFO"
@@ -51,28 +53,35 @@ class ConsoleWindow:
         # Configurar fechamento adequado
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
 
-        # Estatísticas
-        self.status_vars = {
-            "connection": tk.StringVar(value="Desconectado"),
-            "fps": tk.StringVar(value="0.0"),
-            "frame_size": tk.StringVar(value="0 KB"),
-            "packets": tk.StringVar(value="0"),
-            "data": tk.StringVar(value="0 MB"),
-        }
-
-    def create_widgets(self):
-        # Frame para estatísticas
-        stats_frame = ttk.LabelFrame(self.root, text="Estatísticas")
-        stats_frame.pack(fill=tk.X, padx=10, pady=5)
-
-        # Variáveis de status
+        # Variáveis de status da conexão
         self.connection_var = tk.StringVar(value="Desconectado")
         self.fps_var = tk.StringVar(value="0.0")
         self.frame_size_var = tk.StringVar(value="0 KB")
         self.packets_var = tk.StringVar(value="0")
         self.data_var = tk.StringVar(value="0 MB")
 
-        # Grid de estatísticas
+        # Variáveis dos sensores
+        self.sensor_vars = {
+            "accel_x": tk.StringVar(value="0.000"),
+            "accel_y": tk.StringVar(value="0.000"),
+            "accel_z": tk.StringVar(value="0.000"),
+            "gyro_x": tk.StringVar(value="0.000"),
+            "gyro_y": tk.StringVar(value="0.000"),
+            "gyro_z": tk.StringVar(value="0.000"),
+            "velocidade": tk.StringVar(value="0.0"),
+            "steering_angle": tk.StringVar(value="0.0"),
+            "bateria_nivel": tk.StringVar(value="0.0"),
+            "temperatura": tk.StringVar(value="0.0"),
+            "timestamp": tk.StringVar(value="0"),
+            "frame_count": tk.StringVar(value="0"),
+        }
+
+    def create_widgets(self):
+        # Frame para estatísticas de conexão
+        stats_frame = ttk.LabelFrame(self.root, text="Status da Conexão")
+        stats_frame.pack(fill=tk.X, padx=10, pady=5)
+
+        # Grid de estatísticas de conexão
         ttk.Label(stats_frame, text="Status:").grid(
             row=0, column=0, sticky=tk.W, padx=5, pady=2
         )
@@ -108,6 +117,91 @@ class ConsoleWindow:
             row=2, column=3, sticky=tk.W, padx=5, pady=2
         )
 
+        # Frame para dados de sensores
+        sensor_frame = ttk.LabelFrame(self.root, text="Dados dos Sensores")
+        sensor_frame.pack(fill=tk.X, padx=10, pady=5)
+
+        # Acelerômetro
+        accel_subframe = ttk.LabelFrame(sensor_frame, text="Acelerômetro (m/s²)")
+        accel_subframe.pack(fill=tk.X, padx=5, pady=2)
+
+        ttk.Label(accel_subframe, text="X:").grid(row=0, column=0, sticky=tk.W, padx=2)
+        ttk.Label(accel_subframe, textvariable=self.sensor_vars["accel_x"]).grid(
+            row=0, column=1, sticky=tk.W, padx=2
+        )
+
+        ttk.Label(accel_subframe, text="Y:").grid(row=0, column=2, sticky=tk.W, padx=2)
+        ttk.Label(accel_subframe, textvariable=self.sensor_vars["accel_y"]).grid(
+            row=0, column=3, sticky=tk.W, padx=2
+        )
+
+        ttk.Label(accel_subframe, text="Z:").grid(row=0, column=4, sticky=tk.W, padx=2)
+        ttk.Label(accel_subframe, textvariable=self.sensor_vars["accel_z"]).grid(
+            row=0, column=5, sticky=tk.W, padx=2
+        )
+
+        # Giroscópio
+        gyro_subframe = ttk.LabelFrame(sensor_frame, text="Giroscópio (°/s)")
+        gyro_subframe.pack(fill=tk.X, padx=5, pady=2)
+
+        ttk.Label(gyro_subframe, text="X:").grid(row=0, column=0, sticky=tk.W, padx=2)
+        ttk.Label(gyro_subframe, textvariable=self.sensor_vars["gyro_x"]).grid(
+            row=0, column=1, sticky=tk.W, padx=2
+        )
+
+        ttk.Label(gyro_subframe, text="Y:").grid(row=0, column=2, sticky=tk.W, padx=2)
+        ttk.Label(gyro_subframe, textvariable=self.sensor_vars["gyro_y"]).grid(
+            row=0, column=3, sticky=tk.W, padx=2
+        )
+
+        ttk.Label(gyro_subframe, text="Z:").grid(row=0, column=4, sticky=tk.W, padx=2)
+        ttk.Label(gyro_subframe, textvariable=self.sensor_vars["gyro_z"]).grid(
+            row=0, column=5, sticky=tk.W, padx=2
+        )
+
+        # Dados do veículo
+        vehicle_subframe = ttk.LabelFrame(sensor_frame, text="Dados do Veículo")
+        vehicle_subframe.pack(fill=tk.X, padx=5, pady=2)
+
+        ttk.Label(vehicle_subframe, text="Velocidade (km/h):").grid(
+            row=0, column=0, sticky=tk.W, padx=2
+        )
+        ttk.Label(vehicle_subframe, textvariable=self.sensor_vars["velocidade"]).grid(
+            row=0, column=1, sticky=tk.W, padx=2
+        )
+
+        ttk.Label(vehicle_subframe, text="Direção (°):").grid(
+            row=0, column=2, sticky=tk.W, padx=2
+        )
+        ttk.Label(
+            vehicle_subframe, textvariable=self.sensor_vars["steering_angle"]
+        ).grid(row=0, column=3, sticky=tk.W, padx=2)
+
+        # Status do sistema
+        system_subframe = ttk.LabelFrame(sensor_frame, text="Status do Sistema")
+        system_subframe.pack(fill=tk.X, padx=5, pady=2)
+
+        ttk.Label(system_subframe, text="Bateria (%):").grid(
+            row=0, column=0, sticky=tk.W, padx=2
+        )
+        ttk.Label(system_subframe, textvariable=self.sensor_vars["bateria_nivel"]).grid(
+            row=0, column=1, sticky=tk.W, padx=2
+        )
+
+        ttk.Label(system_subframe, text="Temperatura (°C):").grid(
+            row=0, column=2, sticky=tk.W, padx=2
+        )
+        ttk.Label(system_subframe, textvariable=self.sensor_vars["temperatura"]).grid(
+            row=0, column=3, sticky=tk.W, padx=2
+        )
+
+        ttk.Label(system_subframe, text="Frames:").grid(
+            row=1, column=0, sticky=tk.W, padx=2
+        )
+        ttk.Label(system_subframe, textvariable=self.sensor_vars["frame_count"]).grid(
+            row=1, column=1, sticky=tk.W, padx=2
+        )
+
         # Frame para área de controles futuros
         control_frame = ttk.LabelFrame(self.root, text="Controles")
         control_frame.pack(fill=tk.X, padx=10, pady=5)
@@ -140,14 +234,28 @@ class ConsoleWindow:
         self.autoscroll_cb.pack(side=tk.LEFT, padx=5, pady=5)
 
         # Área de texto com scroll
-        self.log_text = scrolledtext.ScrolledText(log_frame, wrap=tk.WORD)
+        self.log_text = scrolledtext.ScrolledText(
+            log_frame,
+            wrap=tk.WORD,
+            bg="black",  # Fundo preto
+            fg="white",  # Texto padrão branco
+            insertbackground="white",  # Cursor branco
+            selectbackground="darkblue",  # Seleção azul escuro
+            selectforeground="white",  # Texto selecionado branco
+        )
         self.log_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
         # Configurar tags para colorir diferentes tipos de mensagens
-        self.log_text.tag_configure("INFO", foreground="white")
-        self.log_text.tag_configure("ERROR", foreground="red")
-        self.log_text.tag_configure("WARNING", foreground="orange")
-        self.log_text.tag_configure("TIMESTAMP", foreground="gray")
+        self.log_text.tag_configure(
+            "INFO", foreground="lightgreen"
+        )  # Verde claro para INFO
+        self.log_text.tag_configure("ERROR", foreground="red")  # Vermelho para ERROR
+        self.log_text.tag_configure(
+            "WARNING", foreground="yellow"
+        )  # Amarelo para WARNING
+        self.log_text.tag_configure(
+            "TIMESTAMP", foreground="cyan"
+        )  # Ciano para timestamp
 
     def log(self, level, message):
         """Adiciona uma mensagem ao log"""
@@ -174,6 +282,15 @@ class ConsoleWindow:
             self.packets_var.set(str(status_dict["packets"]))
         if "data" in status_dict:
             self.data_var.set(f"{status_dict['data']:.2f} MB")
+
+    def update_sensors(self, sensor_dict):
+        """Atualiza os dados dos sensores exibidos"""
+        for key, value in sensor_dict.items():
+            if key in self.sensor_vars:
+                if isinstance(value, float):
+                    self.sensor_vars[key].set(f"{value:.3f}")
+                else:
+                    self.sensor_vars[key].set(str(value))
 
     def toggle_pause(self):
         """Pausa ou continua a exibição de logs"""
@@ -206,11 +323,16 @@ def update_console(console_window):
             status_dict = status_queue.get_nowait()
             console_window.update_status(status_dict)
 
+        # Processar dados de sensores
+        while not sensor_queue.empty():
+            sensor_dict = sensor_queue.get_nowait()
+            console_window.update_sensors(sensor_dict)
+
         # Agendar próxima atualização
-        console_window.root.after(100, update_console, console_window)
+        console_window.root.after(50, update_console, console_window)
     except Exception as e:
         print(f"Erro ao atualizar console: {e}")
-        console_window.root.after(100, update_console, console_window)
+        console_window.root.after(50, update_console, console_window)
 
 
 def console_thread_function():
@@ -219,7 +341,7 @@ def console_thread_function():
     console = ConsoleWindow(root)
 
     # Configurar atualização periódica
-    root.after(100, update_console, console)
+    root.after(50, update_console, console)
 
     # Iniciar o loop principal do Tkinter
     root.mainloop()
@@ -271,7 +393,6 @@ def video_thread_function():
                 log_queue.put((LOG_WARNING, f"Conexão perdida com {connected_addr}"))
                 connection_status = "Desconectado"
                 connected_addr = None
-                # Atualiza o status no console
                 status_queue.put({"connection": connection_status})
 
             try:
@@ -285,7 +406,6 @@ def video_thread_function():
                     log_queue.put(
                         (LOG_INFO, f"Conexão estabelecida com {addr[0]}:{addr[1]}")
                     )
-                    # Atualiza o status no console
                     status_queue.put({"connection": connection_status})
 
                 last_packet_time = time.time()
@@ -297,57 +417,98 @@ def video_thread_function():
                     {"packets": packet_count, "data": total_bytes / 1024 / 1024}
                 )
 
-                # Verifica se é um sinal de término (tamanho 1 byte)
-                if len(packet) == 1 and packet[0] == 1:
-                    log_queue.put((LOG_INFO, "Sinal de encerramento recebido"))
-                    break
+                # Verifica se é um sinal de término (pacote com tamanhos zero)
+                if (
+                    len(packet) == 8
+                ):  # 4 bytes para frame_size + 4 bytes para sensor_size
+                    frame_size_check, sensor_size_check = struct.unpack(
+                        "<II", packet[:8]
+                    )
+                    if frame_size_check == 0 and sensor_size_check == 0:
+                        log_queue.put((LOG_INFO, "Sinal de encerramento recebido"))
+                        break
 
-                # Verifica se o pacote tem pelo menos 4 bytes (tamanho)
-                if len(packet) >= 4:
+                # Verifica se o pacote tem pelo menos 8 bytes (4 + 4 para os tamanhos)
+                if len(packet) >= 8:
                     try:
-                        # Os primeiros 4 bytes são o tamanho
-                        frame_size = struct.unpack("<i", packet[:4])[0]
-                        frame_data = packet[4:]
+                        # Os primeiros 8 bytes são os tamanhos
+                        frame_size, sensor_size = struct.unpack("<II", packet[:8])
 
-                        # Verifica se o tamanho parece válido
-                        if frame_size <= 0 or frame_size > 1000000:  # Limitado a 1MB
+                        # Verifica se os tamanhos parecem válidos
+                        if (
+                            frame_size <= 0 or frame_size > 1000000
+                        ):  # Limitado a 1MB para frame
                             log_queue.put(
-                                (LOG_ERROR, f"Tamanho inválido: {frame_size}")
+                                (LOG_ERROR, f"Tamanho de frame inválido: {frame_size}")
                             )
                             continue
 
-                        # Decodifica o frame JPEG
+                        if (
+                            sensor_size < 0 or sensor_size > 10000
+                        ):  # Limitado a 10KB para dados de sensor
+                            log_queue.put(
+                                (
+                                    LOG_ERROR,
+                                    f"Tamanho de sensor inválido: {sensor_size}",
+                                )
+                            )
+                            continue
+
+                        # Calcula as posições dos dados
+                        frame_start = 8
+                        frame_end = frame_start + frame_size
+                        sensor_start = frame_end
+                        sensor_end = sensor_start + sensor_size
+
+                        # Verifica se o pacote tem o tamanho esperado
+                        expected_size = 8 + frame_size + sensor_size
+                        if len(packet) < expected_size:
+                            log_queue.put(
+                                (
+                                    LOG_ERROR,
+                                    f"Pacote incompleto: {len(packet)} < {expected_size}",
+                                )
+                            )
+                            continue
+
+                        # Extrai os dados do frame
+                        frame_data = packet[frame_start:frame_end]
+
+                        # Extrai os dados dos sensores
+                        sensor_data = packet[sensor_start:sensor_end]
+
+                        # Processa o frame de vídeo
                         frame_array = np.frombuffer(frame_data, dtype=np.uint8)
                         frame = cv2.imdecode(frame_array, cv2.IMREAD_COLOR)
 
                         if frame is None:
                             log_queue.put((LOG_ERROR, "Erro ao decodificar frame"))
-
-                            # Tentativa alternativa: ajuste o offset se os primeiros bytes parecerem JPEG
-                            for i in range(min(20, len(frame_data))):
-                                if frame_data[i : i + 2] == b"\xff\xd8":
-                                    log_queue.put(
-                                        (
-                                            LOG_INFO,
-                                            f"Encontrado início JPEG no offset {i}",
-                                        )
-                                    )
-                                    frame_array = np.frombuffer(
-                                        frame_data[i:], dtype=np.uint8
-                                    )
-                                    frame = cv2.imdecode(frame_array, cv2.IMREAD_COLOR)
-                                    if frame is not None:
-                                        break
-
-                            if frame is None:
-                                log_queue.put((LOG_ERROR, "Decodificação falhou"))
-                                continue
+                            # Se tivermos um frame anterior, mostramos ele
+                            if last_frame is not None:
+                                cv2.imshow("Video do Carrinho", last_frame)
+                            continue
 
                         # Exibe o frame
                         cv2.imshow("Video do Carrinho", frame)
-
                         # Armazena o último frame bem-sucedido
                         last_frame = frame.copy()
+
+                        # Processa os dados dos sensores
+                        if sensor_size > 0:
+                            try:
+                                sensor_json = sensor_data.decode("utf-8")
+                                sensor_dict = json.loads(sensor_json)
+
+                                # Envia dados dos sensores para a interface
+                                sensor_queue.put(sensor_dict)
+
+                            except (json.JSONDecodeError, UnicodeDecodeError) as e:
+                                log_queue.put(
+                                    (
+                                        LOG_ERROR,
+                                        f"Erro ao decodificar dados dos sensores: {e}",
+                                    )
+                                )
 
                         # Atualiza estatísticas
                         frames_received += 1
@@ -363,7 +524,7 @@ def video_thread_function():
                             log_queue.put(
                                 (
                                     LOG_INFO,
-                                    f"FPS: {fps:.1f}, Tamanho: {len(frame_data)/1024:.1f} KB",
+                                    f"FPS: {fps:.1f}, Frame: {len(frame_data)/1024:.1f} KB, Sensores: {len(sensor_data)} bytes",
                                 )
                             )
                             status_queue.put(
@@ -371,8 +532,7 @@ def video_thread_function():
                             )
 
                     except Exception as e:
-                        log_queue.put((LOG_ERROR, f"Erro ao processar frame: {e}"))
-
+                        log_queue.put((LOG_ERROR, f"Erro ao processar pacote: {e}"))
                         # Se tivermos um frame anterior, mostramos ele
                         if last_frame is not None:
                             cv2.imshow("Video do Carrinho", last_frame)
