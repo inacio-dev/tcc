@@ -46,13 +46,7 @@ class ConsoleWindow:
         self.root.title("Console de Controle do Carrinho")
         self.root.geometry(f"{CONSOLE_WIDTH}x{CONSOLE_HEIGHT}")
 
-        self.create_widgets()
-        self.auto_scroll = True
-        self.paused = False
-
-        # Configurar fechamento adequado
-        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
-
+        # MOVER ESTAS VARIÁVEIS PARA ANTES DE create_widgets()
         # Variáveis de status da conexão
         self.connection_var = tk.StringVar(value="Desconectado")
         self.fps_var = tk.StringVar(value="0.0")
@@ -75,6 +69,13 @@ class ConsoleWindow:
             "timestamp": tk.StringVar(value="0"),
             "frame_count": tk.StringVar(value="0"),
         }
+
+        self.create_widgets()  # AGORA PODE USAR AS VARIÁVEIS
+        self.auto_scroll = True
+        self.paused = False
+
+        # Configurar fechamento adequado
+        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
 
     def create_widgets(self):
         # Frame para estatísticas de conexão
