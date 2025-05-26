@@ -154,13 +154,23 @@ class F1CarServer:
         """Loop principal de captura e transmissão"""
         print("\n=== INICIANDO TRANSMISSÃO ===")
         print("Para parar: Ctrl+C")
+        print("Aguardando conexão do cliente...")
         print()
 
         self.running = True
         last_stats_display = time.time()
 
+        # Contador para debug inicial
+        loop_count = 0
+
         try:
             while self.running:
+                loop_count += 1
+
+                # Debug inicial - mostra que está funcionando
+                if loop_count <= 10:
+                    print(f"🔄 Loop {loop_count} - Sistema ativo...")
+
                 # Captura frame da câmera
                 frame_data = None
                 if self.camera_mgr:
@@ -175,9 +185,13 @@ class F1CarServer:
                         sensor_data = self.bmi160_mgr.get_sensor_data()
                         self.sensor_readings += 1
 
-                # Transmite via UDP
-                if self.network_mgr and (frame_data or sensor_data):
-                    self.network_mgr.send_frame_with_sensors(frame_data, sensor_data)
+                # Transmite via UDP (sempre, mesmo sem frame)
+                if self.network_mgr:
+                    success = self.network_mgr.send_frame_with_sensors(
+                        frame_data, sensor_data
+                    )
+                    if not success and loop_count <= 10:
+                        print(f"⚠️ Falha na transmissão do pacote {loop_count}")
 
                 # Exibe estatísticas a cada 2 segundos
                 current_time = time.time()
@@ -185,17 +199,20 @@ class F1CarServer:
                     self._display_stats()
                     last_stats_display = current_time
 
-                # Pequena pausa para controlar taxa de loop
-                time.sleep(0.001)  # 1ms
+                # Controla taxa de loop (aproximadamente 30 FPS)
+                time.sleep(1.0 / 30.0)  # ~33ms por loop
 
         except KeyboardInterrupt:
-            print("\n⚠️ Interrupção do usuário detectada")
+            print("\n⚠️ Interrupção do usuário detectada (Ctrl+C)")
+            self.running = False
         except Exception as e:
             print(f"\n❌ Erro durante execução: {e}")
             import traceback
 
             traceback.print_exc()
+            self.running = False
         finally:
+            print("\n🛑 Parando transmissão...")
             self.stop()
 
     def _display_stats(self):
@@ -229,16 +246,8 @@ class F1CarServer:
             print("❌ Falha na inicialização dos componentes")
             return False
 
-        # Inicia loop principal em thread separada
-        self.main_thread = threading.Thread(target=self.run_main_loop, daemon=True)
-        self.main_thread.start()
-
-        # Aguarda execução
-        try:
-            while self.running and self.main_thread.is_alive():
-                time.sleep(0.1)
-        except KeyboardInterrupt:
-            print("\n⚠️ Parando servidor...")
+        # Executa loop principal DIRETAMENTE (não em thread)
+        self.run_main_loop()
 
         return True
 
