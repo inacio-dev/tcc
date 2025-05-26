@@ -1,23 +1,14 @@
 #!/usr/bin/env python3
 """
-network_manager.py - Gerenciamento de Comunicação UDP
+network_manager.py - Gerenciamento de Comunicação UDP - VERSÃO CORRIGIDA
 Responsável por transmitir vídeo + dados de sensores via UDP
+CORREÇÃO: Agora suporta tipos numpy (bool_, float64, etc.)
 
 CONFIGURAÇÃO DE REDE:
 ====================
 1. Raspberry Pi e PC devem estar na mesma rede WiFi
 2. Configurar IP estático no RPi (recomendado)
 3. Abrir porta no firewall se necessário
-
-EXEMPLO DE CONFIGURAÇÃO IP ESTÁTICO:
-===================================
-sudo nano /etc/dhcpcd.conf
-Adicionar no final:
-
-interface wlan0
-static ip_address=192.168.1.100/24
-static routers=192.168.1.1
-static domain_name_servers=192.168.1.1
 
 ESTRUTURA DO PACOTE UDP:
 =======================
@@ -35,6 +26,7 @@ import struct
 import json
 import time
 import threading
+import numpy as np
 from typing import Optional, Dict, Any, Tuple
 
 
@@ -72,6 +64,7 @@ class NetworkManager:
         # Controle de erro
         self.send_errors = 0
         self.last_error_time = 0
+        self.last_error_log = 0  # Para controlar spam de logs
 
         # Threading para envio assíncrono (opcional)
         self.send_queue = []
@@ -123,6 +116,39 @@ class NetworkManager:
             self.is_connected = False
             return False
 
+    def _convert_numpy_types(self, obj):
+        """
+        Converte tipos numpy para tipos Python nativos recursivamente
+
+        Args:
+            obj: Objeto que pode conter tipos numpy
+
+        Returns:
+            Objeto com tipos Python nativos
+        """
+        if isinstance(obj, np.bool_):
+            return bool(obj)
+        elif isinstance(obj, np.integer):
+            return int(obj)
+        elif isinstance(obj, np.floating):
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        elif isinstance(obj, dict):
+            return {key: self._convert_numpy_types(value) for key, value in obj.items()}
+        elif isinstance(obj, list):
+            return [self._convert_numpy_types(item) for item in obj]
+        elif isinstance(obj, tuple):
+            return tuple(self._convert_numpy_types(item) for item in obj)
+        else:
+            # Para outros tipos (incluindo tipos numpy que não foram capturados)
+            if hasattr(obj, "dtype"):
+                try:
+                    return obj.item()  # Converte scalar numpy para Python nativo
+                except:
+                    return str(obj)  # Fallback para string
+            return obj
+
     def create_packet(self, frame_data: bytes, sensor_data: Dict[Any, Any]) -> bytes:
         """
         Cria pacote UDP estruturado
@@ -135,8 +161,11 @@ class NetworkManager:
             bytes: Pacote UDP completo
         """
         try:
+            # Converte tipos numpy para tipos Python nativos
+            cleaned_sensor_data = self._convert_numpy_types(sensor_data)
+
             # Serializa dados dos sensores para JSON
-            sensor_json = json.dumps(sensor_data)
+            sensor_json = json.dumps(cleaned_sensor_data, ensure_ascii=False)
             sensor_bytes = sensor_json.encode("utf-8")
 
             # Tamanhos
@@ -158,7 +187,20 @@ class NetworkManager:
             return packet
 
         except Exception as e:
-            print(f"⚠ Erro ao criar pacote: {e}")
+            # Log erro detalhado apenas a cada 5 segundos
+            current_time = time.time()
+            if current_time - self.last_error_log > 5.0:
+                print(f"⚠ Erro ao criar pacote: {e}")
+
+                # Debug adicional para identificar tipos problemáticos
+                if sensor_data:
+                    print(f"🔍 Debug - Tipos problemáticos nos dados:")
+                    for key, value in sensor_data.items():
+                        if hasattr(value, "dtype") or type(value).__module__ == "numpy":
+                            print(f"  {key}: {type(value)} = {value}")
+
+                self.last_error_log = current_time
+
             return b""
 
     def send_packet(self, packet_data: bytes) -> bool:
@@ -187,11 +229,13 @@ class NetworkManager:
 
         except Exception as e:
             self.send_errors += 1
-            self.last_error_time = time.time()
+            current_time = time.time()
+            self.last_error_time = current_time
 
             # Log erro a cada 5 segundos para evitar spam
-            if time.time() - self.last_error_time > 5.0:
+            if current_time - self.last_error_log > 5.0:
                 print(f"⚠ Erro ao enviar pacote: {e}")
+                self.last_error_log = current_time
 
             return False
 
@@ -380,64 +424,106 @@ class NetworkManager:
         self.cleanup()
 
 
+# Teste adicional para validar correção
+def test_numpy_conversion():
+    """Testa a conversão de tipos numpy"""
+    print("=== TESTE DE CONVERSÃO NUMPY ===")
+
+    nm = NetworkManager()
+
+    # Dados de teste com tipos numpy
+    test_data = {
+        "numpy_bool": np.bool_(True),
+        "numpy_int": np.int64(42),
+        "numpy_float": np.float64(3.14159),
+        "numpy_array": np.array([1, 2, 3]),
+        "normal_bool": True,
+        "normal_int": 42,
+        "normal_float": 3.14159,
+        "nested_dict": {"inner_numpy": np.bool_(False), "inner_normal": "test"},
+    }
+
+    print("Dados originais:")
+    for key, value in test_data.items():
+        print(f"  {key}: {type(value)} = {value}")
+
+    # Testa conversão
+    converted = nm._convert_numpy_types(test_data)
+
+    print("\nDados convertidos:")
+    for key, value in converted.items():
+        print(f"  {key}: {type(value)} = {value}")
+
+    # Testa serialização JSON
+    try:
+        json_str = json.dumps(converted)
+        print(f"\n✓ JSON serialização bem-sucedida: {len(json_str)} bytes")
+        return True
+    except Exception as e:
+        print(f"\n✗ Erro na serialização JSON: {e}")
+        return False
+
+
 # Exemplo de uso
 if __name__ == "__main__":
-    # Teste da classe NetworkManager
-    print("=== TESTE DO NETWORK MANAGER ===")
+    # Teste da conversão numpy primeiro
+    if test_numpy_conversion():
+        print("\n" + "=" * 50)
+        print("=== TESTE DO NETWORK MANAGER CORRIGIDO ===")
 
-    # Cria instância
-    net_mgr = NetworkManager(
-        target_ip="192.168.5.120",  # ALTERE PARA SEU IP
-        target_port=9999,
-        buffer_size=131072,
-    )
-
-    # Mostra informações de rede
-    net_info = net_mgr.get_network_info()
-    print(f"IP Local: {net_info['local_ip']}")
-    print(f"IP Destino: {net_info['target_ip']}")
-    print(f"Ping OK: {net_info['ping_ok']}")
-
-    # Inicializa
-    if net_mgr.initialize():
-        print("Enviando pacotes de teste...")
-
-        # Envia 10 pacotes de teste
-        for i in range(10):
-            # Dados de teste
-            frame_test = f"frame_data_{i}".encode("utf-8")
-            sensor_test = {
-                "test_count": i,
-                "timestamp": time.time(),
-                "accel_x": i * 0.1,
-                "gyro_z": i * 2.0,
-            }
-
-            # Envia pacote
-            success = net_mgr.send_frame_with_sensors(frame_test, sensor_test)
-            print(f"Pacote {i+1}: {'✓' if success else '✗'}")
-
-            time.sleep(0.1)
-
-        # Mostra estatísticas
-        stats = net_mgr.get_transmission_stats()
-        print(f"\n=== ESTATÍSTICAS ===")
-        print(f"Pacotes enviados: {stats['packets_sent']}")
-        print(f"Bytes enviados: {stats['bytes_sent']}")
-        print(f"Taxa: {stats['packets_per_second']:.1f} pkt/s")
-        print(f"Banda: {stats['kbps']:.1f} kbps")
-        print(f"Erros: {stats['send_errors']}")
-
-        # Teste de monitoramento
-        print("\nMonitorando banda por 2 segundos...")
-        band_stats = net_mgr.monitor_bandwidth(2.0)
-        print(
-            f"Durante monitoramento: {band_stats['packets']} pacotes, {band_stats['kbps']:.1f} kbps"
+        # Cria instância
+        net_mgr = NetworkManager(
+            target_ip="192.168.5.120",  # ALTERE PARA SEU IP
+            target_port=9999,
+            buffer_size=131072,
         )
 
-        # Finaliza
-        net_mgr.cleanup()
+        # Mostra informações de rede
+        net_info = net_mgr.get_network_info()
+        print(f"IP Local: {net_info['local_ip']}")
+        print(f"IP Destino: {net_info['target_ip']}")
+        print(f"Ping OK: {net_info['ping_ok']}")
 
+        # Inicializa
+        if net_mgr.initialize():
+            print("Enviando pacotes de teste com tipos numpy...")
+
+            # Envia 5 pacotes de teste com tipos numpy
+            for i in range(5):
+                # Dados de teste com tipos numpy misturados
+                frame_test = f"frame_data_{i}".encode("utf-8")
+                sensor_test = {
+                    "test_count": np.int64(i),
+                    "timestamp": np.float64(time.time()),
+                    "accel_x": np.float32(i * 0.1),
+                    "gyro_z": np.float64(i * 2.0),
+                    "is_active": np.bool_(i % 2 == 0),
+                    "normal_data": "string_normal",
+                    "nested": {
+                        "inner_numpy": np.int32(i * 10),
+                        "inner_bool": np.bool_(True),
+                    },
+                }
+
+                # Envia pacote
+                success = net_mgr.send_frame_with_sensors(frame_test, sensor_test)
+                print(f"Pacote {i+1} (tipos numpy): {'✓' if success else '✗'}")
+
+                time.sleep(0.1)
+
+            # Mostra estatísticas
+            stats = net_mgr.get_transmission_stats()
+            print(f"\n=== ESTATÍSTICAS ===")
+            print(f"Pacotes enviados: {stats['packets_sent']}")
+            print(f"Bytes enviados: {stats['bytes_sent']}")
+            print(f"Taxa: {stats['packets_per_second']:.1f} pkt/s")
+            print(f"Erros: {stats['send_errors']}")
+
+            # Finaliza
+            net_mgr.cleanup()
+            print("✓ Teste concluído - tipos numpy funcionando!")
+
+        else:
+            print("✗ Falha ao inicializar rede")
     else:
-        print("✗ Falha ao inicializar rede")
-        print("Verifique IP e conectividade")
+        print("✗ Falha no teste de conversão numpy")
