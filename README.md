@@ -2,6 +2,8 @@
 sudo apt update
 sudo apt install build-essential python3-dev libcap-dev
 
+sudo apt install libcamera-apps python3-libcamera
+
 pip install --upgrade pip wheel
 pip install -r requirements.txt
 ```
