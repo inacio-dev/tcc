@@ -40,14 +40,12 @@ try:
     from video_display import VideoDisplay
     from sensor_display import SensorDisplay
     from console_interface import ConsoleInterface
+    from simple_logger import init_logger, info, debug, error, LogLevel
 except ImportError as e:
     print(f"❌ ERRO: Não foi possível importar módulos necessários: {e}")
     print("\nVerifique se os arquivos estão na mesma pasta:")
-    print("  - network_client.py")
-    print("  - video_display.py")
-    print("  - sensor_display.py")
-    print("  - console_interface.py")
-    print("  - main_client.py")
+    print("  - network_client.py, video_display.py, sensor_display.py")
+    print("  - console_interface.py, simple_logger.py, main_client.py")
     sys.exit(1)
 
 # Filas para comunicação entre threads
@@ -94,16 +92,15 @@ class F1ClientApplication:
 
     def initialize_components(self):
         """Inicializa todos os componentes do sistema"""
-        print("🚀 Inicializando F1 Client...")
-        print(f"📡 Porta UDP: {self.port}")
-        print(f"📦 Buffer: {self.buffer_size // 1024} KB")
-        print()
+        info("Inicializando F1 Client...", "CLIENT")
+        debug(f"Porta UDP: {self.port}, Buffer: {self.buffer_size // 1024}KB", "CLIENT")
 
         try:
             # 1. Inicializa cliente de rede
-            print("1. Inicializando cliente de rede...")
+            debug("Inicializando cliente de rede...", "CLIENT")
             self.network_client = NetworkClient(
                 port=self.port,
+                command_port=9998,
                 buffer_size=self.buffer_size,
                 log_queue=log_queue,
                 status_queue=status_queue,
@@ -112,30 +109,32 @@ class F1ClientApplication:
             )
 
             # 2. Inicializa exibição de vídeo
-            print("2. Inicializando exibição de vídeo...")
+            debug("Inicializando exibição de vídeo...", "CLIENT")
             self.video_display = VideoDisplay(
                 video_queue=video_queue, log_queue=log_queue
             )
 
             # 3. Inicializa exibição de sensores
-            print("3. Inicializando interface de sensores...")
+            debug("Inicializando interface de sensores...", "CLIENT")
             self.sensor_display = SensorDisplay(
                 sensor_queue=sensor_queue, log_queue=log_queue
             )
 
             # 4. Inicializa interface do console
-            print("4. Inicializando console...")
+            debug("Inicializando console...", "CLIENT")
             self.console_interface = ConsoleInterface(
                 log_queue=log_queue,
                 status_queue=status_queue,
                 sensor_display=self.sensor_display,
             )
+            # Conecta network client com console para envio de comandos
+            self.console_interface.set_network_client(self.network_client)
 
-            print("✅ Todos os componentes inicializados com sucesso!")
+            debug("Todos os componentes inicializados!", "CLIENT")
             return True
 
         except Exception as e:
-            print(f"❌ Erro ao inicializar componentes: {e}")
+            error(f"Erro ao inicializar componentes: {e}", "CLIENT")
             return False
 
     def start_network_thread(self):
@@ -170,15 +169,11 @@ class F1ClientApplication:
         """Executa a aplicação principal"""
         # Inicializa componentes
         if not self.initialize_components():
-            print("❌ Falha na inicialização dos componentes")
+            error("Falha na inicialização dos componentes", "CLIENT")
             return False
 
-        print("\n=== INICIANDO SISTEMA F1 CLIENT ===")
-        print("🎥 Aguardando vídeo do Raspberry Pi...")
-        print("📊 Aguardando dados dos sensores...")
-        print("🎮 Interface pronta para uso!")
-        print("\nPara parar: Feche a janela do console ou pressione Ctrl+C")
-        print()
+        info("INICIANDO SISTEMA F1 CLIENT", "CLIENT")
+        info("Aguardando Raspberry Pi... (Ctrl+C para parar)", "CLIENT")
 
         # Marca como executando
         self.running = True
@@ -198,16 +193,15 @@ class F1ClientApplication:
             if self.console_thread:
                 self.console_thread.join()
 
-            print("\n✅ Sistema encerrado com sucesso!")
+            info("Sistema encerrado com sucesso!", "CLIENT")
             return True
 
         except KeyboardInterrupt:
-            print("\n⚠️ Interrompido pelo usuário (Ctrl+C)")
+            info("Interrompido pelo usuário (Ctrl+C)", "CLIENT")
             return True
         except Exception as e:
-            print(f"\n❌ Erro durante execução: {e}")
+            error(f"Erro durante execução: {e}", "CLIENT")
             import traceback
-
             traceback.print_exc()
             return False
         finally:
@@ -215,31 +209,48 @@ class F1ClientApplication:
 
     def stop(self):
         """Para a aplicação de forma limpa"""
-        print("🛑 Parando F1 Client...")
+        if not self.running:
+            return  # Já parou
+            
+        try:
+            debug("Parando F1 Client...", "CLIENT")
+        except:
+            pass
 
         self.running = False
 
-        # Para componentes
+        # Para componentes na ordem correta (interface primeiro)
         try:
-            if self.network_client:
-                self.network_client.stop()
-
-            if self.video_display:
-                self.video_display.stop()
-
-            if self.console_interface:
+            if hasattr(self, 'console_interface') and self.console_interface:
                 self.console_interface.stop()
+        except:
+            pass
+            
+        try:
+            if hasattr(self, 'video_display') and self.video_display:
+                self.video_display.stop()
+        except:
+            pass
 
-        except Exception as e:
-            print(f"⚠️ Erro durante parada: {e}")
+        try:
+            if hasattr(self, 'network_client') and self.network_client:
+                self.network_client.stop()
+        except:
+            pass
 
         # Aguarda threads (timeout para evitar travamento)
-        threads = [self.network_thread, self.video_thread]
-        for thread in threads:
-            if thread and thread.is_alive():
-                thread.join(timeout=1.0)
+        try:
+            threads = [self.network_thread, self.video_thread]
+            for thread in threads:
+                if thread and thread.is_alive():
+                    thread.join(timeout=0.5)  # Timeout menor
+        except:
+            pass
 
-        print("✅ F1 Client parado")
+        try:
+            debug("F1 Client parado", "CLIENT")
+        except:
+            pass
 
 
 def create_argument_parser():
@@ -327,10 +338,14 @@ def main():
     except Exception as e:
         print(f"\n❌ Erro crítico: {e}")
         import traceback
-
         traceback.print_exc()
         sys.exit(1)
     finally:
+        # Garante que a aplicação pare corretamente
+        try:
+            app.stop()
+        except:
+            pass
         print("\n👋 Obrigado por usar o F1 Client!")
 
 

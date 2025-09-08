@@ -30,11 +30,12 @@ from typing import Optional, Dict, Any
 
 
 class NetworkClient:
-    """Cliente de rede para recepção de dados UDP"""
+    """Cliente de rede para comunicação UDP bidirecional"""
 
     def __init__(
         self,
         port=9999,
+        command_port=9998,
         buffer_size=131072,
         host="0.0.0.0",
         log_queue=None,
@@ -43,10 +44,11 @@ class NetworkClient:
         video_queue=None,
     ):
         """
-        Inicializa o cliente de rede
+        Inicializa o cliente de rede bidirecional
 
         Args:
-            port (int): Porta UDP para escutar
+            port (int): Porta UDP para receber dados
+            command_port (int): Porta UDP para enviar comandos
             buffer_size (int): Tamanho do buffer UDP
             host (str): IP para escutar (0.0.0.0 = todas as interfaces)
             log_queue (Queue): Fila para mensagens de log
@@ -55,6 +57,7 @@ class NetworkClient:
             video_queue (Queue): Fila para frames de vídeo
         """
         self.port = port
+        self.command_port = command_port
         self.buffer_size = buffer_size
         self.host = host
 
@@ -64,14 +67,17 @@ class NetworkClient:
         self.sensor_queue = sensor_queue
         self.video_queue = video_queue
 
-        # Socket UDP
-        self.socket = None
+        # Sockets UDP
+        self.receive_socket = None  # Para receber dados
+        self.send_socket = None     # Para enviar comandos
         self.is_running = False
 
         # Status da conexão
         self.connected_addr = None
+        self.raspberry_pi_ip = None
+        self.is_connected_to_rpi = False
         self.last_packet_time = time.time()
-        self.connection_timeout = 3.0  # segundos
+        self.connection_timeout = 5.0  # segundos
 
         # Estatísticas
         self.packets_received = 0
@@ -110,39 +116,109 @@ class NetworkClient:
 
     def initialize(self):
         """
-        Inicializa o socket UDP
+        Inicializa os sockets UDP para comunicação bidirecional
 
         Returns:
             bool: True se inicializado com sucesso
         """
         try:
-            self._log("INFO", f"Inicializando cliente UDP na porta {self.port}")
+            self._log("INFO", f"Inicializando cliente UDP bidirecional")
+            self._log("INFO", f"Recebendo dados na porta {self.port}")
+            self._log("INFO", f"Enviando comandos para porta {self.command_port}")
 
-            # Cria socket UDP
-            self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            # Cria socket para receber dados
+            self.receive_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            self.receive_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
             # Configura buffer de recepção
-            self.socket.setsockopt(
+            self.receive_socket.setsockopt(
                 socket.SOL_SOCKET, socket.SO_RCVBUF, self.buffer_size * 2
             )
-            actual_buffer = self.socket.getsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF)
-
+            
+            # Vincula socket à porta de recepção
+            self.receive_socket.bind((self.host, self.port))
+            
+            # Cria socket para enviar comandos
+            self.send_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            
             # Timeout para não bloquear indefinidamente
-            self.socket.settimeout(0.5)
+            self.receive_socket.settimeout(1.0)
 
-            # Vincula à porta
-            self.socket.bind((self.host, self.port))
-
-            self._log("INFO", f"Socket UDP inicializado com sucesso")
-            self._log("INFO", f"Buffer de recepção: {actual_buffer // 1024} KB")
-            self._log("INFO", f"Aguardando conexão do Raspberry Pi...")
+            self._log("INFO", f"Sockets UDP inicializados com sucesso")
+            self._log("INFO", f"Aguardando dados do Raspberry Pi...")
+            self._log("INFO", f"Cliente pronto para enviar comandos")
 
             return True
 
         except Exception as e:
-            self._log("ERROR", f"Erro ao inicializar socket UDP: {e}")
+            self._log("ERROR", f"Erro ao inicializar sockets UDP: {e}")
             return False
+            
+    def discover_raspberry_pi(self, broadcast_ip="255.255.255.255", timeout=5.0):
+        """
+        Procura um Raspberry Pi na rede enviando comando CONNECT
+        
+        Args:
+            broadcast_ip: IP para broadcast (padrão usa broadcast)
+            timeout: Tempo limite para descoberta
+        """
+        self._log("INFO", "🔍 Procurando Raspberry Pi na rede...")
+        
+        # Primeira tentativa: envia CONNECT em broadcast
+        try:
+            # Habilita broadcast
+            self.send_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+            
+            # Envia comando CONNECT
+            connect_msg = b"CONNECT"
+            self.send_socket.sendto(connect_msg, (broadcast_ip, self.command_port))
+            self._log("INFO", f"📡 Enviando CONNECT para {broadcast_ip}:{self.command_port}")
+            
+        except Exception as e:
+            self._log("ERROR", f"Erro ao enviar comando CONNECT: {e}")
+
+    def send_command_to_rpi(self, command: str) -> bool:
+        """
+        Envia comando para o Raspberry Pi descoberto
+        
+        Args:
+            command: Comando a ser enviado
+            
+        Returns:
+            bool: True se enviado com sucesso
+        """
+        if not self.raspberry_pi_ip:
+            self._log("WARN", "Raspberry Pi não descoberto ainda")
+            return False
+            
+        try:
+            command_bytes = command.encode('utf-8')
+            self.send_socket.sendto(command_bytes, (self.raspberry_pi_ip, self.command_port))
+            return True
+        except Exception as e:
+            self._log("ERROR", f"Erro ao enviar comando '{command}': {e}")
+            return False
+
+    def send_control_command(self, control_type: str, value: float) -> bool:
+        """
+        Envia comando de controle para o Raspberry Pi
+        
+        Args:
+            control_type: Tipo do controle (THROTTLE, BRAKE, STEERING)
+            value: Valor do controle
+            
+        Returns:
+            bool: True se enviado com sucesso
+        """
+        command = f"CONTROL:{control_type}:{value}"
+        return self.send_command_to_rpi(command)
+        
+    def ping_raspberry_pi(self) -> bool:
+        """Envia ping para o Raspberry Pi"""
+        import time
+        timestamp = int(time.time() * 1000)  # milliseconds
+        command = f"PING:{timestamp}"
+        return self.send_command_to_rpi(command)
 
     def parse_packet(self, packet):
         """
@@ -277,12 +353,22 @@ class NetworkClient:
 
         self.is_running = True
         self._log("INFO", "Cliente de rede iniciado - aguardando dados...")
+        
+        # Inicia descoberta do Raspberry Pi
+        self.discover_raspberry_pi()
 
         try:
             while self.is_running:
                 try:
-                    # Recebe pacote
-                    packet, addr = self.socket.recvfrom(self.buffer_size)
+                    # Recebe pacote de dados
+                    packet, addr = self.receive_socket.recvfrom(self.buffer_size)
+                    
+                    # Se é a primeira vez que recebemos dados deste endereço
+                    if not self.raspberry_pi_ip:
+                        self.raspberry_pi_ip = addr[0]
+                        self.is_connected_to_rpi = True
+                        self._log("INFO", f"🔗 Raspberry Pi descoberto: {self.raspberry_pi_ip}")
+                        self._log("INFO", "✅ Conexão estabelecida!")
 
                     # Atualiza estatísticas
                     self.packets_received += 1
@@ -365,10 +451,24 @@ class NetworkClient:
         self._log("INFO", "Parando cliente de rede...")
 
         self.is_running = False
-
-        if self.socket:
+        
+        # Envia comando DISCONNECT se conectado
+        if self.is_connected_to_rpi:
             try:
-                self.socket.close()
+                self.send_command_to_rpi("DISCONNECT")
+            except:
+                pass
+
+        # Fecha sockets
+        if self.receive_socket:
+            try:
+                self.receive_socket.close()
+            except:
+                pass
+                
+        if self.send_socket:
+            try:
+                self.send_socket.close()
             except:
                 pass
 

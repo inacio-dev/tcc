@@ -30,6 +30,8 @@ import time
 import queue
 from datetime import datetime
 from typing import Optional
+from simple_logger import error, debug, info
+from keyboard_controller import KeyboardController
 
 
 class ConsoleInterface:
@@ -67,6 +69,12 @@ class ConsoleInterface:
         self.auto_scroll = True
         self.paused = False
 
+        # Network client para enviar comandos
+        self.network_client = None
+        
+        # Controlador de teclado
+        self.keyboard_controller = KeyboardController(log_callback=self.log)
+        
         # Variáveis de status da conexão
         self.connection_var = None
         self.fps_var = None
@@ -77,10 +85,17 @@ class ConsoleInterface:
 
         # Variáveis dos sensores BMI160
         self.sensor_vars = {}
-
+        
+        # Controles de veículo
+        self.brake_balance_var = None
+        self.current_brake_force = 0.0
+        self.current_throttle = 0.0
+        self.current_steering = 0.0
+        
         # Widgets principais
         self.log_text = None
         self.pause_btn = None
+        self.brake_balance_scale = None
         self.autoscroll_var = None
 
         # Atualização
@@ -95,6 +110,9 @@ class ConsoleInterface:
         self.packets_var = tk.StringVar(value="0")
         self.data_var = tk.StringVar(value="0 MB")
         self.quality_var = tk.StringVar(value="100%")
+        
+        # Controles de veículo
+        self.brake_balance_var = tk.DoubleVar(value=60.0)  # 60% dianteiro padrão
 
         # Dados dos sensores BMI160 - Raw (LSB)
         self.sensor_vars = {
@@ -503,44 +521,90 @@ class ConsoleInterface:
     def create_controls_frame(self):
         """Cria frame de controles"""
         control_frame = ttk.LabelFrame(
-            self.root, text="🎛️ Controles", style="Dark.TLabelframe"
+            self.root, text="🎛️ Controles do Veículo", style="Dark.TLabelframe"
         )
         control_frame.pack(fill=tk.X, padx=10, pady=5)
 
-        # Botões de controle
+        # Frame superior para botões
+        btn_frame = tk.Frame(control_frame, bg="#3c3c3c")
+        btn_frame.pack(fill=tk.X, padx=5, pady=2)
+
         ttk.Button(
-            control_frame,
+            btn_frame,
             text="Reset Stats",
             command=self.reset_statistics,
             style="Dark.TButton",
-        ).pack(side=tk.LEFT, padx=5, pady=5)
+        ).pack(side=tk.LEFT, padx=5)
 
         ttk.Button(
-            control_frame,
+            btn_frame,
             text="Export Data",
             command=self.export_data,
             style="Dark.TButton",
-        ).pack(side=tk.LEFT, padx=5, pady=5)
+        ).pack(side=tk.LEFT, padx=5)
+
+        # Separador
+        ttk.Separator(btn_frame, orient="vertical").pack(side=tk.LEFT, fill=tk.Y, padx=10, pady=5)
 
         # Status das configurações
-        ttk.Label(control_frame, text="Config:", style="Dark.TLabel").pack(
-            side=tk.LEFT, padx=10
+        ttk.Label(btn_frame, text="Config:", style="Dark.TLabel").pack(
+            side=tk.LEFT, padx=5
         )
         ttk.Label(
-            control_frame,
+            btn_frame,
             textvariable=self.sensor_vars["accel_range"],
             style="Dark.TLabel",
         ).pack(side=tk.LEFT, padx=2)
         ttk.Label(
-            control_frame,
+            btn_frame,
             textvariable=self.sensor_vars["gyro_range"],
             style="Dark.TLabel",
         ).pack(side=tk.LEFT, padx=2)
-        ttk.Label(
-            control_frame,
-            textvariable=self.sensor_vars["sample_rate"],
-            style="Dark.TLabel",
-        ).pack(side=tk.LEFT, padx=2)
+
+        # Frame para controle de freio
+        brake_frame = tk.Frame(control_frame, bg="#3c3c3c")
+        brake_frame.pack(fill=tk.X, padx=5, pady=5)
+
+        ttk.Label(brake_frame, text="🚥 Balanço de Freio:", style="Dark.TLabel").pack(
+            side=tk.LEFT, padx=5
+        )
+
+        # Slider para balanço de freio (0% = mais traseiro, 100% = mais dianteiro)
+        self.brake_balance_scale = tk.Scale(
+            brake_frame,
+            from_=0,
+            to=100,
+            resolution=5,
+            orient=tk.HORIZONTAL,
+            length=200,
+            variable=self.brake_balance_var,
+            command=self._on_brake_balance_change,
+            bg="#3c3c3c",
+            fg="white",
+            highlightbackground="#3c3c3c",
+            troughcolor="#2c2c2c",
+            activebackground="#0078d4",
+        )
+        self.brake_balance_scale.pack(side=tk.LEFT, padx=10)
+
+        # Labels informativos
+        ttk.Label(brake_frame, text="Traseiro", style="Dark.TLabel").pack(side=tk.LEFT, padx=2)
+        ttk.Label(brake_frame, text="←", style="Dark.TLabel").pack(side=tk.LEFT)
+        ttk.Label(brake_frame, text="→", style="Dark.TLabel").pack(side=tk.LEFT)
+        ttk.Label(brake_frame, text="Dianteiro", style="Dark.TLabel").pack(side=tk.LEFT, padx=2)
+
+        # Label com valor atual
+        self.brake_balance_label = ttk.Label(
+            brake_frame, 
+            text="60% Dianteiro / 40% Traseiro",
+            style="Dark.TLabel"
+        )
+        self.brake_balance_label.pack(side=tk.LEFT, padx=10)
+
+    def create_keyboard_controls_frame(self):
+        """Cria frame com controles de teclado"""
+        keyboard_frame = self.keyboard_controller.create_status_frame(self.root)
+        keyboard_frame.pack(fill=tk.X, padx=10, pady=5)
 
     def create_log_frame(self):
         """Cria frame do console de log"""
@@ -597,6 +661,7 @@ class ConsoleInterface:
         self.create_vehicle_data_frame()
         self.create_force_feedback_frame()
         self.create_controls_frame()
+        self.create_keyboard_controls_frame()
         self.create_log_frame()
 
     def log(self, level, message):
@@ -758,7 +823,7 @@ class ConsoleInterface:
                     self.update_sensor_data(sensor_data)
 
         except Exception as e:
-            print(f"Erro ao processar filas: {e}")
+            error(f"Erro ao processar filas: {e}", "CONSOLE")
 
         # Agenda próxima atualização
         if self.is_running:
@@ -797,8 +862,13 @@ class ConsoleInterface:
 
     def on_closing(self):
         """Manipula fechamento da janela"""
-        self.log("INFO", "Fechando interface do console...")
-        self.stop()
+        try:
+            if self.is_running:
+                self.log("INFO", "Fechando interface do console...")
+            self.stop()
+        except:
+            # Ignora erros durante o shutdown
+            pass
 
     def run_interface(self):
         """Executa a interface principal"""
@@ -818,29 +888,108 @@ class ConsoleInterface:
             # Inicia processamento de filas
             self.root.after(self.update_interval, self.process_queues)
 
+            # Configura controles de teclado
+            self.keyboard_controller.bind_to_widget(self.root)
+            self.keyboard_controller.start()
+            
             # Log inicial
             self.log("INFO", "Interface do console iniciada")
             self.log("INFO", "Aguardando dados do Raspberry Pi...")
+            self.log("INFO", "Controles: Use as setas ou WASD para controlar o carrinho")
 
             # Inicia loop principal do Tkinter
             self.root.mainloop()
 
         except Exception as e:
-            print(f"Erro na interface: {e}")
-            import traceback
+            try:
+                error(f"Erro na interface: {e}", "CONSOLE")
+            except:
+                pass
+        finally:
+            # Garante limpeza mesmo em caso de erro
+            self._cleanup_tkinter_resources()
 
-            traceback.print_exc()
+    def _cleanup_tkinter_resources(self):
+        """Limpa todos os recursos Tkinter de forma segura"""
+        try:
+            # Para o controlador de teclado
+            if hasattr(self, 'keyboard_controller') and self.keyboard_controller:
+                self.keyboard_controller.stop()
+                
+            # Limpa variáveis Tkinter
+            tkinter_vars = [
+                'connection_var', 'fps_var', 'frame_size_var', 'packets_var', 
+                'data_var', 'quality_var', 'brake_balance_var', 'autoscroll_var'
+            ]
+            
+            for var_name in tkinter_vars:
+                if hasattr(self, var_name):
+                    try:
+                        delattr(self, var_name)
+                    except:
+                        pass
+            
+            # Limpa sensor vars
+            if hasattr(self, 'sensor_vars'):
+                try:
+                    self.sensor_vars.clear()
+                    delattr(self, 'sensor_vars')
+                except:
+                    pass
+                    
+            # Destrói a janela principal
+            if hasattr(self, 'root') and self.root:
+                try:
+                    self.root.quit()
+                    self.root.destroy()
+                    self.root = None
+                except:
+                    pass
+        except:
+            pass
+
+    def _on_brake_balance_change(self, value):
+        """Callback quando o slider de brake balance muda"""
+        try:
+            balance = float(value)
+            # Atualiza o label
+            front_pct = balance
+            rear_pct = 100 - balance
+            self.brake_balance_label.config(text=f"{front_pct:.0f}% Dianteiro / {rear_pct:.0f}% Traseiro")
+            
+            # Envia comando para o Raspberry Pi
+            self._send_brake_balance_command(balance)
+            
+        except Exception as e:
+            error(f"Erro ao alterar balanço de freio: {e}", "CONTROL")
+
+    def _send_brake_balance_command(self, balance: float):
+        """Envia comando de brake balance para o Raspberry Pi"""
+        try:
+            if hasattr(self, 'network_client') and self.network_client:
+                success = self.network_client.send_control_command("BRAKE_BALANCE", balance)
+                if success:
+                    debug(f"Comando enviado: BRAKE_BALANCE:{balance}", "CONTROL")
+                    self.log("INFO", f"Balanço de freio alterado: {balance:.0f}% dianteiro")
+                else:
+                    debug("Falha ao enviar comando brake_balance", "CONTROL")
+            else:
+                debug("Network client não disponível para enviar comando", "CONTROL")
+        except Exception as e:
+            error(f"Erro ao enviar comando brake_balance: {e}", "CONTROL")
+
+    def set_network_client(self, network_client):
+        """Define o cliente de rede para envio de comandos"""
+        self.network_client = network_client
+        self.keyboard_controller.set_network_client(network_client)
 
     def stop(self):
         """Para a interface"""
+        if not self.is_running:
+            return  # Já parou
+            
         self.is_running = False
-
-        if self.root:
-            try:
-                self.root.quit()
-                self.root.destroy()
-            except:
-                pass
+        self._cleanup_tkinter_resources()
 
 
 # Teste independente

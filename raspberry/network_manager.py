@@ -28,93 +28,248 @@ import time
 import threading
 import numpy as np
 from typing import Optional, Dict, Any, Tuple
+from logger import info, debug, warn, error
 
 
 class NetworkManager:
-    """Gerencia comunicação UDP para transmissão de dados"""
+    """Gerencia comunicação UDP bidirecional para transmissão de dados"""
 
     def __init__(
         self,
-        target_ip: str = "192.168.5.120",
-        target_port: int = 9999,
+        data_port: int = 9999,  # Porta para enviar dados (RPi -> Cliente)
+        command_port: int = 9998,  # Porta para receber comandos (Cliente -> RPi)
         buffer_size: int = 131072,
     ):
         """
-        Inicializa o gerenciador de rede
+        Inicializa o gerenciador de rede bidirecional
 
         Args:
-            target_ip (str): IP do computador de destino
-            target_port (int): Porta de destino
+            data_port (int): Porta para envio de dados aos clientes
+            command_port (int): Porta para escutar comandos dos clientes  
             buffer_size (int): Tamanho do buffer UDP em bytes
         """
-        self.target_ip = target_ip
-        self.target_port = target_port
+        self.data_port = data_port
+        self.command_port = command_port
         self.buffer_size = buffer_size
 
-        # Socket UDP
-        self.socket = None
-        self.is_connected = False
+        # Sockets UDP
+        self.send_socket = None     # Para enviar dados
+        self.receive_socket = None  # Para receber comandos
+        self.is_initialized = False
+        
+        # Clientes conectados (descoberta automática)
+        self.connected_clients = {}  # {ip: {'port': port, 'last_seen': timestamp}}
+        self.clients_lock = threading.Lock()
 
         # Estatísticas de transmissão
         self.packets_sent = 0
         self.bytes_sent = 0
+        self.commands_received = 0
         self.last_send_time = time.time()
         self.start_time = time.time()
 
         # Controle de erro
         self.send_errors = 0
         self.last_error_time = 0
-        self.last_error_log = 0  # Para controlar spam de logs
+        self.last_error_log = 0
 
-        # Threading para envio assíncrono (opcional)
-        self.send_queue = []
-        self.send_thread = None
+        # Threading para recepção de comandos
+        self.command_thread = None
         self.should_stop = False
+        
+        # Callback para processar comandos recebidos
+        self.command_callback = None
 
     def initialize(self) -> bool:
         """
-        Inicializa a conexão UDP
+        Inicializa a comunicação UDP bidirecional
 
         Returns:
             bool: True se inicializado com sucesso
         """
         try:
-            print(f"Inicializando conexão UDP...")
-            print(f"Destino: {self.target_ip}:{self.target_port}")
+            info("Inicializando comunicação UDP bidirecional...", "NET")
+            debug(f"Porta dados: {self.data_port}, Comandos: {self.command_port}", "NET")
 
-            # Cria socket UDP
-            self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            # Cria socket para envio de dados
+            self.send_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            self.send_socket.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, self.buffer_size)
 
-            # Configura buffer de envio
-            self.socket.setsockopt(
-                socket.SOL_SOCKET, socket.SO_SNDBUF, self.buffer_size
-            )
+            # Cria socket para receber comandos
+            self.receive_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            self.receive_socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, self.buffer_size)
+            self.receive_socket.bind(('', self.command_port))  # Escuta em todas as interfaces
+            
+            # Configura timeout para evitar blocking infinito
+            self.receive_socket.settimeout(1.0)
 
-            # Verifica buffer configurado
-            actual_buffer = self.socket.getsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF)
+            debug("Sockets criados com sucesso", "NET")
 
-            # Teste de conectividade (envia pacote pequeno)
-            test_data = b"UDP_TEST"
-            self.socket.sendto(test_data, (self.target_ip, self.target_port))
+            # Inicia thread para escutar comandos
+            self._start_command_listener()
 
-            self.is_connected = True
-
-            print("✓ Conexão UDP inicializada com sucesso")
-            print(f"  - Buffer de envio: {actual_buffer // 1024} KB")
-            print(f"  - Destino: {self.target_ip}:{self.target_port}")
-
+            self.is_initialized = True
+            info("Comunicação UDP inicializada - Aguardando clientes...", "NET")
+            
             return True
 
         except Exception as e:
-            print(f"✗ Erro ao inicializar UDP: {e}")
-            print("\nVerifique:")
-            print("1. IP do destino está correto")
-            print("2. Rede WiFi conectada")
-            print("3. PC de destino acessível (ping)")
-            print("4. Firewall não está bloqueando a porta")
+            error(f"Erro ao inicializar UDP: {e}", "NET")
+            error("Verifique rede WiFi e firewall", "NET")
 
-            self.is_connected = False
+            self.is_initialized = False
             return False
+            
+    def _start_command_listener(self):
+        """Inicia thread para escutar comandos dos clientes"""
+        if self.command_thread is None or not self.command_thread.is_alive():
+            self.should_stop = False
+            self.command_thread = threading.Thread(target=self._command_listener_loop, daemon=True)
+            self.command_thread.start()
+            debug("Thread de escuta iniciada", "NET")
+
+    def _command_listener_loop(self):
+        """Loop principal para escutar comandos dos clientes"""
+        debug("Iniciando escuta de comandos", "NET")
+        
+        while not self.should_stop:
+            try:
+                # Recebe dados de qualquer cliente
+                data, addr = self.receive_socket.recvfrom(self.buffer_size)
+                client_ip, client_port = addr
+                
+                # Processa o comando recebido
+                self._process_client_command(data, client_ip, client_port)
+                
+            except socket.timeout:
+                # Timeout normal - continua o loop
+                continue
+            except Exception as e:
+                if not self.should_stop:
+                    warn(f"Erro ao receber comando: {e}", "NET", rate_limit=5.0)
+                    time.sleep(0.1)
+        
+        debug("Thread de escuta finalizada", "NET")
+
+    def _process_client_command(self, data: bytes, client_ip: str, client_port: int):
+        """
+        Processa comando recebido de um cliente
+        
+        Args:
+            data: Dados recebidos
+            client_ip: IP do cliente
+            client_port: Porta do cliente  
+        """
+        try:
+            # Decodifica comando
+            command_str = data.decode('utf-8').strip()
+            self.commands_received += 1
+            
+            current_time = time.time()
+            
+            # Processa diferentes tipos de comando
+            if command_str == "CONNECT":
+                self._handle_client_connect(client_ip, client_port)
+                
+            elif command_str == "DISCONNECT":
+                self._handle_client_disconnect(client_ip)
+                
+            elif command_str.startswith("PING"):
+                self._handle_client_ping(client_ip, client_port, command_str)
+                
+            elif command_str.startswith("CONTROL:"):
+                # Comando de controle (motor, freio, direção)
+                self._handle_control_command(client_ip, command_str[8:])
+                
+            else:
+                # Comando personalizado - repassa para callback se existir
+                if self.command_callback:
+                    self.command_callback(client_ip, command_str)
+                    
+            # Atualiza última vez que vimos este cliente
+            with self.clients_lock:
+                if client_ip in self.connected_clients:
+                    self.connected_clients[client_ip]['last_seen'] = current_time
+                    
+        except Exception as e:
+            warn(f"Erro ao processar comando de {client_ip}: {e}", "NET", rate_limit=5.0)
+
+    def _handle_client_connect(self, client_ip: str, client_port: int):
+        """Processa conexão de um novo cliente"""
+        with self.clients_lock:
+            if client_ip not in self.connected_clients:
+                # Novo cliente
+                self.connected_clients[client_ip] = {
+                    'port': self.data_port,  # Porta para enviar dados
+                    'last_seen': time.time()
+                }
+                info(f"Novo cliente conectado: {client_ip}", "NET")
+                
+                # Envia confirmação de conexão
+                self._send_to_client(client_ip, b"CONNECTED")
+                
+            else:
+                # Cliente reconectando
+                self.connected_clients[client_ip]['last_seen'] = time.time()
+                debug(f"Cliente reconectado: {client_ip}", "NET")
+                self._send_to_client(client_ip, b"RECONNECTED")
+
+    def _handle_client_disconnect(self, client_ip: str):
+        """Processa desconexão de um cliente"""
+        with self.clients_lock:
+            if client_ip in self.connected_clients:
+                del self.connected_clients[client_ip]
+                info(f"Cliente desconectado: {client_ip}", "NET")
+
+    def _handle_client_ping(self, client_ip: str, client_port: int, ping_data: str):
+        """Responde ao ping do cliente"""
+        # Extrai timestamp se enviado
+        parts = ping_data.split(':')
+        if len(parts) > 1:
+            timestamp = parts[1]
+            pong_response = f"PONG:{timestamp}".encode('utf-8')
+        else:
+            pong_response = b"PONG"
+            
+        self._send_to_client(client_ip, pong_response)
+
+    def _handle_control_command(self, client_ip: str, command: str):
+        """Processa comando de controle do veículo"""
+        debug(f"Comando de {client_ip}: {command}", "NET")
+        
+        # Aqui você pode processar comandos como:
+        # "THROTTLE:50" -> acelerar 50%
+        # "BRAKE:30" -> frear 30%  
+        # "STEERING:-20" -> virar esquerda 20°
+        # etc.
+        
+        # Por enquanto só loga - implementação específica fica para depois
+        if self.command_callback:
+            self.command_callback(client_ip, f"CONTROL:{command}")
+
+    def _send_to_client(self, client_ip: str, data: bytes):
+        """Envia dados para um cliente específico"""
+        with self.clients_lock:
+            if client_ip in self.connected_clients:
+                client_port = self.connected_clients[client_ip]['port']
+                try:
+                    self.send_socket.sendto(data, (client_ip, client_port))
+                except Exception as e:
+                    warn(f"Erro ao enviar para {client_ip}: {e}", "NET", rate_limit=5.0)
+
+    def get_connected_clients(self) -> list:
+        """Retorna lista de clientes conectados"""
+        with self.clients_lock:
+            return list(self.connected_clients.keys())
+
+    def has_connected_clients(self) -> bool:
+        """Verifica se há clientes conectados"""
+        with self.clients_lock:
+            return len(self.connected_clients) > 0
+
+    def set_command_callback(self, callback):
+        """Define callback para processar comandos personalizados"""
+        self.command_callback = callback
 
     def _convert_numpy_types(self, obj):
         """
@@ -205,38 +360,40 @@ class NetworkManager:
 
     def send_packet(self, packet_data: bytes) -> bool:
         """
-        Envia pacote UDP
+        Envia pacote UDP para todos os clientes conectados
 
         Args:
             packet_data (bytes): Dados do pacote para envio
 
         Returns:
-            bool: True se enviado com sucesso
+            bool: True se enviado para pelo menos um cliente
         """
-        if not self.is_connected or not self.socket:
+        if not self.is_initialized or not self.send_socket:
             return False
 
-        try:
-            # Envia pacote
-            self.socket.sendto(packet_data, (self.target_ip, self.target_port))
+        # Só envia se houver clientes conectados
+        if not self.has_connected_clients():
+            return False
 
-            # Atualiza estatísticas
+        success_count = 0
+        
+        with self.clients_lock:
+            for client_ip, client_info in self.connected_clients.items():
+                try:
+                    # Envia pacote para cada cliente
+                    self.send_socket.sendto(packet_data, (client_ip, client_info['port']))
+                    success_count += 1
+                except Exception as e:
+                    warn(f"Erro ao enviar para {client_ip}: {e}", "NET", rate_limit=5.0)
+
+        # Atualiza estatísticas se enviou para pelo menos um cliente
+        if success_count > 0:
             self.packets_sent += 1
             self.bytes_sent += len(packet_data)
             self.last_send_time = time.time()
-
             return True
-
-        except Exception as e:
+        else:
             self.send_errors += 1
-            current_time = time.time()
-            self.last_error_time = current_time
-
-            # Log erro a cada 5 segundos para evitar spam
-            if current_time - self.last_error_log > 5.0:
-                print(f"⚠ Erro ao enviar pacote: {e}")
-                self.last_error_log = current_time
-
             return False
 
     def send_frame_with_sensors(
@@ -400,130 +557,38 @@ class NetworkManager:
     def cleanup(self):
         """Libera recursos de rede"""
         try:
-            # Para thread de envio se existir
+            info("Parando comunicação UDP...", "NET")
+            
+            # Para thread de escuta de comandos
             self.should_stop = True
-            if self.send_thread and self.send_thread.is_alive():
-                self.send_thread.join(timeout=1.0)
+            if self.command_thread and self.command_thread.is_alive():
+                self.command_thread.join(timeout=2.0)
 
+            # Notifica clientes sobre desconexão
+            if self.has_connected_clients():
+                debug("Notificando clientes sobre desconexão", "NET")
+                with self.clients_lock:
+                    for client_ip in list(self.connected_clients.keys()):
+                        self._send_to_client(client_ip, b"SERVER_DISCONNECT")
+                        
             # Envia sinal de terminação
-            if self.is_connected:
+            if self.is_initialized:
                 self.send_termination_signal()
 
-            # Fecha socket
-            if self.socket:
-                self.socket.close()
+            # Fecha sockets
+            if self.send_socket:
+                self.send_socket.close()
+                
+            if self.receive_socket:
+                self.receive_socket.close()
 
-            self.is_connected = False
-            print("✓ Conexão UDP finalizada")
+            self.is_initialized = False
+            self.connected_clients.clear()
+            info("Comunicação UDP finalizada", "NET")
 
         except Exception as e:
-            print(f"⚠ Erro ao finalizar conexão: {e}")
+            warn(f"Erro ao finalizar conexão: {e}", "NET")
 
     def __del__(self):
         """Destrutor - garante limpeza dos recursos"""
         self.cleanup()
-
-
-# Teste adicional para validar correção
-def test_numpy_conversion():
-    """Testa a conversão de tipos numpy"""
-    print("=== TESTE DE CONVERSÃO NUMPY ===")
-
-    nm = NetworkManager()
-
-    # Dados de teste com tipos numpy
-    test_data = {
-        "numpy_bool": np.bool_(True),
-        "numpy_int": np.int64(42),
-        "numpy_float": np.float64(3.14159),
-        "numpy_array": np.array([1, 2, 3]),
-        "normal_bool": True,
-        "normal_int": 42,
-        "normal_float": 3.14159,
-        "nested_dict": {"inner_numpy": np.bool_(False), "inner_normal": "test"},
-    }
-
-    print("Dados originais:")
-    for key, value in test_data.items():
-        print(f"  {key}: {type(value)} = {value}")
-
-    # Testa conversão
-    converted = nm._convert_numpy_types(test_data)
-
-    print("\nDados convertidos:")
-    for key, value in converted.items():
-        print(f"  {key}: {type(value)} = {value}")
-
-    # Testa serialização JSON
-    try:
-        json_str = json.dumps(converted)
-        print(f"\n✓ JSON serialização bem-sucedida: {len(json_str)} bytes")
-        return True
-    except Exception as e:
-        print(f"\n✗ Erro na serialização JSON: {e}")
-        return False
-
-
-# Exemplo de uso
-if __name__ == "__main__":
-    # Teste da conversão numpy primeiro
-    if test_numpy_conversion():
-        print("\n" + "=" * 50)
-        print("=== TESTE DO NETWORK MANAGER CORRIGIDO ===")
-
-        # Cria instância
-        net_mgr = NetworkManager(
-            target_ip="192.168.5.120",  # ALTERE PARA SEU IP
-            target_port=9999,
-            buffer_size=131072,
-        )
-
-        # Mostra informações de rede
-        net_info = net_mgr.get_network_info()
-        print(f"IP Local: {net_info['local_ip']}")
-        print(f"IP Destino: {net_info['target_ip']}")
-        print(f"Ping OK: {net_info['ping_ok']}")
-
-        # Inicializa
-        if net_mgr.initialize():
-            print("Enviando pacotes de teste com tipos numpy...")
-
-            # Envia 5 pacotes de teste com tipos numpy
-            for i in range(5):
-                # Dados de teste com tipos numpy misturados
-                frame_test = f"frame_data_{i}".encode("utf-8")
-                sensor_test = {
-                    "test_count": np.int64(i),
-                    "timestamp": np.float64(time.time()),
-                    "accel_x": np.float32(i * 0.1),
-                    "gyro_z": np.float64(i * 2.0),
-                    "is_active": np.bool_(i % 2 == 0),
-                    "normal_data": "string_normal",
-                    "nested": {
-                        "inner_numpy": np.int32(i * 10),
-                        "inner_bool": np.bool_(True),
-                    },
-                }
-
-                # Envia pacote
-                success = net_mgr.send_frame_with_sensors(frame_test, sensor_test)
-                print(f"Pacote {i+1} (tipos numpy): {'✓' if success else '✗'}")
-
-                time.sleep(0.1)
-
-            # Mostra estatísticas
-            stats = net_mgr.get_transmission_stats()
-            print(f"\n=== ESTATÍSTICAS ===")
-            print(f"Pacotes enviados: {stats['packets_sent']}")
-            print(f"Bytes enviados: {stats['bytes_sent']}")
-            print(f"Taxa: {stats['packets_per_second']:.1f} pkt/s")
-            print(f"Erros: {stats['send_errors']}")
-
-            # Finaliza
-            net_mgr.cleanup()
-            print("✓ Teste concluído - tipos numpy funcionando!")
-
-        else:
-            print("✗ Falha ao inicializar rede")
-    else:
-        print("✗ Falha no teste de conversão numpy")
