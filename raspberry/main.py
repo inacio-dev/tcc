@@ -291,21 +291,16 @@ class F1CarCompleteSystem:
         self.network_mgr.set_fixed_client("192.168.5.11", 9999)
         
         info("Iniciando transmissão - Ctrl+C para parar", "MAIN")
+        
+        # Garante que o sistema está executando
+        self.running = True
         last_stats_display = time.time()
         last_display_update = time.time()
         loop_count = 0
 
         try:
             while self.running:
-                # Verifica se ainda há clientes conectados
-                if not self.network_mgr.has_connected_clients():
-                    info("Nenhum cliente conectado. Aguardando nova conexão...", "MAIN")
-                    while self.running and not self.network_mgr.has_connected_clients():
-                        time.sleep(0.5)
-                    if not self.running:
-                        break
-                    info("Cliente reconectado! Continuando operação...", "MAIN")
-                
+                # Modo direto - transmissão contínua (sem verificar clientes)
                 loop_count += 1
                 current_time = time.time()
 
