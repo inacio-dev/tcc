@@ -95,8 +95,12 @@ class NetworkManager:
             self.send_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             self.send_socket.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 65536)  # Buffer menor para menos latência
             self.send_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            # Desabilita algoritmo de Nagle para UDP (já é padrão, mas explicito)
-            self.send_socket.setsockopt(socket.IPPROTO_UDP, socket.UDP_CORK, 0)
+            # Otimizações específicas do Linux para UDP
+            try:
+                # TCP_NODELAY equivalente para UDP (se disponível)
+                self.send_socket.setsockopt(socket.IPPROTO_IP, socket.IP_TOS, 0x10)  # IPTOS_LOWDELAY
+            except (AttributeError, OSError):
+                pass  # Nem todos os sistemas suportam
 
             # Cria socket para receber comandos
             self.receive_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
