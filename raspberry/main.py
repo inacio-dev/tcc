@@ -372,12 +372,13 @@ class F1CarCompleteSystem:
 
                 # === ESTATÍSTICAS ===
 
-                if current_time - last_stats_display >= 5.0:
+                # Stats menos frequentes para tempo real
+                if current_time - last_stats_display >= 10.0:
                     self._display_system_stats()
                     last_stats_display = current_time
 
-                # Controla taxa de loop (aproximadamente 30 FPS)
-                time.sleep(1.0 / 30.0)
+                # Controla taxa de loop para tempo real máximo (120 FPS)
+                time.sleep(1.0 / 120.0)  # ~8.3ms por loop
 
         except KeyboardInterrupt:
             info("Interrupção do usuário (Ctrl+C)", "MAIN")
@@ -720,8 +721,8 @@ Para descobrir seu IP (se usar --ip manual):
     parser.add_argument(
         "--sensor-rate",
         type=int,
-        default=100,
-        help="Taxa de amostragem dos sensores em Hz (padrão: 100)",
+        default=200,
+        help="Taxa de amostragem dos sensores em Hz (padrão: 200 para tempo real)",
     )
 
     parser.add_argument(

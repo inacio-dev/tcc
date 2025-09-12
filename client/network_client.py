@@ -134,10 +134,10 @@ class NetworkClient:
             self.receive_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             self.receive_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-            # Configura buffer de recepção
-            self.receive_socket.setsockopt(
-                socket.SOL_SOCKET, socket.SO_RCVBUF, self.buffer_size * 2
-            )
+            # Buffer menor para tempo real (menos latência, mais responsivo)
+            self.receive_socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 65536)
+            # Timeout baixo para processamento em tempo real
+            self.receive_socket.settimeout(0.001)  # 1ms timeout
             
             # Vincula socket à porta de recepção
             self.receive_socket.bind((self.host, self.port))
@@ -438,7 +438,7 @@ class NetworkClient:
                     ):  # Log a cada 5 segundos
                         self._log("ERROR", f"Erro na recepção: {e}")
                         self.last_error_log = current_time
-                    time.sleep(0.1)
+                    time.sleep(0.001)  # Sleep mínimo para tempo real
 
         except KeyboardInterrupt:
             self._log("INFO", "Recepção interrompida pelo usuário")

@@ -91,9 +91,12 @@ class NetworkManager:
             info("Inicializando comunicação UDP bidirecional...", "NET")
             debug(f"Porta dados: {self.data_port}, Comandos: {self.command_port}", "NET")
 
-            # Cria socket para envio de dados
+            # Cria socket para envio de dados com otimizações para tempo real
             self.send_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            self.send_socket.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, self.buffer_size)
+            self.send_socket.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 65536)  # Buffer menor para menos latência
+            self.send_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            # Desabilita algoritmo de Nagle para UDP (já é padrão, mas explicito)
+            self.send_socket.setsockopt(socket.IPPROTO_UDP, socket.UDP_CORK, 0)
 
             # Cria socket para receber comandos
             self.receive_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
