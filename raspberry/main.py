@@ -644,9 +644,10 @@ class F1CarCompleteSystem:
                     throttle_str = control_cmd[9:]  # Remove "THROTTLE:"
                     try:
                         throttle = float(throttle_str)
+                        info(f"🔧 Comando THROTTLE recebido: {throttle:.1f}% de {client_ip}", "COMMAND")
                         if self.motor_mgr:
                             self.motor_mgr.set_throttle(throttle)
-                            debug(f"Acelerador: {throttle:.1f}% por {client_ip}", "COMMAND")
+                            info(f"✅ Acelerador aplicado: {throttle:.1f}%", "COMMAND")
                         else:
                             warn("Sistema de motor não disponível", "COMMAND")
                     except ValueError:

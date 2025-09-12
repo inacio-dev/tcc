@@ -216,7 +216,7 @@ class KeyboardController:
                 success = self.network_client.send_control_command(command_type, value)
                 if success:
                     self.commands_sent += 1
-                    self._log("DEBUG", f"Comando enviado: {command_type}:{value}")
+                    self._log("INFO", f"🚀 Comando enviado: {command_type}:{value}")
                 else:
                     self._log("WARN", f"Falha ao enviar comando: {command_type}:{value}")
             else:
