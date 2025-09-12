@@ -127,6 +127,7 @@ class F1CarCompleteSystem:
 
         # Controle de execução
         self.running = False
+        self._stopping = False
         self.main_thread: Optional[threading.Thread] = None
 
         # Estatísticas gerais
@@ -167,6 +168,10 @@ class F1CarCompleteSystem:
         print(
             f"\nRecebido sinal {signum} - Iniciando parada limpa do sistema completo..."
         )
+        if hasattr(self, '_stopping') and self._stopping:
+            print("\n⚠️  Forçando saída imediata...")
+            sys.exit(0)
+        self._stopping = True
         self.stop()
 
     def initialize_all_components(self) -> bool:
@@ -515,7 +520,15 @@ class F1CarCompleteSystem:
             if component:
                 try:
                     debug(f"Parando {name}...", "STOP")
-                    component.cleanup()
+                    # Timeout de 2 segundos para cada componente
+                    import threading
+                    cleanup_thread = threading.Thread(target=component.cleanup)
+                    cleanup_thread.start()
+                    cleanup_thread.join(timeout=2.0)
+                    
+                    if cleanup_thread.is_alive():
+                        warn(f"Timeout ao parar {name} - forçando", "STOP")
+                    
                     self.system_status[name] = "Offline"
                 except Exception as e:
                     warn(f"Erro ao parar {name}: {e}", "STOP")
