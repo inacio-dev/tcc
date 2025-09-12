@@ -216,6 +216,8 @@ class NetworkManager:
                     'last_seen': time.time()
                 }
                 info(f"Novo cliente conectado: {client_ip}", "NET")
+                debug(f"Total clientes conectados: {len(self.connected_clients)}", "NET")
+                debug(f"Lista de clientes: {list(self.connected_clients.keys())}", "NET")
                 
                 # Envia confirmação de conexão
                 self._send_to_client(client_ip, b"CONNECTED")
@@ -277,7 +279,9 @@ class NetworkManager:
     def has_connected_clients(self) -> bool:
         """Verifica se há clientes conectados"""
         with self.clients_lock:
-            return len(self.connected_clients) > 0
+            count = len(self.connected_clients)
+            debug(f"has_connected_clients() -> {count > 0} (count: {count})", "NET")
+            return count > 0
 
     def set_command_callback(self, callback):
         """Define callback para processar comandos personalizados"""
