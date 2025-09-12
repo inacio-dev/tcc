@@ -113,6 +113,12 @@ class ConsoleInterface:
         
         # Controles de veículo
         self.brake_balance_var = tk.DoubleVar(value=60.0)  # 60% dianteiro padrão
+        
+        # Instrumentos do motor
+        self.rpm_var = tk.StringVar(value="0")
+        self.gear_var = tk.StringVar(value="1")
+        self.throttle_var = tk.StringVar(value="0.0")
+        self.speed_var = tk.StringVar(value="0.0")
 
         # Dados dos sensores BMI160 - Raw (LSB)
         self.sensor_vars = {
@@ -232,6 +238,74 @@ class ConsoleInterface:
         ttk.Label(
             status_frame, textvariable=self.quality_var, style="Dark.TLabel"
         ).grid(row=2, column=3, sticky=tk.W, padx=5, pady=2)
+
+    def create_instrument_panel(self):
+        """Cria painel de instrumentos (RPM, marcha, velocidade)"""
+        instrument_frame = ttk.LabelFrame(
+            self.root, text="🏎️ Painel de Instrumentos", style="Dark.TLabelframe"
+        )
+        instrument_frame.pack(fill=tk.X, padx=10, pady=5)
+        
+        # Frame interno para organizar os instrumentos
+        instruments_inner = tk.Frame(instrument_frame, bg="#3c3c3c")
+        instruments_inner.pack(fill=tk.X, padx=10, pady=10)
+        
+        # Conta-giros (RPM) - Lado esquerdo
+        rpm_frame = tk.Frame(instruments_inner, bg="#2c2c2c", relief=tk.RAISED, bd=2)
+        rpm_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+        
+        tk.Label(rpm_frame, text="🔧 CONTA-GIROS", bg="#2c2c2c", fg="white", 
+                font=("Arial", 10, "bold")).pack(pady=5)
+        
+        # RPM em fonte grande
+        self.rpm_display = tk.Label(rpm_frame, textvariable=self.rpm_var, 
+                                   bg="#2c2c2c", fg="#00ff00", 
+                                   font=("Digital-7", 24, "bold"))
+        self.rpm_display.pack(pady=5)
+        
+        tk.Label(rpm_frame, text="RPM", bg="#2c2c2c", fg="#cccccc",
+                font=("Arial", 8)).pack()
+        
+        # Marcha - Centro
+        gear_frame = tk.Frame(instruments_inner, bg="#2c2c2c", relief=tk.RAISED, bd=2)
+        gear_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+        
+        tk.Label(gear_frame, text="⚙️ MARCHA", bg="#2c2c2c", fg="white",
+                font=("Arial", 10, "bold")).pack(pady=5)
+        
+        # Marcha em fonte muito grande
+        self.gear_display = tk.Label(gear_frame, textvariable=self.gear_var,
+                                    bg="#2c2c2c", fg="#ffaa00",
+                                    font=("Arial", 36, "bold"))
+        self.gear_display.pack(pady=10)
+        
+        tk.Label(gear_frame, text="ª", bg="#2c2c2c", fg="#cccccc",
+                font=("Arial", 12)).pack()
+        
+        # Velocidade e Throttle - Lado direito
+        speed_frame = tk.Frame(instruments_inner, bg="#2c2c2c", relief=tk.RAISED, bd=2)
+        speed_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+        
+        tk.Label(speed_frame, text="🚀 MOTOR", bg="#2c2c2c", fg="white",
+                font=("Arial", 10, "bold")).pack(pady=5)
+        
+        # Throttle
+        throttle_inner = tk.Frame(speed_frame, bg="#2c2c2c")
+        throttle_inner.pack(fill=tk.X, pady=2)
+        
+        tk.Label(throttle_inner, text="Acelerador:", bg="#2c2c2c", fg="#cccccc",
+                font=("Arial", 8)).pack(side=tk.LEFT)
+        tk.Label(throttle_inner, textvariable=self.throttle_var, bg="#2c2c2c", fg="#ff6600",
+                font=("Arial", 14, "bold")).pack(side=tk.RIGHT)
+        
+        # Velocidade
+        speed_inner = tk.Frame(speed_frame, bg="#2c2c2c") 
+        speed_inner.pack(fill=tk.X, pady=2)
+        
+        tk.Label(speed_inner, text="Velocidade:", bg="#2c2c2c", fg="#cccccc",
+                font=("Arial", 8)).pack(side=tk.LEFT)
+        tk.Label(speed_inner, textvariable=self.speed_var, bg="#2c2c2c", fg="#00aaff",
+                font=("Arial", 14, "bold")).pack(side=tk.RIGHT)
 
     def create_bmi160_frame(self):
         """Cria frame com dados do BMI160"""
@@ -657,6 +731,7 @@ class ConsoleInterface:
     def create_widgets(self):
         """Cria todos os widgets da interface"""
         self.create_connection_status_frame()
+        self.create_instrument_panel()
         self.create_bmi160_frame()
         self.create_vehicle_data_frame()
         self.create_force_feedback_frame()
@@ -708,6 +783,9 @@ class ConsoleInterface:
 
     def update_sensor_data(self, sensor_data):
         """Atualiza dados dos sensores"""
+        # Atualizar dados do motor (RPM, marcha, throttle, velocidade)
+        self._update_motor_display(sensor_data)
+        
         # Mapeamento de campos
         field_mapping = {
             # Dados raw BMI160
@@ -802,6 +880,35 @@ class ConsoleInterface:
 
         events_text = ", ".join(events) if events else "😴 Nenhum"
         self.sensor_vars["events_detected"].set(events_text)
+
+    def _update_motor_display(self, sensor_data):
+        """Atualiza o painel de instrumentos do motor"""
+        try:
+            # RPM do motor
+            if "engine_rpm" in sensor_data:
+                rpm = sensor_data["engine_rpm"]
+                self.rpm_var.set(f"{rpm:.0f}")
+            
+            # Marcha atual
+            if "current_gear" in sensor_data:
+                gear = sensor_data["current_gear"]
+                self.gear_var.set(str(gear))
+            
+            # Throttle atual (PWM)
+            if "current_pwm" in sensor_data:
+                throttle = sensor_data["current_pwm"]
+                self.throttle_var.set(f"{throttle:.1f}%")
+            
+            # Velocidade calculada
+            if "calculated_speed_kmh" in sensor_data:
+                speed = sensor_data["calculated_speed_kmh"]
+                self.speed_var.set(f"{speed:.1f} km/h")
+            elif "speed_kmh" in sensor_data:
+                speed = sensor_data["speed_kmh"]
+                self.speed_var.set(f"{speed:.1f} km/h")
+                
+        except Exception as e:
+            error(f"Erro ao atualizar painel de instrumentos: {e}", "CONSOLE")
 
     def process_queues(self):
         """Processa filas de comunicação"""
