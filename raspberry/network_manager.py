@@ -452,7 +452,7 @@ class NetworkManager:
             "packets_per_second": round(packets_per_second, 2),
             "bytes_per_second": round(bytes_per_second, 2),
             "mbps": round(mbps, 3),
-            "is_connected": self.is_connected,
+            "is_connected": self.has_connected_clients(),
             "target": f"{self.target_ip}:{self.target_port}",
             "last_send_time": self.last_send_time,
         }
