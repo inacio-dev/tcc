@@ -137,6 +137,7 @@ class NetworkManager:
                 # Recebe dados de qualquer cliente
                 data, addr = self.receive_socket.recvfrom(self.buffer_size)
                 client_ip, client_port = addr
+                debug(f"Comando recebido de {client_ip}:{client_port}: {data}", "NET")
                 
                 # Processa o comando recebido
                 self._process_client_command(data, client_ip, client_port)

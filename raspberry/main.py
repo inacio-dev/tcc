@@ -289,6 +289,7 @@ class F1CarCompleteSystem:
         # Espera por cliente antes de iniciar operação
         self.running = True
         while self.running and not self.network_mgr.has_connected_clients():
+            debug(f"Aguardando clientes... (conectados: {len(self.network_mgr.connected_clients)})", "MAIN")
             time.sleep(0.5)  # Verifica a cada 500ms
         
         if not self.running:  # Se foi interrompido durante a espera
