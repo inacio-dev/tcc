@@ -653,17 +653,18 @@ class F1CarCompleteSystem:
                         warn(f"Valor inválido para throttle: {throttle_str}", "COMMAND")
                         
                 elif control_cmd.startswith("STEERING:"):
-                    # Comando: CONTROL:STEERING:-15.0
-                    angle_str = control_cmd[9:]  # Remove "STEERING:"
+                    # Comando: CONTROL:STEERING:-100.0 (entrada -100% a +100%)
+                    steering_str = control_cmd[9:]  # Remove "STEERING:"
                     try:
-                        angle = float(angle_str)
+                        steering_input = float(steering_str)
                         if self.steering_mgr:
-                            self.steering_mgr.set_steering_angle(angle)
-                            debug(f"Direção: {angle:.1f}° por {client_ip}", "COMMAND")
+                            # Usa método correto: set_steering_input (não set_steering_angle)
+                            self.steering_mgr.set_steering_input(steering_input)
+                            debug(f"Direção: {steering_input:.1f}% por {client_ip}", "COMMAND")
                         else:
                             warn("Sistema de direção não disponível", "COMMAND")
                     except ValueError:
-                        warn(f"Valor inválido para steering: {angle_str}", "COMMAND")
+                        warn(f"Valor inválido para steering: {steering_str}", "COMMAND")
                         
                 elif control_cmd.startswith("GEAR_UP"):
                     # Comando: CONTROL:GEAR_UP
