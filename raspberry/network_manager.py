@@ -286,6 +286,16 @@ class NetworkManager:
     def set_command_callback(self, callback):
         """Define callback para processar comandos personalizados"""
         self.command_callback = callback
+        
+    def set_fixed_client(self, client_ip: str, client_port: int):
+        """Define cliente fixo para modo direto (sem descoberta)"""
+        with self.clients_lock:
+            self.connected_clients[client_ip] = {
+                'port': client_port,
+                'last_seen': time.time()
+            }
+            info(f"Cliente fixo configurado: {client_ip}:{client_port}", "NET")
+            debug(f"Total clientes: {len(self.connected_clients)}", "NET")
 
     def _convert_numpy_types(self, obj):
         """

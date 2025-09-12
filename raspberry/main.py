@@ -284,18 +284,13 @@ class F1CarCompleteSystem:
 
     def run_main_loop(self):
         """Loop principal de operação do sistema completo"""
-        info("Aguardando conexão de cliente...", "MAIN")
+        info("Modo direto - Enviando dados para cliente fixo", "MAIN")
+        info("Cliente: 192.168.5.11:9999", "MAIN")
         
-        # Espera por cliente antes de iniciar operação
-        self.running = True
-        while self.running and not self.network_mgr.has_connected_clients():
-            debug(f"Aguardando clientes... (conectados: {len(self.network_mgr.connected_clients)})", "MAIN")
-            time.sleep(0.5)  # Verifica a cada 500ms
+        # Configura cliente fixo no NetworkManager
+        self.network_mgr.set_fixed_client("192.168.5.11", 9999)
         
-        if not self.running:  # Se foi interrompido durante a espera
-            return
-            
-        info("Cliente conectado! Iniciando operação - Ctrl+C para parar", "MAIN")
+        info("Iniciando transmissão - Ctrl+C para parar", "MAIN")
         last_stats_display = time.time()
         last_display_update = time.time()
         loop_count = 0

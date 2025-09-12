@@ -39,6 +39,7 @@ class NetworkClient:
         buffer_size=131072,
         host="0.0.0.0",
         rpi_ip=None,
+        client_ip=None,
         log_queue=None,
         status_queue=None,
         sensor_queue=None,
@@ -62,6 +63,7 @@ class NetworkClient:
         self.buffer_size = buffer_size
         self.host = host
         self.rpi_ip = rpi_ip  # IP específico do Raspberry Pi
+        self.client_ip = client_ip  # IP deste cliente
 
         # Filas de comunicação
         self.log_queue = log_queue
@@ -378,15 +380,11 @@ class NetworkClient:
             return
 
         self.is_running = True
-        self._log("INFO", "Cliente de rede iniciado - aguardando dados...")
+        self._log("INFO", "Cliente de rede iniciado em modo fixo")
+        self._log("INFO", f"🔗 Raspberry Pi: {self.rpi_ip}:9999")
+        self._log("INFO", f"🎮 Cliente: {self.client_ip}:9999")
         
-        # Conecta ao Raspberry Pi (direto ou por descoberta)
-        if self.rpi_ip:
-            self._log("INFO", f"🔗 Conectando diretamente ao Raspberry Pi: {self.rpi_ip}")
-            self.connect_to_raspberry_pi(self.rpi_ip)
-        else:
-            self._log("INFO", "🔍 Modo de descoberta automática")
-            self.discover_raspberry_pi()
+        # Modo fixo - sem descoberta, começa recebendo dados imediatamente
 
         try:
             while self.is_running:

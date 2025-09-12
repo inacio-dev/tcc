@@ -62,18 +62,20 @@ DEFAULT_BUFFER_SIZE = 131072
 class F1ClientApplication:
     """Aplicação cliente principal do sistema F1"""
 
-    def __init__(self, port=DEFAULT_PORT, buffer_size=DEFAULT_BUFFER_SIZE, rpi_ip=None):
+    def __init__(self, port=DEFAULT_PORT, buffer_size=DEFAULT_BUFFER_SIZE, rpi_ip=None, client_ip=None):
         """
         Inicializa a aplicação cliente
 
         Args:
-            port (int): Porta UDP para escutar
+            port (int): Porta UDP para escutar dados
             buffer_size (int): Tamanho do buffer UDP
-            rpi_ip (str): IP do Raspberry Pi para conexão direta
+            rpi_ip (str): IP do Raspberry Pi 
+            client_ip (str): IP do cliente (este PC)
         """
         self.port = port
         self.buffer_size = buffer_size
         self.rpi_ip = rpi_ip
+        self.client_ip = client_ip
 
         # Componentes do sistema
         self.network_client = None
@@ -105,6 +107,7 @@ class F1ClientApplication:
                 command_port=9998,
                 buffer_size=self.buffer_size,
                 rpi_ip=self.rpi_ip,
+                client_ip=self.client_ip,
                 log_queue=log_queue,
                 status_queue=status_queue,
                 sensor_queue=sensor_queue,
@@ -378,17 +381,18 @@ def main():
         print("❌ ERRO: Buffer deve estar entre 32 e 1024 KB")
         sys.exit(1)
 
-    # Solicitar IP do Raspberry Pi
-    rpi_ip = get_raspberry_pi_ip()
-    if not rpi_ip:
-        print("❌ IP do Raspberry Pi é necessário para conectar")
-        sys.exit(1)
+    # Configuração fixa - sem descoberta
+    rpi_ip = "192.168.5.33"
+    client_ip = "192.168.5.11"
     
-    print(f"🔗 Tentando conectar ao Raspberry Pi: {rpi_ip}")
+    print("🔗 CONFIGURAÇÃO FIXA:")
+    print(f"   📡 Raspberry Pi: {rpi_ip}:9999 → 192.168.5.11:9999 (dados)")
+    print(f"   🎮 Cliente: {client_ip}:9998 → 192.168.5.33:9998 (comandos)")
     print()
 
-    # Criar e executar aplicação
-    app = F1ClientApplication(port=args.port, buffer_size=buffer_size, rpi_ip=rpi_ip)
+    # Criar e executar aplicação com IPs fixos
+    app = F1ClientApplication(port=args.port, buffer_size=buffer_size, 
+                             rpi_ip=rpi_ip, client_ip=client_ip)
 
     try:
         # Executar aplicação
