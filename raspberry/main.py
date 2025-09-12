@@ -367,6 +367,11 @@ class F1CarCompleteSystem:
 
                 # === ESTATÍSTICAS ===
 
+                # Exibe status de controles principais a cada mudança
+                if current_time - last_display_update >= 0.5:  # A cada 500ms
+                    self._display_control_status(motor_status, brake_status, steering_status)
+                    last_display_update = current_time
+
                 # Stats menos frequentes para tempo real
                 if current_time - last_stats_display >= 10.0:
                     self._display_system_stats()
@@ -387,6 +392,30 @@ class F1CarCompleteSystem:
             info("Parando sistema completo...", "MAIN")
             self.stop()
 
+    def _display_control_status(self, motor_status, brake_status, steering_status):
+        """Exibe status atual de todos os controles"""
+        try:
+            # Dados do motor
+            throttle = motor_status.get("current_pwm", 0.0) if motor_status else 0.0
+            gear = motor_status.get("current_gear", 1) if motor_status else 1
+            rpm = motor_status.get("engine_rpm", 0.0) if motor_status else 0.0
+            
+            # Dados dos freios
+            brake_front = brake_status.get("front_brake_percent", 0.0) if brake_status else 0.0
+            brake_rear = brake_status.get("rear_brake_percent", 0.0) if brake_status else 0.0
+            brake_total = max(brake_front, brake_rear)
+            
+            # Dados da direção
+            steering = steering_status.get("current_steering_percent", 0.0) if steering_status else 0.0
+            
+            # Só exibe se houver mudança significativa
+            if throttle > 0.1 or brake_total > 0.1 or abs(steering) > 0.1:
+                print(
+                    f"🔧 Motor: {throttle:.1f}% | Freio: {brake_total:.1f}% | Direção: {steering:+.1f}% "
+                    f"(Marcha: {gear}ª, RPM: {rpm:.0f})"
+                )
+        except Exception as e:
+            debug(f"Erro ao exibir status de controles: {e}", "MAIN")
 
     def _process_automatic_control(
         self, sensor_data: Dict[str, Any], motor_status: Dict[str, Any]
@@ -424,11 +453,10 @@ class F1CarCompleteSystem:
             if self.motor_mgr:
                 current_speed = motor_status.get("speed_kmh", 0.0)
 
-                # Simula aceleração suave automática se velocidade baixa
-                if current_speed < 10.0 and not is_braking:
-                    auto_throttle = 15.0  # 15% de aceleração suave
-                    self.motor_mgr.set_throttle(auto_throttle)
-                elif is_turning and g_force_lateral > 0.8:
+                # Modo manual - sem aceleração automática
+                # (Controle apenas via comandos do cliente)
+                
+                if is_turning and g_force_lateral > 0.8:
                     # Reduz potência em curvas fechadas
                     current_throttle = motor_status.get("current_pwm", 0.0)
                     reduced_throttle = current_throttle * 0.7  # Reduz 30%

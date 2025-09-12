@@ -74,6 +74,7 @@ class KeyboardController:
         
         # Widgets visuais (para feedback)
         self.status_widgets = {}  # {command_type: widget}
+        self.root = None  # Será definido quando vincular controles
         
         # Configurações
         self.command_rate = 20  # Comandos por segundo (50ms)
@@ -113,6 +114,9 @@ class KeyboardController:
         Args:
             widget: Widget Tkinter para receber eventos de teclado
         """
+        # Armazena referência ao root para after_idle
+        self.root = widget.winfo_toplevel()
+        
         # Garante que o widget pode receber foco
         widget.focus_set()
         
@@ -126,51 +130,75 @@ class KeyboardController:
         self._log("INFO", "Controles de teclado vinculados à interface")
         
     def _on_key_press(self, event):
-        """Callback para tecla pressionada"""
+        """Callback para tecla pressionada - otimizado para não travar"""
         key = event.keysym
         
-        with self.lock:
-            if key in self.KEY_MAPPINGS and key not in self.pressed_keys:
-                self.pressed_keys.add(key)
-                mapping = self.KEY_MAPPINGS[key]
-                
-                if mapping['type'] == 'continuous':
-                    # Comando contínuo - ativa comando
-                    self.active_commands[mapping['command']] = mapping['value']
-                    self._log("DEBUG", f"Tecla pressionada: {mapping['name']}")
+        # Processamento rápido sem locks demorados
+        if key in self.KEY_MAPPINGS and key not in self.pressed_keys:
+            # Processa em thread separada para não bloquear interface
+            threading.Thread(target=self._process_key_press, args=(key,), daemon=True).start()
+    
+    def _process_key_press(self, key):
+        """Processa key press em thread separada"""
+        try:
+            with self.lock:
+                if key not in self.pressed_keys:  # Recheck após lock
+                    self.pressed_keys.add(key)
+                    mapping = self.KEY_MAPPINGS[key]
                     
-                elif mapping['type'] == 'instant':
-                    # Comando instantâneo - envia imediatamente
-                    self._send_command(mapping['command'], mapping['value'])
-                    self._log("INFO", f"Comando enviado: {mapping['name']}")
-                    # Flash visual para comando instantâneo
-                    self._flash_instant_command(mapping['command'])
-                    
-                self._update_visual_feedback()
+                    if mapping['type'] == 'continuous':
+                        # Comando contínuo - ativa comando
+                        self.active_commands[mapping['command']] = mapping['value']
+                        self._log("DEBUG", f"Tecla pressionada: {mapping['name']}")
+                        
+                    elif mapping['type'] == 'instant':
+                        # Comando instantâneo - envia imediatamente
+                        self._send_command(mapping['command'], mapping['value'])
+                        self._log("INFO", f"Comando enviado: {mapping['name']}")
+                        # Flash visual para comando instantâneo
+                        self._flash_instant_command(mapping['command'])
+                        
+                    # Atualiza feedback visual de forma assíncrona
+                    if hasattr(self, 'root') and self.root:
+                        self.root.after_idle(self._update_visual_feedback)
+        except Exception as e:
+            self._log("ERROR", f"Erro ao processar key press: {e}")
                 
     def _on_key_release(self, event):
-        """Callback para tecla liberada"""
+        """Callback para tecla liberada - otimizado para não travar"""
         key = event.keysym
         
-        with self.lock:
-            if key in self.pressed_keys:
-                self.pressed_keys.remove(key)
-                mapping = self.KEY_MAPPINGS[key]
-                
-                if mapping['type'] == 'continuous':
-                    # Comando contínuo - desativa comando
-                    if mapping['command'] in self.active_commands:
-                        del self.active_commands[mapping['command']]
+        # Processamento rápido sem locks demorados
+        if key in self.pressed_keys:
+            # Processa em thread separada para não bloquear interface
+            threading.Thread(target=self._process_key_release, args=(key,), daemon=True).start()
+    
+    def _process_key_release(self, key):
+        """Processa key release em thread separada"""
+        try:
+            with self.lock:
+                if key in self.pressed_keys:  # Recheck após lock
+                    self.pressed_keys.remove(key)
+                    mapping = self.KEY_MAPPINGS[key]
+                    
+                    if mapping['type'] == 'continuous':
+                        # Comando contínuo - desativa comando
+                        if mapping['command'] in self.active_commands:
+                            del self.active_commands[mapping['command']]
+                            
+                        # Envia comando de parada para o tipo de controle
+                        self._send_stop_command(mapping['command'])
+                        self._log("DEBUG", f"Tecla liberada: {mapping['name']}")
                         
-                    # Envia comando de parada para o tipo de controle
-                    self._send_stop_command(mapping['command'])
-                    self._log("DEBUG", f"Tecla liberada: {mapping['name']}")
-                    
-                elif mapping['type'] == 'instant':
-                    # Comando instantâneo - apenas log de liberação
-                    self._log("DEBUG", f"Tecla liberada: {mapping['name']}")
-                    
-                self._update_visual_feedback()
+                    elif mapping['type'] == 'instant':
+                        # Comando instantâneo - apenas log de liberação
+                        self._log("DEBUG", f"Tecla liberada: {mapping['name']}")
+                        
+                    # Atualiza feedback visual de forma assíncrona
+                    if hasattr(self, 'root') and self.root:
+                        self.root.after_idle(self._update_visual_feedback)
+        except Exception as e:
+            self._log("ERROR", f"Erro ao processar key release: {e}")
                 
     def _send_stop_command(self, command_type: str):
         """Envia comando para parar um tipo específico de controle"""

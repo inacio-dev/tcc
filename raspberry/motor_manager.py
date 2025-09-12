@@ -533,12 +533,7 @@ class MotorManager:
 
         self.target_pwm = throttle_percent
 
-        # Log apenas mudanças significativas
-        if abs(throttle_percent - self.current_pwm) > 5:
-            print(
-                f"🔧 Acelerador: {throttle_percent:.1f}% "
-                f"(Marcha: {self.current_gear}ª, RPM: {self.engine_rpm:.0f})"
-            )
+        # Log removido daqui - será feito no main.py com todos os dados
 
     def set_reverse(self, enable: bool = True):
         """
