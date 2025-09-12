@@ -62,16 +62,18 @@ DEFAULT_BUFFER_SIZE = 131072
 class F1ClientApplication:
     """Aplicação cliente principal do sistema F1"""
 
-    def __init__(self, port=DEFAULT_PORT, buffer_size=DEFAULT_BUFFER_SIZE):
+    def __init__(self, port=DEFAULT_PORT, buffer_size=DEFAULT_BUFFER_SIZE, rpi_ip=None):
         """
         Inicializa a aplicação cliente
 
         Args:
             port (int): Porta UDP para escutar
             buffer_size (int): Tamanho do buffer UDP
+            rpi_ip (str): IP do Raspberry Pi para conexão direta
         """
         self.port = port
         self.buffer_size = buffer_size
+        self.rpi_ip = rpi_ip
 
         # Componentes do sistema
         self.network_client = None
@@ -102,6 +104,7 @@ class F1ClientApplication:
                 port=self.port,
                 command_port=9998,
                 buffer_size=self.buffer_size,
+                rpi_ip=self.rpi_ip,
                 log_queue=log_queue,
                 status_queue=status_queue,
                 sensor_queue=sensor_queue,
@@ -290,6 +293,59 @@ Para parar: Feche a janela do console ou pressione Ctrl+C.
     return parser
 
 
+def get_raspberry_pi_ip():
+    """Solicita o IP do Raspberry Pi ao usuário"""
+    print("🔍 CONEXÃO COM RASPBERRY PI")
+    print("=" * 30)
+    
+    while True:
+        try:
+            # Sugere o IP padrão do projeto
+            rpi_ip = input("📡 Digite o IP do Raspberry Pi (ex: 192.168.5.11): ").strip()
+            
+            if not rpi_ip:
+                print("❌ Por favor, digite um IP válido!")
+                continue
+                
+            # Validação básica de IP
+            parts = rpi_ip.split('.')
+            if len(parts) != 4:
+                print("❌ Formato de IP inválido! Use o formato: xxx.xxx.xxx.xxx")
+                continue
+                
+            # Verifica se cada parte é um número entre 0-255
+            valid = True
+            for part in parts:
+                try:
+                    num = int(part)
+                    if not (0 <= num <= 255):
+                        valid = False
+                        break
+                except ValueError:
+                    valid = False
+                    break
+                    
+            if not valid:
+                print("❌ IP inválido! Cada número deve estar entre 0 e 255")
+                continue
+                
+            # Confirmação
+            confirm = input(f"✅ Conectar ao Raspberry Pi em {rpi_ip}? (s/n): ").strip().lower()
+            if confirm in ['s', 'sim', 'y', 'yes', '']:
+                return rpi_ip
+            elif confirm in ['n', 'não', 'nao', 'no']:
+                continue
+            else:
+                print("❌ Responda com 's' para sim ou 'n' para não")
+                
+        except KeyboardInterrupt:
+            print("\n⚠️ Operação cancelada pelo usuário")
+            return None
+        except Exception as e:
+            print(f"❌ Erro: {e}")
+            continue
+
+
 def main():
     """Função principal do programa"""
     # Parse argumentos
@@ -322,8 +378,17 @@ def main():
         print("❌ ERRO: Buffer deve estar entre 32 e 1024 KB")
         sys.exit(1)
 
+    # Solicitar IP do Raspberry Pi
+    rpi_ip = get_raspberry_pi_ip()
+    if not rpi_ip:
+        print("❌ IP do Raspberry Pi é necessário para conectar")
+        sys.exit(1)
+    
+    print(f"🔗 Tentando conectar ao Raspberry Pi: {rpi_ip}")
+    print()
+
     # Criar e executar aplicação
-    app = F1ClientApplication(port=args.port, buffer_size=buffer_size)
+    app = F1ClientApplication(port=args.port, buffer_size=buffer_size, rpi_ip=rpi_ip)
 
     try:
         # Executar aplicação

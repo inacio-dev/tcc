@@ -38,6 +38,7 @@ class NetworkClient:
         command_port=9998,
         buffer_size=131072,
         host="0.0.0.0",
+        rpi_ip=None,
         log_queue=None,
         status_queue=None,
         sensor_queue=None,
@@ -60,6 +61,7 @@ class NetworkClient:
         self.command_port = command_port
         self.buffer_size = buffer_size
         self.host = host
+        self.rpi_ip = rpi_ip  # IP específico do Raspberry Pi
 
         # Filas de comunicação
         self.log_queue = log_queue
@@ -154,6 +156,30 @@ class NetworkClient:
             self._log("ERROR", f"Erro ao inicializar sockets UDP: {e}")
             return False
             
+    def connect_to_raspberry_pi(self, rpi_ip):
+        """
+        Conecta diretamente ao Raspberry Pi no IP especificado
+        
+        Args:
+            rpi_ip (str): IP do Raspberry Pi
+        """
+        try:
+            # Envia comando CONNECT com porta de escuta
+            connect_msg = f"CONNECT:{self.port}".encode('utf-8')
+            self.send_socket.sendto(connect_msg, (rpi_ip, self.command_port))
+            self._log("INFO", f"📡 Enviando CONNECT para {rpi_ip}:{self.command_port}")
+            
+            # Marca como conectado diretamente
+            self.raspberry_pi_ip = rpi_ip
+            self.is_connected_to_rpi = True
+            self._update_status({
+                "connection": f"Conectando a {rpi_ip}:{self.command_port}",
+                "discovery": "IP direto fornecido"
+            })
+            
+        except Exception as e:
+            self._log("ERROR", f"Erro ao conectar ao Raspberry Pi {rpi_ip}: {e}")
+            
     def discover_raspberry_pi(self, broadcast_ip="255.255.255.255", timeout=5.0):
         """
         Procura um Raspberry Pi na rede enviando comando CONNECT
@@ -169,8 +195,8 @@ class NetworkClient:
             # Habilita broadcast
             self.send_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
             
-            # Envia comando CONNECT
-            connect_msg = b"CONNECT"
+            # Envia comando CONNECT com porta de escuta
+            connect_msg = f"CONNECT:{self.port}".encode('utf-8')
             self.send_socket.sendto(connect_msg, (broadcast_ip, self.command_port))
             self._log("INFO", f"📡 Enviando CONNECT para {broadcast_ip}:{self.command_port}")
             
@@ -354,8 +380,13 @@ class NetworkClient:
         self.is_running = True
         self._log("INFO", "Cliente de rede iniciado - aguardando dados...")
         
-        # Inicia descoberta do Raspberry Pi
-        self.discover_raspberry_pi()
+        # Conecta ao Raspberry Pi (direto ou por descoberta)
+        if self.rpi_ip:
+            self._log("INFO", f"🔗 Conectando diretamente ao Raspberry Pi: {self.rpi_ip}")
+            self.connect_to_raspberry_pi(self.rpi_ip)
+        else:
+            self._log("INFO", "🔍 Modo de descoberta automática")
+            self.discover_raspberry_pi()
 
         try:
             while self.is_running:

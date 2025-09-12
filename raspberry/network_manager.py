@@ -168,8 +168,13 @@ class NetworkManager:
             current_time = time.time()
             
             # Processa diferentes tipos de comando
-            if command_str == "CONNECT":
-                self._handle_client_connect(client_ip, client_port)
+            if command_str.startswith("CONNECT"):
+                # CONNECT ou CONNECT:porta
+                if ":" in command_str:
+                    _, listen_port = command_str.split(":", 1)
+                    self._handle_client_connect(client_ip, int(listen_port))
+                else:
+                    self._handle_client_connect(client_ip, self.data_port)  # Porta padrão
                 
             elif command_str == "DISCONNECT":
                 self._handle_client_disconnect(client_ip)
@@ -194,13 +199,19 @@ class NetworkManager:
         except Exception as e:
             warn(f"Erro ao processar comando de {client_ip}: {e}", "NET", rate_limit=5.0)
 
-    def _handle_client_connect(self, client_ip: str, client_port: int):
-        """Processa conexão de um novo cliente"""
+    def _handle_client_connect(self, client_ip: str, listen_port: int):
+        """
+        Processa conexão de um novo cliente
+        
+        Args:
+            client_ip: IP do cliente
+            listen_port: Porta onde o cliente está escutando dados
+        """
         with self.clients_lock:
             if client_ip not in self.connected_clients:
                 # Novo cliente
                 self.connected_clients[client_ip] = {
-                    'port': self.data_port,  # Porta para enviar dados
+                    'port': listen_port,  # Porta onde cliente escuta dados
                     'last_seen': time.time()
                 }
                 info(f"Novo cliente conectado: {client_ip}", "NET")
