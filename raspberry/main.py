@@ -279,15 +279,32 @@ class F1CarCompleteSystem:
 
     def run_main_loop(self):
         """Loop principal de operação do sistema completo"""
-        info("Iniciando operação - Ctrl+C para parar", "MAIN")
-
+        info("Aguardando conexão de cliente...", "MAIN")
+        
+        # Espera por cliente antes de iniciar operação
         self.running = True
+        while self.running and not self.network_mgr.has_connected_clients():
+            time.sleep(0.5)  # Verifica a cada 500ms
+        
+        if not self.running:  # Se foi interrompido durante a espera
+            return
+            
+        info("Cliente conectado! Iniciando operação - Ctrl+C para parar", "MAIN")
         last_stats_display = time.time()
         last_display_update = time.time()
         loop_count = 0
 
         try:
             while self.running:
+                # Verifica se ainda há clientes conectados
+                if not self.network_mgr.has_connected_clients():
+                    info("Nenhum cliente conectado. Aguardando nova conexão...", "MAIN")
+                    while self.running and not self.network_mgr.has_connected_clients():
+                        time.sleep(0.5)
+                    if not self.running:
+                        break
+                    info("Cliente reconectado! Continuando operação...", "MAIN")
+                
                 loop_count += 1
                 current_time = time.time()
 
