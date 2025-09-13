@@ -332,40 +332,68 @@ class BMI160Manager:
 
             # 3. Soft Reset
             print("Executando soft reset...")
-            self._write_register(self.REG_CMD, self.CMD_SOFT_RESET)
-            time.sleep(0.01)  # Aguarda reset (10ms mínimo)
+            if not self._write_register(self.REG_CMD, self.CMD_SOFT_RESET):
+                print("❌ Falha no soft reset")
+                return False
+            time.sleep(0.015)  # Aguarda reset (15ms para garantir)
 
-            # 4. Configurar acelerômetro
-            print("Configurando acelerômetro...")
+            # 4. Verificar se voltou depois do reset
+            chip_id_after_reset = self._read_register(self.REG_CHIP_ID)
+            if chip_id_after_reset != self.CHIP_ID_BMI160:
+                print(f"❌ CHIP_ID após reset: 0x{chip_id_after_reset:02X}")
+                return False
+            print("✓ Sensor OK após reset")
 
-            # Range do acelerômetro
-            self._write_register(self.REG_ACC_RANGE, self.accel_range)
+            # 5. Ativar acelerômetro ANTES de configurar
+            print("Ativando acelerômetro...")
+            if not self._write_register(self.REG_CMD, self.CMD_ACC_SET_PMU_MODE):
+                print("❌ Falha ao ativar acelerômetro")
+                return False
+            time.sleep(0.010)  # Startup time do acelerômetro
 
-            # ODR e bandwidth do acelerômetro
+            # 6. Configurar acelerômetro (DEPOIS de ativar)
+            print("Configurando range do acelerômetro...")
+            if not self._write_register(self.REG_ACC_RANGE, self.accel_range):
+                print("❌ Falha ao configurar range acelerômetro")
+                return False
+
+            print("Configurando ODR do acelerômetro...")
             acc_conf = self.odr_value | (0x02 << 4)  # BWP = 0x02 (normal mode)
-            self._write_register(self.REG_ACC_CONF, acc_conf)
+            if not self._write_register(self.REG_ACC_CONF, acc_conf):
+                print("❌ Falha ao configurar ODR acelerômetro")
+                return False
 
-            # Ativar modo normal do acelerômetro
-            self._write_register(self.REG_CMD, self.CMD_ACC_SET_PMU_MODE)
-            time.sleep(0.004)  # Startup time: 3.2-3.8ms
+            # 7. Ativar giroscópio ANTES de configurar
+            print("Ativando giroscópio...")
+            if not self._write_register(self.REG_CMD, self.CMD_GYR_SET_PMU_MODE):
+                print("❌ Falha ao ativar giroscópio")
+                return False
+            time.sleep(0.060)  # Startup time do giroscópio (55ms + margem)
 
-            # 5. Configurar giroscópio
-            print("Configurando giroscópio...")
+            # 8. Configurar giroscópio (DEPOIS de ativar)
+            print("Configurando range do giroscópio...")
+            if not self._write_register(self.REG_GYR_RANGE, self.gyro_range):
+                print("❌ Falha ao configurar range giroscópio")
+                return False
 
-            # Range do giroscópio
-            self._write_register(self.REG_GYR_RANGE, self.gyro_range)
-
-            # ODR e bandwidth do giroscópio
+            print("Configurando ODR do giroscópio...")
             gyr_conf = self.odr_value | (0x02 << 4)  # BWP = 0x02 (normal mode)
-            self._write_register(self.REG_GYR_CONF, gyr_conf)
+            if not self._write_register(self.REG_GYR_CONF, gyr_conf):
+                print("❌ Falha ao configurar ODR giroscópio")
+                return False
 
-            # Ativar modo normal do giroscópio
-            self._write_register(self.REG_CMD, self.CMD_GYR_SET_PMU_MODE)
-            time.sleep(0.055)  # Startup time: 55ms
-
-            # 6. Aguardar estabilização final
-            print("Aguardando estabilização...")
+            # 9. Aguardar estabilização final
+            print("Aguardando estabilização final...")
             time.sleep(0.1)
+
+            # 10. Teste de leitura para verificar se funciona
+            print("Testando leitura dos registradores...")
+            test_accel = self._read_sensor_registers(self.REG_ACCEL_DATA, 6)
+            test_gyro = self._read_sensor_registers(self.REG_GYRO_DATA, 6)
+            if test_accel is None or test_gyro is None:
+                print("❌ Falha no teste de leitura - sensor não responde")
+                return False
+            print(f"✓ Teste OK - accel: {test_accel[:2]}, gyro: {test_gyro[:2]}")
 
             self.is_initialized = True
 
