@@ -57,6 +57,7 @@ try:
     from motor_manager import MotorManager, TransmissionMode
     from steering_manager import SteeringManager, SteeringMode
     from network_manager import NetworkManager
+    from temperature_manager import TemperatureManager
     from logger import info, debug, warn, error, init_logger, LogLevel
 except ImportError as e:
     print(f"❌ ERRO: Não foi possível importar módulos necessários: {e}")
@@ -124,6 +125,7 @@ class F1CarCompleteSystem:
         self.motor_mgr: Optional[MotorManager] = None
         self.steering_mgr: Optional[SteeringManager] = None
         self.network_mgr: Optional[NetworkManager] = None
+        self.temperature_mgr: Optional[TemperatureManager] = None
 
         # Controle de execução
         self.running = False
@@ -145,6 +147,7 @@ class F1CarCompleteSystem:
             "brakes": "Offline",
             "steering": "Offline",
             "network": "Offline",
+            "temperature": "Offline",
         }
 
         # Dados consolidados para exibição
@@ -191,7 +194,7 @@ class F1CarCompleteSystem:
         debug(f"Freio: {self.brake_balance}%, Transmissão: {self.transmission_mode.value}, Direção: {self.steering_mode.value}", "MAIN")
 
         success_count = 0
-        total_components = 6
+        total_components = 7
 
         # 1. Rede
         debug("Inicializando rede UDP...", "MAIN")
@@ -275,6 +278,18 @@ class F1CarCompleteSystem:
         else:
             warn("Direção não inicializada", "MAIN")
 
+        # 7. Sensor de temperatura DS18B20
+        debug("Inicializando sensor de temperatura DS18B20...", "MAIN")
+        self.temperature_mgr = TemperatureManager(
+            gpio_pin=25, sampling_rate=1.0, enable_history=True
+        )
+        if self.temperature_mgr.initialize():
+            self.system_status["temperature"] = "Online"
+            success_count += 1
+            debug("Sensor de temperatura inicializado", "MAIN")
+        else:
+            warn("Sensor de temperatura não inicializado", "MAIN")
+
         if success_count >= 2:  # Mínimo: rede + pelo menos 1 componente
             info(f"SISTEMA PRONTO - {success_count}/{total_components} componentes online", "MAIN")
             return True
@@ -333,6 +348,10 @@ class F1CarCompleteSystem:
                 if self.steering_mgr and self.system_status["steering"] == "Online":
                     steering_status = self.steering_mgr.get_steering_status()
 
+                temperature_status = {}
+                if self.temperature_mgr and self.system_status["temperature"] == "Online":
+                    temperature_status = self.temperature_mgr.get_temperature_status()
+
                 # === CONSOLIDAÇÃO DE DADOS ===
 
                 # Consolida todos os dados em um pacote
@@ -341,6 +360,7 @@ class F1CarCompleteSystem:
                     **motor_status,  # Status do motor
                     **brake_status,  # Status dos freios
                     **steering_status,  # Status da direção
+                    **temperature_status,  # Status da temperatura
                     # Metadados do sistema
                     "system_status": self.system_status.copy(),
                     "frame_count": self.frames_processed,
@@ -531,6 +551,7 @@ class F1CarCompleteSystem:
             ("steering", self.steering_mgr),
             ("motor", self.motor_mgr),
             ("brakes", self.brake_mgr),
+            ("temperature", self.temperature_mgr),
             ("sensors", self.bmi160_mgr),
             ("camera", self.camera_mgr),
             ("network", self.network_mgr),
@@ -542,10 +563,17 @@ class F1CarCompleteSystem:
                     debug(f"Parando {name}...", "STOP")
                     # Timeout de 2 segundos para cada componente
                     import threading
-                    cleanup_thread = threading.Thread(target=component.cleanup)
+                    if hasattr(component, 'cleanup'):
+                        cleanup_thread = threading.Thread(target=component.cleanup)
+                    elif hasattr(component, 'shutdown'):
+                        cleanup_thread = threading.Thread(target=component.shutdown)
+                    else:
+                        debug(f"Componente {name} sem método cleanup/shutdown", "STOP")
+                        continue
+
                     cleanup_thread.start()
                     cleanup_thread.join(timeout=2.0)
-                    
+
                     if cleanup_thread.is_alive():
                         warn(f"Timeout ao parar {name} - forçando", "STOP")
                     
@@ -592,6 +620,8 @@ class F1CarCompleteSystem:
         if self.steering_mgr:
             stats["steering_stats"] = self.steering_mgr.get_statistics()
 
+        if self.temperature_mgr:
+            stats["temperature_stats"] = self.temperature_mgr.get_temperature_status()
 
         if self.network_mgr:
             stats["network_stats"] = self.network_mgr.get_transmission_stats()

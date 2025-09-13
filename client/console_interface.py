@@ -157,6 +157,11 @@ class ConsoleInterface:
             "steering_angle": tk.StringVar(value="0.0"),
             "bateria_nivel": tk.StringVar(value="100.0"),
             "temperatura": tk.StringVar(value="25.0"),
+            # Dados do sensor de temperatura DS18B20
+            "temperature_c": tk.StringVar(value="25.0"),
+            "temperature_f": tk.StringVar(value="77.0"),
+            "temperature_k": tk.StringVar(value="298.2"),
+            "thermal_status": tk.StringVar(value="NORMAL"),
             # Configurações
             "accel_range": tk.StringVar(value="±2g"),
             "gyro_range": tk.StringVar(value="±250°/s"),
@@ -282,30 +287,46 @@ class ConsoleInterface:
         tk.Label(gear_frame, text="ª", bg="#2c2c2c", fg="#cccccc",
                 font=("Arial", 12)).pack()
         
-        # Velocidade e Throttle - Lado direito
+        # Motor e Velocidade - Lado direito
         speed_frame = tk.Frame(instruments_inner, bg="#2c2c2c", relief=tk.RAISED, bd=2)
         speed_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
-        
+
         tk.Label(speed_frame, text="🚀 MOTOR", bg="#2c2c2c", fg="white",
                 font=("Arial", 10, "bold")).pack(pady=5)
-        
+
         # Throttle
         throttle_inner = tk.Frame(speed_frame, bg="#2c2c2c")
         throttle_inner.pack(fill=tk.X, pady=2)
-        
+
         tk.Label(throttle_inner, text="Acelerador:", bg="#2c2c2c", fg="#cccccc",
                 font=("Arial", 8)).pack(side=tk.LEFT)
         tk.Label(throttle_inner, textvariable=self.throttle_var, bg="#2c2c2c", fg="#ff6600",
                 font=("Arial", 14, "bold")).pack(side=tk.RIGHT)
-        
+
         # Velocidade
-        speed_inner = tk.Frame(speed_frame, bg="#2c2c2c") 
+        speed_inner = tk.Frame(speed_frame, bg="#2c2c2c")
         speed_inner.pack(fill=tk.X, pady=2)
-        
+
         tk.Label(speed_inner, text="Velocidade:", bg="#2c2c2c", fg="#cccccc",
                 font=("Arial", 8)).pack(side=tk.LEFT)
         tk.Label(speed_inner, textvariable=self.speed_var, bg="#2c2c2c", fg="#00aaff",
                 font=("Arial", 14, "bold")).pack(side=tk.RIGHT)
+
+        # Temperatura - Painel adicional na linha inferior
+        temp_frame = tk.Frame(instruments_inner, bg="#2c2c2c", relief=tk.RAISED, bd=2)
+        temp_frame.pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=5)
+
+        tk.Label(temp_frame, text="🌡️ TEMPERATURA", bg="#2c2c2c", fg="white",
+                font=("Arial", 10, "bold")).pack(pady=5)
+
+        # Display de temperatura com cor baseada na faixa
+        self.temp_display = tk.Label(temp_frame, textvariable=self.sensor_vars["temperature_c"],
+                                    bg="#2c2c2c", fg="#00ff88",
+                                    font=("Digital-7", 20, "bold"))
+        self.temp_display.pack(pady=5)
+
+        tk.Label(temp_frame, text="°C", bg="#2c2c2c", fg="#cccccc",
+                font=("Arial", 10)).pack()
 
     def create_bmi160_frame(self):
         """Cria frame com dados do BMI160"""
@@ -817,6 +838,11 @@ class ConsoleInterface:
             "steering_angle": "steering_angle",
             "bateria_nivel": "bateria_nivel",
             "temperatura": "temperatura",
+            # Dados do sensor de temperatura DS18B20
+            "temperature_c": "temperature_c",
+            "temperature_f": "temperature_f",
+            "temperature_k": "temperature_k",
+            "thermal_status": "thermal_status",
             # Configurações
             "accel_range_g": "accel_range",
             "gyro_range_dps": "gyro_range",
@@ -848,7 +874,7 @@ class ConsoleInterface:
                     "g_force_vertical",
                 ]:
                     formatted_value = f"{value:+.3f}"  # Com sinal
-                elif var_name in ["velocidade", "temperatura"]:
+                elif var_name in ["velocidade", "temperatura", "temperature_c", "temperature_f", "temperature_k"]:
                     formatted_value = f"{value:.1f}"
                 elif var_name in ["accel_range"]:
                     formatted_value = f"±{value}g"
@@ -880,6 +906,38 @@ class ConsoleInterface:
 
         events_text = ", ".join(events) if events else "😴 Nenhum"
         self.sensor_vars["events_detected"].set(events_text)
+
+        # Atualiza cor do display de temperatura baseado no status térmico
+        self._update_temperature_colors(sensor_data)
+
+    def _update_temperature_colors(self, sensor_data):
+        """Atualiza as cores do display de temperatura baseado no status térmico"""
+        try:
+            if hasattr(self, 'temp_display'):
+                thermal_status = sensor_data.get("thermal_status", "NORMAL")
+                temperature_c = sensor_data.get("temperature_c", 25.0)
+
+                # Define cores baseadas no status térmico
+                color_mapping = {
+                    "NORMAL": "#00ff88",        # Verde - temperatura normal
+                    "WARNING": "#ffaa00",       # Laranja - temperatura elevada
+                    "CRITICAL": "#ff4444",      # Vermelho - temperatura crítica
+                    "CRITICAL_SHUTDOWN": "#ff0000"  # Vermelho intenso - shutdown crítico
+                }
+
+                # Atualiza cor do display
+                color = color_mapping.get(thermal_status, "#00ff88")
+                self.temp_display.config(fg=color)
+
+                # Adiciona indicador visual de alerta se necessário
+                if thermal_status in ["CRITICAL", "CRITICAL_SHUTDOWN"]:
+                    # Pisca o display em caso crítico
+                    current_color = self.temp_display.cget("fg")
+                    flash_color = "#ffffff" if current_color != "#ffffff" else color
+                    self.root.after(500, lambda: self.temp_display.config(fg=flash_color))
+
+        except Exception as e:
+            error(f"Erro ao atualizar cores de temperatura: {e}", "CONSOLE")
 
     def _update_motor_display(self, sensor_data):
         """Atualiza o painel de instrumentos do motor"""
