@@ -1,10 +1,96 @@
 #!/usr/bin/env python3
 """
-Teste direto do BMI160 para diagnosticar problema e testar comunicação completa
+Teste direto do BMI160 para encontrar delay ideal
 """
 
 import smbus2
 import time
+
+def test_delay_optimization():
+    """Teste para encontrar o delay ideal para comunicação I2C com BMI160"""
+    print("=== TESTE DE OTIMIZAÇÃO DE DELAY BMI160 ===")
+
+    # Conectar ao I2C
+    try:
+        bus = smbus2.SMBus(1)
+        print("✓ I2C conectado")
+    except Exception as e:
+        print(f"❌ Erro I2C: {e}")
+        return False
+
+    address = 0x68
+    print(f"Testando endereço: 0x{address:02X}")
+    print("Procurando delay ideal para CHIP_ID...")
+
+    # Testar delays de 0 a 100ms
+    successful_delays = []
+
+    for delay_ms in range(0, 101, 5):  # 0, 5, 10, 15, ..., 100ms
+        try:
+            # Aplicar delay antes da leitura
+            if delay_ms > 0:
+                time.sleep(delay_ms / 1000.0)
+
+            # Tentar ler CHIP_ID
+            chip_id = bus.read_byte_data(address, 0x00)
+
+            if chip_id == 0xD1:
+                print(f"✓ SUCESSO com {delay_ms}ms: CHIP_ID = 0x{chip_id:02X}")
+                successful_delays.append(delay_ms)
+            else:
+                print(f"⚠ {delay_ms}ms: CHIP_ID incorreto = 0x{chip_id:02X}")
+
+        except Exception as e:
+            print(f"❌ {delay_ms}ms: Erro = {e}")
+
+    if successful_delays:
+        min_delay = min(successful_delays)
+        max_delay = max(successful_delays)
+        print(f"\n=== RESULTADOS ===")
+        print(f"Delays que funcionaram: {successful_delays}")
+        print(f"Delay mínimo: {min_delay}ms")
+        print(f"Delay máximo: {max_delay}ms")
+        print(f"Total de sucessos: {len(successful_delays)}")
+
+        # Recomendar delay ideal (mínimo + margem de segurança)
+        recommended_delay = min_delay + 5  # +5ms de margem
+        print(f"Delay recomendado: {recommended_delay}ms")
+
+        # Testar o delay recomendado 10 vezes
+        print(f"\n=== TESTE DE CONFIABILIDADE ({recommended_delay}ms) ===")
+        successes = 0
+        for i in range(10):
+            try:
+                time.sleep(recommended_delay / 1000.0)
+                chip_id = bus.read_byte_data(address, 0x00)
+                if chip_id == 0xD1:
+                    successes += 1
+                    print(f"  Teste {i+1}: ✓")
+                else:
+                    print(f"  Teste {i+1}: ❌ (CHIP_ID = 0x{chip_id:02X})")
+            except Exception as e:
+                print(f"  Teste {i+1}: ❌ ({e})")
+
+        reliability = (successes / 10) * 100
+        print(f"Confiabilidade: {reliability:.0f}% ({successes}/10)")
+
+        if reliability >= 80:
+            print(f"✅ Delay de {recommended_delay}ms é CONFIÁVEL")
+            return recommended_delay
+        else:
+            print(f"⚠ Delay de {recommended_delay}ms é INSTÁVEL")
+            return None
+
+    else:
+        print("\n❌ NENHUM DELAY FUNCIONOU!")
+        print("Possíveis problemas:")
+        print("1. Conexões I2C incorretas")
+        print("2. Sensor danificado")
+        print("3. Alimentação inadequada")
+        print("4. Interferência elétrica")
+        return None
+
+    bus.close()
 
 def bytes_to_int16(lsb, msb):
     """Converte 2 bytes para int16 com sinal (complemento de 2)"""
@@ -215,4 +301,12 @@ def test_bmi160_complete():
     return True
 
 if __name__ == "__main__":
-    test_bmi160_complete()
+    # Primeiro, testar delays
+    optimal_delay = test_delay_optimization()
+
+    if optimal_delay:
+        print(f"\n🎯 Delay ideal encontrado: {optimal_delay}ms")
+        print("Agora você pode usar este valor no código principal!")
+    else:
+        print("\n❌ Não foi possível encontrar um delay confiável")
+        print("Verifique as conexões de hardware")
