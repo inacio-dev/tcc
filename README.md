@@ -8,6 +8,10 @@ pip install --upgrade pip wheel
 pip install -r requirements.txt
 
 sudo apt install python3-opencv python3-numpy python3-picamera2 python3-libcamera
+
+# Para sensores I2C (BMI160)
+sudo apt install python3-smbus
+pip3 install smbus2
 ```
 
 ```

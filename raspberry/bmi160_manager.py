@@ -148,6 +148,7 @@ class BMI160Manager:
         self.i2c_bus = None
         self.bmi160 = None
         self.is_initialized = False
+        self.use_real_sensor = False  # Flag para controlar simulação vs real
 
         # Offsets de calibração
         self.accel_x_offset = 0.0
@@ -246,14 +247,15 @@ class BMI160Manager:
     def _read_register(self, reg):
         """Lê valor de registrador via I2C"""
         try:
-            # Para I2C direto (descomente quando tiver hardware):
-            # return self.i2c_bus.read_byte_data(self.i2c_address, reg)
-
-            # SIMULAÇÃO - valores específicos para teste
-            if reg == self.REG_CHIP_ID:
-                return self.CHIP_ID_BMI160  # Simula chip ID correto
+            if self.use_real_sensor and self.i2c_bus:
+                # I2C real
+                return self.i2c_bus.read_byte_data(self.i2c_address, reg)
             else:
-                return 0x00
+                # SIMULAÇÃO - apenas para CHIP_ID
+                if reg == self.REG_CHIP_ID:
+                    return self.CHIP_ID_BMI160  # Simula chip ID correto
+                else:
+                    return 0x00
 
         except Exception as e:
             print(f"⚠ Erro ao ler registrador 0x{reg:02X}: {e}")
@@ -262,11 +264,12 @@ class BMI160Manager:
     def _read_sensor_registers(self, start_reg, num_bytes):
         """Lê múltiplos registradores sequenciais"""
         try:
-            # Para I2C direto (descomente quando tiver hardware):
-            # return self.i2c_bus.read_i2c_block_data(self.i2c_address, start_reg, num_bytes)
-
-            # SIMULAÇÃO - gera dados realistas
-            return [0] * num_bytes
+            if self.use_real_sensor and self.i2c_bus:
+                # I2C real
+                return self.i2c_bus.read_i2c_block_data(self.i2c_address, start_reg, num_bytes)
+            else:
+                # SIMULAÇÃO - retorna zeros (sensor offline)
+                return [0] * num_bytes
 
         except Exception as e:
             print(f"⚠ Erro ao ler {num_bytes} bytes do reg 0x{start_reg:02X}: {e}")
@@ -286,13 +289,18 @@ class BMI160Manager:
         print(f"ODR: {self.sample_rate}Hz")
 
         try:
-            # 1. Inicializar barramento I2C
-            # Para I2C direto (descomente quando tiver hardware):
-            # import smbus2
-            # self.i2c_bus = smbus2.SMBus(1)  # I2C bus 1 no Raspberry Pi
-
-            # SIMULAÇÃO
-            print("⚠ MODO SIMULAÇÃO - Sensor BMI160 não conectado")
+            # 1. Tentar inicializar I2C real
+            try:
+                import smbus2
+                self.i2c_bus = smbus2.SMBus(1)  # I2C bus 1 no Raspberry Pi
+                self.use_real_sensor = True
+                print("✓ I2C inicializado - usando sensor REAL")
+            except ImportError:
+                print("⚠ smbus2 não disponível - MODO SIMULAÇÃO")
+                self.use_real_sensor = False
+            except Exception as e:
+                print(f"⚠ Erro no I2C: {e} - MODO SIMULAÇÃO")
+                self.use_real_sensor = False
 
             # 2. Verificar CHIP_ID (deve ser 0xD1)
             chip_id = self._read_register(self.REG_CHIP_ID)
@@ -413,29 +421,14 @@ class BMI160Manager:
             # self.gyro_y_raw = self._bytes_to_int16(gyro_data[2], gyro_data[3])
             # self.gyro_z_raw = self._bytes_to_int16(gyro_data[4], gyro_data[5])
 
-            # SIMULAÇÃO (remove quando tiver hardware):
-            elapsed = time.time() - self.start_time
-
-            # Simula valores LSB realistas para BMI160
-            self.accel_x_raw = int(
-                math.sin(elapsed * 0.5) * 1000 + np.random.normal(0, 50)
-            )
-            self.accel_y_raw = int(
-                math.cos(elapsed * 0.3) * 800 + np.random.normal(0, 50)
-            )
-            self.accel_z_raw = int(
-                16384 + math.sin(elapsed * 2.0) * 200 + np.random.normal(0, 50)
-            )  # ~1g em LSB
-
-            self.gyro_x_raw = int(
-                math.sin(elapsed * 0.4) * 650 + np.random.normal(0, 20)
-            )
-            self.gyro_y_raw = int(
-                math.cos(elapsed * 0.6) * 500 + np.random.normal(0, 20)
-            )
-            self.gyro_z_raw = int(
-                math.sin(elapsed * 0.2) * 2000 + np.random.normal(0, 20)
-            )
+            if not self.use_real_sensor:
+                # Sensor offline - dados zeros
+                self.accel_x_raw = 0
+                self.accel_y_raw = 0
+                self.accel_z_raw = 16384  # 1g em LSB (sensor em repouso)
+                self.gyro_x_raw = 0
+                self.gyro_y_raw = 0
+                self.gyro_z_raw = 0
 
             # Converter para unidades físicas usando fatores de escala
             self.accel_x = (
