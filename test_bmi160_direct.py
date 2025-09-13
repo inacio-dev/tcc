@@ -300,26 +300,6 @@ def test_bmi160_complete():
     print("\n=== TESTE COMPLETO FINALIZADO ===")
     return True
 
-if __name__ == "__main__":
-    # Primeiro, testar delays
-    optimal_delay = test_delay_optimization()
-
-    if optimal_delay:
-        print(f"\n🎯 Delay ideal encontrado: {optimal_delay}ms")
-        print("Agora vamos testar comunicação completa com este delay!")
-
-        # Atualizar função completa para usar o delay otimizado
-        print("\n" + "="*50)
-        print("INICIANDO TESTE COMPLETO COM DELAY OTIMIZADO")
-        print("="*50)
-
-        # Testar comunicação completa
-        test_bmi160_complete_optimized(optimal_delay)
-
-    else:
-        print("\n❌ Não foi possível encontrar um delay confiável")
-        print("Verifique as conexões de hardware")
-
 def test_bmi160_complete_optimized(delay_ms):
     """Teste completo do BMI160 usando delay otimizado"""
     print(f"=== TESTE COMPLETO BMI160 (Delay: {delay_ms}ms) ===")
@@ -521,3 +501,22 @@ def test_bmi160_complete_optimized(delay_ms):
     bus.close()
     print("\n=== TESTE COMPLETO FINALIZADO ===")
     return True
+if __name__ == "__main__":
+    # Primeiro, testar delays
+    optimal_delay = test_delay_optimization()
+
+    if optimal_delay:
+        print(f"\n🎯 Delay ideal encontrado: {optimal_delay}ms")
+        print("Agora vamos testar comunicação completa com este delay!")
+
+        # Atualizar função completa para usar o delay otimizado
+        print("\n" + "="*50)
+        print("INICIANDO TESTE COMPLETO COM DELAY OTIMIZADO")
+        print("="*50)
+
+        # Testar comunicação completa
+        test_bmi160_complete_optimized(optimal_delay)
+
+    else:
+        print("\n❌ Não foi possível encontrar um delay confiável")
+        print("Verifique as conexões de hardware")
