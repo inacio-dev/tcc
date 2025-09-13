@@ -427,6 +427,15 @@ class BMI160Manager:
             if gyro_data is None:
                 return False
 
+            # Debug: mostrar dados raw lidos do I2C
+            if hasattr(self, '_debug_counter'):
+                self._debug_counter += 1
+            else:
+                self._debug_counter = 1
+
+            if self._debug_counter % 200 == 0:  # A cada ~1s
+                print(f"🔍 BMI160 RAW I2C: accel_data={accel_data}, gyro_data={gyro_data}")
+
             # CONVERSÃO CONFORME DATASHEET:
             # Dados em complemento de 2, LSB primeiro
 
