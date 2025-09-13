@@ -291,16 +291,34 @@ class BMI160Manager:
         try:
             # 1. Tentar inicializar I2C real
             try:
+                # Primeiro tenta smbus2
                 import smbus2
                 self.i2c_bus = smbus2.SMBus(1)  # I2C bus 1 no Raspberry Pi
                 self.use_real_sensor = True
-                print("✓ I2C inicializado - usando sensor REAL")
+                print("✓ I2C inicializado com smbus2 - usando sensor REAL")
             except ImportError:
-                print("⚠ smbus2 não disponível - MODO SIMULAÇÃO")
-                self.use_real_sensor = False
+                try:
+                    # Fallback para smbus (sistema)
+                    import smbus
+                    self.i2c_bus = smbus.SMBus(1)
+                    self.use_real_sensor = True
+                    print("✓ I2C inicializado com smbus - usando sensor REAL")
+                except ImportError:
+                    print("⚠ Nem smbus2 nem smbus disponíveis - MODO SIMULAÇÃO")
+                    self.use_real_sensor = False
+                except Exception as e:
+                    print(f"⚠ Erro no smbus: {e} - MODO SIMULAÇÃO")
+                    self.use_real_sensor = False
             except Exception as e:
-                print(f"⚠ Erro no I2C: {e} - MODO SIMULAÇÃO")
-                self.use_real_sensor = False
+                print(f"⚠ Erro no smbus2: {e} - tentando smbus...")
+                try:
+                    import smbus
+                    self.i2c_bus = smbus.SMBus(1)
+                    self.use_real_sensor = True
+                    print("✓ I2C inicializado com smbus - usando sensor REAL")
+                except Exception as e2:
+                    print(f"⚠ Erro no smbus também: {e2} - MODO SIMULAÇÃO")
+                    self.use_real_sensor = False
 
             # 2. Verificar CHIP_ID (deve ser 0xD1)
             chip_id = self._read_register(self.REG_CHIP_ID)

@@ -11,7 +11,16 @@ sudo apt install python3-opencv python3-numpy python3-picamera2 python3-libcamer
 
 # Para sensores I2C (BMI160)
 sudo apt install python3-smbus
-pip3 install smbus2
+
+# Para smbus2 (Debian/Raspberry Pi OS protege sistema)
+# Opção 1: Usar python3-smbus (já instalado acima)
+# Opção 2: Forçar instalação (NÃO recomendado para produção):
+pip3 install smbus2 --break-system-packages
+
+# Opção 3: Usar ambiente virtual (RECOMENDADO):
+# python3 -m venv venv
+# source venv/bin/activate
+# pip install smbus2
 ```
 
 ```
