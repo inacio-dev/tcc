@@ -480,7 +480,9 @@ class F1CarCompleteSystem:
             #     # Aplica freio leve automaticamente em curvas fechadas
             #     auto_brake = min(g_force_lateral * 20, 30)  # Máximo 30%
             #     self.brake_mgr.apply_brake(auto_brake)
-            elif self.brake_mgr and not is_braking:
+
+            # Liberação automática de freios
+            if self.brake_mgr and not is_braking:
                 # Libera freios se não há comando manual e não há necessidade automática
                 current_brake = self.brake_mgr.total_brake_input
                 if current_brake > 0:
