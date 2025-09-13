@@ -335,6 +335,18 @@ class F1CarCompleteSystem:
                         sensor_data = self.bmi160_mgr.get_sensor_data()
                         self.sensor_readings += 1
 
+                        # Log dos dados BMI160 a cada 60 loops (debug)
+                        if loop_count % 60 == 0:  # ~0.5s @ 120Hz
+                            debug(f"BMI160 dados: accel({sensor_data.get('bmi160_accel_x', 0):.3f}, "
+                                  f"{sensor_data.get('bmi160_accel_y', 0):.3f}, "
+                                  f"{sensor_data.get('bmi160_accel_z', 0):.3f}) m/s² | "
+                                  f"gyro({sensor_data.get('bmi160_gyro_x', 0):.3f}, "
+                                  f"{sensor_data.get('bmi160_gyro_y', 0):.3f}, "
+                                  f"{sensor_data.get('bmi160_gyro_z', 0):.3f}) °/s", "BMI160")
+                    else:
+                        if loop_count % 120 == 0:  # Log erro menos frequente
+                            warn("BMI160 update() falhou", "BMI160")
+
                 # Obter status dos outros componentes
                 motor_status = {}
                 if self.motor_mgr and self.system_status["motor"] == "Online":
@@ -377,6 +389,11 @@ class F1CarCompleteSystem:
                     )
                     if not success and loop_count <= 10:
                         warn(f"Falha na transmissão do pacote {loop_count}", "MAIN", rate_limit=5.0)
+
+                    # Log da transmissão a cada 120 loops (debug)
+                    if loop_count % 120 == 0:  # ~1s @ 120Hz
+                        sensor_count = len(sensor_data) if sensor_data else 0
+                        debug(f"Transmissão: {sensor_count} campos de sensor enviados para cliente", "NET")
 
 
                 # === CONTROLE AUTOMÁTICO (DEMONSTRAÇÃO) ===
