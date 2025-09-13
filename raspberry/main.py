@@ -451,12 +451,12 @@ class F1CarCompleteSystem:
             is_braking = sensor_data.get("is_braking", False)
             impact_detected = sensor_data.get("impact_detected", False)
 
-            # Controle de segurança - parada de emergência em caso de impacto
-            if impact_detected and self.motor_mgr and self.brake_mgr:
-                error("IMPACTO DETECTADO - PARADA DE EMERGÊNCIA!", "SAFETY")
-                self.motor_mgr.emergency_stop()
-                self.brake_mgr.emergency_brake()
-                return
+            # Controle de segurança - parada de emergência em caso de impacto (DESATIVADO)
+            # if impact_detected and self.motor_mgr and self.brake_mgr:
+            #     error("IMPACTO DETECTADO - PARADA DE EMERGÊNCIA!", "SAFETY")
+            #     self.motor_mgr.emergency_stop()
+            #     self.brake_mgr.emergency_brake()
+            #     return
 
             # Controle automático de freios em curvas (assistência)
             if self.brake_mgr and is_turning and g_force_lateral > 0.5:
