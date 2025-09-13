@@ -233,11 +233,12 @@ class BMI160Manager:
     def _write_register(self, reg, value):
         """Escreve valor em registrador via I2C"""
         try:
-            # Para I2C direto (descomente quando tiver hardware):
-            # self.i2c_bus.write_byte_data(self.i2c_address, reg, value)
-
-            # SIMULAÇÃO - remove quando tiver hardware real
-            pass
+            if self.use_real_sensor and self.i2c_bus:
+                # I2C real
+                self.i2c_bus.write_byte_data(self.i2c_address, reg, value)
+            else:
+                # SIMULAÇÃO - não faz nada
+                pass
 
         except Exception as e:
             print(f"⚠ Erro ao escrever registrador 0x{reg:02X}: {e}")
@@ -322,6 +323,9 @@ class BMI160Manager:
 
             # 2. Verificar CHIP_ID (deve ser 0xD1)
             chip_id = self._read_register(self.REG_CHIP_ID)
+            if chip_id is None:
+                print("✗ Erro ao ler CHIP_ID - sensor não responde")
+                return False
             if chip_id != self.CHIP_ID_BMI160:
                 print(
                     f"✗ CHIP_ID incorreto: 0x{chip_id:02X} (esperado: 0x{self.CHIP_ID_BMI160:02X})"
@@ -467,16 +471,16 @@ class BMI160Manager:
             # CONVERSÃO CONFORME DATASHEET:
             # Dados em complemento de 2, LSB primeiro
 
-            # Para hardware real (descomente):
-            # self.accel_x_raw = self._bytes_to_int16(accel_data[0], accel_data[1])
-            # self.accel_y_raw = self._bytes_to_int16(accel_data[2], accel_data[3])
-            # self.accel_z_raw = self._bytes_to_int16(accel_data[4], accel_data[5])
-            #
-            # self.gyro_x_raw = self._bytes_to_int16(gyro_data[0], gyro_data[1])
-            # self.gyro_y_raw = self._bytes_to_int16(gyro_data[2], gyro_data[3])
-            # self.gyro_z_raw = self._bytes_to_int16(gyro_data[4], gyro_data[5])
+            if self.use_real_sensor:
+                # Hardware real - converte dados I2C
+                self.accel_x_raw = self._bytes_to_int16(accel_data[0], accel_data[1])
+                self.accel_y_raw = self._bytes_to_int16(accel_data[2], accel_data[3])
+                self.accel_z_raw = self._bytes_to_int16(accel_data[4], accel_data[5])
 
-            if not self.use_real_sensor:
+                self.gyro_x_raw = self._bytes_to_int16(gyro_data[0], gyro_data[1])
+                self.gyro_y_raw = self._bytes_to_int16(gyro_data[2], gyro_data[3])
+                self.gyro_z_raw = self._bytes_to_int16(gyro_data[4], gyro_data[5])
+            else:
                 # Sensor offline - dados zeros
                 self.accel_x_raw = 0
                 self.accel_y_raw = 0
