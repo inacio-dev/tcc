@@ -136,6 +136,10 @@ class F1ClientApplication:
             # Conecta network client com console para envio de comandos
             self.console_interface.set_network_client(self.network_client)
 
+            # 5. Conecta video display com console para exibição integrada
+            debug("Conectando vídeo com interface...", "CLIENT")
+            self.console_interface.set_video_display(self.video_display)
+
             debug("Todos os componentes inicializados!", "CLIENT")
             return True
 

@@ -384,7 +384,11 @@ class NetworkClient:
         self._log("INFO", f"🔗 Raspberry Pi: {self.rpi_ip}:9999")
         self._log("INFO", f"🎮 Cliente: {self.client_ip}:9999")
         
-        # Modo fixo - sem descoberta, começa recebendo dados imediatamente
+        # Modo fixo - configura Raspberry Pi IP diretamente
+        if self.rpi_ip:
+            self.raspberry_pi_ip = self.rpi_ip
+            self.is_connected_to_rpi = True
+            self._log("INFO", f"🔗 Raspberry Pi configurado: {self.raspberry_pi_ip}")
 
         try:
             while self.is_running:

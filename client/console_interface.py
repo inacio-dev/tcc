@@ -173,11 +173,14 @@ class ConsoleInterface:
         }
 
     def create_main_window(self):
-        """Cria janela principal"""
+        """Cria janela principal com scroll vertical e layout em grid"""
         self.root = tk.Tk()
         self.root.title("🏎️ F1 Car - Console de Controle")
-        self.root.geometry(f"{self.window_width}x{self.window_height}")
+        self.root.geometry("1400x900")  # Janela maior para 2 colunas
         self.root.configure(bg="#2b2b2b")  # Tema escuro
+
+        # Permitir redimensionamento
+        self.root.resizable(True, True)
 
         # Configurar fechamento
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
@@ -192,12 +195,61 @@ class ConsoleInterface:
         style.configure("Dark.TButton", background="#4c4c4c", foreground="white")
         style.configure("Dark.TCheckbutton", background="#3c3c3c", foreground="white")
 
+        # Criar canvas principal com scrollbar
+        self.main_canvas = tk.Canvas(self.root, bg="#2b2b2b", highlightthickness=0)
+        self.main_scrollbar = ttk.Scrollbar(self.root, orient="vertical", command=self.main_canvas.yview)
+        self.scrollable_frame = ttk.Frame(self.main_canvas, style="Dark.TLabelframe")
+
+        # Configurar scroll
+        self.scrollable_frame.bind(
+            "<Configure>",
+            lambda e: self.main_canvas.configure(scrollregion=self.main_canvas.bbox("all"))
+        )
+
+        # Criar janela no canvas
+        self.canvas_window = self.main_canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+
+        # Configurar canvas
+        self.main_canvas.configure(yscrollcommand=self.main_scrollbar.set)
+
+        # Posicionar elementos
+        self.main_canvas.pack(side="left", fill="both", expand=True)
+        self.main_scrollbar.pack(side="right", fill="y")
+
+        # Configurar grid principal (2 colunas)
+        self.scrollable_frame.grid_columnconfigure(0, weight=1)
+        self.scrollable_frame.grid_columnconfigure(1, weight=1)
+
+        # Criar frames principais para as duas colunas
+        self.left_column = ttk.Frame(self.scrollable_frame, style="Dark.TLabelframe")
+        self.right_column = ttk.Frame(self.scrollable_frame, style="Dark.TLabelframe")
+
+        self.left_column.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
+        self.right_column.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
+
+        # Configurar scroll com mouse wheel
+        self.main_canvas.bind("<MouseWheel>", self._on_mousewheel)
+        self.root.bind("<MouseWheel>", self._on_mousewheel)
+
+        # Bind para redimensionamento da janela
+        self.main_canvas.bind('<Configure>', self._on_canvas_configure)
+
+    def _on_mousewheel(self, event):
+        """Handler para scroll com mouse wheel"""
+        self.main_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+
+    def _on_canvas_configure(self, event):
+        """Handler para redimensionamento do canvas"""
+        # Ajustar largura do frame interno
+        canvas_width = event.width
+        self.main_canvas.itemconfig(self.canvas_window, width=canvas_width)
+
     def create_connection_status_frame(self):
         """Cria frame de status da conexão"""
         status_frame = ttk.LabelFrame(
-            self.root, text="📡 Status da Conexão", style="Dark.TLabelframe"
+            self.left_column, text="📡 Status da Conexão", style="Dark.TLabelframe"
         )
-        status_frame.pack(fill=tk.X, padx=10, pady=5)
+        status_frame.pack(fill=tk.X, padx=5, pady=5)
 
         # Linha 1: Status e FPS
         ttk.Label(status_frame, text="Status:", style="Dark.TLabel").grid(
@@ -247,9 +299,9 @@ class ConsoleInterface:
     def create_instrument_panel(self):
         """Cria painel de instrumentos (RPM, marcha, velocidade)"""
         instrument_frame = ttk.LabelFrame(
-            self.root, text="🏎️ Painel de Instrumentos", style="Dark.TLabelframe"
+            self.left_column, text="🏎️ Painel de Instrumentos", style="Dark.TLabelframe"
         )
-        instrument_frame.pack(fill=tk.X, padx=10, pady=5)
+        instrument_frame.pack(fill=tk.X, padx=5, pady=5)
         
         # Frame interno para organizar os instrumentos
         instruments_inner = tk.Frame(instrument_frame, bg="#3c3c3c")
@@ -331,9 +383,9 @@ class ConsoleInterface:
     def create_bmi160_frame(self):
         """Cria frame com dados do BMI160"""
         sensor_frame = ttk.LabelFrame(
-            self.root, text="🔧 Dados do BMI160", style="Dark.TLabelframe"
+            self.left_column, text="🔧 Dados do BMI160", style="Dark.TLabelframe"
         )
-        sensor_frame.pack(fill=tk.X, padx=10, pady=5)
+        sensor_frame.pack(fill=tk.X, padx=5, pady=5)
 
         # Sub-frame para dados raw
         raw_frame = ttk.LabelFrame(
@@ -502,9 +554,9 @@ class ConsoleInterface:
     def create_vehicle_data_frame(self):
         """Cria frame com dados do veículo"""
         vehicle_frame = ttk.LabelFrame(
-            self.root, text="🏎️ Dados do Veículo", style="Dark.TLabelframe"
+            self.right_column, text="🏎️ Dados do Veículo", style="Dark.TLabelframe"
         )
-        vehicle_frame.pack(fill=tk.X, padx=10, pady=5)
+        vehicle_frame.pack(fill=tk.X, padx=5, pady=5)
 
         # Linha 1: Velocidade e Direção
         ttk.Label(vehicle_frame, text="Velocidade:", style="Dark.TLabel").grid(
@@ -569,9 +621,9 @@ class ConsoleInterface:
     def create_force_feedback_frame(self):
         """Cria frame com dados do force feedback"""
         ff_frame = ttk.LabelFrame(
-            self.root, text="🎮 Force Feedback", style="Dark.TLabelframe"
+            self.left_column, text="🎮 Force Feedback", style="Dark.TLabelframe"
         )
-        ff_frame.pack(fill=tk.X, padx=10, pady=5)
+        ff_frame.pack(fill=tk.X, padx=5, pady=5)
 
         # Linha 1: Volante e Freio
         ttk.Label(ff_frame, text="Volante:", style="Dark.TLabel").grid(
@@ -616,9 +668,9 @@ class ConsoleInterface:
     def create_controls_frame(self):
         """Cria frame de controles"""
         control_frame = ttk.LabelFrame(
-            self.root, text="🎛️ Controles do Veículo", style="Dark.TLabelframe"
+            self.right_column, text="🎛️ Controles do Veículo", style="Dark.TLabelframe"
         )
-        control_frame.pack(fill=tk.X, padx=10, pady=5)
+        control_frame.pack(fill=tk.X, padx=5, pady=5)
 
         # Frame superior para botões
         btn_frame = tk.Frame(control_frame, bg="#3c3c3c")
@@ -696,17 +748,78 @@ class ConsoleInterface:
         )
         self.brake_balance_label.pack(side=tk.LEFT, padx=10)
 
+    def create_video_frame(self):
+        """Cria frame para exibição do vídeo"""
+        video_frame = ttk.LabelFrame(
+            self.right_column, text="📹 Vídeo da Câmera", style="Dark.TLabelframe"
+        )
+        video_frame.pack(fill=tk.X, padx=5, pady=5)
+
+        # Frame interno para o vídeo
+        self.video_container = tk.Frame(video_frame, bg="#1a1a1a", height=240)
+        self.video_container.pack(fill=tk.X, padx=5, pady=5)
+        self.video_container.pack_propagate(False)  # Manter altura fixa
+
+        # Label para exibir o vídeo (será atualizado pelo video_display)
+        self.video_label = tk.Label(
+            self.video_container,
+            text="🎥 Aguardando vídeo...\nVídeo será exibido aqui quando conectado",
+            bg="#1a1a1a",
+            fg="white",
+            font=("Arial", 10),
+            justify=tk.CENTER
+        )
+        self.video_label.pack(expand=True)
+
+        # Frame para controles do vídeo
+        video_controls = tk.Frame(video_frame, bg="#3c3c3c")
+        video_controls.pack(fill=tk.X, padx=5, pady=2)
+
+        # Status do vídeo
+        self.video_status_var = tk.StringVar(value="🔴 Sem vídeo")
+        ttk.Label(video_controls, text="Status:", style="Dark.TLabel").pack(side=tk.LEFT, padx=5)
+        ttk.Label(video_controls, textvariable=self.video_status_var, style="Dark.TLabel").pack(side=tk.LEFT)
+
+        # Resolução
+        self.video_resolution_var = tk.StringVar(value="N/A")
+        ttk.Label(video_controls, text="Resolução:", style="Dark.TLabel").pack(side=tk.LEFT, padx=(20,5))
+        ttk.Label(video_controls, textvariable=self.video_resolution_var, style="Dark.TLabel").pack(side=tk.LEFT)
+
+    def set_video_display(self, video_display):
+        """Define o video_display para integração"""
+        self.video_display = video_display
+
+        # A conexão será feita automaticamente quando create_widgets() for chamado
+        # Não fazemos nada aqui pois os widgets ainda não foram criados
+
+    def update_video_status(self, status_dict):
+        """Atualiza status do vídeo"""
+        if hasattr(self, 'video_status_var'):
+            if status_dict.get('connected', False):
+                fps = status_dict.get('fps', 0)
+                self.video_status_var.set(f"🟢 Conectado ({fps:.1f} FPS)")
+            else:
+                self.video_status_var.set("🔴 Desconectado")
+
+        if hasattr(self, 'video_resolution_var'):
+            width = status_dict.get('width', 0)
+            height = status_dict.get('height', 0)
+            if width > 0 and height > 0:
+                self.video_resolution_var.set(f"{width}x{height}")
+            else:
+                self.video_resolution_var.set("N/A")
+
     def create_keyboard_controls_frame(self):
         """Cria frame com controles de teclado"""
-        keyboard_frame = self.keyboard_controller.create_status_frame(self.root)
-        keyboard_frame.pack(fill=tk.X, padx=10, pady=5)
+        keyboard_frame = self.keyboard_controller.create_status_frame(self.right_column)
+        keyboard_frame.pack(fill=tk.X, padx=5, pady=5)
 
     def create_log_frame(self):
         """Cria frame do console de log"""
         log_frame = ttk.LabelFrame(
-            self.root, text="📋 Console de Log", style="Dark.TLabelframe"
+            self.right_column, text="📋 Console de Log", style="Dark.TLabelframe"
         )
-        log_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+        log_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
         # Botões de controle do log
         btn_frame = tk.Frame(log_frame, bg="#3c3c3c")
@@ -751,14 +864,25 @@ class ConsoleInterface:
 
     def create_widgets(self):
         """Cria todos os widgets da interface"""
+        # Coluna Esquerda
         self.create_connection_status_frame()
         self.create_instrument_panel()
         self.create_bmi160_frame()
-        self.create_vehicle_data_frame()
         self.create_force_feedback_frame()
+
+        # Coluna Direita
+        self.create_video_frame()
+        self.create_vehicle_data_frame()
         self.create_controls_frame()
         self.create_keyboard_controls_frame()
         self.create_log_frame()
+
+        # Conecta video_display se já foi definido
+        if hasattr(self, 'video_display') and self.video_display:
+            if hasattr(self.video_display, 'set_tkinter_label'):
+                self.video_display.set_tkinter_label(self.video_label)
+            if hasattr(self.video_display, 'set_status_callback'):
+                self.video_display.set_status_callback(self.update_video_status)
 
     def log(self, level, message):
         """Adiciona mensagem ao log"""
