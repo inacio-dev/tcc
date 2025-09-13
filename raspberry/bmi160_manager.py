@@ -236,7 +236,7 @@ class BMI160Manager:
             if self.use_real_sensor and self.i2c_bus:
                 # I2C real com delay obrigatório
                 self.i2c_bus.write_byte_data(self.i2c_address, reg, value)
-                time.sleep(0.01)  # 10ms delay obrigatório após escrita
+                time.sleep(0.005)  # 5ms delay otimizado
             else:
                 # SIMULAÇÃO - não faz nada
                 pass
@@ -251,7 +251,7 @@ class BMI160Manager:
         try:
             if self.use_real_sensor and self.i2c_bus:
                 # I2C real com delay obrigatório
-                time.sleep(0.01)  # 10ms delay obrigatório antes de leitura
+                time.sleep(0.005)  # 5ms delay otimizado
                 return self.i2c_bus.read_byte_data(self.i2c_address, reg)
             else:
                 # SIMULAÇÃO - apenas para CHIP_ID
