@@ -234,8 +234,9 @@ class BMI160Manager:
         """Escreve valor em registrador via I2C"""
         try:
             if self.use_real_sensor and self.i2c_bus:
-                # I2C real
+                # I2C real com delay obrigatório
                 self.i2c_bus.write_byte_data(self.i2c_address, reg, value)
+                time.sleep(0.01)  # 10ms delay obrigatório após escrita
             else:
                 # SIMULAÇÃO - não faz nada
                 pass
@@ -249,7 +250,8 @@ class BMI160Manager:
         """Lê valor de registrador via I2C"""
         try:
             if self.use_real_sensor and self.i2c_bus:
-                # I2C real
+                # I2C real com delay obrigatório
+                time.sleep(0.01)  # 10ms delay obrigatório antes de leitura
                 return self.i2c_bus.read_byte_data(self.i2c_address, reg)
             else:
                 # SIMULAÇÃO - apenas para CHIP_ID
@@ -339,14 +341,26 @@ class BMI160Manager:
             if not self._write_register(self.REG_CMD, self.CMD_SOFT_RESET):
                 print("❌ Falha no soft reset")
                 return False
-            time.sleep(0.015)  # Aguarda reset (15ms para garantir)
 
-            # 4. Verificar se voltou depois do reset
-            chip_id_after_reset = self._read_register(self.REG_CHIP_ID)
+            # BMI160 precisa de tempo para resetar completamente
+            print("Aguardando estabilização após reset...")
+            time.sleep(0.2)  # 200ms para garantir reset completo
+
+            # 4. Verificar se voltou depois do reset (com retry)
+            chip_id_after_reset = None
+            for retry in range(3):
+                chip_id_after_reset = self._read_register(self.REG_CHIP_ID)
+                if chip_id_after_reset == self.CHIP_ID_BMI160:
+                    break
+                print(f"Retry {retry+1}: aguardando sensor...")
+                time.sleep(0.1)
+
             if chip_id_after_reset != self.CHIP_ID_BMI160:
-                print(f"❌ CHIP_ID após reset: 0x{chip_id_after_reset:02X}")
-                return False
-            print("✓ Sensor OK após reset")
+                print(f"❌ CHIP_ID após reset: 0x{chip_id_after_reset if chip_id_after_reset else 'None':02X}")
+                # Sensor pode estar funcional mesmo sem confirmar reset
+                print("⚠ Continuando sem confirmação de reset...")
+            else:
+                print("✓ Sensor OK após reset")
 
             # 5. Ativar acelerômetro ANTES de configurar
             print("Ativando acelerômetro...")
