@@ -128,7 +128,7 @@ class MotorManager:
         lpwm_pin: int = None,
         r_en_pin: int = None,
         l_en_pin: int = None,
-        max_acceleration: float = 0.2,  # %/s - aceleração extremamente lenta
+        max_acceleration: float = 0.0002,  # %/s - aceleração super extremamente lenta
     ):
         """
         Inicializa o gerenciador do motor
