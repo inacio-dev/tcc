@@ -380,20 +380,20 @@ class MotorManager:
 
         idle_rpm_for_gear = gear_idle_rpm.get(self.current_gear, 1200)
 
-        if self.current_pwm < 20.0:
-            # Motor parado - não tem torque suficiente para girar (< 20%)
+        if self.current_pwm < 30.0:
+            # Motor parado - não tem torque suficiente para girar (< 30%)
             self.engine_rpm = 0
         else:
-            # Faixas de PWM por marcha para calcular RPM (mínimo 20% para girar)
+            # Faixas de PWM por marcha para calcular RPM (mínimo 30% para girar)
             gear_ranges = {
-                1: (20, 30),   # 1ª marcha: 20% a 30%
-                2: (30, 45),   # 2ª marcha: 30% a 45%
-                3: (45, 65),   # 3ª marcha: 45% a 65%
-                4: (65, 85),   # 4ª marcha: 65% a 85%
+                1: (30, 40),   # 1ª marcha: 30% a 40%
+                2: (40, 55),   # 2ª marcha: 40% a 55%
+                3: (55, 70),   # 3ª marcha: 55% a 70%
+                4: (70, 85),   # 4ª marcha: 70% a 85%
                 5: (85, 100),  # 5ª marcha: 85% a 100%
             }
 
-            min_pwm, max_pwm = gear_ranges.get(self.current_gear, (20, 30))
+            min_pwm, max_pwm = gear_ranges.get(self.current_gear, (30, 40))
 
             # Se estiver na marcha lenta da marcha (min_pwm)
             if abs(self.current_pwm - min_pwm) < 1.0:
@@ -625,22 +625,22 @@ class MotorManager:
         Returns:
             float: PWM motor real a ser aplicado (10-100%)
         """
-        # Faixas de PWM por marcha (mínimo 20% para o motor girar)
+        # Faixas de PWM por marcha (mínimo 30% para o motor girar)
         gear_ranges = {
-            1: (20, 30),  # 1ª marcha: 20% a 30%
-            2: (30, 45),  # 2ª marcha: 30% a 45%
-            3: (45, 65),  # 3ª marcha: 45% a 65%
-            4: (65, 85),  # 4ª marcha: 65% a 85%
+            1: (30, 40),  # 1ª marcha: 30% a 40%
+            2: (40, 55),  # 2ª marcha: 40% a 55%
+            3: (55, 70),  # 3ª marcha: 55% a 70%
+            4: (70, 85),  # 4ª marcha: 70% a 85%
             5: (85, 100), # 5ª marcha: 85% a 100%
         }
 
         # Obter faixa da marcha atual
-        min_pwm, max_pwm = gear_ranges.get(self.current_gear, (20, 30))
+        min_pwm, max_pwm = gear_ranges.get(self.current_gear, (30, 40))
 
         # Definir PWM baseado no throttle
         if throttle_percent <= 0:
-            # Throttle 0% = marcha lenta da marcha atual (não para!)
-            final_pwm = min_pwm  # 15%, 25%, 40%, 60%, 80% conforme a marcha
+            # Throttle 0% = motor para completamente (0% PWM)
+            final_pwm = 0.0
         else:
             # Mapear throttle (1-100%) para faixa da marcha (min_pwm a max_pwm)
             final_pwm = min_pwm + (throttle_percent / 100.0) * (max_pwm - min_pwm)
