@@ -137,7 +137,7 @@ class MotorManager:
         lpwm_pin: int = None,
         r_en_pin: int = None,
         l_en_pin: int = None,
-        max_acceleration: float = 200.0,  # %/s - F1 style acceleration
+        max_acceleration: float = 500.0,  # %/s - F1 style acceleration
         transmission_mode: TransmissionMode = TransmissionMode.AUTOMATIC,
     ):
         """
@@ -537,7 +537,15 @@ class MotorManager:
             if self.motor_direction == MotorDirection.STOP:
                 self.motor_direction = MotorDirection.FORWARD
 
-        self.target_pwm = throttle_percent
+            # PWM mínimo para motor se mexer (baseado nos testes)
+            min_motor_pwm = 15.0
+            if throttle_percent > 0 and throttle_percent < min_motor_pwm:
+                # Mapeia 1-100% para 15-100% (PWM útil)
+                self.target_pwm = min_motor_pwm + (throttle_percent / 100.0) * (100.0 - min_motor_pwm)
+            else:
+                self.target_pwm = throttle_percent
+        else:
+            self.target_pwm = throttle_percent
 
         # Debug temporário para verificar comandos
         print(f"🚗 THROTTLE: {throttle_percent}% (atual: {self.current_pwm:.1f}%, marcha: {self.current_gear})")
