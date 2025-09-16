@@ -251,13 +251,13 @@ class MotorManager:
             self.rpwm.start(0)
             self.lpwm.start(0)
 
-            # Inicia thread de controle
-            self._start_acceleration_thread()
-
             # Inicia motor em marcha lenta
             self._start_engine()
 
             self.is_initialized = True
+
+            # Inicia thread de controle APÓS is_initialized=True
+            self._start_acceleration_thread()
 
             print("✓ Sistema de motor inicializado com sucesso")
             print(f"  - Frequência PWM: {self.PWM_FREQUENCY}Hz")
