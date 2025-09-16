@@ -587,10 +587,10 @@ class MotorManager:
 
         # Definir PWM baseado no throttle
         if throttle_percent <= 0:
-            # Throttle 0% = mínimo da marcha (marcha lenta)
-            final_pwm = min_pwm
+            # Throttle 0% = motor parado
+            final_pwm = 0.0
         else:
-            # Mapear throttle (1-100%) para faixa da marcha
+            # Mapear throttle (1-100%) para faixa da marcha (min_pwm a max_pwm)
             final_pwm = min_pwm + (throttle_percent / 100.0) * (max_pwm - min_pwm)
 
         return final_pwm
