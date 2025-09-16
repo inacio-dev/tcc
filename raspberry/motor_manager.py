@@ -619,25 +619,25 @@ class MotorManager:
 
         # Determinar zona atual e calcular fator de eficiência
         green_min, green_max = zones['green_zone']
-        efficiency_factor = 0.5  # Padrão: zona vermelha (baixa eficiência)
 
-        # Verificar zona verde (máxima eficiência)
+        # Verificar zona verde (máxima eficiência - aumento rápido)
         if green_min <= current_motor_power <= green_max:
-            efficiency_factor = 1.0
+            efficiency_factor = 0.8  # 80% - aumento normal/eficiente
         else:
-            # Verificar zonas amarelas (eficiência média)
+            # Verificar zonas amarelas (eficiência média - aumento moderado)
+            efficiency_factor = 0.1  # Padrão: zona vermelha (muito afetado)
+
             if 'yellow_zone' in zones:
                 yellow_min, yellow_max = zones['yellow_zone']
                 if yellow_min <= current_motor_power <= yellow_max:
-                    efficiency_factor = 0.75
+                    efficiency_factor = 0.3  # 30% - aumento moderadamente afetado
             elif 'yellow_zone_low' in zones and 'yellow_zone_high' in zones:
                 # Para 2ª, 3ª e 4ª marchas que têm duas zonas amarelas
                 yellow_low_min, yellow_low_max = zones['yellow_zone_low']
                 yellow_high_min, yellow_high_max = zones['yellow_zone_high']
                 if (yellow_low_min <= current_motor_power <= yellow_low_max or
                     yellow_high_min <= current_motor_power <= yellow_high_max):
-                    efficiency_factor = 0.75
-            # Se não está em verde nem amarela, fica na vermelha (0.5)
+                    efficiency_factor = 0.3  # 30% - aumento moderadamente afetado
 
         # Mapear throttle (0-100%) para PWM (10-100%)
         # PWM mínimo = 10%, PWM máximo = 100%
