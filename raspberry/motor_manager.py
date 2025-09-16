@@ -573,14 +573,6 @@ class MotorManager:
         if throttle_percent <= 0:
             return 0.0
 
-        # Limitador de porcentagem máxima por marcha
-        gear_max_power = {
-            1: 20,  # 1ª marcha: máximo 20%
-            2: 40,  # 2ª marcha: máximo 40%
-            3: 60,  # 3ª marcha: máximo 60%
-            4: 80,  # 4ª marcha: máximo 80%
-            5: 100, # 5ª marcha: máximo 100%
-        }
 
         # Zonas de eficiência por marcha (20% cada marcha para eficiência máxima)
         gear_zones = {
@@ -589,7 +581,6 @@ class MotorManager:
                 'yellow_zone': (20, 30),    # % potência - eficiência média
                 'red_zone_low': (30, 100),  # % potência - baixa eficiência (resto)
                 'base_power_factor': 1.0,
-                'max_power': 20,            # Limitador: máximo 20%
             },
             2: {
                 'green_zone': (20, 40),     # % potência - máxima eficiência (2ª marcha: 20-40%)
@@ -598,7 +589,6 @@ class MotorManager:
                 'red_zone_low': (0, 10),    # % potência - baixa eficiência (antes)
                 'red_zone_high': (50, 100), # % potência - baixa eficiência (depois)
                 'base_power_factor': 0.9,
-                'max_power': 40,            # Limitador: máximo 40%
             },
             3: {
                 'green_zone': (40, 60),     # % potência - máxima eficiência (3ª marcha: 40-60%)
@@ -607,7 +597,6 @@ class MotorManager:
                 'red_zone_low': (0, 30),    # % potência - baixa eficiência (antes)
                 'red_zone_high': (70, 100), # % potência - baixa eficiência (depois)
                 'base_power_factor': 0.8,
-                'max_power': 60,            # Limitador: máximo 60%
             },
             4: {
                 'green_zone': (60, 80),     # % potência - máxima eficiência (4ª marcha: 60-80%)
@@ -616,14 +605,12 @@ class MotorManager:
                 'red_zone_low': (0, 50),    # % potência - baixa eficiência (antes)
                 'red_zone_high': (90, 100), # % potência - baixa eficiência (depois)
                 'base_power_factor': 0.7,
-                'max_power': 80,            # Limitador: máximo 80%
             },
             5: {
                 'green_zone': (80, 100),    # % potência - máxima eficiência (5ª marcha: 80-100%)
                 'yellow_zone': (70, 80),    # % potência - eficiência média
                 'red_zone_low': (0, 70),    # % potência - baixa eficiência (resto)
                 'base_power_factor': 0.6,
-                'max_power': 100,           # Limitador: máximo 100%
             }
         }
 
@@ -673,9 +660,6 @@ class MotorManager:
             override_pwm = 70.0 + (throttle_percent - 90.0) * 3.0  # 70-100% PWM
             final_pwm = max(final_pwm, override_pwm)
 
-        # LIMITADOR POR MARCHA: Aplicar limite máximo da marcha
-        max_power_for_gear = zones['max_power']
-        final_pwm = min(final_pwm, max_power_for_gear)
 
         # Garantir range mínimo (10% ou 0%)
         final_pwm = max(10.0, final_pwm) if final_pwm > 0 else 0.0
