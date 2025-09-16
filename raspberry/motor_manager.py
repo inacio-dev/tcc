@@ -577,95 +577,24 @@ class MotorManager:
             return 0.0
 
 
-        # Zonas de eficiência por marcha (20% cada marcha para eficiência máxima)
-        gear_zones = {
-            1: {
-                'green_zone': (0, 20),      # % potência - máxima eficiência (1ª marcha: 0-20%)
-                'yellow_zone': (20, 30),    # % potência - eficiência média
-                'red_zone_low': (30, 100),  # % potência - baixa eficiência (resto)
-                'base_power_factor': 1.0,
-            },
-            2: {
-                'green_zone': (20, 40),     # % potência - máxima eficiência (2ª marcha: 20-40%)
-                'yellow_zone_low': (10, 20), # % potência - eficiência média (antes)
-                'yellow_zone_high': (40, 50), # % potência - eficiência média (depois)
-                'red_zone_low': (0, 10),    # % potência - baixa eficiência (antes)
-                'red_zone_high': (50, 100), # % potência - baixa eficiência (depois)
-                'base_power_factor': 0.9,
-            },
-            3: {
-                'green_zone': (40, 60),     # % potência - máxima eficiência (3ª marcha: 40-60%)
-                'yellow_zone_low': (30, 40), # % potência - eficiência média (antes)
-                'yellow_zone_high': (60, 70), # % potência - eficiência média (depois)
-                'red_zone_low': (0, 30),    # % potência - baixa eficiência (antes)
-                'red_zone_high': (70, 100), # % potência - baixa eficiência (depois)
-                'base_power_factor': 0.8,
-            },
-            4: {
-                'green_zone': (60, 80),     # % potência - máxima eficiência (4ª marcha: 60-80%)
-                'yellow_zone_low': (50, 60), # % potência - eficiência média (antes)
-                'yellow_zone_high': (80, 90), # % potência - eficiência média (depois)
-                'red_zone_low': (0, 50),    # % potência - baixa eficiência (antes)
-                'red_zone_high': (90, 100), # % potência - baixa eficiência (depois)
-                'base_power_factor': 0.7,
-            },
-            5: {
-                'green_zone': (80, 100),    # % potência - máxima eficiência (5ª marcha: 80-100%)
-                'yellow_zone': (70, 80),    # % potência - eficiência média
-                'red_zone_low': (0, 70),    # % potência - baixa eficiência (resto)
-                'base_power_factor': 0.6,
-            }
+        # Limitador de velocidade máxima por marcha
+        gear_max_speed = {
+            1: 20,  # 1ª marcha: máximo 20%
+            2: 40,  # 2ª marcha: máximo 40%
+            3: 60,  # 3ª marcha: máximo 60%
+            4: 80,  # 4ª marcha: máximo 80%
+            5: 100, # 5ª marcha: máximo 100%
         }
 
-        zones = gear_zones.get(self.current_gear, gear_zones[1])
-        # Usar potência atual do motor para determinar zona de eficiência
-        current_motor_power = self.current_pwm
+        # Obter limite da marcha atual
+        max_speed_for_gear = gear_max_speed.get(self.current_gear, 20)
 
-        # Determinar zona atual e calcular fator de eficiência
-        green_min, green_max = zones['green_zone']
-
-        # Verificar zona verde (máxima eficiência - aumento rápido)
-        if green_min <= current_motor_power <= green_max:
-            efficiency_factor = 0.8  # 80% - aumento normal/eficiente
-        else:
-            # Verificar zonas amarelas (eficiência média - aumento moderado)
-            efficiency_factor = 0.1  # Padrão: zona vermelha (muito afetado)
-
-            if 'yellow_zone' in zones:
-                yellow_min, yellow_max = zones['yellow_zone']
-                if yellow_min <= current_motor_power <= yellow_max:
-                    efficiency_factor = 0.3  # 30% - aumento moderadamente afetado
-            elif 'yellow_zone_low' in zones and 'yellow_zone_high' in zones:
-                # Para 2ª, 3ª e 4ª marchas que têm duas zonas amarelas
-                yellow_low_min, yellow_low_max = zones['yellow_zone_low']
-                yellow_high_min, yellow_high_max = zones['yellow_zone_high']
-                if (yellow_low_min <= current_motor_power <= yellow_low_max or
-                    yellow_high_min <= current_motor_power <= yellow_high_max):
-                    efficiency_factor = 0.3  # 30% - aumento moderadamente afetado
-
-        # Mapear throttle (0-100%) para PWM (10-100%)
-        # PWM mínimo = 10%, PWM máximo = 100%
+        # Mapear throttle para faixa da marcha
         min_pwm = 10.0
-        max_pwm = 100.0
+        max_pwm = max_speed_for_gear
 
-        # PWM base proporcional ao throttle
-        base_pwm = min_pwm + (throttle_percent / 100.0) * (max_pwm - min_pwm)
-
-        # Aplicar fator de potência da marcha
-        gear_adjusted_pwm = base_pwm * zones['base_power_factor']
-
-        # Aplicar fator de eficiência baseado na zona
-        final_pwm = gear_adjusted_pwm * efficiency_factor
-
-        # OVERRIDE: Throttle ≥ 90% sempre permite PWM alto
-        if throttle_percent >= 90.0:
-            # Pedal fundo = força PWM alto independente da zona
-            override_pwm = 70.0 + (throttle_percent - 90.0) * 3.0  # 70-100% PWM
-            final_pwm = max(final_pwm, override_pwm)
-
-
-        # Garantir range mínimo (10% ou 0%)
-        final_pwm = max(10.0, final_pwm) if final_pwm > 0 else 0.0
+        # PWM proporcional ao throttle
+        final_pwm = min_pwm + (throttle_percent / 100.0) * (max_pwm - min_pwm)
 
         return final_pwm
 
