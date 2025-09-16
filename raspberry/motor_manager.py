@@ -317,6 +317,10 @@ class MotorManager:
                 pwm_diff = self.target_pwm - self.current_pwm
                 max_change = self.max_acceleration * dt
 
+                # Debug: verificar o cálculo
+                if abs(pwm_diff) > 0.1:
+                    print(f"🔧 DEBUG: max_acceleration={self.max_acceleration}, dt={dt:.3f}s, max_change_calculado={max_change:.6f}%")
+
                 # Debug temporário da thread
                 if abs(pwm_diff) > 0.1:
                     print(f"🔧 THREAD: target={self.target_pwm}%, current={self.current_pwm:.1f}%, diff={pwm_diff:.1f}%, dt={dt:.3f}s, max_change={max_change:.1f}%")
@@ -546,12 +550,11 @@ class MotorManager:
         # Calcula PWM inteligente baseado na marcha e velocidade
         intelligent_pwm = self._calculate_intelligent_pwm(throttle_percent)
 
-        if throttle_percent > 0:
-            self.current_pwm = intelligent_pwm
-            self._apply_motor_pwm()
+        # Define target PWM para a thread aplicar gradualmente
+        self.target_pwm = intelligent_pwm
 
         # Debug temporário para verificar comandos
-        print(f"🚗 THROTTLE: {throttle_percent}% → PWM motor: {intelligent_pwm:.1f}% (marcha: {self.current_gear}ª)")
+        print(f"🚗 THROTTLE: {throttle_percent}% → PWM target: {intelligent_pwm:.1f}% (marcha: {self.current_gear}ª)")
 
         # Log removido daqui - será feito no main.py com todos os dados
 
