@@ -605,25 +605,20 @@ class MotorManager:
         Returns:
             float: PWM motor real a ser aplicado (10-100%)
         """
-        # Faixas de PWM por marcha (mínimo 30% para o motor girar)
-        gear_ranges = {
-            1: (30, 40),  # 1ª marcha: 30% a 40%
-            2: (40, 55),  # 2ª marcha: 40% a 55%
-            3: (55, 70),  # 3ª marcha: 55% a 70%
-            4: (70, 85),  # 4ª marcha: 70% a 85%
-            5: (85, 100), # 5ª marcha: 85% a 100%
+        # Limitadores por marcha (PWM máximo)
+        gear_limiters = {
+            1: 40,   # 1ª marcha: máximo 40%
+            2: 55,   # 2ª marcha: máximo 55%
+            3: 70,   # 3ª marcha: máximo 70%
+            4: 85,   # 4ª marcha: máximo 85%
+            5: 100,  # 5ª marcha: máximo 100%
         }
 
-        # Obter faixa da marcha atual
-        min_pwm, max_pwm = gear_ranges.get(self.current_gear, (30, 40))
+        # Obter limitador da marcha atual
+        max_pwm_for_gear = gear_limiters.get(self.current_gear, 40)
 
-        # Definir PWM baseado no throttle
-        if throttle_percent <= 0:
-            # Throttle 0% = motor para completamente (0% PWM)
-            final_pwm = 0.0
-        else:
-            # Mapear throttle (1-100%) para faixa da marcha (min_pwm a max_pwm)
-            final_pwm = min_pwm + (throttle_percent / 100.0) * (max_pwm - min_pwm)
+        # Cálculo direto: throttle% × limitador = PWM final
+        final_pwm = (throttle_percent / 100.0) * max_pwm_for_gear
 
         return final_pwm
 
