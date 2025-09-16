@@ -32,6 +32,7 @@ from datetime import datetime
 from typing import Optional
 from simple_logger import error, debug, info
 from keyboard_controller import KeyboardController
+from slider_controller import SliderController
 
 
 class ConsoleInterface:
@@ -74,6 +75,9 @@ class ConsoleInterface:
         
         # Controlador de teclado
         self.keyboard_controller = KeyboardController(log_callback=self.log)
+
+        # Controlador de sliders
+        self.slider_controller = SliderController(log_callback=self.log)
         
         # Variáveis de status da conexão
         self.connection_var = None
@@ -809,6 +813,11 @@ class ConsoleInterface:
             else:
                 self.video_resolution_var.set("N/A")
 
+    def create_slider_controls_frame(self):
+        """Cria frame com controles de sliders"""
+        slider_frame = self.slider_controller.create_control_frame(self.right_column)
+        slider_frame.pack(fill=tk.X, padx=5, pady=5)
+
     def create_keyboard_controls_frame(self):
         """Cria frame com controles de teclado"""
         keyboard_frame = self.keyboard_controller.create_status_frame(self.right_column)
@@ -873,6 +882,7 @@ class ConsoleInterface:
         # Coluna Direita
         self.create_video_frame()
         self.create_vehicle_data_frame()
+        self.create_slider_controls_frame()
         self.create_controls_frame()
         self.create_keyboard_controls_frame()
         self.create_log_frame()
@@ -1180,6 +1190,9 @@ class ConsoleInterface:
             # Configura controles de teclado
             self.keyboard_controller.bind_to_widget(self.root)
             self.keyboard_controller.start()
+
+            # Inicia controlador de sliders
+            self.slider_controller.start()
             
             # Log inicial
             self.log("INFO", "Interface do console iniciada")
@@ -1204,6 +1217,10 @@ class ConsoleInterface:
             # Para o controlador de teclado
             if hasattr(self, 'keyboard_controller') and self.keyboard_controller:
                 self.keyboard_controller.stop()
+
+            # Para o controlador de sliders
+            if hasattr(self, 'slider_controller') and self.slider_controller:
+                self.slider_controller.stop()
                 
             # Limpa variáveis Tkinter
             tkinter_vars = [
@@ -1271,6 +1288,7 @@ class ConsoleInterface:
         """Define o cliente de rede para envio de comandos"""
         self.network_client = network_client
         self.keyboard_controller.set_network_client(network_client)
+        self.slider_controller.set_network_client(network_client)
 
     def stop(self):
         """Para a interface"""
