@@ -309,6 +309,7 @@ class MotorManager:
             self.acceleration_thread = threading.Thread(target=self._acceleration_loop)
             self.acceleration_thread.daemon = True
             self.acceleration_thread.start()
+            print("🧵 Thread de aceleração iniciada")
 
     def _acceleration_loop(self):
         """Loop principal de controle de aceleração e RPM"""
@@ -320,6 +321,10 @@ class MotorManager:
                 # Controle de aceleração suave
                 pwm_diff = self.target_pwm - self.current_pwm
                 max_change = self.max_acceleration * dt
+
+                # Debug temporário da thread
+                if abs(pwm_diff) > 0.1:
+                    print(f"🔧 THREAD: target={self.target_pwm}%, current={self.current_pwm:.1f}%, diff={pwm_diff:.1f}%, max_change={max_change:.1f}%")
 
                 if abs(pwm_diff) > 0.1:
                     if pwm_diff > 0:
