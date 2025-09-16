@@ -590,7 +590,7 @@ class MotorManager:
         max_speed_for_gear = gear_max_speed.get(self.current_gear, 20)
 
         # Mapear throttle para faixa da marcha
-        min_pwm = 10.0
+        min_pwm = 15.0  # Mínimo 15% para o motor se mover
         max_pwm = max_speed_for_gear
 
         # PWM proporcional ao throttle
