@@ -887,8 +887,7 @@ if __name__ == "__main__":
 
     # Cria instância do motor
     motor_mgr = MotorManager(
-        max_acceleration=25.0,  # 25%/s de aceleração
-        transmission_mode=TransmissionMode.AUTOMATIC,
+        max_acceleration=1.0,  # 1%/s de aceleração controlada
     )
 
     # Inicializa
