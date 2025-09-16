@@ -535,15 +535,98 @@ class MotorManager:
         else:
             self.target_pwm = throttle_percent
 
-        # CORREÇÃO TEMPORÁRIA: Acelerar instantaneamente para teste
+        # Calcula PWM inteligente baseado na marcha e velocidade
+        intelligent_pwm = self._calculate_intelligent_pwm(throttle_percent)
+
         if throttle_percent > 0:
-            self.current_pwm = self.target_pwm  # Aplicar PWM imediatamente
-            self._apply_motor_pwm()  # Forçar aplicação
+            self.current_pwm = intelligent_pwm
+            self._apply_motor_pwm()
 
         # Debug temporário para verificar comandos
-        print(f"🚗 THROTTLE: {throttle_percent}% → PWM real: {self.current_pwm:.1f}% (marcha: {self.current_gear})")
+        print(f"🚗 THROTTLE: {throttle_percent}% → PWM inteligente: {intelligent_pwm:.1f}% (marcha: {self.current_gear}ª, velocidade: {self.calculated_speed_kmh:.1f} km/h)")
 
         # Log removido daqui - será feito no main.py com todos os dados
+
+    def _calculate_intelligent_pwm(self, throttle_percent: float) -> float:
+        """
+        Calcula PWM inteligente baseado na marcha atual e velocidade
+
+        Sistema realista:
+        - 1ª marcha: Baixa velocidade máxima, alta aceleração
+        - 2ª marcha: Velocidade média, aceleração moderada
+        - 3ª marcha: Alta velocidade, aceleração menor
+        - 4ª marcha: Velocidade máxima, aceleração mínima
+
+        Args:
+            throttle_percent (float): Posição do acelerador (0-100%)
+
+        Returns:
+            float: PWM real a ser aplicado (0-100%)
+        """
+        if throttle_percent <= 0:
+            return 0.0
+
+        # Configurações de cada marcha
+        gear_configs = {
+            1: {
+                'max_speed_kmh': 15.0,      # Velocidade máxima da marcha
+                'min_pwm': 15.0,            # PWM mínimo para motor se mexer
+                'max_pwm': 40.0,            # PWM máximo eficiente para esta marcha
+                'acceleration_factor': 1.0   # Fator de aceleração (1.0 = rápida)
+            },
+            2: {
+                'max_speed_kmh': 30.0,
+                'min_pwm': 20.0,
+                'max_pwm': 60.0,
+                'acceleration_factor': 0.8
+            },
+            3: {
+                'max_speed_kmh': 50.0,
+                'min_pwm': 30.0,
+                'max_pwm': 80.0,
+                'acceleration_factor': 0.6
+            },
+            4: {
+                'max_speed_kmh': 80.0,
+                'min_pwm': 40.0,
+                'max_pwm': 100.0,
+                'acceleration_factor': 0.4
+            }
+        }
+
+        # Configuração da marcha atual
+        current_config = gear_configs.get(self.current_gear, gear_configs[1])
+
+        # Velocidade atual
+        current_speed = self.calculated_speed_kmh
+        max_speed = current_config['max_speed_kmh']
+
+        # Calcula eficiência da marcha baseada na velocidade
+        # Marcha é mais eficiente próximo à sua velocidade ideal
+        speed_ratio = current_speed / max_speed
+
+        if speed_ratio > 1.0:
+            # Velocidade acima do ideal da marcha = baixa eficiência
+            gear_efficiency = max(0.3, 1.0 - (speed_ratio - 1.0) * 0.5)
+        else:
+            # Velocidade dentro do range da marcha
+            gear_efficiency = min(1.0, 0.4 + speed_ratio * 0.6)
+
+        # Mapeia throttle para PWM baseado na marcha
+        min_pwm = current_config['min_pwm']
+        max_pwm = current_config['max_pwm']
+
+        # PWM base proporcional ao throttle
+        base_pwm = min_pwm + (throttle_percent / 100.0) * (max_pwm - min_pwm)
+
+        # Aplica eficiência da marcha
+        intelligent_pwm = base_pwm * gear_efficiency * current_config['acceleration_factor']
+
+        # Garante PWM mínimo para motor se mexer
+        if intelligent_pwm > 0 and intelligent_pwm < 15.0:
+            intelligent_pwm = 15.0
+
+        return min(100.0, intelligent_pwm)
 
     def set_reverse(self, enable: bool = True):
         """
