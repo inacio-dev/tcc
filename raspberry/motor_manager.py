@@ -547,8 +547,13 @@ class MotorManager:
         else:
             self.target_pwm = throttle_percent
 
+        # CORREÇÃO TEMPORÁRIA: Acelerar instantaneamente para teste
+        if throttle_percent > 0:
+            self.current_pwm = self.target_pwm  # Aplicar PWM imediatamente
+            self._apply_motor_pwm()  # Forçar aplicação
+
         # Debug temporário para verificar comandos
-        print(f"🚗 THROTTLE: {throttle_percent}% (atual: {self.current_pwm:.1f}%, marcha: {self.current_gear})")
+        print(f"🚗 THROTTLE: {throttle_percent}% → PWM real: {self.current_pwm:.1f}% (marcha: {self.current_gear})")
 
         # Log removido daqui - será feito no main.py com todos os dados
 
