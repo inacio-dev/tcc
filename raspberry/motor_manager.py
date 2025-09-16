@@ -244,6 +244,11 @@ class MotorManager:
 
             self.is_initialized = True
 
+            # Correção emergencial: garantir marcha válida no sistema de 4 marchas
+            if self.current_gear > 4:
+                print(f"⚠ Marcha {self.current_gear}ª inválida - redefinindo para 1ª")
+                self.current_gear = 1
+
             # Inicia thread de controle APÓS is_initialized=True
             self._start_acceleration_thread()
 
@@ -420,9 +425,10 @@ class MotorManager:
         Executa troca de marcha
 
         Args:
-            new_gear (int): Nova marcha (1-8)
+            new_gear (int): Nova marcha (1-4)
         """
-        if new_gear < 1 or new_gear > 8 or new_gear == self.current_gear:
+        # Valida marcha no sistema de 4 marchas
+        if new_gear < 1 or new_gear > 4 or new_gear == self.current_gear:
             return
 
         if self.is_shifting:
@@ -659,8 +665,8 @@ class MotorManager:
         Args:
             gear (int): Marcha desejada (1-8)
         """
-        if gear < 1 or gear > 8:
-            print(f"⚠ Marcha inválida: {gear} (válido: 1-8)")
+        if gear < 1 or gear > 4:
+            print(f"⚠ Marcha inválida: {gear} (válido: 1-4)")
             return
 
         if self.transmission_mode == TransmissionMode.AUTOMATIC:
@@ -676,7 +682,7 @@ class MotorManager:
         Returns:
             bool: True se a troca foi bem-sucedida
         """
-        if self.current_gear >= 8:
+        if self.current_gear >= 4:
             return False  # Já está na marcha máxima
             
         new_gear = self.current_gear + 1
