@@ -157,6 +157,11 @@ class MotorManager:
         self.current_rpm = 0.0  # RPM atual calculado
         self.target_rpm = 0.0  # RPM alvo
 
+        # Controle de comandos (debounce)
+        self.last_throttle_value = None
+        self.last_command_time = 0.0
+        self.command_delay = 0.1  # 100ms entre comandos diferentes
+
         # Sistema de transmissão
         self.current_gear = 1  # Marcha atual (1-8)
         self.gear_ratio = self.GEAR_RATIOS[1]
@@ -531,6 +536,22 @@ class MotorManager:
 
         # Garante range válido
         throttle_percent = max(0.0, min(100.0, throttle_percent))
+
+        # Controle de debounce - evita enxurrada de comandos idênticos
+        current_time = time.time()
+
+        # Se é o mesmo valor que o anterior, ignora se muito próximo no tempo
+        if (self.last_throttle_value is not None and
+            abs(throttle_percent - self.last_throttle_value) < 0.1 and
+            current_time - self.last_command_time < self.command_delay):
+            return  # Ignora comando repetido muito próximo
+
+        # Se é um valor diferente, sempre processa (mesmo que próximo no tempo)
+        # Isso permite mudanças rápidas: 100% → 0% → 100%
+
+        # Atualiza controle de comandos
+        self.last_throttle_value = throttle_percent
+        self.last_command_time = current_time
 
         # Define direção baseada no throttle
         if throttle_percent > 0:
