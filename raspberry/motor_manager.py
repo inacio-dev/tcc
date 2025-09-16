@@ -533,12 +533,6 @@ class MotorManager:
 
         self.target_pwm = throttle_percent
 
-        # Força atualização imediata para debug
-        if throttle_percent > 0:
-            self.current_pwm = throttle_percent  # Skip aceleração suave temporariamente
-            self._apply_motor_pwm()
-            print(f"🔧 DEBUG: Motor FORWARD, PWM={throttle_percent}%")
-
         # Log removido daqui - será feito no main.py com todos os dados
 
     def set_reverse(self, enable: bool = True):
