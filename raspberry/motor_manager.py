@@ -77,7 +77,7 @@ class TransmissionMode(Enum):
 
 
 class MotorManager:
-    """Gerencia motor DC RS550 com transmissão simulada de 8 marchas"""
+    """Gerencia motor DC RS550 com transmissão simulada de 4 marchas"""
 
     # ================== CONFIGURAÇÕES FÍSICAS ==================
 
@@ -96,39 +96,27 @@ class MotorManager:
     MOTOR_MIN_RPM = 800  # RPM mínimo estável
     MOTOR_IDLE_RPM = 1200  # RPM marcha lenta
 
-    # Sistema de transmissão (8 marchas)
+    # Sistema de transmissão (4 marchas - otimizado)
     GEAR_RATIOS = {
-        1: 3.5,  # 1ª marcha - maior torque, menor velocidade
-        2: 2.8,  # 2ª marcha
-        3: 2.2,  # 3ª marcha
-        4: 1.8,  # 4ª marcha
-        5: 1.4,  # 5ª marcha
-        6: 1.1,  # 6ª marcha
-        7: 0.9,  # 7ª marcha
-        8: 0.7,  # 8ª marcha - menor torque, maior velocidade
+        1: 3.5,  # 1ª marcha - maior torque, arranque
+        2: 2.2,  # 2ª marcha - aceleração
+        3: 1.4,  # 3ª marcha - velocidade média
+        4: 0.9,  # 4ª marcha - velocidade máxima
     }
 
-    # RPM de troca automática (modo automático)
+    # RPM de troca automática (4 marchas)
     SHIFT_UP_RPM = {
-        1: 3500,
-        2: 4200,
-        3: 4800,
-        4: 5400,
-        5: 6000,
-        6: 6800,
-        7: 7500,
-        8: 999999,
+        1: 4500,  # 1ª→2ª: arranque completo
+        2: 6000,  # 2ª→3ª: aceleração
+        3: 8000,  # 3ª→4ª: velocidade alta
+        4: 999999,  # 4ª: sem limite superior
     }
 
     SHIFT_DOWN_RPM = {
-        1: 0,
-        2: 2000,
-        3: 2500,
-        4: 3000,
-        5: 3500,
-        6: 4000,
-        7: 4500,
-        8: 5000,
+        1: 0,     # 1ª: sem limite inferior
+        2: 2500,  # 2ª→1ª: baixa rotação
+        3: 4000,  # 3ª→2ª: rotação média
+        4: 6000,  # 4ª→3ª: rotação alta
     }
 
     def __init__(
@@ -219,7 +207,7 @@ class MotorManager:
         )
         print(f"R_EN: GPIO{self.r_en_pin} (Pin {self._gpio_to_pin(self.r_en_pin)})")
         print(f"L_EN: GPIO{self.l_en_pin} (Pin {self._gpio_to_pin(self.l_en_pin)})")
-        print(f"Transmissão: {self.transmission_mode.value.upper()} - 8 marchas")
+        print(f"Transmissão: {self.transmission_mode.value.upper()} - 4 marchas")
 
         if not GPIO_AVAILABLE:
             print("⚠ MODO SIMULAÇÃO - Motor não conectado")
