@@ -96,20 +96,22 @@ class MotorManager:
     MOTOR_MIN_RPM = 800  # RPM mínimo estável
     MOTOR_IDLE_RPM = 1200  # RPM marcha lenta
 
-    # Sistema de transmissão (4 marchas - otimizado)
+    # Sistema de transmissão (5 marchas)
     GEAR_RATIOS = {
         1: 3.5,  # 1ª marcha - maior torque, arranque
         2: 2.2,  # 2ª marcha - aceleração
         3: 1.4,  # 3ª marcha - velocidade média
-        4: 0.9,  # 4ª marcha - velocidade máxima
+        4: 0.9,  # 4ª marcha - velocidade alta
+        5: 0.7,  # 5ª marcha - velocidade máxima (100% potência)
     }
 
-    # RPM de troca automática (4 marchas)
+    # RPM de troca automática (5 marchas)
     SHIFT_UP_RPM = {
         1: 4500,  # 1ª→2ª: arranque completo
         2: 6000,  # 2ª→3ª: aceleração
-        3: 8000,  # 3ª→4ª: velocidade alta
-        4: 999999,  # 4ª: sem limite superior
+        3: 7500,  # 3ª→4ª: velocidade alta
+        4: 9000,  # 4ª→5ª: velocidade máxima
+        5: 999999,  # 5ª: sem limite superior
     }
 
     SHIFT_DOWN_RPM = {
@@ -117,6 +119,7 @@ class MotorManager:
         2: 2500,  # 2ª→1ª: baixa rotação
         3: 4000,  # 3ª→2ª: rotação média
         4: 6000,  # 4ª→3ª: rotação alta
+        5: 7500,  # 5ª→4ª: rotação muito alta
     }
 
     def __init__(
@@ -207,7 +210,7 @@ class MotorManager:
         )
         print(f"R_EN: GPIO{self.r_en_pin} (Pin {self._gpio_to_pin(self.r_en_pin)})")
         print(f"L_EN: GPIO{self.l_en_pin} (Pin {self._gpio_to_pin(self.l_en_pin)})")
-        print(f"Transmissão: {self.transmission_mode.value.upper()} - 4 marchas")
+        print(f"Transmissão: {self.transmission_mode.value.upper()} - 5 marchas")
 
         if not GPIO_AVAILABLE:
             print("⚠ MODO SIMULAÇÃO - Motor não conectado")
@@ -244,8 +247,8 @@ class MotorManager:
 
             self.is_initialized = True
 
-            # Correção emergencial: garantir marcha válida no sistema de 4 marchas
-            if self.current_gear > 4:
+            # Correção emergencial: garantir marcha válida no sistema de 5 marchas
+            if self.current_gear > 5:
                 print(f"⚠ Marcha {self.current_gear}ª inválida - redefinindo para 1ª")
                 self.current_gear = 1
 
@@ -427,8 +430,8 @@ class MotorManager:
         Args:
             new_gear (int): Nova marcha (1-4)
         """
-        # Valida marcha no sistema de 4 marchas
-        if new_gear < 1 or new_gear > 4 or new_gear == self.current_gear:
+        # Valida marcha no sistema de 5 marchas
+        if new_gear < 1 or new_gear > 5 or new_gear == self.current_gear:
             return
 
         if self.is_shifting:
@@ -577,26 +580,32 @@ class MotorManager:
             1: {
                 'max_speed_kmh': 15.0,      # Velocidade máxima da marcha
                 'min_pwm': 15.0,            # PWM mínimo para motor se mexer
-                'max_pwm': 40.0,            # PWM máximo eficiente para esta marcha
+                'max_pwm': 35.0,            # PWM máximo eficiente para esta marcha
                 'acceleration_factor': 1.0   # Fator de aceleração (1.0 = rápida)
             },
             2: {
-                'max_speed_kmh': 30.0,
+                'max_speed_kmh': 25.0,
                 'min_pwm': 20.0,
-                'max_pwm': 60.0,
-                'acceleration_factor': 0.8
+                'max_pwm': 50.0,
+                'acceleration_factor': 0.9
             },
             3: {
-                'max_speed_kmh': 50.0,
-                'min_pwm': 30.0,
-                'max_pwm': 80.0,
-                'acceleration_factor': 0.6
+                'max_speed_kmh': 40.0,
+                'min_pwm': 25.0,
+                'max_pwm': 65.0,
+                'acceleration_factor': 0.8
             },
             4: {
-                'max_speed_kmh': 80.0,
-                'min_pwm': 40.0,
-                'max_pwm': 100.0,
-                'acceleration_factor': 0.4
+                'max_speed_kmh': 60.0,
+                'min_pwm': 35.0,
+                'max_pwm': 85.0,
+                'acceleration_factor': 0.7
+            },
+            5: {
+                'max_speed_kmh': 100.0,      # 5ª marcha = potência máxima
+                'min_pwm': 50.0,             # PWM alto para velocidade
+                'max_pwm': 100.0,            # 100% de potência disponível
+                'acceleration_factor': 1.0   # Máxima performance
             }
         }
 
@@ -665,8 +674,8 @@ class MotorManager:
         Args:
             gear (int): Marcha desejada (1-8)
         """
-        if gear < 1 or gear > 4:
-            print(f"⚠ Marcha inválida: {gear} (válido: 1-4)")
+        if gear < 1 or gear > 5:
+            print(f"⚠ Marcha inválida: {gear} (válido: 1-5)")
             return
 
         if self.transmission_mode == TransmissionMode.AUTOMATIC:
@@ -682,14 +691,14 @@ class MotorManager:
         Returns:
             bool: True se a troca foi bem-sucedida
         """
-        if self.current_gear >= 4:
+        if self.current_gear >= 5:
             return False  # Já está na marcha máxima
             
         new_gear = self.current_gear + 1
-        # Temporariamente permite troca manual
-        old_mode = self.transmission_mode
+        # Muda permanentemente para manual quando usar controles
         self.transmission_mode = TransmissionMode.MANUAL
-        
+        print(f"🔧 Modo manual ativado - transmissão automática desabilitada")
+
         self._shift_gear(new_gear)
         return True
         
@@ -704,10 +713,10 @@ class MotorManager:
             return False  # Já está na marcha mínima
             
         new_gear = self.current_gear - 1
-        # Temporariamente permite troca manual
-        old_mode = self.transmission_mode
+        # Muda permanentemente para manual quando usar controles
         self.transmission_mode = TransmissionMode.MANUAL
-        
+        print(f"🔧 Modo manual ativado - transmissão automática desabilitada")
+
         self._shift_gear(new_gear)
         return True
 
