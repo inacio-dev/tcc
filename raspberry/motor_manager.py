@@ -137,7 +137,7 @@ class MotorManager:
         lpwm_pin: int = None,
         r_en_pin: int = None,
         l_en_pin: int = None,
-        max_acceleration: float = 30.0,  # %/s
+        max_acceleration: float = 200.0,  # %/s - F1 style acceleration
         transmission_mode: TransmissionMode = TransmissionMode.AUTOMATIC,
     ):
         """
@@ -532,6 +532,9 @@ class MotorManager:
                 self.motor_direction = MotorDirection.FORWARD
 
         self.target_pwm = throttle_percent
+
+        # Debug temporário para verificar comandos
+        print(f"🚗 THROTTLE: {throttle_percent}% (atual: {self.current_pwm:.1f}%, marcha: {self.current_gear})")
 
         # Log removido daqui - será feito no main.py com todos os dados
 
