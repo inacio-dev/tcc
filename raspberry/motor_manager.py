@@ -129,7 +129,6 @@ class MotorManager:
         r_en_pin: int = None,
         l_en_pin: int = None,
         max_acceleration: float = 500.0,  # %/s - F1 style acceleration
-        transmission_mode: TransmissionMode = TransmissionMode.AUTOMATIC,
     ):
         """
         Inicializa o gerenciador do motor
@@ -149,7 +148,6 @@ class MotorManager:
 
         # Configurações
         self.max_acceleration = max_acceleration
-        self.transmission_mode = transmission_mode
 
         # Estado do motor
         self.is_initialized = False
@@ -210,7 +208,7 @@ class MotorManager:
         )
         print(f"R_EN: GPIO{self.r_en_pin} (Pin {self._gpio_to_pin(self.r_en_pin)})")
         print(f"L_EN: GPIO{self.l_en_pin} (Pin {self._gpio_to_pin(self.l_en_pin)})")
-        print(f"Transmissão: {self.transmission_mode.value.upper()} - 5 marchas")
+        print(f"Transmissão: MANUAL - 5 marchas")
 
         if not GPIO_AVAILABLE:
             print("⚠ MODO SIMULAÇÃO - Motor não conectado")
@@ -258,7 +256,7 @@ class MotorManager:
             print("✓ Sistema de motor inicializado com sucesso")
             print(f"  - Frequência PWM: {self.PWM_FREQUENCY}Hz")
             print(f"  - Marcha inicial: {self.current_gear}ª")
-            print(f"  - Modo transmissão: {self.transmission_mode.value}")
+            print(f"  - Modo transmissão: manual")
             print(f"  - Aceleração máxima: {self.max_acceleration}%/s")
 
             return True
@@ -337,9 +335,10 @@ class MotorManager:
                 # Calcula RPM do motor baseado no PWM
                 self._calculate_engine_rpm()
 
-                # Sistema de transmissão automática
-                if self.transmission_mode == TransmissionMode.AUTOMATIC:
-                    self._automatic_transmission()
+                # Sistema de transmissão automática DESABILITADO
+                # Apenas controle manual via teclas M/N
+                # if self.transmission_mode == TransmissionMode.AUTOMATIC:
+                #     self._automatic_transmission()
 
                 # Calcula velocidade das rodas
                 self._calculate_wheel_speed()
@@ -678,9 +677,7 @@ class MotorManager:
             print(f"⚠ Marcha inválida: {gear} (válido: 1-5)")
             return
 
-        if self.transmission_mode == TransmissionMode.AUTOMATIC:
-            print("⚠ Transmissão em modo automático - mudança ignorada")
-            return
+        # Modo sempre manual - permite troca a qualquer momento
 
         self._shift_gear(gear)
 
@@ -695,10 +692,7 @@ class MotorManager:
             return False  # Já está na marcha máxima
             
         new_gear = self.current_gear + 1
-        # Muda permanentemente para manual quando usar controles
-        self.transmission_mode = TransmissionMode.MANUAL
-        print(f"🔧 Modo manual ativado - transmissão automática desabilitada")
-
+        # Troca manual - sem alterar modo de transmissão
         self._shift_gear(new_gear)
         return True
         
@@ -713,24 +707,11 @@ class MotorManager:
             return False  # Já está na marcha mínima
             
         new_gear = self.current_gear - 1
-        # Muda permanentemente para manual quando usar controles
-        self.transmission_mode = TransmissionMode.MANUAL
-        print(f"🔧 Modo manual ativado - transmissão automática desabilitada")
-
+        # Troca manual - sem alterar modo de transmissão
         self._shift_gear(new_gear)
         return True
 
-    def set_transmission_mode(self, mode: TransmissionMode):
-        """
-        Altera modo de transmissão
-
-        Args:
-            mode (TransmissionMode): Novo modo
-        """
-        old_mode = self.transmission_mode
-        self.transmission_mode = mode
-
-        print(f"🔧 Transmissão alterada: {old_mode.value} → {mode.value}")
+    # Função removida - transmissão sempre manual
 
     def get_motor_status(self) -> Dict[str, Any]:
         """
@@ -750,7 +731,7 @@ class MotorManager:
             # === TRANSMISSÃO ===
             "current_gear": self.current_gear,
             "gear_ratio": self.gear_ratio,
-            "transmission_mode": self.transmission_mode.value,
+            "transmission_mode": "manual",
             "clutch_engaged": self.clutch_engaged,
             "is_shifting": self.is_shifting,
             # === CONTA-GIROS ===
@@ -829,7 +810,7 @@ class MotorManager:
                 round(self.gear_changes / (elapsed / 60), 2) if elapsed > 0 else 0
             ),
             "current_gear": self.current_gear,
-            "transmission_mode": self.transmission_mode.value,
+            "transmission_mode": "manual",
         }
 
     def cleanup(self):

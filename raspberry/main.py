@@ -78,7 +78,6 @@ class F1CarCompleteSystem:
         camera_fps: int = 30,
         sensor_rate: int = 100,
         brake_balance: float = 60.0,
-        transmission_mode: str = "automatic",
         steering_mode: str = "sport",
     ):
         """
@@ -90,7 +89,6 @@ class F1CarCompleteSystem:
             camera_fps (int): Taxa de frames da câmera
             sensor_rate (int): Taxa de amostragem dos sensores (Hz)
             brake_balance (float): Balanço de freio 0-100%
-            transmission_mode (str): Modo de transmissão
             steering_mode (str): Modo de direção
         """
         self.target_ip = target_ip  # None = usar descoberta automática
@@ -113,9 +111,7 @@ class F1CarCompleteSystem:
             "parking": SteeringMode.PARKING,
         }
 
-        self.transmission_mode = transmission_map.get(
-            transmission_mode, TransmissionMode.AUTOMATIC
-        )
+        # Transmissão sempre manual - variável removida
         self.steering_mode = steering_map.get(steering_mode, SteeringMode.SPORT)
 
         # Gerenciadores de componentes
@@ -191,7 +187,7 @@ class F1CarCompleteSystem:
         else:
             info(f"📡 Modo: Target IP fixo → {self.target_ip}:{self.target_port}", "MAIN")
             debug(f"FPS: {self.camera_fps}, Sensores: {self.sensor_rate}Hz", "MAIN")
-        debug(f"Freio: {self.brake_balance}%, Transmissão: {self.transmission_mode.value}, Direção: {self.steering_mode.value}", "MAIN")
+        debug(f"Freio: {self.brake_balance}%, Transmissão: manual, Direção: {self.steering_mode.value}", "MAIN")
 
         success_count = 0
         total_components = 7
@@ -254,7 +250,7 @@ class F1CarCompleteSystem:
         # 5. Motor e transmissão
         debug("Inicializando motor...", "MAIN")
         self.motor_mgr = MotorManager(
-            max_acceleration=25.0, transmission_mode=self.transmission_mode
+            max_acceleration=25.0
         )
         if self.motor_mgr.initialize():
             self.system_status["motor"] = "Online"
@@ -863,7 +859,6 @@ def main():
         camera_fps=args.fps,
         sensor_rate=args.sensor_rate,
         brake_balance=args.brake_balance,
-        transmission_mode=args.transmission,
         steering_mode=args.steering_mode,
     )
 
