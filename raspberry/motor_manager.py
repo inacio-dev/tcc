@@ -557,13 +557,12 @@ class MotorManager:
 
     def _calculate_intelligent_pwm(self, throttle_percent: float) -> float:
         """
-        Calcula PWM inteligente baseado na marcha atual e velocidade
+        Calcula PWM inteligente baseado nos gráficos de escalonamento e força de tração
 
-        Sistema realista:
-        - 1ª marcha: Baixa velocidade máxima, alta aceleração
-        - 2ª marcha: Velocidade média, aceleração moderada
-        - 3ª marcha: Alta velocidade, aceleração menor
-        - 4ª marcha: Velocidade máxima, aceleração mínima
+        Baseado em:
+        - Escalonamento de marchas: Faixas ótimas de velocidade por marcha
+        - Gráfico dente de serra: RPM ótimo entre 4000-6500 para cada marcha
+        - Força de tração: Marchas baixas = mais torque, marchas altas = mais velocidade
 
         Args:
             throttle_percent (float): Posição do acelerador (0-100%)
@@ -574,73 +573,89 @@ class MotorManager:
         if throttle_percent <= 0:
             return 0.0
 
-        # Configurações de cada marcha
+        # Configurações baseadas nos gráficos analisados
         gear_configs = {
             1: {
-                'max_speed_kmh': 15.0,      # Velocidade máxima da marcha
-                'min_pwm': 15.0,            # PWM mínimo para motor se mexer
-                'max_pwm': 35.0,            # PWM máximo eficiente para esta marcha
-                'acceleration_factor': 1.0   # Fator de aceleração (1.0 = rápida)
+                'optimal_speed_range': (0, 20),     # km/h - zona verde do escalonamento
+                'min_speed': 0,                     # km/h - início da faixa
+                'max_speed': 25,                    # km/h - fim da faixa útil
+                'torque_factor': 1.0,               # Máximo torque (1ª marcha)
+                'efficiency_peak': 15,              # km/h - pico de eficiência
+                'pwm_range': (15, 45),              # PWM mín-máx para esta marcha
             },
             2: {
-                'max_speed_kmh': 25.0,
-                'min_pwm': 20.0,
-                'max_pwm': 50.0,
-                'acceleration_factor': 0.9
+                'optimal_speed_range': (15, 35),    # km/h - zona verde
+                'min_speed': 10,
+                'max_speed': 45,
+                'torque_factor': 0.85,              # Menos torque que 1ª
+                'efficiency_peak': 25,
+                'pwm_range': (20, 60),
             },
             3: {
-                'max_speed_kmh': 40.0,
-                'min_pwm': 25.0,
-                'max_pwm': 65.0,
-                'acceleration_factor': 0.8
+                'optimal_speed_range': (25, 55),    # km/h - zona verde
+                'min_speed': 20,
+                'max_speed': 70,
+                'torque_factor': 0.65,              # Torque médio
+                'efficiency_peak': 40,
+                'pwm_range': (30, 75),
             },
             4: {
-                'max_speed_kmh': 60.0,
-                'min_pwm': 35.0,
-                'max_pwm': 85.0,
-                'acceleration_factor': 0.7
+                'optimal_speed_range': (40, 75),    # km/h - zona verde
+                'min_speed': 35,
+                'max_speed': 90,
+                'torque_factor': 0.45,              # Pouco torque, mais velocidade
+                'efficiency_peak': 60,
+                'pwm_range': (40, 90),
             },
             5: {
-                'max_speed_kmh': 100.0,      # 5ª marcha = potência máxima
-                'min_pwm': 50.0,             # PWM alto para velocidade
-                'max_pwm': 100.0,            # 100% de potência disponível
-                'acceleration_factor': 1.0   # Máxima performance
+                'optimal_speed_range': (60, 100),   # km/h - zona verde (máxima velocidade)
+                'min_speed': 55,
+                'max_speed': 120,
+                'torque_factor': 0.35,              # Mínimo torque, máxima velocidade
+                'efficiency_peak': 85,
+                'pwm_range': (50, 100),             # 5ª = acesso a 100% PWM
             }
         }
 
-        # Configuração da marcha atual
-        current_config = gear_configs.get(self.current_gear, gear_configs[1])
-
-        # Velocidade atual
+        config = gear_configs.get(self.current_gear, gear_configs[1])
         current_speed = self.calculated_speed_kmh
-        max_speed = current_config['max_speed_kmh']
 
-        # Calcula eficiência da marcha baseada na velocidade
-        # Marcha é mais eficiente próximo à sua velocidade ideal
-        speed_ratio = current_speed / max_speed
+        # Calcula eficiência baseada na posição na faixa ótima de velocidade
+        optimal_min, optimal_max = config['optimal_speed_range']
+        min_speed, max_speed = config['min_speed'], config['max_speed']
 
-        if speed_ratio > 1.0:
-            # Velocidade acima do ideal da marcha = baixa eficiência
-            gear_efficiency = max(0.3, 1.0 - (speed_ratio - 1.0) * 0.5)
+        if optimal_min <= current_speed <= optimal_max:
+            # Zona verde = máxima eficiência (90-100%)
+            efficiency = 0.9 + 0.1 * (1.0 - abs(current_speed - config['efficiency_peak']) /
+                                    (optimal_max - optimal_min))
+        elif min_speed <= current_speed < optimal_min:
+            # Zona amarela (baixa velocidade) = eficiência reduzida (50-90%)
+            efficiency = 0.5 + 0.4 * (current_speed - min_speed) / (optimal_min - min_speed)
+        elif optimal_max < current_speed <= max_speed:
+            # Zona amarela (alta velocidade) = eficiência reduzida (50-90%)
+            efficiency = 0.9 - 0.4 * (current_speed - optimal_max) / (max_speed - optimal_max)
         else:
-            # Velocidade dentro do range da marcha
-            gear_efficiency = min(1.0, 0.4 + speed_ratio * 0.6)
+            # Zona vermelha = baixa eficiência (30-50%)
+            if current_speed < min_speed:
+                efficiency = 0.3 + 0.2 * max(0, current_speed / min_speed)
+            else:  # current_speed > max_speed
+                efficiency = max(0.3, 0.5 - 0.2 * (current_speed - max_speed) / max_speed)
 
-        # Mapeia throttle para PWM baseado na marcha
-        min_pwm = current_config['min_pwm']
-        max_pwm = current_config['max_pwm']
-
-        # PWM base proporcional ao throttle
+        # Mapeia throttle para PWM baseado na faixa da marcha
+        min_pwm, max_pwm = config['pwm_range']
         base_pwm = min_pwm + (throttle_percent / 100.0) * (max_pwm - min_pwm)
 
-        # Aplica eficiência da marcha
-        intelligent_pwm = base_pwm * gear_efficiency * current_config['acceleration_factor']
+        # Aplica fator de torque (marchas baixas = mais força, marchas altas = menos força)
+        torque_adjusted_pwm = base_pwm * config['torque_factor']
 
-        # Garante PWM mínimo para motor se mexer
-        if intelligent_pwm > 0 and intelligent_pwm < 15.0:
-            intelligent_pwm = 15.0
+        # Aplica eficiência baseada na velocidade atual
+        final_pwm = torque_adjusted_pwm * efficiency
 
-        return min(100.0, intelligent_pwm)
+        # Garante PWM mínimo para motor funcionar
+        if final_pwm > 0 and final_pwm < 15.0:
+            final_pwm = 15.0
+
+        return min(100.0, final_pwm)
 
     def set_reverse(self, enable: bool = True):
         """
