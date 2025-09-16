@@ -249,9 +249,7 @@ class F1CarCompleteSystem:
 
         # 5. Motor e transmissão
         debug("Inicializando motor...", "MAIN")
-        self.motor_mgr = MotorManager(
-            max_acceleration=25.0
-        )
+        self.motor_mgr = MotorManager()
         if self.motor_mgr.initialize():
             self.system_status["motor"] = "Online"
             success_count += 1

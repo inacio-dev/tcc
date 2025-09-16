@@ -128,7 +128,6 @@ class MotorManager:
         lpwm_pin: int = None,
         r_en_pin: int = None,
         l_en_pin: int = None,
-        max_acceleration: float = 20.0,  # %/s - aceleração realista de carro
     ):
         """
         Inicializa o gerenciador do motor
@@ -138,16 +137,12 @@ class MotorManager:
             lpwm_pin (int): Pino PWM ré
             r_en_pin (int): Pino enable frente
             l_en_pin (int): Pino enable ré
-            max_acceleration (float): Aceleração máxima em %/s
-            transmission_mode (TransmissionMode): Modo de transmissão
         """
         self.rpwm_pin = rpwm_pin or self.RPWM_PIN
         self.lpwm_pin = lpwm_pin or self.LPWM_PIN
         self.r_en_pin = r_en_pin or self.R_EN_PIN
         self.l_en_pin = l_en_pin or self.L_EN_PIN
 
-        # Configurações
-        self.max_acceleration = max_acceleration
 
         # Estado do motor
         self.is_initialized = False
@@ -258,7 +253,7 @@ class MotorManager:
             print(f"  - Frequência PWM: {self.PWM_FREQUENCY}Hz")
             print(f"  - Marcha inicial: {self.current_gear}ª")
             print(f"  - Modo transmissão: manual")
-            print(f"  - Aceleração máxima: {self.max_acceleration}%/s")
+            print(f"  - Resposta instantânea: motor responde imediatamente")
 
             return True
 
@@ -314,29 +309,8 @@ class MotorManager:
                 current_time = time.time()
                 dt = current_time - self.last_update_time
 
-                # Controle de aceleração suave
-                pwm_diff = self.target_pwm - self.current_pwm
-                max_change = self.max_acceleration * dt
-
-                # Debug: verificar o cálculo
-                if abs(pwm_diff) > 0.1:
-                    print(f"🔧 DEBUG: max_acceleration={self.max_acceleration}, dt={dt:.3f}s, max_change_calculado={max_change:.6f}%")
-
-                # Debug temporário da thread
-                if abs(pwm_diff) > 0.1:
-                    print(f"🔧 THREAD: target={self.target_pwm}%, current={self.current_pwm:.1f}%, diff={pwm_diff:.1f}%, dt={dt:.3f}s, max_change={max_change:.1f}%")
-
-                if abs(pwm_diff) > 0.1:
-                    if pwm_diff > 0:
-                        self.current_pwm = min(
-                            self.current_pwm + max_change, self.target_pwm
-                        )
-                    else:
-                        # Desaceleração por soltar o throttle (rolamento unidirecional simula atrito)
-                        deceleration_factor = 1.5  # Desaceleração 50% mais rápida que aceleração
-                        self.current_pwm = max(
-                            self.current_pwm - max_change * deceleration_factor, self.target_pwm
-                        )
+                # Aplicação instantânea do PWM target
+                self.current_pwm = self.target_pwm
 
                 # Calcula RPM do motor baseado no PWM
                 self._calculate_engine_rpm()
@@ -839,9 +813,7 @@ if __name__ == "__main__":
     print("=== TESTE DO SISTEMA DE MOTOR ===")
 
     # Cria instância do motor
-    motor_mgr = MotorManager(
-        max_acceleration=20.0,  # 20%/s de aceleração realista
-    )
+    motor_mgr = MotorManager()
 
     # Inicializa
     if motor_mgr.initialize():
@@ -867,7 +839,7 @@ if __name__ == "__main__":
 
         # Teste 2: Transmissão manual
         print("\n2. Teste transmissão manual...")
-        motor_mgr.set_transmission_mode(TransmissionMode.MANUAL)
+        # Transmissão já é manual por padrão
         motor_mgr.set_throttle(40.0)  # 40% acelerador
 
         for gear in [1, 2, 3, 4, 3, 2, 1]:
