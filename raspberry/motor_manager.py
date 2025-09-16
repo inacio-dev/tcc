@@ -313,6 +313,7 @@ class MotorManager:
 
     def _acceleration_loop(self):
         """Loop principal de controle de aceleração e RPM"""
+        print(f"🧵 Thread loop iniciado (should_stop={self.should_stop}, is_initialized={self.is_initialized})")
         while not self.should_stop and self.is_initialized:
             try:
                 current_time = time.time()
@@ -324,7 +325,7 @@ class MotorManager:
 
                 # Debug temporário da thread
                 if abs(pwm_diff) > 0.1:
-                    print(f"🔧 THREAD: target={self.target_pwm}%, current={self.current_pwm:.1f}%, diff={pwm_diff:.1f}%, max_change={max_change:.1f}%")
+                    print(f"🔧 THREAD: target={self.target_pwm}%, current={self.current_pwm:.1f}%, diff={pwm_diff:.1f}%, dt={dt:.3f}s, max_change={max_change:.1f}%")
 
                 if abs(pwm_diff) > 0.1:
                     if pwm_diff > 0:
