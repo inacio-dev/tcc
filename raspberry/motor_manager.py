@@ -128,7 +128,7 @@ class MotorManager:
         lpwm_pin: int = None,
         r_en_pin: int = None,
         l_en_pin: int = None,
-        max_acceleration: float = 1.0,  # %/s - aceleração controlada
+        max_acceleration: float = 20.0,  # %/s - aceleração realista de carro
     ):
         """
         Inicializa o gerenciador do motor
@@ -336,9 +336,10 @@ class MotorManager:
                             self.current_pwm + max_change, self.target_pwm
                         )
                     else:
-                        # Desaceleração pode ser mais rápida (freio motor)
+                        # Desaceleração por soltar o throttle (rolamento unidirecional simula atrito)
+                        deceleration_factor = 1.5  # Desaceleração 50% mais rápida que aceleração
                         self.current_pwm = max(
-                            self.current_pwm - max_change * 2.0, self.target_pwm
+                            self.current_pwm - max_change * deceleration_factor, self.target_pwm
                         )
 
                 # Calcula RPM do motor baseado no PWM
@@ -366,26 +367,56 @@ class MotorManager:
                 time.sleep(0.1)
 
     def _calculate_engine_rpm(self):
-        """Calcula RPM do motor baseado no PWM"""
-        if self.current_pwm <= 0:
-            self.engine_rpm = (
-                self.MOTOR_IDLE_RPM
-                if self.motor_direction != MotorDirection.STOP
-                else 0
-            )
+        """Calcula RPM do motor baseado no PWM - simulação realista de carro"""
+
+        # Obter marcha lenta correspondente à marcha atual
+        gear_idle_rpm = {
+            1: 1200,   # 1ª marcha: marcha lenta baixa
+            2: 1500,   # 2ª marcha: marcha lenta média
+            3: 1800,   # 3ª marcha: marcha lenta alta
+            4: 2100,   # 4ª marcha: marcha lenta alta
+            5: 2400,   # 5ª marcha: marcha lenta máxima
+        }
+
+        idle_rpm_for_gear = gear_idle_rpm.get(self.current_gear, 1200)
+
+        if self.current_pwm < 20.0:
+            # Motor parado - não tem torque suficiente para girar (< 20%)
+            self.engine_rpm = 0
         else:
-            # RPM baseado no PWM com curva realista
-            # 0% PWM = IDLE_RPM, 100% PWM = MAX_RPM
-            rpm_range = self.MOTOR_MAX_RPM - self.MOTOR_IDLE_RPM
+            # Faixas de PWM por marcha para calcular RPM (mínimo 20% para girar)
+            gear_ranges = {
+                1: (20, 30),   # 1ª marcha: 20% a 30%
+                2: (30, 45),   # 2ª marcha: 30% a 45%
+                3: (45, 65),   # 3ª marcha: 45% a 65%
+                4: (65, 85),   # 4ª marcha: 65% a 85%
+                5: (85, 100),  # 5ª marcha: 85% a 100%
+            }
 
-            # Curva não-linear para simular característica do motor
-            normalized_pwm = self.current_pwm / 100.0
-            rpm_curve = math.pow(normalized_pwm, 0.8)  # Curva suave
+            min_pwm, max_pwm = gear_ranges.get(self.current_gear, (20, 30))
 
-            self.engine_rpm = self.MOTOR_IDLE_RPM + (rpm_range * rpm_curve)
+            # Se estiver na marcha lenta da marcha (min_pwm)
+            if abs(self.current_pwm - min_pwm) < 1.0:
+                self.engine_rpm = idle_rpm_for_gear
+            else:
+                # RPM baseado no PWM dentro da faixa da marcha
+                # min_pwm = idle_rpm, max_pwm = MAX_RPM
+                rpm_range = self.MOTOR_MAX_RPM - idle_rpm_for_gear
 
-        # Simula variação natural do motor
-        variation = math.sin(time.time() * 15) * 50  # ±50 RPM
+                # Normalizar PWM dentro da faixa da marcha
+                if max_pwm > min_pwm:
+                    normalized_pwm = (self.current_pwm - min_pwm) / (max_pwm - min_pwm)
+                    normalized_pwm = max(0.0, min(1.0, normalized_pwm))
+                else:
+                    normalized_pwm = 0.0
+
+                # Curva não-linear para simular característica do motor
+                rpm_curve = math.pow(normalized_pwm, 0.7)  # Curva realista
+
+                self.engine_rpm = idle_rpm_for_gear + (rpm_range * rpm_curve)
+
+        # Simula variação natural do motor (menor variação)
+        variation = math.sin(time.time() * 10) * 30  # ±30 RPM
         self.engine_rpm += variation
 
         # Garante limites
@@ -594,22 +625,22 @@ class MotorManager:
         Returns:
             float: PWM motor real a ser aplicado (10-100%)
         """
-        # Faixas de PWM por marcha
+        # Faixas de PWM por marcha (mínimo 20% para o motor girar)
         gear_ranges = {
-            1: (15, 25),  # 1ª marcha: 15% a 25%
-            2: (25, 40),  # 2ª marcha: 25% a 40%
-            3: (40, 60),  # 3ª marcha: 40% a 60%
-            4: (60, 80),  # 4ª marcha: 60% a 80%
-            5: (80, 100), # 5ª marcha: 80% a 100%
+            1: (20, 30),  # 1ª marcha: 20% a 30%
+            2: (30, 45),  # 2ª marcha: 30% a 45%
+            3: (45, 65),  # 3ª marcha: 45% a 65%
+            4: (65, 85),  # 4ª marcha: 65% a 85%
+            5: (85, 100), # 5ª marcha: 85% a 100%
         }
 
         # Obter faixa da marcha atual
-        min_pwm, max_pwm = gear_ranges.get(self.current_gear, (15, 25))
+        min_pwm, max_pwm = gear_ranges.get(self.current_gear, (20, 30))
 
         # Definir PWM baseado no throttle
         if throttle_percent <= 0:
-            # Throttle 0% = motor parado
-            final_pwm = 0.0
+            # Throttle 0% = marcha lenta da marcha atual (não para!)
+            final_pwm = min_pwm  # 15%, 25%, 40%, 60%, 80% conforme a marcha
         else:
             # Mapear throttle (1-100%) para faixa da marcha (min_pwm a max_pwm)
             final_pwm = min_pwm + (throttle_percent / 100.0) * (max_pwm - min_pwm)
@@ -834,7 +865,7 @@ if __name__ == "__main__":
 
     # Cria instância do motor
     motor_mgr = MotorManager(
-        max_acceleration=1.0,  # 1%/s de aceleração controlada
+        max_acceleration=20.0,  # 20%/s de aceleração realista
     )
 
     # Inicializa
