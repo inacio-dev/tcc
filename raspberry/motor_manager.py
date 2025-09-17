@@ -159,6 +159,7 @@ class MotorManager:
         self.clutch_engaged = True  # Embreagem
         self.is_shifting = False  # Em processo de troca
         self.shift_time = 0.3  # Tempo de troca em segundos
+        self.last_throttle_percent = 0.0  # CORREÇÃO: Armazena último throttle para reaplicar após troca
 
         # Conta-giros
         self.engine_rpm = 0.0  # RPM do motor
@@ -475,12 +476,29 @@ class MotorManager:
 
             print(
                 f"✓ Marcha trocada para {new_gear}ª "
-                f"(Relação: {self.gear_ratio:.1f}:1)"
+                f"(Relação: {self.gear_ratio:.1f}:1) - Instantâneo!"
             )
+
+            # CORREÇÃO: Reaplica último throttle com novo limite da marcha
+            if self.last_throttle_percent > 0:
+                self._reapply_throttle_after_shift()
 
         shift_thread = threading.Thread(target=shift_process)
         shift_thread.daemon = True
         shift_thread.start()
+
+    def _reapply_throttle_after_shift(self):
+        """
+        CORREÇÃO: Reaplica último throttle após troca de marcha
+        Recalcula PWM com novo limite da marcha atual
+        """
+        # Recalcula PWM com nova marcha
+        intelligent_pwm = self._calculate_intelligent_pwm(self.last_throttle_percent)
+        self.target_pwm = intelligent_pwm
+
+        print(f"🔄 THROTTLE reaplicado: {self.last_throttle_percent}% → PWM: {intelligent_pwm:.1f}% (nova marcha: {self.current_gear}ª)")
+
+        # Log removido daqui - será feito no main.py com todos os dados
 
     def _apply_motor_pwm(self):
         """Aplica PWM ao motor via ponte H"""
@@ -537,6 +555,9 @@ class MotorManager:
 
         # Garante range válido
         throttle_percent = max(0.0, min(100.0, throttle_percent))
+
+        # CORREÇÃO: Salva último throttle para reaplicar após troca de marcha
+        self.last_throttle_percent = throttle_percent
 
         # Define direção baseada no throttle
         if throttle_percent > 0:
