@@ -243,9 +243,9 @@ class F1CarCompleteSystem:
         if self.brake_mgr.initialize():
             self.system_status["brakes"] = "Online"
             success_count += 1
-            debug("Freios inicializados", "MAIN")
+            info("✅ Freios inicializados - GPIO4 (frontal) e GPIO17 (traseiro)", "MAIN")
         else:
-            warn("Freios não inicializados", "MAIN")
+            error("❌ Freios não inicializados - Verifique conexões dos servos", "MAIN")
 
         # 5. Motor e transmissão
         debug("Inicializando motor...", "MAIN")
@@ -268,9 +268,9 @@ class F1CarCompleteSystem:
         if self.steering_mgr.initialize():
             self.system_status["steering"] = "Online"
             success_count += 1
-            debug("Direção inicializada", "MAIN")
+            info("✅ Direção inicializada - GPIO24 servo MG996R", "MAIN")
         else:
-            warn("Direção não inicializada", "MAIN")
+            error("❌ Direção não inicializada - Verifique conexão servo GPIO24", "MAIN")
 
         # 7. Sensor de temperatura DS18B20
         debug("Inicializando sensor de temperatura DS18B20...", "MAIN")
@@ -676,7 +676,7 @@ class F1CarCompleteSystem:
                         force = float(force_str)
                         if self.brake_mgr:
                             self.brake_mgr.apply_brake(force)
-                            debug(f"Freio aplicado: {force:.1f}% por {client_ip}", "COMMAND")
+                            info(f"✅ Freio aplicado: {force:.1f}%", "COMMAND")
                         else:
                             warn("Sistema de freios não disponível", "COMMAND")
                     except ValueError:
@@ -704,7 +704,7 @@ class F1CarCompleteSystem:
                         if self.steering_mgr:
                             # Usa método correto: set_steering_input (não set_steering_angle)
                             self.steering_mgr.set_steering_input(steering_input)
-                            debug(f"Direção: {steering_input:.1f}% por {client_ip}", "COMMAND")
+                            info(f"✅ Direção: {steering_input:.1f}%", "COMMAND")
                         else:
                             warn("Sistema de direção não disponível", "COMMAND")
                     except ValueError:

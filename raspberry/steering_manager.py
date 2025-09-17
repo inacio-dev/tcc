@@ -41,11 +41,11 @@ from enum import Enum
 
 try:
     import RPi.GPIO as GPIO
-
     GPIO_AVAILABLE = True
 except ImportError:
-    print("⚠ RPi.GPIO não disponível - usando simulação")
+    print("❌ RPi.GPIO não disponível - hardware GPIO obrigatório")
     GPIO_AVAILABLE = False
+    exit(1)  # Para execução se GPIO não disponível
 
 
 class SteeringMode(Enum):
@@ -164,11 +164,7 @@ class SteeringManager:
             f"Geometria Ackermann: {'Ativada' if self.ackermann_enabled else 'Desativada'}"
         )
 
-        if not GPIO_AVAILABLE:
-            print("⚠ MODO SIMULAÇÃO - Servo de direção não conectado")
-            self.is_initialized = True
-            self._start_movement_thread()
-            return True
+        # GPIO sempre disponível - sem modo simulação
 
         try:
             # Configura GPIO
@@ -301,7 +297,7 @@ class SteeringManager:
                     calibrated_angle = self.servo_angle + self.calibration_offset
 
                     # Aplica movimento ao servo (apenas se GPIO disponível)
-                    if GPIO_AVAILABLE and self.steering_pwm:
+                    if self.steering_pwm:
                         duty = self._angle_to_duty_cycle(calibrated_angle)
                         self.steering_pwm.ChangeDutyCycle(duty)
 
@@ -323,6 +319,8 @@ class SteeringManager:
         if not self.is_initialized:
             print("⚠ Sistema de direção não inicializado")
             return
+
+        print(f"🏎️ DIREÇÃO: {steering_input:.1f}% recebido")
 
         # Verifica parada de emergência
         if self.emergency_center:
@@ -568,7 +566,7 @@ class SteeringManager:
             # === HARDWARE ===
             "steering_pin": self.steering_pin,
             "pwm_frequency": self.PWM_FREQUENCY,
-            "gpio_available": GPIO_AVAILABLE,
+            "gpio_available": True,
             # === TIMESTAMP ===
             "timestamp": round(time.time(), 3),
         }
@@ -661,7 +659,7 @@ class SteeringManager:
             time.sleep(0.2)
 
             # Para PWM
-            if GPIO_AVAILABLE and self.steering_pwm:
+            if self.steering_pwm:
                 self.steering_pwm.stop()
 
                 # Cleanup GPIO

@@ -38,11 +38,11 @@ from typing import Optional
 
 try:
     import RPi.GPIO as GPIO
-
     GPIO_AVAILABLE = True
 except ImportError:
-    print("⚠ RPi.GPIO não disponível - usando simulação")
+    print("❌ RPi.GPIO não disponível - hardware GPIO obrigatório")
     GPIO_AVAILABLE = False
+    exit(1)  # Para execução se GPIO não disponível
 
 
 class BrakeManager:
@@ -140,10 +140,7 @@ class BrakeManager:
             f"Balanço de freio: {self.brake_balance:.1f}% (0=dianteiro, 100=traseiro)"
         )
 
-        if not GPIO_AVAILABLE:
-            print("⚠ MODO SIMULAÇÃO - Servos de freio não conectados")
-            self.is_initialized = True
-            return True
+        # GPIO sempre disponível - sem modo simulação
 
         try:
             # Configura GPIO
@@ -286,7 +283,7 @@ class BrakeManager:
                         )
 
                 # Aplica movimento aos servos (apenas se GPIO disponível)
-                if GPIO_AVAILABLE and self.front_pwm and self.rear_pwm:
+                if self.front_pwm and self.rear_pwm:
                     front_duty = self._angle_to_duty_cycle(self.front_brake_angle)
                     rear_duty = self._angle_to_duty_cycle(self.rear_brake_angle)
 
@@ -326,6 +323,8 @@ class BrakeManager:
         if not self.is_initialized:
             print("⚠ Sistema de freios não inicializado")
             return
+
+        print(f"🛑 FREIO: {brake_input:.1f}% recebido")
 
         # Garante que o input está no range válido
         brake_input = max(0.0, min(100.0, brake_input))
@@ -506,7 +505,7 @@ class BrakeManager:
             "front_pin": self.front_pin,
             "rear_pin": self.rear_pin,
             "pwm_frequency": self.PWM_FREQUENCY,
-            "gpio_available": GPIO_AVAILABLE,
+            "gpio_available": True,
             # === TIMESTAMP ===
             "timestamp": round(time.time(), 3),
         }
@@ -549,7 +548,7 @@ class BrakeManager:
             time.sleep(0.2)
 
             # Para PWM
-            if GPIO_AVAILABLE:
+            # Sempre limpa GPIO
                 if self.front_pwm:
                     self.front_pwm.stop()
                 if self.rear_pwm:
