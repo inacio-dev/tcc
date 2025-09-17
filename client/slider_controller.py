@@ -249,10 +249,11 @@ class SliderController:
             return
 
         self.is_active = True
-        self.send_thread = threading.Thread(target=self._send_loop, daemon=True)
-        self.send_thread.start()
+        # DESABILITADO: Loop próprio porque agora usa sistema de fusão
+        # self.send_thread = threading.Thread(target=self._send_loop, daemon=True)
+        # self.send_thread.start()
 
-        self._log("INFO", "Controlador de sliders iniciado")
+        self._log("INFO", "Controlador de sliders iniciado (modo fusão)")
 
     def stop(self):
         """Para o controlador de sliders"""

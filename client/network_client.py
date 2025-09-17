@@ -108,7 +108,7 @@ class NetworkClient:
         self.control_lock = threading.Lock()  # Apenas para o estado, não para envio
         self.pending_instant_commands = []  # GEAR_UP, GEAR_DOWN
         self.last_control_send = 0.0
-        self.control_send_rate = 0.02  # 50Hz = 20ms
+        self.control_send_rate = 0.05  # 20Hz = 50ms (reduzido para melhor performance)
 
     def _log(self, level, message):
         """Envia mensagem para fila de log"""
@@ -290,6 +290,9 @@ class NetworkClient:
             # Monta comando final
             if control_parts:
                 fused_command = f"CONTROL_STATE:{';'.join(control_parts)}"
+                # Debug para verificar comandos sendo enviados
+                if any('THROTTLE:0' in part for part in control_parts):
+                    self._log("INFO", f"🛑 ENVIANDO THROTTLE ZERO: {fused_command}")
                 return self.send_command_to_rpi(fused_command)
 
             return True
@@ -308,14 +311,14 @@ class NetworkClient:
                         self._send_fused_controls()
                         self.last_control_send = current_time
 
-                    time.sleep(0.005)  # 5ms sleep para 200Hz
+                    time.sleep(0.025)  # 25ms sleep para 40Hz
                 except Exception as e:
                     self._log("ERROR", f"Erro no control sender: {e}")
                     time.sleep(0.1)
 
         control_thread = threading.Thread(target=control_sender_loop, daemon=True)
         control_thread.start()
-        self._log("INFO", "Control sender iniciado (200Hz)")
+        self._log("INFO", "Control sender iniciado (20Hz otimizado)")
 
     def ping_raspberry_pi(self) -> bool:
         """Envia ping para o Raspberry Pi"""

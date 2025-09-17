@@ -223,10 +223,11 @@ class KeyboardController:
             return
             
         self.is_active = True
-        self.command_thread = threading.Thread(target=self._command_loop, daemon=True)
-        self.command_thread.start()
-        
-        self._log("INFO", "Controlador de teclado iniciado")
+        # DESABILITADO: Loop próprio porque agora usa sistema de fusão
+        # self.command_thread = threading.Thread(target=self._command_loop, daemon=True)
+        # self.command_thread.start()
+
+        self._log("INFO", "Controlador de teclado iniciado (modo fusão)")
         self._log("INFO", "Use as setas direcionais ou WASD para controlar")
         
     def stop(self):
