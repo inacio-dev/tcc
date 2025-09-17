@@ -587,14 +587,14 @@ class MotorManager:
 
     def _calculate_intelligent_pwm(self, throttle_percent: float) -> float:
         """
-        Calcula PWM do motor baseado em faixas de 20% por marcha
+        Calcula PWM do motor baseado em limites máximos por marcha
 
-        Sistema de faixas por marcha (20% cada):
-        - 1ª marcha: 0-20% PWM (arranque e baixa velocidade)
-        - 2ª marcha: 20-40% PWM
-        - 3ª marcha: 40-60% PWM
-        - 4ª marcha: 60-80% PWM
-        - 5ª marcha: 80-100% PWM (velocidade máxima)
+        Sistema de limites por marcha (sempre começando do 0%):
+        - 1ª marcha: 0-20% PWM (throttle 0%=0%, throttle 100%=20%)
+        - 2ª marcha: 0-40% PWM (throttle 0%=0%, throttle 100%=40%)
+        - 3ª marcha: 0-60% PWM (throttle 0%=0%, throttle 100%=60%)
+        - 4ª marcha: 0-80% PWM (throttle 0%=0%, throttle 100%=80%)
+        - 5ª marcha: 0-100% PWM (throttle 0%=0%, throttle 100%=100%)
 
         Args:
             throttle_percent (float): Posição do acelerador (0-100%)
@@ -602,21 +602,20 @@ class MotorManager:
         Returns:
             float: PWM motor real a ser aplicado (0-100%)
         """
-        # Faixas de PWM por marcha (20% cada marcha)
-        gear_ranges = {
-            1: (0, 20),    # 1ª marcha: 0% a 20% PWM
-            2: (20, 40),   # 2ª marcha: 20% a 40% PWM
-            3: (40, 60),   # 3ª marcha: 40% a 60% PWM
-            4: (60, 80),   # 4ª marcha: 60% a 80% PWM
-            5: (80, 100),  # 5ª marcha: 80% a 100% PWM
+        # Limites máximos por marcha (sempre começando do 0%)
+        gear_max_limits = {
+            1: 20,    # 1ª marcha: máximo 20% PWM
+            2: 40,    # 2ª marcha: máximo 40% PWM
+            3: 60,    # 3ª marcha: máximo 60% PWM
+            4: 80,    # 4ª marcha: máximo 80% PWM
+            5: 100,   # 5ª marcha: máximo 100% PWM
         }
 
-        # Obter faixa da marcha atual
-        min_pwm, max_pwm = gear_ranges.get(self.current_gear, (0, 20))
+        # Obter limite máximo da marcha atual
+        max_pwm = gear_max_limits.get(self.current_gear, 20)
 
-        # Mapeia throttle (0-100%) para a faixa da marcha
-        pwm_range = max_pwm - min_pwm
-        final_pwm = min_pwm + (throttle_percent / 100.0) * pwm_range
+        # Mapeia throttle (0-100%) para 0% até o limite da marcha
+        final_pwm = (throttle_percent / 100.0) * max_pwm
 
         return final_pwm
 
