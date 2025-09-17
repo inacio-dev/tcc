@@ -663,57 +663,57 @@ class MotorManager:
             if 0 <= current_pwm <= 20:
                 return "IDEAL", 1.0     # 0-20%: Alta eficiência
             elif 20 < current_pwm <= 30:
-                return "SUBOPTIMAL", 0.25  # 20-30%: Média eficiência
+                return "SUBOPTIMAL", 0.1  # 20-30%: Média eficiência (10x mais lento)
             else:  # 30-40%
-                return "POOR", 0.05     # 30-40%: Baixa eficiência (limitador)
+                return "POOR", 0.04     # 30-40%: Baixa eficiência (25x mais lento)
 
         elif self.current_gear == 2:
             # 2ª MARCHA (limitador: 60%)
             if 20 <= current_pwm <= 40:
                 return "IDEAL", 1.0     # 20-40%: Alta eficiência
             elif (10 <= current_pwm < 20) or (40 < current_pwm <= 50):
-                return "SUBOPTIMAL", 0.25  # 10-20% e 40-50%: Média eficiência
+                return "SUBOPTIMAL", 0.1  # 10-20% e 40-50%: Média eficiência (10x mais lento)
             else:  # 0-10% e 50-60%
-                return "POOR", 0.05     # Baixa eficiência (limitador)
+                return "POOR", 0.04     # Baixa eficiência (25x mais lento)
 
         elif self.current_gear == 3:
             # 3ª MARCHA (limitador: 80%)
             if 40 <= current_pwm <= 60:
                 return "IDEAL", 1.0     # 40-60%: Alta eficiência
             elif (30 <= current_pwm < 40) or (60 < current_pwm <= 70):
-                return "SUBOPTIMAL", 0.25  # 30-40% e 60-70%: Média eficiência
+                return "SUBOPTIMAL", 0.1  # 30-40% e 60-70%: Média eficiência (10x mais lento)
             else:  # 0-30% e 70-80%
-                return "POOR", 0.05     # Baixa eficiência (limitador)
+                return "POOR", 0.04     # Baixa eficiência (25x mais lento)
 
         elif self.current_gear == 4:
             # 4ª MARCHA (limitador: 100%)
             if 60 <= current_pwm <= 80:
                 return "IDEAL", 1.0     # 60-80%: Alta eficiência
             elif (50 <= current_pwm < 60) or (80 < current_pwm <= 90):
-                return "SUBOPTIMAL", 0.25  # 50-60% e 80-90%: Média eficiência
+                return "SUBOPTIMAL", 0.1  # 50-60% e 80-90%: Média eficiência (10x mais lento)
             else:  # 0-50% e 90-100%
-                return "POOR", 0.05     # Baixa eficiência
+                return "POOR", 0.04     # Baixa eficiência (25x mais lento)
 
         elif self.current_gear == 5:
             # 5ª MARCHA (limitador: 100% - sem limite real)
             if 80 <= current_pwm <= 100:
                 return "IDEAL", 1.0     # 80-100%: Alta eficiência
             elif 70 <= current_pwm < 80:
-                return "SUBOPTIMAL", 0.25  # 70-80%: Média eficiência
+                return "SUBOPTIMAL", 0.1  # 70-80%: Média eficiência (10x mais lento)
             else:  # 0-70%
-                return "POOR", 0.05     # Baixa eficiência
+                return "POOR", 0.04     # Baixa eficiência (25x mais lento)
 
         # Fallback para marchas não definidas
-        return "POOR", 0.05
+        return "POOR", 0.04
 
     def _apply_f1_zone_acceleration(self, dt: float):
         """
         Aplica aceleração F1 baseada em zonas de eficiência
 
-        Sistema F1 (MAIS LENTO):
+        Sistema F1 (MUITO EXIGENTE):
         - Zona IDEAL: 5s para atingir target (aceleração normal)
-        - Zona SUBOPTIMAL: 20s para atingir target (4x mais lento)
-        - Zona POOR: 100s para atingir target (20x mais lento)
+        - Zona SUBOPTIMAL: 50s para atingir target (10x mais lento)
+        - Zona POOR: 125s para atingir target (25x mais lento)
 
         Args:
             dt (float): Delta time desde última atualização
