@@ -547,15 +547,14 @@ class BrakeManager:
             self.release_brakes()
             time.sleep(0.2)
 
-            # Para PWM
-            # Sempre limpa GPIO
-                if self.front_pwm:
-                    self.front_pwm.stop()
-                if self.rear_pwm:
-                    self.rear_pwm.stop()
+            # Para PWM e limpa GPIO
+            if self.front_pwm:
+                self.front_pwm.stop()
+            if self.rear_pwm:
+                self.rear_pwm.stop()
 
-                # Cleanup GPIO
-                GPIO.cleanup([self.front_pin, self.rear_pin])
+            # Cleanup GPIO
+            GPIO.cleanup([self.front_pin, self.rear_pin])
 
             self.is_initialized = False
             print("✓ Sistema de freios finalizado")
