@@ -97,7 +97,7 @@ class NetworkClient:
         self.packet_errors = 0
         self.last_error_log = 0
 
-        # SISTEMA DE FUSÃO DE COMANDOS (sem locks)
+        # SISTEMA EVENT-DRIVEN (envia apenas quando há mudanças)
         # Mantém estado atual de todos os controles
         self.current_controls = {
             'THROTTLE': 0.0,
@@ -105,10 +105,15 @@ class NetworkClient:
             'STEERING': 0.0,
             'BRAKE_BALANCE': 60.0
         }
+        self.last_sent_controls = {  # Último estado enviado
+            'THROTTLE': -999.0,  # Valor impossível para forçar primeiro envio
+            'BRAKE': -999.0,
+            'STEERING': -999.0,
+            'BRAKE_BALANCE': -999.0
+        }
         self.control_lock = threading.Lock()  # Apenas para o estado, não para envio
         self.pending_instant_commands = []  # GEAR_UP, GEAR_DOWN
-        self.last_control_send = 0.0
-        self.control_send_rate = 0.05  # 20Hz = 50ms (reduzido para melhor performance)
+        self.min_change_threshold = 1.0  # Mínimo 1% de mudança para enviar
 
     def _log(self, level, message):
         """Envia mensagem para fila de log"""
@@ -244,7 +249,7 @@ class NetworkClient:
 
     def send_control_command(self, control_type: str, value: float) -> bool:
         """
-        Atualiza estado do controle (FUSÃO DE COMANDOS)
+        Atualiza estado do controle (EVENT-DRIVEN - envia apenas se mudou)
 
         Args:
             control_type: Tipo do controle (THROTTLE, BRAKE, STEERING, GEAR_UP, GEAR_DOWN)
@@ -253,32 +258,44 @@ class NetworkClient:
         Returns:
             bool: True se atualizado com sucesso
         """
-        # SISTEMA DE FUSÃO: atualiza estado ao invés de enviar imediatamente
         with self.control_lock:
             if control_type in ['GEAR_UP', 'GEAR_DOWN']:
-                # Comandos instantâneos - adiciona à fila
+                # Comandos instantâneos - envia imediatamente
                 self.pending_instant_commands.append(control_type)
-                self._force_send_controls()  # Envia imediatamente
+                return self._send_controls_now()  # Envia imediatamente
             else:
-                # Comandos contínuos - atualiza estado
-                self.current_controls[control_type] = value
+                # Comandos contínuos - verifica se mudou significativamente
+                if control_type in self.current_controls:
+                    old_value = self.current_controls[control_type]
+                    self.current_controls[control_type] = value
+
+                    # Só envia se mudou mais que o threshold
+                    # Exceção: throttle zero sempre envia (importante para parar)
+                    if abs(value - old_value) >= self.min_change_threshold or (control_type == 'THROTTLE' and value == 0.0):
+                        return self._send_controls_now()
 
         return True
 
-    def _force_send_controls(self):
-        """Força envio imediato do estado atual (para gear changes)"""
-        self._send_fused_controls()
+    def _send_controls_now(self):
+        """Envia controles imediatamente (apenas quando há mudanças)"""
+        return self._send_changed_controls()
 
-    def _send_fused_controls(self):
-        """Envia comando fusionado com todo o estado atual"""
+    def _send_changed_controls(self):
+        """Envia comando fusionado apenas com controles que mudaram"""
         try:
             with self.control_lock:
-                # Monta comando fusionado
+                # Monta comando apenas com mudanças significativas
                 control_parts = []
 
-                # Adiciona controles contínuos
-                for control_type, value in self.current_controls.items():
-                    control_parts.append(f"{control_type}:{value}")
+                # Verifica controles contínuos que mudaram
+                for control_type, current_value in self.current_controls.items():
+                    last_sent = self.last_sent_controls.get(control_type, -999.0)
+
+                    # Inclui se mudou significativamente ou é primeira vez
+                    if abs(current_value - last_sent) >= self.min_change_threshold or last_sent == -999.0:
+                        control_parts.append(f"{control_type}:{current_value}")
+                        # Atualiza último valor enviado
+                        self.last_sent_controls[control_type] = current_value
 
                 # Adiciona comandos instantâneos pendentes
                 for instant_cmd in self.pending_instant_commands:
@@ -287,38 +304,27 @@ class NetworkClient:
                 # Limpa comandos instantâneos após usar
                 self.pending_instant_commands.clear()
 
-            # Monta comando final
+            # Envia apenas se há algo para enviar
             if control_parts:
                 fused_command = f"CONTROL_STATE:{';'.join(control_parts)}"
-                # Debug para verificar comandos sendo enviados
+
+                # Debug para verificar comandos importantes
                 if any('THROTTLE:0' in part for part in control_parts):
                     self._log("INFO", f"🛑 ENVIANDO THROTTLE ZERO: {fused_command}")
+                elif any('THROTTLE' in part for part in control_parts):
+                    self._log("DEBUG", f"⚡ Mudança de throttle: {fused_command}")
+
                 return self.send_command_to_rpi(fused_command)
 
             return True
 
         except Exception as e:
-            self._log("ERROR", f"Erro ao enviar controles fusionados: {e}")
+            self._log("ERROR", f"Erro ao enviar controles: {e}")
             return False
 
     def start_control_sender(self):
-        """Inicia thread para envio periódico de controles"""
-        def control_sender_loop():
-            while self.is_running:
-                try:
-                    current_time = time.time()
-                    if current_time - self.last_control_send >= self.control_send_rate:
-                        self._send_fused_controls()
-                        self.last_control_send = current_time
-
-                    time.sleep(0.025)  # 25ms sleep para 40Hz
-                except Exception as e:
-                    self._log("ERROR", f"Erro no control sender: {e}")
-                    time.sleep(0.1)
-
-        control_thread = threading.Thread(target=control_sender_loop, daemon=True)
-        control_thread.start()
-        self._log("INFO", "Control sender iniciado (20Hz otimizado)")
+        """REMOVIDO: Sistema agora é event-driven (envia apenas quando há mudanças)"""
+        self._log("INFO", "Sistema de comandos EVENT-DRIVEN ativado (envia apenas mudanças)")
 
     def ping_raspberry_pi(self) -> bool:
         """Envia ping para o Raspberry Pi"""
