@@ -486,6 +486,7 @@ class MotorManager:
             )
 
             # CORREÇÃO: Reaplica último throttle com novo limite da marcha
+            # Isso também força recálculo do conta-giros (zona de eficiência)
             if self.last_throttle_percent > 0:
                 self._reapply_throttle_after_shift()
 

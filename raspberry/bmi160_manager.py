@@ -148,7 +148,7 @@ class BMI160Manager:
         self.i2c_bus = None
         self.bmi160 = None
         self.is_initialized = False
-        self.use_real_sensor = False  # Flag para controlar simulação vs real
+        # Sempre usa hardware real - sem modo simulação
 
         # Offsets de calibração
         self.accel_x_offset = 0.0
@@ -233,13 +233,13 @@ class BMI160Manager:
     def _write_register(self, reg, value):
         """Escreve valor em registrador via I2C"""
         try:
-            if self.use_real_sensor and self.i2c_bus:
+            if self.i2c_bus:
                 # I2C real com delay obrigatório
                 self.i2c_bus.write_byte_data(self.i2c_address, reg, value)
                 time.sleep(0.005)  # 5ms delay otimizado
             else:
-                # SIMULAÇÃO - não faz nada
-                pass
+                print("⚠ I2C bus não inicializado")
+                return False
 
         except Exception as e:
             print(f"⚠ Erro ao escrever registrador 0x{reg:02X}: {e}")
@@ -249,34 +249,69 @@ class BMI160Manager:
     def _read_register(self, reg):
         """Lê valor de registrador via I2C"""
         try:
-            if self.use_real_sensor and self.i2c_bus:
+            if self.i2c_bus:
                 # I2C real com delay obrigatório
                 time.sleep(0.005)  # 5ms delay otimizado
                 return self.i2c_bus.read_byte_data(self.i2c_address, reg)
             else:
-                # SIMULAÇÃO - apenas para CHIP_ID
-                if reg == self.REG_CHIP_ID:
-                    return self.CHIP_ID_BMI160  # Simula chip ID correto
-                else:
-                    return 0x00
+                print("⚠ I2C bus não inicializado")
+                return None
 
         except Exception as e:
             print(f"⚠ Erro ao ler registrador 0x{reg:02X}: {e}")
             return None
 
     def _read_sensor_registers(self, start_reg, num_bytes):
-        """Lê múltiplos registradores sequenciais"""
-        try:
-            if self.use_real_sensor and self.i2c_bus:
+        """Lê múltiplos registradores sequenciais com recuperação de erros"""
+        if not self.i2c_bus:
+            print("⚠ I2C bus não inicializado")
+            return None
+
+        # Tenta ler com até 3 tentativas
+        for attempt in range(3):
+            try:
                 # I2C real
                 return self.i2c_bus.read_i2c_block_data(self.i2c_address, start_reg, num_bytes)
-            else:
-                # SIMULAÇÃO - retorna zeros (sensor offline)
+
+            except OSError as e:
+                if e.errno == 5:  # Input/output error
+                    if attempt == 0:
+                        # Primeira tentativa falhou - aguarda um pouco
+                        time.sleep(0.001)  # 1ms
+                    elif attempt == 1:
+                        # Segunda tentativa falhou - aguarda mais e tenta reinicializar I2C
+                        time.sleep(0.005)  # 5ms
+                        try:
+                            # Tenta reinicializar o barramento I2C
+                            import smbus2
+                            self.i2c_bus = smbus2.SMBus(1)
+                            time.sleep(0.001)
+                        except:
+                            pass
+                    else:
+                        # Terceira tentativa falhou - reporta erro mas não trava o sistema
+                        if not hasattr(self, '_error_count'):
+                            self._error_count = 0
+                        self._error_count += 1
+
+                        # Só mostra erro a cada 50 falhas para evitar spam
+                        if self._error_count % 50 == 0:
+                            print(f"⚠ BMI160 I2C Error (erro #{self._error_count}): reg 0x{start_reg:02X}")
+
+                        # Retorna dados zero para manter o sistema funcionando
+                        return [0] * num_bytes
+                else:
+                    # Outro tipo de erro OSError
+                    print(f"⚠ Erro I2C ao ler reg 0x{start_reg:02X}: {e}")
+                    return [0] * num_bytes
+
+            except Exception as e:
+                # Outros erros
+                print(f"⚠ Erro inesperado ao ler reg 0x{start_reg:02X}: {e}")
                 return [0] * num_bytes
 
-        except Exception as e:
-            print(f"⚠ Erro ao ler {num_bytes} bytes do reg 0x{start_reg:02X}: {e}")
-            return None
+        # Não deveria chegar aqui, mas por segurança
+        return [0] * num_bytes
 
     def initialize(self):
         """
@@ -297,31 +332,28 @@ class BMI160Manager:
                 # Primeiro tenta smbus2
                 import smbus2
                 self.i2c_bus = smbus2.SMBus(1)  # I2C bus 1 no Raspberry Pi
-                self.use_real_sensor = True
-                print("✓ I2C inicializado com smbus2 - usando sensor REAL")
+                print("✓ I2C inicializado com smbus2")
             except ImportError:
                 try:
                     # Fallback para smbus (sistema)
                     import smbus
                     self.i2c_bus = smbus.SMBus(1)
-                    self.use_real_sensor = True
-                    print("✓ I2C inicializado com smbus - usando sensor REAL")
+                    print("✓ I2C inicializado com smbus")
                 except ImportError:
-                    print("⚠ Nem smbus2 nem smbus disponíveis - MODO SIMULAÇÃO")
-                    self.use_real_sensor = False
+                    print("❌ Nem smbus2 nem smbus disponíveis - hardware I2C obrigatório")
+                    return False
                 except Exception as e:
-                    print(f"⚠ Erro no smbus: {e} - MODO SIMULAÇÃO")
-                    self.use_real_sensor = False
+                    print(f"❌ Erro no smbus: {e} - hardware I2C obrigatório")
+                    return False
             except Exception as e:
                 print(f"⚠ Erro no smbus2: {e} - tentando smbus...")
                 try:
                     import smbus
                     self.i2c_bus = smbus.SMBus(1)
-                    self.use_real_sensor = True
-                    print("✓ I2C inicializado com smbus - usando sensor REAL")
+                    print("✓ I2C inicializado com smbus")
                 except Exception as e2:
-                    print(f"⚠ Erro no smbus também: {e2} - MODO SIMULAÇÃO")
-                    self.use_real_sensor = False
+                    print(f"❌ Erro no smbus também: {e2} - hardware I2C obrigatório")
+                    return False
 
             # 2. Verificar CHIP_ID (deve ser 0xD1)
             chip_id = self._read_register(self.REG_CHIP_ID)
@@ -466,12 +498,18 @@ class BMI160Manager:
             # Ler dados do acelerômetro (6 bytes a partir do 0x12)
             accel_data = self._read_sensor_registers(self.REG_ACCEL_DATA, 6)
             if accel_data is None:
-                return False
+                # Usa dados anteriores ou zeros se não houver
+                accel_data = getattr(self, '_last_accel_data', [0, 0, 0, 0, 0, 0])
+            else:
+                self._last_accel_data = accel_data
 
             # Ler dados do giroscópio (6 bytes a partir do 0x0C)
             gyro_data = self._read_sensor_registers(self.REG_GYRO_DATA, 6)
             if gyro_data is None:
-                return False
+                # Usa dados anteriores ou zeros se não houver
+                gyro_data = getattr(self, '_last_gyro_data', [0, 0, 0, 0, 0, 0])
+            else:
+                self._last_gyro_data = gyro_data
 
             # Debug: mostrar dados raw lidos do I2C
             if hasattr(self, '_debug_counter'):
@@ -485,23 +523,14 @@ class BMI160Manager:
             # CONVERSÃO CONFORME DATASHEET:
             # Dados em complemento de 2, LSB primeiro
 
-            if self.use_real_sensor:
-                # Hardware real - converte dados I2C
-                self.accel_x_raw = self._bytes_to_int16(accel_data[0], accel_data[1])
-                self.accel_y_raw = self._bytes_to_int16(accel_data[2], accel_data[3])
-                self.accel_z_raw = self._bytes_to_int16(accel_data[4], accel_data[5])
+            # Hardware real - converte dados I2C
+            self.accel_x_raw = self._bytes_to_int16(accel_data[0], accel_data[1])
+            self.accel_y_raw = self._bytes_to_int16(accel_data[2], accel_data[3])
+            self.accel_z_raw = self._bytes_to_int16(accel_data[4], accel_data[5])
 
-                self.gyro_x_raw = self._bytes_to_int16(gyro_data[0], gyro_data[1])
-                self.gyro_y_raw = self._bytes_to_int16(gyro_data[2], gyro_data[3])
-                self.gyro_z_raw = self._bytes_to_int16(gyro_data[4], gyro_data[5])
-            else:
-                # Sensor offline - dados zeros
-                self.accel_x_raw = 0
-                self.accel_y_raw = 0
-                self.accel_z_raw = 16384  # 1g em LSB (sensor em repouso)
-                self.gyro_x_raw = 0
-                self.gyro_y_raw = 0
-                self.gyro_z_raw = 0
+            self.gyro_x_raw = self._bytes_to_int16(gyro_data[0], gyro_data[1])
+            self.gyro_y_raw = self._bytes_to_int16(gyro_data[2], gyro_data[3])
+            self.gyro_z_raw = self._bytes_to_int16(gyro_data[4], gyro_data[5])
 
             # Converter para unidades físicas usando fatores de escala
             self.accel_x = (
@@ -852,6 +881,69 @@ class BMI160Manager:
 
         except Exception as e:
             print(f"⚠ Erro ao finalizar BMI160: {e}")
+
+    def check_and_recover(self):
+        """
+        Verifica saúde do sensor e tenta recuperação se necessário
+
+        Returns:
+            bool: True se sensor está funcionando ou foi recuperado
+        """
+        # Sempre verifica hardware real
+
+        try:
+            # Verifica se consegue ler o CHIP_ID
+            chip_id = self._read_sensor_register(self.REG_CHIP_ID)
+            if chip_id == self.CHIP_ID_VALUE:
+                # Sensor OK
+                if hasattr(self, '_recovery_attempts'):
+                    delattr(self, '_recovery_attempts')
+                return True
+            else:
+                # Sensor não responde - tenta recuperação
+                if not hasattr(self, '_recovery_attempts'):
+                    self._recovery_attempts = 0
+
+                self._recovery_attempts += 1
+
+                if self._recovery_attempts <= 3:
+                    print(f"🔄 Tentando recuperar BMI160 (tentativa {self._recovery_attempts}/3)")
+
+                    # Tenta reinicializar
+                    try:
+                        import smbus2
+                        self.i2c_bus = smbus2.SMBus(1)
+                        time.sleep(0.01)  # 10ms
+
+                        # Tenta re-inicializar o sensor
+                        if self._soft_reset():
+                            time.sleep(0.1)  # 100ms
+                            if self.initialize():
+                                print("✓ BMI160 recuperado com sucesso!")
+                                return True
+                    except Exception as e:
+                        print(f"⚠ Falha na recuperação: {e}")
+
+                else:
+                    # Muitas tentativas falhas - sensor falhou
+                    if self._recovery_attempts == 4:
+                        print("❌ BMI160 falhou definitivamente - sensor inoperante")
+
+                return False
+
+        except Exception as e:
+            print(f"⚠ Erro ao verificar saúde do BMI160: {e}")
+            return False
+
+    def _soft_reset(self):
+        """Executa soft reset do BMI160"""
+        try:
+            if self.i2c_bus:
+                self.i2c_bus.write_byte_data(self.i2c_address, self.REG_CMD, 0xB6)
+                return True
+        except:
+            pass
+        return False
 
     def __del__(self):
         """Destrutor - garante limpeza dos recursos"""
