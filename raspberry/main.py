@@ -653,7 +653,14 @@ class F1CarCompleteSystem:
             debug(f"Comando de {client_ip}: {command}", "COMMAND")
             
             # Processa diferentes tipos de comando
-            if command.startswith("CONTROL:"):
+            if command.startswith("CONTROL_STATE:"):
+                # NOVO: Comandos fusionados (sem bloqueios)
+                # Formato: CONTROL_STATE:THROTTLE:50;STEERING:-100;GEAR_UP:1
+                control_state = command[14:]  # Remove "CONTROL_STATE:"
+                self._process_fused_controls(client_ip, control_state)
+
+            elif command.startswith("CONTROL:"):
+                # COMPATIBILIDADE: Comandos individuais (antigo formato)
                 control_cmd = command[8:]  # Remove "CONTROL:"
                 
                 if control_cmd.startswith("BRAKE_BALANCE:"):
@@ -740,6 +747,80 @@ class F1CarCompleteSystem:
                 
         except Exception as e:
             error(f"Erro ao processar comando '{command}' de {client_ip}: {e}", "COMMAND")
+
+    def _process_fused_controls(self, client_ip: str, control_state: str):
+        """
+        Processa comandos fusionados (ALTA PERFORMANCE - SEM BLOQUEIOS)
+
+        Args:
+            client_ip (str): IP do cliente
+            control_state (str): Estado fusionado "THROTTLE:50;STEERING:-100;GEAR_UP:1"
+        """
+        try:
+            # Parse dos controles
+            controls = {}
+            instant_commands = []
+
+            for control_part in control_state.split(';'):
+                if ':' in control_part:
+                    control_type, value_str = control_part.split(':', 1)
+
+                    if control_type in ['GEAR_UP', 'GEAR_DOWN']:
+                        # Comandos instantâneos
+                        instant_commands.append(control_type)
+                    else:
+                        # Controles contínuos
+                        try:
+                            controls[control_type] = float(value_str)
+                        except ValueError:
+                            warn(f"Valor inválido para {control_type}: {value_str}", "FUSED")
+
+            # APLICA TODOS OS CONTROLES EM PARALELO (sem bloqueios)
+
+            # 1. Throttle
+            if 'THROTTLE' in controls and self.motor_mgr:
+                self.motor_mgr.set_throttle(controls['THROTTLE'])
+
+            # 2. Brake
+            if 'BRAKE' in controls and self.brake_mgr:
+                self.brake_mgr.apply_brake(controls['BRAKE'])
+
+            # 3. Steering
+            if 'STEERING' in controls and self.steering_mgr:
+                self.steering_mgr.set_steering_input(controls['STEERING'])
+
+            # 4. Brake Balance
+            if 'BRAKE_BALANCE' in controls and self.brake_mgr:
+                self.brake_mgr.set_brake_balance(controls['BRAKE_BALANCE'])
+
+            # 5. Comandos instantâneos (marchas)
+            for instant_cmd in instant_commands:
+                if instant_cmd == 'GEAR_UP' and self.motor_mgr:
+                    success = self.motor_mgr.shift_gear_up()
+                    if success:
+                        info(f"⬆️ Marcha subida por {client_ip} → {self.motor_mgr.current_gear}ª", "FUSED")
+                elif instant_cmd == 'GEAR_DOWN' and self.motor_mgr:
+                    success = self.motor_mgr.shift_gear_down()
+                    if success:
+                        info(f"⬇️ Marcha descida por {client_ip} → {self.motor_mgr.current_gear}ª", "FUSED")
+
+            # Log apenas se houve mudanças significativas
+            if controls or instant_commands:
+                parts = []
+                if 'THROTTLE' in controls:
+                    parts.append(f"T:{controls['THROTTLE']:.0f}%")
+                if 'BRAKE' in controls:
+                    parts.append(f"B:{controls['BRAKE']:.0f}%")
+                if 'STEERING' in controls:
+                    parts.append(f"S:{controls['STEERING']:.0f}%")
+                if instant_commands:
+                    parts.extend(instant_commands)
+
+                if parts:
+                    debug(f"🎮 Controles fusionados: {' '.join(parts)}", "FUSED")
+
+        except Exception as e:
+            error(f"Erro ao processar controles fusionados de {client_ip}: {e}", "FUSED")
 
 
 def create_argument_parser():

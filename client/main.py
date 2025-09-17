@@ -193,6 +193,11 @@ class F1ClientApplication:
             self.start_network_thread()
             time.sleep(0.1)  # Pequena pausa
 
+            # NOVO: Inicia control sender para comandos fusionados
+            if self.network_client:
+                self.network_client.start_control_sender()
+                time.sleep(0.1)
+
             self.start_video_thread()
             time.sleep(0.1)  # Pequena pausa
 

@@ -25,6 +25,7 @@ import socket
 import struct
 import json
 import time
+import threading
 import numpy as np
 from typing import Optional, Dict, Any
 
@@ -95,6 +96,19 @@ class NetworkClient:
         self.decode_errors = 0
         self.packet_errors = 0
         self.last_error_log = 0
+
+        # SISTEMA DE FUSÃO DE COMANDOS (sem locks)
+        # Mantém estado atual de todos os controles
+        self.current_controls = {
+            'THROTTLE': 0.0,
+            'BRAKE': 0.0,
+            'STEERING': 0.0,
+            'BRAKE_BALANCE': 60.0
+        }
+        self.control_lock = threading.Lock()  # Apenas para o estado, não para envio
+        self.pending_instant_commands = []  # GEAR_UP, GEAR_DOWN
+        self.last_control_send = 0.0
+        self.control_send_rate = 0.02  # 50Hz = 20ms
 
     def _log(self, level, message):
         """Envia mensagem para fila de log"""
@@ -208,17 +222,18 @@ class NetworkClient:
     def send_command_to_rpi(self, command: str) -> bool:
         """
         Envia comando para o Raspberry Pi descoberto
-        
+
         Args:
             command: Comando a ser enviado
-            
+
         Returns:
             bool: True se enviado com sucesso
         """
         if not self.raspberry_pi_ip:
             self._log("WARN", "Raspberry Pi não descoberto ainda")
             return False
-            
+
+        # SEM LOCKS - Envio direto para máxima performance
         try:
             command_bytes = command.encode('utf-8')
             self.send_socket.sendto(command_bytes, (self.raspberry_pi_ip, self.command_port))
@@ -229,18 +244,79 @@ class NetworkClient:
 
     def send_control_command(self, control_type: str, value: float) -> bool:
         """
-        Envia comando de controle para o Raspberry Pi
-        
+        Atualiza estado do controle (FUSÃO DE COMANDOS)
+
         Args:
-            control_type: Tipo do controle (THROTTLE, BRAKE, STEERING)
+            control_type: Tipo do controle (THROTTLE, BRAKE, STEERING, GEAR_UP, GEAR_DOWN)
             value: Valor do controle
-            
+
         Returns:
-            bool: True se enviado com sucesso
+            bool: True se atualizado com sucesso
         """
-        command = f"CONTROL:{control_type}:{value}"
-        return self.send_command_to_rpi(command)
-        
+        # SISTEMA DE FUSÃO: atualiza estado ao invés de enviar imediatamente
+        with self.control_lock:
+            if control_type in ['GEAR_UP', 'GEAR_DOWN']:
+                # Comandos instantâneos - adiciona à fila
+                self.pending_instant_commands.append(control_type)
+                self._force_send_controls()  # Envia imediatamente
+            else:
+                # Comandos contínuos - atualiza estado
+                self.current_controls[control_type] = value
+
+        return True
+
+    def _force_send_controls(self):
+        """Força envio imediato do estado atual (para gear changes)"""
+        self._send_fused_controls()
+
+    def _send_fused_controls(self):
+        """Envia comando fusionado com todo o estado atual"""
+        try:
+            with self.control_lock:
+                # Monta comando fusionado
+                control_parts = []
+
+                # Adiciona controles contínuos
+                for control_type, value in self.current_controls.items():
+                    control_parts.append(f"{control_type}:{value}")
+
+                # Adiciona comandos instantâneos pendentes
+                for instant_cmd in self.pending_instant_commands:
+                    control_parts.append(f"{instant_cmd}:1")
+
+                # Limpa comandos instantâneos após usar
+                self.pending_instant_commands.clear()
+
+            # Monta comando final
+            if control_parts:
+                fused_command = f"CONTROL_STATE:{';'.join(control_parts)}"
+                return self.send_command_to_rpi(fused_command)
+
+            return True
+
+        except Exception as e:
+            self._log("ERROR", f"Erro ao enviar controles fusionados: {e}")
+            return False
+
+    def start_control_sender(self):
+        """Inicia thread para envio periódico de controles"""
+        def control_sender_loop():
+            while self.is_running:
+                try:
+                    current_time = time.time()
+                    if current_time - self.last_control_send >= self.control_send_rate:
+                        self._send_fused_controls()
+                        self.last_control_send = current_time
+
+                    time.sleep(0.005)  # 5ms sleep para 200Hz
+                except Exception as e:
+                    self._log("ERROR", f"Erro no control sender: {e}")
+                    time.sleep(0.1)
+
+        control_thread = threading.Thread(target=control_sender_loop, daemon=True)
+        control_thread.start()
+        self._log("INFO", "Control sender iniciado (200Hz)")
+
     def ping_raspberry_pi(self) -> bool:
         """Envia ping para o Raspberry Pi"""
         import time
