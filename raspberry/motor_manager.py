@@ -161,6 +161,12 @@ class MotorManager:
         self.shift_time = 0.3  # Tempo de troca em segundos
         self.last_throttle_percent = 0.0  # CORREÇÃO: Armazena último throttle para reaplicar após troca
 
+        # SISTEMA F1 DE ZONAS DE EFICIÊNCIA
+        self.efficiency_zone = "IDEAL"  # IDEAL, SUBOPTIMAL, POOR
+        self.zone_acceleration_rate = 1.0  # Multiplicador de aceleração baseado na zona
+        self.base_acceleration_time = 2.0  # Tempo base para atingir zona ideal (2s)
+        self.last_zone_check = time.time()
+
         # Conta-giros
         self.engine_rpm = 0.0  # RPM do motor
         self.wheel_rpm = 0.0  # RPM das rodas
@@ -310,8 +316,8 @@ class MotorManager:
                 current_time = time.time()
                 dt = current_time - self.last_update_time
 
-                # Aplicação instantânea do PWM target
-                self.current_pwm = self.target_pwm
+                # SISTEMA F1: Aceleração baseada em zonas de eficiência
+                self._apply_f1_zone_acceleration(dt)
 
                 # Calcula RPM do motor baseado no PWM
                 self._calculate_engine_rpm()
@@ -619,6 +625,91 @@ class MotorManager:
 
         return final_pwm
 
+    def _calculate_efficiency_zone(self, current_pwm: float) -> tuple:
+        """
+        Calcula zona de eficiência F1 baseada no PWM atual e marcha
+
+        Sistema de zonas por marcha:
+        - IDEAL: Zona de máxima eficiência (aceleração normal - 2s)
+        - SUBOPTIMAL: Zona subótima (aceleração 4x mais lenta)
+        - POOR: Zona ruim (aceleração 20x mais lenta)
+
+        Args:
+            current_pwm (float): PWM atual do motor
+
+        Returns:
+            tuple: (zona_eficiencia, multiplicador_aceleracao)
+        """
+        # Zonas de eficiência por marcha (% PWM)
+        gear_zones = {
+            1: {"ideal": (15, 20), "suboptimal": (10, 25), "poor": (0, 30)},   # 1ª: ideal 15-20%
+            2: {"ideal": (30, 40), "suboptimal": (20, 50), "poor": (0, 60)},   # 2ª: ideal 30-40%
+            3: {"ideal": (50, 60), "suboptimal": (40, 70), "poor": (0, 80)},   # 3ª: ideal 50-60%
+            4: {"ideal": (70, 80), "suboptimal": (60, 90), "poor": (0, 100)},  # 4ª: ideal 70-80%
+            5: {"ideal": (90, 100), "suboptimal": (80, 100), "poor": (0, 100)}, # 5ª: ideal 90-100%
+        }
+
+        zones = gear_zones.get(self.current_gear, gear_zones[1])
+
+        # Verifica em qual zona estamos
+        ideal_min, ideal_max = zones["ideal"]
+        subopt_min, subopt_max = zones["suboptimal"]
+
+        if ideal_min <= current_pwm <= ideal_max:
+            return "IDEAL", 1.0  # Aceleração normal (2s)
+        elif subopt_min <= current_pwm <= subopt_max:
+            return "SUBOPTIMAL", 0.25  # 4x mais lento
+        else:
+            return "POOR", 0.05  # 20x mais lento
+
+    def _apply_f1_zone_acceleration(self, dt: float):
+        """
+        Aplica aceleração F1 baseada em zonas de eficiência
+
+        Sistema F1:
+        - Zona IDEAL: 2s para atingir target (aceleração normal)
+        - Zona SUBOPTIMAL: 8s para atingir target (4x mais lento)
+        - Zona POOR: 40s para atingir target (20x mais lento)
+
+        Args:
+            dt (float): Delta time desde última atualização
+        """
+        # Calcula zona de eficiência atual
+        zone, rate_multiplier = self._calculate_efficiency_zone(self.current_pwm)
+
+        # Atualiza zona apenas se mudou (para logs)
+        if zone != self.efficiency_zone:
+            self.efficiency_zone = zone
+            self.zone_acceleration_rate = rate_multiplier
+            print(f"🏁 Zona F1: {zone} (aceleração: {rate_multiplier:.2f}x)")
+
+        # Calcula diferença entre target e atual
+        pwm_diff = self.target_pwm - self.current_pwm
+
+        if abs(pwm_diff) < 0.1:  # Já está próximo do target
+            self.current_pwm = self.target_pwm
+            return
+
+        # Velocidade de aceleração baseada na zona
+        # Tempo base: 2s para zona ideal (50% PWM = 1%/frame a 50Hz)
+        base_acceleration_per_frame = 50.0 / (self.base_acceleration_time * 50)  # %PWM por frame
+        zone_acceleration = base_acceleration_per_frame * rate_multiplier
+
+        # Aplica aceleração gradual baseada na zona
+        if pwm_diff > 0:  # Acelerando
+            acceleration_step = min(zone_acceleration * dt * 50, pwm_diff)  # 50Hz
+            self.current_pwm += acceleration_step
+        else:  # Desacelerando (sempre rápido para segurança)
+            deceleration_step = min(base_acceleration_per_frame * dt * 50, abs(pwm_diff))
+            self.current_pwm -= deceleration_step
+
+        # Debug zona a cada 1s
+        current_time = time.time()
+        if current_time - self.last_zone_check >= 1.0:
+            self.last_zone_check = current_time
+            if abs(pwm_diff) > 0.5:  # Só mostra se ainda está acelerando
+                print(f"🏁 F1 Zone: {zone} | PWM: {self.current_pwm:.1f}%→{self.target_pwm:.1f}% | Rate: {rate_multiplier:.2f}x")
+
     def set_reverse(self, enable: bool = True):
         """
         Ativa/desativa ré
@@ -741,26 +832,56 @@ class MotorManager:
         Returns:
             dict: Dados do conta-giros
         """
-        # Calcula zona do RPM
-        rpm_percent = (self.engine_rpm / self.MOTOR_MAX_RPM) * 100
+        # SISTEMA F1: Calcula eficiência da marcha baseada nas zonas
+        gear_zones = {
+            1: {"ideal": (15, 20)},   # 1ª: ideal 15-20%
+            2: {"ideal": (30, 40)},   # 2ª: ideal 30-40%
+            3: {"ideal": (50, 60)},   # 3ª: ideal 50-60%
+            4: {"ideal": (70, 80)},   # 4ª: ideal 70-80%
+            5: {"ideal": (90, 100)},  # 5ª: ideal 90-100%
+        }
 
-        if rpm_percent < 30:
-            rpm_zone = "GREEN"  # Zona verde
-        elif rpm_percent < 70:
-            rpm_zone = "YELLOW"  # Zona amarela
-        elif rpm_percent < 90:
-            rpm_zone = "ORANGE"  # Zona laranja
+        zones = gear_zones.get(self.current_gear, gear_zones[1])
+        ideal_min, ideal_max = zones["ideal"]
+
+        # Calcula eficiência da marcha (0-100%)
+        if self.current_pwm <= ideal_min:
+            # Abaixo da zona ideal
+            gear_efficiency = (self.current_pwm / ideal_min) * 100 if ideal_min > 0 else 0
+        elif self.current_pwm <= ideal_max:
+            # Na zona ideal - 100% de eficiência
+            gear_efficiency = 100.0
         else:
-            rpm_zone = "RED"  # Zona vermelha
+            # Acima da zona ideal - eficiência diminui
+            max_possible = gear_zones.get(self.current_gear + 1, {"ideal": (100, 100)})["ideal"][1] if self.current_gear < 5 else 100
+            over_ideal = (self.current_pwm - ideal_max) / (max_possible - ideal_max) if max_possible > ideal_max else 0
+            gear_efficiency = max(50, 100 - (over_ideal * 50))  # Mínimo 50% se muito acima
+
+        # Zona de eficiência F1 por cor
+        if gear_efficiency >= 90:
+            efficiency_zone = "GREEN"    # Zona ideal
+        elif gear_efficiency >= 70:
+            efficiency_zone = "YELLOW"   # Zona subótima
+        else:
+            efficiency_zone = "RED"      # Zona ruim
+
+        # RPM tradicional para compatibilidade
+        rpm_percent = (self.engine_rpm / self.MOTOR_MAX_RPM) * 100
 
         return {
             "rpm": round(self.engine_rpm, 0),
             "rpm_percent": round(rpm_percent, 1),
-            "rpm_zone": rpm_zone,
+            "rpm_zone": efficiency_zone,  # Agora baseado na eficiência F1
             "gear": self.current_gear,
             "speed_kmh": round(self.calculated_speed_kmh, 1),
-            "shift_light": rpm_percent > 85,  # Luz de troca
+            "shift_light": gear_efficiency < 70,  # Luz acende se eficiência baixa
             "max_rpm": self.MOTOR_MAX_RPM,
+            # NOVOS DADOS F1
+            "gear_efficiency": round(gear_efficiency, 1),
+            "efficiency_zone": self.efficiency_zone,
+            "zone_acceleration_rate": self.zone_acceleration_rate,
+            "ideal_pwm_range": f"{ideal_min}-{ideal_max}%",
+            "current_pwm": round(self.current_pwm, 1),
         }
 
     def get_statistics(self) -> Dict[str, Any]:
