@@ -35,7 +35,7 @@ CARACTERÍSTICAS BTS7960:
 =======================
 - Tensão: 5.5V-27V (motor), 5V (lógica)
 - Corrente: 40A contínua, 60A pico
-- Frequência PWM: até 25kHz (recomendado 1-10kHz)
+- Frequência PWM: até 25kHz (configurado 10kHz para evitar interferência com servos 50Hz)
 - Proteção térmica e sobrecorrente integrada
 - Controle independente para frente/ré
 
@@ -88,7 +88,7 @@ class MotorManager:
     L_EN_PIN = 23  # GPIO23 - Pin 16 - Enable esquerda
 
     # Configurações PWM
-    PWM_FREQUENCY = 2000  # 2kHz - boa para motores DC
+    PWM_FREQUENCY = 10000  # 10kHz - longe dos servos 50Hz (evita interferência harmônica)
     PWM_MAX = 100  # Duty cycle máximo
 
     # Características do motor RS550

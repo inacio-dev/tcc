@@ -299,6 +299,7 @@ class SteeringManager:
                     # Aplica movimento ao servo (apenas se GPIO disponível)
                     if self.steering_pwm:
                         duty = self._angle_to_duty_cycle(calibrated_angle)
+                        print(f"🔧 PWM aplicado: {duty:.2f}% duty cycle (ângulo: {calibrated_angle:.1f}°)")
                         self.steering_pwm.ChangeDutyCycle(duty)
 
                 time.sleep(0.02)  # 50Hz de atualização
@@ -356,6 +357,7 @@ class SteeringManager:
             target_angle = self._apply_ackermann_geometry(target_angle)
 
         self.target_angle = target_angle
+        print(f"🎯 Target angle definido: {target_angle:.1f}° (input: {steering_input:.1f}%)")
 
         # Atualiza estatísticas
         if abs(steering_input) > 5:  # Movimento significativo
