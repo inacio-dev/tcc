@@ -593,14 +593,13 @@ class MotorManager:
 
     def _calculate_intelligent_pwm(self, throttle_percent: float) -> float:
         """
-        Calcula PWM do motor baseado em limites máximos por marcha
+        Calcula PWM do motor F1 - SEM LIMITADORES
 
-        Sistema de limites por marcha (sempre começando do 0%):
-        - 1ª marcha: 0-20% PWM (throttle 0%=0%, throttle 100%=20%)
-        - 2ª marcha: 0-40% PWM (throttle 0%=0%, throttle 100%=40%)
-        - 3ª marcha: 0-60% PWM (throttle 0%=0%, throttle 100%=60%)
-        - 4ª marcha: 0-80% PWM (throttle 0%=0%, throttle 100%=80%)
-        - 5ª marcha: 0-100% PWM (throttle 0%=0%, throttle 100%=100%)
+        Sistema F1 Real:
+        - TODAS as marchas podem ir de 0-100% PWM
+        - Zonas de eficiência determinam velocidade de aceleração
+        - Marcha ideal = aceleração rápida
+        - Fora da zona ideal = aceleração muito lenta
 
         Args:
             throttle_percent (float): Posição do acelerador (0-100%)
@@ -608,31 +607,37 @@ class MotorManager:
         Returns:
             float: PWM motor real a ser aplicado (0-100%)
         """
-        # Limites máximos por marcha (sempre começando do 0%)
-        gear_max_limits = {
-            1: 20,    # 1ª marcha: máximo 20% PWM
-            2: 40,    # 2ª marcha: máximo 40% PWM
-            3: 60,    # 3ª marcha: máximo 60% PWM
-            4: 80,    # 4ª marcha: máximo 80% PWM
-            5: 100,   # 5ª marcha: máximo 100% PWM
-        }
-
-        # Obter limite máximo da marcha atual
-        max_pwm = gear_max_limits.get(self.current_gear, 20)
-
-        # Mapeia throttle (0-100%) para 0% até o limite da marcha
-        final_pwm = (throttle_percent / 100.0) * max_pwm
+        # SEM LIMITADORES - throttle mapeia diretamente para PWM
+        # As zonas de eficiência controlam a velocidade de aceleração
+        final_pwm = throttle_percent
 
         return final_pwm
 
     def _calculate_efficiency_zone(self, current_pwm: float) -> tuple:
         """
-        Calcula zona de eficiência F1 baseada no PWM atual e marcha
+        Calcula zona de eficiência F1 CORRIGIDA baseada no PWM atual e marcha
 
-        Sistema de zonas por marcha:
-        - IDEAL: Zona de máxima eficiência (aceleração normal - 2s)
-        - SUBOPTIMAL: Zona subótima (aceleração 4x mais lenta)
-        - POOR: Zona ruim (aceleração 20x mais lenta)
+        Sistema F1 Real por marcha:
+
+        1ª MARCHA:
+        - IDEAL: 0-20% (alta eficiência)
+        - SUBOPTIMAL: 20-30% (média eficiência)
+        - POOR: 30-100% (baixa eficiência)
+
+        2ª MARCHA:
+        - IDEAL: 20-40% (alta eficiência)
+        - SUBOPTIMAL: 10-20% e 40-50% (média eficiência)
+        - POOR: 0-10% e 50-100% (baixa eficiência)
+
+        3ª MARCHA:
+        - IDEAL: 40-60% (alta eficiência)
+        - SUBOPTIMAL: 30-40% e 60-70% (média eficiência)
+        - POOR: 0-30% e 70-100% (baixa eficiência)
+
+        5ª MARCHA:
+        - IDEAL: 80-100% (alta eficiência)
+        - SUBOPTIMAL: 70-80% (média eficiência)
+        - POOR: 0-70% (baixa eficiência)
 
         Args:
             current_pwm (float): PWM atual do motor
@@ -640,27 +645,54 @@ class MotorManager:
         Returns:
             tuple: (zona_eficiencia, multiplicador_aceleracao)
         """
-        # Zonas de eficiência por marcha (% PWM)
-        gear_zones = {
-            1: {"ideal": (15, 20), "suboptimal": (10, 25), "poor": (0, 30)},   # 1ª: ideal 15-20%
-            2: {"ideal": (30, 40), "suboptimal": (20, 50), "poor": (0, 60)},   # 2ª: ideal 30-40%
-            3: {"ideal": (50, 60), "suboptimal": (40, 70), "poor": (0, 80)},   # 3ª: ideal 50-60%
-            4: {"ideal": (70, 80), "suboptimal": (60, 90), "poor": (0, 100)},  # 4ª: ideal 70-80%
-            5: {"ideal": (90, 100), "suboptimal": (80, 100), "poor": (0, 100)}, # 5ª: ideal 90-100%
-        }
+        # Zonas F1 CORRETAS por marcha
+        if self.current_gear == 1:
+            # 1ª MARCHA
+            if 0 <= current_pwm <= 20:
+                return "IDEAL", 1.0     # 0-20%: Alta eficiência
+            elif 20 < current_pwm <= 30:
+                return "SUBOPTIMAL", 0.25  # 20-30%: Média eficiência
+            else:
+                return "POOR", 0.05     # 30-100%: Baixa eficiência
 
-        zones = gear_zones.get(self.current_gear, gear_zones[1])
+        elif self.current_gear == 2:
+            # 2ª MARCHA
+            if 20 <= current_pwm <= 40:
+                return "IDEAL", 1.0     # 20-40%: Alta eficiência
+            elif (10 <= current_pwm < 20) or (40 < current_pwm <= 50):
+                return "SUBOPTIMAL", 0.25  # 10-20% e 40-50%: Média eficiência
+            else:
+                return "POOR", 0.05     # 0-10% e 50-100%: Baixa eficiência
 
-        # Verifica em qual zona estamos
-        ideal_min, ideal_max = zones["ideal"]
-        subopt_min, subopt_max = zones["suboptimal"]
+        elif self.current_gear == 3:
+            # 3ª MARCHA
+            if 40 <= current_pwm <= 60:
+                return "IDEAL", 1.0     # 40-60%: Alta eficiência
+            elif (30 <= current_pwm < 40) or (60 < current_pwm <= 70):
+                return "SUBOPTIMAL", 0.25  # 30-40% e 60-70%: Média eficiência
+            else:
+                return "POOR", 0.05     # 0-30% e 70-100%: Baixa eficiência
 
-        if ideal_min <= current_pwm <= ideal_max:
-            return "IDEAL", 1.0  # Aceleração normal (2s)
-        elif subopt_min <= current_pwm <= subopt_max:
-            return "SUBOPTIMAL", 0.25  # 4x mais lento
-        else:
-            return "POOR", 0.05  # 20x mais lento
+        elif self.current_gear == 4:
+            # 4ª MARCHA (interpolação entre 3ª e 5ª)
+            if 60 <= current_pwm <= 80:
+                return "IDEAL", 1.0     # 60-80%: Alta eficiência
+            elif (50 <= current_pwm < 60) or (80 < current_pwm <= 90):
+                return "SUBOPTIMAL", 0.25  # 50-60% e 80-90%: Média eficiência
+            else:
+                return "POOR", 0.05     # 0-50% e 90-100%: Baixa eficiência
+
+        elif self.current_gear == 5:
+            # 5ª MARCHA
+            if 80 <= current_pwm <= 100:
+                return "IDEAL", 1.0     # 80-100%: Alta eficiência
+            elif 70 <= current_pwm < 80:
+                return "SUBOPTIMAL", 0.25  # 70-80%: Média eficiência
+            else:
+                return "POOR", 0.05     # 0-70%: Baixa eficiência
+
+        # Fallback para marchas não definidas
+        return "POOR", 0.05
 
     def _apply_f1_zone_acceleration(self, dt: float):
         """
@@ -832,35 +864,31 @@ class MotorManager:
         Returns:
             dict: Dados do conta-giros
         """
-        # SISTEMA F1: Calcula eficiência da marcha baseada nas zonas
-        gear_zones = {
-            1: {"ideal": (15, 20)},   # 1ª: ideal 15-20%
-            2: {"ideal": (30, 40)},   # 2ª: ideal 30-40%
-            3: {"ideal": (50, 60)},   # 3ª: ideal 50-60%
-            4: {"ideal": (70, 80)},   # 4ª: ideal 70-80%
-            5: {"ideal": (90, 100)},  # 5ª: ideal 90-100%
-        }
+        # SISTEMA F1: Calcula eficiência usando nova lógica de zonas
+        zone, rate_multiplier = self._calculate_efficiency_zone(self.current_pwm)
 
-        zones = gear_zones.get(self.current_gear, gear_zones[1])
-        ideal_min, ideal_max = zones["ideal"]
-
-        # Calcula eficiência da marcha (0-100%)
-        if self.current_pwm <= ideal_min:
-            # Abaixo da zona ideal
-            gear_efficiency = (self.current_pwm / ideal_min) * 100 if ideal_min > 0 else 0
-        elif self.current_pwm <= ideal_max:
-            # Na zona ideal - 100% de eficiência
-            gear_efficiency = 100.0
+        # Converte multiplicador para porcentagem de eficiência
+        if rate_multiplier >= 1.0:
+            gear_efficiency = 100.0  # Zona IDEAL
+        elif rate_multiplier >= 0.25:
+            gear_efficiency = 75.0   # Zona SUBOPTIMAL
         else:
-            # Acima da zona ideal - eficiência diminui
-            max_possible = gear_zones.get(self.current_gear + 1, {"ideal": (100, 100)})["ideal"][1] if self.current_gear < 5 else 100
-            over_ideal = (self.current_pwm - ideal_max) / (max_possible - ideal_max) if max_possible > ideal_max else 0
-            gear_efficiency = max(50, 100 - (over_ideal * 50))  # Mínimo 50% se muito acima
+            gear_efficiency = 25.0   # Zona POOR
 
-        # Zona de eficiência F1 por cor
-        if gear_efficiency >= 90:
+        # Define faixas ideais para display
+        gear_ideal_ranges = {
+            1: "0-20%",    # 1ª marcha
+            2: "20-40%",   # 2ª marcha
+            3: "40-60%",   # 3ª marcha
+            4: "60-80%",   # 4ª marcha
+            5: "80-100%",  # 5ª marcha
+        }
+        ideal_range = gear_ideal_ranges.get(self.current_gear, "0-20%")
+
+        # Zona de eficiência F1 por cor (baseada na zona atual)
+        if zone == "IDEAL":
             efficiency_zone = "GREEN"    # Zona ideal
-        elif gear_efficiency >= 70:
+        elif zone == "SUBOPTIMAL":
             efficiency_zone = "YELLOW"   # Zona subótima
         else:
             efficiency_zone = "RED"      # Zona ruim
@@ -880,7 +908,7 @@ class MotorManager:
             "gear_efficiency": round(gear_efficiency, 1),
             "efficiency_zone": self.efficiency_zone,
             "zone_acceleration_rate": self.zone_acceleration_rate,
-            "ideal_pwm_range": f"{ideal_min}-{ideal_max}%",
+            "ideal_pwm_range": ideal_range,
             "current_pwm": round(self.current_pwm, 1),
         }
 
