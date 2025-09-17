@@ -437,50 +437,33 @@ class MotorManager:
         Executa troca de marcha
 
         Args:
-            new_gear (int): Nova marcha (1-4)
+            new_gear (int): Nova marcha (1-5)
         """
         # Valida marcha no sistema de 5 marchas
         if new_gear < 1 or new_gear > 5 or new_gear == self.current_gear:
             return
 
-        if self.is_shifting:
-            return
+        # CORREÇÃO: Remove bloqueio is_shifting para permitir trocas rápidas
+        # Em F1, trocas são instantâneas e podem ser feitas durante aceleração
 
         print(
             f"🔧 Trocando marcha: {self.current_gear}ª → {new_gear}ª "
-            f"(RPM: {self.engine_rpm:.0f})"
+            f"(RPM: {self.engine_rpm:.0f}) - TROCA INSTANTÂNEA"
         )
 
-        self.is_shifting = True
+        # TROCA INSTANTÂNEA - Como em F1 real (50-150ms)
+        # Remove thread e time.sleep para permitir trocas durante aceleração
+        old_gear = self.current_gear
+        self.current_gear = new_gear
+        self.gear_ratio = self.GEAR_RATIOS[new_gear]
 
-        # Thread para simular tempo de troca
-        def shift_process():
-            # Desengate embreagem
-            self.clutch_engaged = False
+        # Atualiza estatísticas
+        self.gear_changes += 1
 
-            # Aguarda tempo de troca
-            time.sleep(self.shift_time)
-
-            # Troca marcha
-            old_gear = self.current_gear
-            self.current_gear = new_gear
-            self.gear_ratio = self.GEAR_RATIOS[new_gear]
-
-            # Reengata embreagem
-            self.clutch_engaged = True
-            self.is_shifting = False
-
-            # Atualiza estatísticas
-            self.gear_changes += 1
-
-            print(
-                f"✓ Marcha trocada para {new_gear}ª "
-                f"(Relação: {self.gear_ratio:.1f}:1)"
-            )
-
-        shift_thread = threading.Thread(target=shift_process)
-        shift_thread.daemon = True
-        shift_thread.start()
+        print(
+            f"✓ Marcha trocada para {new_gear}ª "
+            f"(Relação: {self.gear_ratio:.1f}:1) - Instantâneo!"
+        )
 
     def _apply_motor_pwm(self):
         """Aplica PWM ao motor via ponte H"""
