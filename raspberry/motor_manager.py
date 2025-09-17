@@ -587,33 +587,36 @@ class MotorManager:
 
     def _calculate_intelligent_pwm(self, throttle_percent: float) -> float:
         """
-        Calcula PWM do motor (10-100%) baseado nas zonas de eficiência de cada marcha
+        Calcula PWM do motor baseado em faixas de 20% por marcha
 
-        Sistema redesenhado:
-        - Cada marcha tem suas zonas próprias baseadas na porcentagem do motor
-        - PWM varia de 10% (mínimo) a 100% (máximo) em todas as marchas
-        - Eficiência apenas modifica a resposta, não limita PWM máximo
+        Sistema de faixas por marcha (20% cada):
+        - 1ª marcha: 0-20% PWM (arranque e baixa velocidade)
+        - 2ª marcha: 20-40% PWM
+        - 3ª marcha: 40-60% PWM
+        - 4ª marcha: 60-80% PWM
+        - 5ª marcha: 80-100% PWM (velocidade máxima)
 
         Args:
             throttle_percent (float): Posição do acelerador (0-100%)
 
         Returns:
-            float: PWM motor real a ser aplicado (10-100%)
+            float: PWM motor real a ser aplicado (0-100%)
         """
-        # Limitadores por marcha (PWM máximo)
-        gear_limiters = {
-            1: 40,   # 1ª marcha: máximo 40%
-            2: 55,   # 2ª marcha: máximo 55%
-            3: 70,   # 3ª marcha: máximo 70%
-            4: 85,   # 4ª marcha: máximo 85%
-            5: 100,  # 5ª marcha: máximo 100%
+        # Faixas de PWM por marcha (20% cada marcha)
+        gear_ranges = {
+            1: (0, 20),    # 1ª marcha: 0% a 20% PWM
+            2: (20, 40),   # 2ª marcha: 20% a 40% PWM
+            3: (40, 60),   # 3ª marcha: 40% a 60% PWM
+            4: (60, 80),   # 4ª marcha: 60% a 80% PWM
+            5: (80, 100),  # 5ª marcha: 80% a 100% PWM
         }
 
-        # Obter limitador da marcha atual
-        max_pwm_for_gear = gear_limiters.get(self.current_gear, 40)
+        # Obter faixa da marcha atual
+        min_pwm, max_pwm = gear_ranges.get(self.current_gear, (0, 20))
 
-        # Cálculo direto: throttle% × limitador = PWM final
-        final_pwm = (throttle_percent / 100.0) * max_pwm_for_gear
+        # Mapeia throttle (0-100%) para a faixa da marcha
+        pwm_range = max_pwm - min_pwm
+        final_pwm = min_pwm + (throttle_percent / 100.0) * pwm_range
 
         return final_pwm
 
