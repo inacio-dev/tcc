@@ -708,12 +708,19 @@ class MotorManager:
 
     def _apply_f1_zone_acceleration(self, dt: float):
         """
-        Aplica aceleração F1 baseada em zonas de eficiência
+        Aplica aceleração/desaceleração F1 baseada em zonas de eficiência
 
         Sistema F1 (MUITO EXIGENTE):
+
+        ACELERAÇÃO:
         - Zona IDEAL: 5s para atingir target (aceleração normal)
-        - Zona SUBOPTIMAL: 50s para atingir target (10x mais lento)
-        - Zona POOR: 125s para atingir target (25x mais lento)
+        - Zona SUBÓTIMA: 50s para atingir target (10x mais lento)
+        - Zona RUIM: 125s para atingir target (25x mais lento)
+
+        DESACELERAÇÃO (sempre mais rápida):
+        - Zona IDEAL: 2.5s para desacelerar (2x mais rápido)
+        - Zona SUBÓTIMA: 10s para desacelerar (5x mais rápido que aceleração)
+        - Zona RUIM: 12.5s para desacelerar (10x mais rápido que aceleração)
 
         Args:
             dt (float): Delta time desde última atualização
@@ -735,24 +742,40 @@ class MotorManager:
             return
 
         # Velocidade de aceleração baseada na zona
-        # Tempo base: 2s para zona ideal (50% PWM = 1%/frame a 50Hz)
         base_acceleration_per_frame = 50.0 / (self.base_acceleration_time * 50)  # %PWM por frame
         zone_acceleration = base_acceleration_per_frame * rate_multiplier
 
-        # Aplica aceleração gradual baseada na zona
-        if pwm_diff > 0:  # Acelerando
+        # Sistema diferenciado para aceleração vs desaceleração
+        if pwm_diff > 0:  # ACELERANDO - usa zona de eficiência
             acceleration_step = min(zone_acceleration * dt * 50, pwm_diff)  # 50Hz
             self.current_pwm += acceleration_step
-        else:  # Desacelerando (sempre rápido para segurança)
-            deceleration_step = min(base_acceleration_per_frame * dt * 50, abs(pwm_diff))
+
+        else:  # DESACELERANDO - mais rápido e inteligente
+            # Desaceleração baseada na zona atual, mas sempre mais rápida
+            if rate_multiplier >= 1.0:  # Zona IDEAL
+                decel_multiplier = 2.0  # 2x mais rápido que aceleração
+            elif rate_multiplier >= 0.1:  # Zona SUBÓTIMA
+                decel_multiplier = 5.0  # 5x mais rápido que aceleração
+            else:  # Zona RUIM
+                decel_multiplier = 10.0  # 10x mais rápido que aceleração
+
+            # Aplica desaceleração melhorada
+            deceleration_rate = base_acceleration_per_frame * decel_multiplier
+            deceleration_step = min(deceleration_rate * dt * 50, abs(pwm_diff))
             self.current_pwm -= deceleration_step
 
         # Debug zona a cada 1s
         current_time = time.time()
         if current_time - self.last_zone_check >= 1.0:
             self.last_zone_check = current_time
-            if abs(pwm_diff) > 0.5:  # Só mostra se ainda está acelerando
-                print(f"🏁 F1 Zone: {zone} | PWM: {self.current_pwm:.1f}%→{self.target_pwm:.1f}% | Rate: {rate_multiplier:.2f}x")
+            if abs(pwm_diff) > 0.5:  # Só mostra se ainda está mudando
+                action = "⬆️ ACELERANDO" if pwm_diff > 0 else "⬇️ DESACELERANDO"
+                if pwm_diff > 0:
+                    rate_info = f"Rate: {rate_multiplier:.2f}x"
+                else:
+                    decel_mult = 2.0 if rate_multiplier >= 1.0 else (5.0 if rate_multiplier >= 0.1 else 10.0)
+                    rate_info = f"Decel: {decel_mult:.1f}x mais rápido"
+                print(f"🏁 F1 Zone: {zone} | PWM: {self.current_pwm:.1f}%→{self.target_pwm:.1f}% | {action} | {rate_info}")
 
     def set_reverse(self, enable: bool = True):
         """
