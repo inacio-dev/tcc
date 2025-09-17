@@ -164,7 +164,7 @@ class MotorManager:
         # SISTEMA F1 DE ZONAS DE EFICIÊNCIA
         self.efficiency_zone = "IDEAL"  # IDEAL, SUBOPTIMAL, POOR
         self.zone_acceleration_rate = 1.0  # Multiplicador de aceleração baseado na zona
-        self.base_acceleration_time = 2.0  # Tempo base para atingir zona ideal (2s)
+        self.base_acceleration_time = 5.0  # Tempo base para atingir zona ideal (5s - mais lento)
         self.last_zone_check = time.time()
 
         # Conta-giros
@@ -593,23 +593,35 @@ class MotorManager:
 
     def _calculate_intelligent_pwm(self, throttle_percent: float) -> float:
         """
-        Calcula PWM do motor F1 - SEM LIMITADORES
+        Calcula PWM do motor F1 com limitadores dinâmicos por marcha
 
-        Sistema F1 Real:
-        - TODAS as marchas podem ir de 0-100% PWM
-        - Zonas de eficiência determinam velocidade de aceleração
-        - Marcha ideal = aceleração rápida
-        - Fora da zona ideal = aceleração muito lenta
+        Sistema F1 com limitadores:
+        - 1ª marcha: limitador 40% (zona ruim até 30+10%)
+        - 2ª marcha: limitador 60% (zona ruim até 50+10%)
+        - 3ª marcha: limitador 80% (zona ruim até 70+10%)
+        - 4ª marcha: limitador 100% (zona ruim até 90+10%, cap 100%)
+        - 5ª marcha: limitador 100% (sem limite real)
 
         Args:
             throttle_percent (float): Posição do acelerador (0-100%)
 
         Returns:
-            float: PWM motor real a ser aplicado (0-100%)
+            float: PWM motor real a ser aplicado (0-limitador%)
         """
-        # SEM LIMITADORES - throttle mapeia diretamente para PWM
-        # As zonas de eficiência controlam a velocidade de aceleração
-        final_pwm = throttle_percent
+        # Limitadores dinâmicos por marcha
+        gear_limiters = {
+            1: 40,   # 1ª marcha: máximo 40% (30+10)
+            2: 60,   # 2ª marcha: máximo 60% (50+10)
+            3: 80,   # 3ª marcha: máximo 80% (70+10)
+            4: 100,  # 4ª marcha: máximo 100% (90+10, cap)
+            5: 100,  # 5ª marcha: máximo 100% (sem limite)
+        }
+
+        # Obter limitador da marcha atual
+        max_pwm = gear_limiters.get(self.current_gear, 40)
+
+        # Mapeia throttle (0-100%) para (0-limitador%)
+        final_pwm = (throttle_percent / 100.0) * max_pwm
 
         return final_pwm
 
@@ -645,51 +657,51 @@ class MotorManager:
         Returns:
             tuple: (zona_eficiencia, multiplicador_aceleracao)
         """
-        # Zonas F1 CORRETAS por marcha
+        # Zonas F1 com limitadores por marcha
         if self.current_gear == 1:
-            # 1ª MARCHA
+            # 1ª MARCHA (limitador: 40%)
             if 0 <= current_pwm <= 20:
                 return "IDEAL", 1.0     # 0-20%: Alta eficiência
             elif 20 < current_pwm <= 30:
                 return "SUBOPTIMAL", 0.25  # 20-30%: Média eficiência
-            else:
-                return "POOR", 0.05     # 30-100%: Baixa eficiência
+            else:  # 30-40%
+                return "POOR", 0.05     # 30-40%: Baixa eficiência (limitador)
 
         elif self.current_gear == 2:
-            # 2ª MARCHA
+            # 2ª MARCHA (limitador: 60%)
             if 20 <= current_pwm <= 40:
                 return "IDEAL", 1.0     # 20-40%: Alta eficiência
             elif (10 <= current_pwm < 20) or (40 < current_pwm <= 50):
                 return "SUBOPTIMAL", 0.25  # 10-20% e 40-50%: Média eficiência
-            else:
-                return "POOR", 0.05     # 0-10% e 50-100%: Baixa eficiência
+            else:  # 0-10% e 50-60%
+                return "POOR", 0.05     # Baixa eficiência (limitador)
 
         elif self.current_gear == 3:
-            # 3ª MARCHA
+            # 3ª MARCHA (limitador: 80%)
             if 40 <= current_pwm <= 60:
                 return "IDEAL", 1.0     # 40-60%: Alta eficiência
             elif (30 <= current_pwm < 40) or (60 < current_pwm <= 70):
                 return "SUBOPTIMAL", 0.25  # 30-40% e 60-70%: Média eficiência
-            else:
-                return "POOR", 0.05     # 0-30% e 70-100%: Baixa eficiência
+            else:  # 0-30% e 70-80%
+                return "POOR", 0.05     # Baixa eficiência (limitador)
 
         elif self.current_gear == 4:
-            # 4ª MARCHA (interpolação entre 3ª e 5ª)
+            # 4ª MARCHA (limitador: 100%)
             if 60 <= current_pwm <= 80:
                 return "IDEAL", 1.0     # 60-80%: Alta eficiência
             elif (50 <= current_pwm < 60) or (80 < current_pwm <= 90):
                 return "SUBOPTIMAL", 0.25  # 50-60% e 80-90%: Média eficiência
-            else:
-                return "POOR", 0.05     # 0-50% e 90-100%: Baixa eficiência
+            else:  # 0-50% e 90-100%
+                return "POOR", 0.05     # Baixa eficiência
 
         elif self.current_gear == 5:
-            # 5ª MARCHA
+            # 5ª MARCHA (limitador: 100% - sem limite real)
             if 80 <= current_pwm <= 100:
                 return "IDEAL", 1.0     # 80-100%: Alta eficiência
             elif 70 <= current_pwm < 80:
                 return "SUBOPTIMAL", 0.25  # 70-80%: Média eficiência
-            else:
-                return "POOR", 0.05     # 0-70%: Baixa eficiência
+            else:  # 0-70%
+                return "POOR", 0.05     # Baixa eficiência
 
         # Fallback para marchas não definidas
         return "POOR", 0.05
@@ -698,10 +710,10 @@ class MotorManager:
         """
         Aplica aceleração F1 baseada em zonas de eficiência
 
-        Sistema F1:
-        - Zona IDEAL: 2s para atingir target (aceleração normal)
-        - Zona SUBOPTIMAL: 8s para atingir target (4x mais lento)
-        - Zona POOR: 40s para atingir target (20x mais lento)
+        Sistema F1 (MAIS LENTO):
+        - Zona IDEAL: 5s para atingir target (aceleração normal)
+        - Zona SUBOPTIMAL: 20s para atingir target (4x mais lento)
+        - Zona POOR: 100s para atingir target (20x mais lento)
 
         Args:
             dt (float): Delta time desde última atualização
