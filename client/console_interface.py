@@ -315,7 +315,7 @@ class ConsoleInterface:
         rpm_frame = tk.Frame(instruments_inner, bg="#2c2c2c", relief=tk.RAISED, bd=2)
         rpm_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
         
-        tk.Label(rpm_frame, text="🔧 CONTA-GIROS", bg="#2c2c2c", fg="white", 
+        tk.Label(rpm_frame, text="🔧 ZONA DE EFICIÊNCIA", bg="#2c2c2c", fg="white",
                 font=("Arial", 10, "bold")).pack(pady=5)
         
         # RPM em fonte grande
@@ -324,7 +324,7 @@ class ConsoleInterface:
                                    font=("Digital-7", 24, "bold"))
         self.rpm_display.pack(pady=5)
         
-        tk.Label(rpm_frame, text="RPM", bg="#2c2c2c", fg="#cccccc",
+        tk.Label(rpm_frame, text="% IDEAL", bg="#2c2c2c", fg="#cccccc",
                 font=("Arial", 8)).pack()
         
         # Marcha - Centro

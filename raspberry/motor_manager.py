@@ -706,6 +706,54 @@ class MotorManager:
         # Fallback para marchas não definidas
         return "POOR", 0.04
 
+    def _calculate_efficiency_zone_percentage(self, current_pwm: float) -> float:
+        """
+        Calcula porcentagem dentro da zona IDEAL de eficiência da marcha atual
+
+        Para cada marcha, mapeia a zona IDEAL para 0-100%:
+        - 1ª marcha (0-20%): PWM de 0-20% → 0-100% no conta-giros
+        - 2ª marcha (20-40%): PWM de 20-40% → 0-100% no conta-giros
+        - 3ª marcha (40-60%): PWM de 40-60% → 0-100% no conta-giros
+        - 4ª marcha (60-80%): PWM de 60-80% → 0-100% no conta-giros
+        - 5ª marcha (80-100%): PWM de 80-100% → 0-100% no conta-giros
+
+        Fora da zona ideal permanece 0% (abaixo) ou 100% (acima)
+
+        Args:
+            current_pwm (float): PWM atual do motor
+
+        Returns:
+            float: Porcentagem 0-100% dentro da zona ideal
+        """
+        # Define zonas ideais por marcha
+        ideal_zones = {
+            1: (0, 20),    # 1ª marcha: 0-20%
+            2: (20, 40),   # 2ª marcha: 20-40%
+            3: (40, 60),   # 3ª marcha: 40-60%
+            4: (60, 80),   # 4ª marcha: 60-80%
+            5: (80, 100),  # 5ª marcha: 80-100%
+        }
+
+        if self.current_gear not in ideal_zones:
+            return 0.0
+
+        zone_min, zone_max = ideal_zones[self.current_gear]
+
+        # Se está abaixo da zona ideal
+        if current_pwm < zone_min:
+            return 0.0
+
+        # Se está acima da zona ideal
+        if current_pwm > zone_max:
+            return 100.0
+
+        # Se está dentro da zona ideal, mapeia para 0-100%
+        zone_range = zone_max - zone_min
+        pwm_position = current_pwm - zone_min
+        percentage = (pwm_position / zone_range) * 100.0
+
+        return min(100.0, max(0.0, percentage))
+
     def _apply_f1_zone_acceleration(self, dt: float):
         """
         Aplica aceleração/desaceleração F1 baseada em zonas de eficiência
@@ -860,7 +908,7 @@ class MotorManager:
             "motor_direction": self.motor_direction.value,
             "current_pwm": round(self.current_pwm, 1),
             "target_pwm": round(self.target_pwm, 1),
-            "engine_rpm": round(self.engine_rpm, 0),
+            "engine_rpm": round(self._calculate_efficiency_zone_percentage(self.current_pwm), 0),
             "wheel_rpm": round(self.wheel_rpm, 0),
             "speed_kmh": round(self.calculated_speed_kmh, 1),
             # === TRANSMISSÃO ===
@@ -870,10 +918,10 @@ class MotorManager:
             "clutch_engaged": self.clutch_engaged,
             "is_shifting": self.is_shifting,
             # === CONTA-GIROS ===
-            "rpm_display": round(self.engine_rpm, 0),
+            "rpm_display": round(self._calculate_efficiency_zone_percentage(self.current_pwm), 0),
             "max_rpm": self.MOTOR_MAX_RPM,
             "idle_rpm": self.MOTOR_IDLE_RPM,
-            "rpm_percent": round((self.engine_rpm / self.MOTOR_MAX_RPM) * 100, 1),
+            "rpm_percent": round(self._calculate_efficiency_zone_percentage(self.current_pwm), 1),
             # === STATUS TÉCNICO ===
             "is_initialized": self.is_initialized,
             "motor_temperature": round(25 + (self.current_pwm * 0.6), 1),  # Simulado
@@ -932,7 +980,7 @@ class MotorManager:
         rpm_percent = (self.engine_rpm / self.MOTOR_MAX_RPM) * 100
 
         return {
-            "rpm": round(self.engine_rpm, 0),
+            "rpm": round(self._calculate_efficiency_zone_percentage(self.current_pwm), 0),
             "rpm_percent": round(rpm_percent, 1),
             "rpm_zone": efficiency_zone,  # Agora baseado na eficiência F1
             "gear": self.current_gear,

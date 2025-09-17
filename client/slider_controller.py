@@ -29,12 +29,15 @@ class SliderController:
         # Estado dos controles
         self.throttle_value = 0.0  # 0-100%
         self.brake_value = 0.0     # 0-100%
+        self.steering_value = 0.0  # -100 a +100% (esquerda/direita)
 
         # Widgets dos sliders
         self.throttle_slider = None
         self.brake_slider = None
+        self.steering_slider = None
         self.throttle_label = None
         self.brake_label = None
+        self.steering_label = None
 
         # Controle de envio
         self.is_active = False
@@ -48,6 +51,7 @@ class SliderController:
         # Últimos valores enviados (para evitar spam)
         self.last_sent_throttle = -1.0
         self.last_sent_brake = -1.0
+        self.last_sent_steering = -999.0  # Valor impossível para forçar primeiro envio
 
         # Estatísticas
         self.commands_sent = 0
@@ -186,10 +190,60 @@ class SliderController:
             )
             label.pack()
 
+        # === STEERING SLIDER ===
+        steering_container = tk.Frame(control_frame, bg="#3c3c3c")
+        steering_container.pack(pady=(20, 10), fill=tk.X, padx=10)
+
+        # Label do steering
+        self.steering_label = tk.Label(
+            steering_container,
+            text="🏎️ Direção: 0° (Centro)",
+            bg="#3c3c3c",
+            fg="#4488ff",
+            font=("Arial", 12, "bold")
+        )
+        self.steering_label.pack(pady=(0, 10))
+
+        # Slider do steering (horizontal)
+        self.steering_slider = tk.Scale(
+            steering_container,
+            from_=-100,
+            to=100,
+            orient=tk.HORIZONTAL,
+            length=300,
+            width=30,
+            bg="#2d2d2d",
+            fg="white",
+            activebackground="#4488ff",
+            highlightthickness=0,
+            troughcolor="#1a1a1a",
+            sliderrelief=tk.FLAT,
+            command=self._on_steering_change
+        )
+        self.steering_slider.set(0)  # Inicia no centro
+        self.steering_slider.pack()
+
+        # Marcações do steering
+        steering_marks = tk.Frame(steering_container, bg="#3c3c3c")
+        steering_marks.pack(pady=(5, 0))
+
+        marks_frame = tk.Frame(steering_marks, bg="#3c3c3c")
+        marks_frame.pack()
+
+        for mark in ["⬅️ ESQ", "⬅️", "🎯 CENTRO", "➡️", "➡️ DIR"]:
+            label = tk.Label(
+                marks_frame,
+                text=mark,
+                bg="#3c3c3c",
+                fg="#888888",
+                font=("Arial", 8)
+            )
+            label.pack(side=tk.LEFT, padx=15)
+
         # === INSTRUÇÕES ===
         instructions = tk.Label(
             control_frame,
-            text="Arraste os sliders para controlar throttle e brake de forma suave",
+            text="Arraste os sliders para controlar throttle, brake e direção de forma suave",
             bg="#3c3c3c",
             fg="#cccccc",
             font=("Arial", 9)
@@ -201,12 +255,19 @@ class SliderController:
     def _on_throttle_change(self, value):
         """Callback para mudança no slider de throttle"""
         try:
+            old_throttle = self.throttle_value
             self.throttle_value = float(value)
             self.throttle_label.config(text=f"🚀 Throttle: {self.throttle_value:.0f}%")
 
-            # Log apenas para mudanças significativas
-            if abs(self.throttle_value - self.last_sent_throttle) >= 5.0:
-                self._log("DEBUG", f"Throttle alterado para {self.throttle_value:.0f}%")
+            # CORREÇÃO: Envia comando em thread separada para não travar UI
+            if self.network_client:
+                self._log("DEBUG", f"🚀 Throttle: {old_throttle:.0f}% → {self.throttle_value:.0f}%")
+                # Thread separada para envio de rede (não bloqueia UI)
+                threading.Thread(
+                    target=self._send_command_async,
+                    args=('THROTTLE', self.throttle_value),
+                    daemon=True
+                ).start()
 
         except Exception as e:
             self._log("ERROR", f"Erro ao processar mudança de throttle: {e}")
@@ -214,15 +275,58 @@ class SliderController:
     def _on_brake_change(self, value):
         """Callback para mudança no slider de brake"""
         try:
+            old_brake = self.brake_value
             self.brake_value = float(value)
             self.brake_label.config(text=f"🛑 Brake: {self.brake_value:.0f}%")
 
-            # Log apenas para mudanças significativas
-            if abs(self.brake_value - self.last_sent_brake) >= 5.0:
-                self._log("DEBUG", f"Brake alterado para {self.brake_value:.0f}%")
+            # CORREÇÃO: Envia comando em thread separada para não travar UI
+            if self.network_client:
+                self._log("DEBUG", f"🛑 Brake: {old_brake:.0f}% → {self.brake_value:.0f}%")
+                # Thread separada para envio de rede (não bloqueia UI)
+                threading.Thread(
+                    target=self._send_command_async,
+                    args=('BRAKE', self.brake_value),
+                    daemon=True
+                ).start()
 
         except Exception as e:
             self._log("ERROR", f"Erro ao processar mudança de brake: {e}")
+
+    def _on_steering_change(self, value):
+        """Callback para mudança no slider de direção"""
+        try:
+            old_steering = self.steering_value
+            self.steering_value = float(value)
+
+            # Atualiza label com direção
+            if self.steering_value == 0:
+                direction_text = "🏎️ Direção: 0° (Centro)"
+            elif self.steering_value < 0:
+                direction_text = f"🏎️ Direção: {abs(self.steering_value):.0f}° ⬅️ Esquerda"
+            else:
+                direction_text = f"🏎️ Direção: {self.steering_value:.0f}° ➡️ Direita"
+
+            self.steering_label.config(text=direction_text)
+
+            # CORREÇÃO: Envia comando imediatamente quando muda
+            if self.network_client:
+                self._log("DEBUG", f"🏎️ Direção: {old_steering:.0f}° → {self.steering_value:.0f}°")
+                # Thread separada para envio de rede (não bloqueia UI)
+                threading.Thread(
+                    target=self._send_command_async,
+                    args=('STEERING', self.steering_value),
+                    daemon=True
+                ).start()
+
+        except Exception as e:
+            self._log("ERROR", f"Erro ao processar mudança de direção: {e}")
+
+    def _send_command_async(self, command_type: str, value: float):
+        """Envia comando em thread separada para não travar UI"""
+        try:
+            self._send_command(command_type, value)
+        except Exception as e:
+            self._log("ERROR", f"Erro no envio assíncrono: {e}")
 
     def _send_command(self, command_type: str, value: float):
         """Envia comando para o Raspberry Pi"""

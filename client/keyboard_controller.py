@@ -7,8 +7,8 @@ MAPEAMENTO DE TECLAS:
 ====================
 🔼 Seta CIMA      → Acelerar (THROTTLE: 100%)
 🔽 Seta BAIXO     → Frear (BRAKE: 100%)  
-◀️ Seta ESQUERDA  → Virar esquerda (STEERING: -100%)
-▶️ Seta DIREITA   → Virar direita (STEERING: +100%)
+⬆️ Tecla M        → Subir marcha (GEAR_UP)
+⬇️ Tecla N        → Descer marcha (GEAR_DOWN)
 ⬆️ Tecla M        → Subir marcha (GEAR_UP)
 ⬇️ Tecla N        → Descer marcha (GEAR_DOWN)
 
@@ -33,14 +33,6 @@ class KeyboardController:
     
     # Mapeamento de teclas para comandos
     KEY_MAPPINGS = {
-        # Apenas steering (comandos contínuos)
-        'Left': {'command': 'STEERING', 'value': -100.0, 'name': '◀️ Esquerda', 'type': 'continuous'},
-        'Right': {'command': 'STEERING', 'value': 100.0, 'name': '▶️ Direita', 'type': 'continuous'},
-
-        # Teclas alternativas (A/D para steering) - comandos contínuos
-        'a': {'command': 'STEERING', 'value': -100.0, 'name': '◀️ Esquerda (A)', 'type': 'continuous'},
-        'd': {'command': 'STEERING', 'value': 100.0, 'name': '▶️ Direita (D)', 'type': 'continuous'},
-
         # Controle de marcha (comandos instantâneos)
         'm': {'command': 'GEAR_UP', 'value': 1.0, 'name': '⬆️ Subir Marcha (M)', 'type': 'instant'},
         'n': {'command': 'GEAR_DOWN', 'value': 1.0, 'name': '⬇️ Descer Marcha (N)', 'type': 'instant'},
@@ -198,8 +190,8 @@ class KeyboardController:
                 
     def _send_stop_command(self, command_type: str):
         """Envia comando para parar um tipo específico de controle"""
-        if command_type == 'STEERING':
-            self._send_command('STEERING', 0.0)
+        # Não há comandos contínuos para parar (apenas marchas instantâneas)
+        pass
             
     def _send_command(self, command_type: str, value: float):
         """Envia comando para o Raspberry Pi"""
@@ -227,7 +219,7 @@ class KeyboardController:
         self.command_thread.start()
         
         self._log("INFO", "Controlador de teclado iniciado")
-        self._log("INFO", "Use as setas direcionais ou WASD para controlar")
+        self._log("INFO", "Use M/N para marchas e sliders para controles")
         
     def stop(self):
         """Para o controlador de teclado"""
@@ -326,38 +318,14 @@ class KeyboardController:
         import tkinter.ttk as ttk
         
         status_frame = ttk.LabelFrame(
-            parent, text="⌨️ Controles de Teclado (Direção e Marchas)", style="Dark.TLabelframe"
+            parent, text="⌨️ Controles de Teclado (Apenas Marchas)", style="Dark.TLabelframe"
         )
 
         # Grid para organizar os indicadores
         controls_grid = tk.Frame(status_frame, bg="#3c3c3c")
         controls_grid.pack(padx=10, pady=5)
 
-        # Indicador de virar esquerda
-        self.status_widgets['STEERING_LEFT'] = tk.Label(
-            controls_grid,
-            text="◀️\nEsquerda\n(← ou A)",
-            bg="#3c3c3c",
-            fg="white",
-            font=("Arial", 9),
-            width=12,
-            height=3
-        )
-        self.status_widgets['STEERING_LEFT'].grid(row=0, column=0, padx=5, pady=2)
-
-        # Indicador de virar direita
-        self.status_widgets['STEERING_RIGHT'] = tk.Label(
-            controls_grid,
-            text="▶️\nDireita\n(→ ou D)",
-            bg="#3c3c3c",
-            fg="white",
-            font=("Arial", 9),
-            width=12,
-            height=3
-        )
-        self.status_widgets['STEERING_RIGHT'].grid(row=0, column=1, padx=5, pady=2)
-
-        # Indicadores de marcha (linha separada)
+        # Indicadores de marcha
         self.status_widgets['GEAR_DOWN'] = tk.Label(
             controls_grid,
             text="⬇️\nMarcha -\n(N)",
@@ -367,7 +335,7 @@ class KeyboardController:
             width=12,
             height=3
         )
-        self.status_widgets['GEAR_DOWN'].grid(row=1, column=0, padx=5, pady=2)
+        self.status_widgets['GEAR_DOWN'].grid(row=0, column=0, padx=5, pady=2)
 
         self.status_widgets['GEAR_UP'] = tk.Label(
             controls_grid,
@@ -378,33 +346,13 @@ class KeyboardController:
             width=12,
             height=3
         )
-        self.status_widgets['GEAR_UP'].grid(row=1, column=1, padx=5, pady=2)
+        self.status_widgets['GEAR_UP'].grid(row=0, column=1, padx=5, pady=2)
         
-        # Ajusta visual para STEERING (esquerda/direita)
-        def update_steering_visual():
-            if 'STEERING' in self.active_commands:
-                value = self.active_commands['STEERING']
-                if value < 0:  # Esquerda
-                    self.status_widgets['STEERING_LEFT'].config(bg="#0078d4")
-                    self.status_widgets['STEERING_RIGHT'].config(bg="#3c3c3c")
-                else:  # Direita
-                    self.status_widgets['STEERING_RIGHT'].config(bg="#0078d4") 
-                    self.status_widgets['STEERING_LEFT'].config(bg="#3c3c3c")
-            else:
-                self.status_widgets['STEERING_LEFT'].config(bg="#3c3c3c")
-                self.status_widgets['STEERING_RIGHT'].config(bg="#3c3c3c")
-                
-        # Substitui método de update para incluir steering
-        original_update = self._update_visual_feedback
-        def new_update():
-            original_update()
-            update_steering_visual()
-        self._update_visual_feedback = new_update
         
         # Instruções
         instructions = tk.Label(
             status_frame,
-            text="Clique na interface e use: ←→/A,D para direção • M/N para marchas • Sliders para throttle/brake",
+            text="Clique na interface e use: M/N para marchas • Sliders para throttle/brake/direção",
             bg="#3c3c3c",
             fg="#cccccc",
             font=("Arial", 9)
@@ -458,7 +406,7 @@ if __name__ == "__main__":
     # Inicia controlador
     controller.start()
     
-    print("Interface iniciada - use as setas ou WASD para testar")
+    print("Interface iniciada - use M/N para marchas e sliders para controles")
     print("Feche a janela para parar")
     
     try:
