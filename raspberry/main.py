@@ -125,6 +125,7 @@ class F1CarCompleteSystem:
 
         # Controle de execução
         self.running = False
+        self.system_ready = False  # NOVO: Flag de sistema pronto para comandos
         self._stopping = False
         self.main_thread: Optional[threading.Thread] = None
 
@@ -192,18 +193,20 @@ class F1CarCompleteSystem:
         success_count = 0
         total_components = 7
 
-        # 1. Rede
-        debug("Inicializando rede UDP...", "MAIN")
+        # MODIFICAÇÃO: Sistema não está pronto para comandos ainda
+        self.system_ready = False
+
+        # 1. Rede (APENAS DADOS - sem comandos ainda)
+        debug("Inicializando rede UDP (apenas dados)...", "MAIN")
         self.network_mgr = NetworkManager(
             data_port=self.target_port, command_port=9998, buffer_size=131072
         )
-        # Configura callback para processar comandos do cliente
-        self.network_mgr.command_callback = self._process_client_command
-        
+        # NÃO configura callback ainda - comandos serão ativados depois
+
         if self.network_mgr.initialize():
             self.system_status["network"] = "Online"
             success_count += 1
-            debug("Rede inicializada", "MAIN")
+            debug("Rede inicializada (dados apenas)", "MAIN")
         else:
             error("Rede não inicializada", "MAIN")
             return False
@@ -285,7 +288,14 @@ class F1CarCompleteSystem:
             warn("Sensor de temperatura não inicializado", "MAIN")
 
         if success_count >= 2:  # Mínimo: rede + pelo menos 1 componente
-            info(f"SISTEMA PRONTO - {success_count}/{total_components} componentes online", "MAIN")
+            info(f"SISTEMA HARDWARE PRONTO - {success_count}/{total_components} componentes online", "MAIN")
+
+            # AGORA sim: ativa recepção de comandos
+            info("🎮 ATIVANDO RECEPÇÃO DE COMANDOS...", "MAIN")
+            self.network_mgr.command_callback = self._process_client_command
+            self.system_ready = True
+            info("✅ SISTEMA COMPLETO PRONTO - Comandos aceitos!", "MAIN")
+
             return True
         else:
             error(f"FALHA CRÍTICA - Apenas {success_count}/{total_components} componentes", "MAIN")
@@ -644,12 +654,17 @@ class F1CarCompleteSystem:
     def _process_client_command(self, client_ip: str, command: str):
         """
         Processa comandos recebidos do cliente
-        
+
         Args:
             client_ip (str): IP do cliente que enviou o comando
             command (str): Comando recebido
         """
         try:
+            # VERIFICAÇÃO: Sistema deve estar pronto para processar comandos
+            if not self.system_ready:
+                debug(f"⏳ Comando ignorado - sistema não pronto: {command}", "COMMAND")
+                return
+
             debug(f"Comando de {client_ip}: {command}", "COMMAND")
             
             # Processa diferentes tipos de comando
@@ -779,7 +794,10 @@ class F1CarCompleteSystem:
 
             # 1. Throttle
             if 'THROTTLE' in controls and self.motor_mgr:
-                self.motor_mgr.set_throttle(controls['THROTTLE'])
+                throttle_value = controls['THROTTLE']
+                self.motor_mgr.set_throttle(throttle_value)
+                if throttle_value == 0.0:
+                    debug(f"🛑 THROTTLE ZERADO por {client_ip}", "FUSED")
 
             # 2. Brake
             if 'BRAKE' in controls and self.brake_mgr:
