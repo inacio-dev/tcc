@@ -4,19 +4,33 @@ test_brake.py - Teste Independente do Sistema de Freios
 Testa o BrakeManager de forma isolada para verificar funcionamento
 """
 
-import sys
 import os
+import sys
 import time
 
 # Adiciona o diretório raspberry ao path
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'raspberry'))
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", "raspberry"))
 
 try:
     from brake_manager import BrakeManager
+
     print("✓ BrakeManager importado com sucesso")
 except ImportError as e:
     print(f"❌ Erro ao importar BrakeManager: {e}")
     exit(1)
+
+try:
+    import board
+    import busio
+    from adafruit_pca9685 import PCA9685
+
+    print("✓ Bibliotecas PCA9685 importadas com sucesso")
+    PCA9685_AVAILABLE = True
+except ImportError as e:
+    print(f"⚠️ PCA9685 não disponível: {e}")
+    print("   Instale: sudo pip3 install adafruit-circuitpython-pca9685")
+    PCA9685_AVAILABLE = False
+
 
 def test_brake_basic():
     """Teste básico do sistema de freios"""
@@ -26,10 +40,10 @@ def test_brake_basic():
     brake = BrakeManager(
         brake_balance=60.0,  # 60% frontal, 40% traseiro
         max_brake_force=90.0,
-        response_time=0.1
+        response_time=0.1,
     )
 
-    print(f"Brake Manager criado:")
+    print("Brake Manager criado:")
     print(f"  - Balanço de freio: {brake.brake_balance}%")
     print(f"  - Força máxima: {brake.max_brake_force}%")
     print(f"  - GPIO frontal: {brake.front_pin}")
@@ -44,6 +58,7 @@ def test_brake_basic():
         print("❌ Falha ao inicializar sistema de freios")
         return None
 
+
 def test_brake_application(brake):
     """Teste de aplicação de freios"""
     print("\n=== TESTE DE APLICAÇÃO DE FREIOS ===")
@@ -57,7 +72,7 @@ def test_brake_application(brake):
         ("Freio máximo", 100.0),
         ("Freio moderado", 60.0),
         ("Liberação gradual", 30.0),
-        ("Liberação total", 0.0)
+        ("Liberação total", 0.0),
     ]
 
     for description, brake_force in test_sequence:
@@ -82,18 +97,19 @@ def test_brake_application(brake):
         # Pausa entre aplicações
         time.sleep(0.5)
 
+
 def test_brake_balance(brake):
     """Teste de balanço de freios"""
     print("\n=== TESTE DE BALANÇO DE FREIOS ===")
 
     # Diferentes configurações de balanço
     balance_configs = [
-        (50.0, "Equilibrado"),      # 50% frontal, 50% traseiro
-        (70.0, "Mais frontal"),     # 70% frontal, 30% traseiro
-        (30.0, "Mais traseiro"),    # 30% frontal, 70% traseiro
-        (100.0, "Só frontal"),      # 100% frontal, 0% traseiro
-        (0.0, "Só traseiro"),       # 0% frontal, 100% traseiro
-        (60.0, "Padrão F1")         # 60% frontal, 40% traseiro
+        (50.0, "Equilibrado"),  # 50% frontal, 50% traseiro
+        (70.0, "Mais frontal"),  # 70% frontal, 30% traseiro
+        (30.0, "Mais traseiro"),  # 30% frontal, 70% traseiro
+        (100.0, "Só frontal"),  # 100% frontal, 0% traseiro
+        (0.0, "Só traseiro"),  # 0% frontal, 100% traseiro
+        (60.0, "Padrão F1"),  # 60% frontal, 40% traseiro
     ]
 
     # Força de teste constante
@@ -122,6 +138,7 @@ def test_brake_balance(brake):
         brake.release_brakes()
         time.sleep(0.3)
 
+
 def test_emergency_brake(brake):
     """Teste de freio de emergência"""
     print("\n=== TESTE DE FREIO DE EMERGÊNCIA ===")
@@ -145,6 +162,7 @@ def test_emergency_brake(brake):
     print("\n✅ Liberando freio de emergência...")
     brake.release_brakes()
     time.sleep(1.0)
+
 
 def test_brake_limits(brake):
     """Teste dos limites do sistema"""
@@ -171,6 +189,7 @@ def test_brake_limits(brake):
         brake.release_brakes()
         time.sleep(0.3)
 
+
 def test_brake_statistics(brake):
     """Teste das estatísticas do sistema"""
     print("\n=== ESTATÍSTICAS DO SISTEMA ===")
@@ -192,13 +211,17 @@ def test_brake_statistics(brake):
     print(f"   → Frontal: {status.get('front_brake_percent', 0):.1f}%")
     print(f"   → Traseiro: {status.get('rear_brake_percent', 0):.1f}%")
 
+
 def main():
     """Função principal do teste"""
     print("🛑 === TESTE DO BRAKE MANAGER ===")
     print("Este teste verifica o funcionamento do sistema de freios")
-    print("Certifique-se de que os servos estão conectados:")
-    print("  - Freio frontal: GPIO4 (Pin 7)")
-    print("  - Freio traseiro: GPIO17 (Pin 11)")
+    print("Certifique-se de que os servos estão conectados ao PCA9685:")
+    print("  - Freio frontal: Canal 0 do PCA9685")
+    print("  - Freio traseiro: Canal 1 do PCA9685")
+    print("  - PCA9685 conectado via I2C (SDA=GPIO2, SCL=GPIO3)")
+    if not PCA9685_AVAILABLE:
+        print("⚠️ Aviso: PCA9685 não disponível - sistema funcionará em modo simulação")
     print()
 
     # Teste básico
@@ -237,6 +260,7 @@ def main():
             print("✓ Sistema finalizado corretamente")
         except:
             print("⚠️ Erro na finalização")
+
 
 if __name__ == "__main__":
     main()

@@ -4,19 +4,33 @@ test_steering.py - Teste Independente do Sistema de Direção
 Testa o SteeringManager de forma isolada para verificar funcionamento
 """
 
-import sys
 import os
+import sys
 import time
 
 # Adiciona o diretório raspberry ao path
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'raspberry'))
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", "raspberry"))
 
 try:
     from steering_manager import SteeringManager, SteeringMode
+
     print("✓ SteeringManager importado com sucesso")
 except ImportError as e:
     print(f"❌ Erro ao importar SteeringManager: {e}")
     exit(1)
+
+try:
+    import board
+    import busio
+    from adafruit_pca9685 import PCA9685
+
+    print("✓ Bibliotecas PCA9685 importadas com sucesso")
+    PCA9685_AVAILABLE = True
+except ImportError as e:
+    print(f"⚠️ PCA9685 não disponível: {e}")
+    print("   Instale: sudo pip3 install adafruit-circuitpython-pca9685")
+    PCA9685_AVAILABLE = False
+
 
 def test_steering_basic():
     """Teste básico do sistema de direção"""
@@ -27,10 +41,10 @@ def test_steering_basic():
         steering_sensitivity=1.0,
         max_steering_angle=45.0,
         steering_mode=SteeringMode.NORMAL,
-        response_time=0.1
+        response_time=0.1,
     )
 
-    print(f"Steering Manager criado:")
+    print("Steering Manager criado:")
     print(f"  - Sensibilidade: {steering.steering_sensitivity}")
     print(f"  - Ângulo máximo: {steering.max_steering_angle}°")
     print(f"  - Modo: {steering.steering_mode.value}")
@@ -44,6 +58,7 @@ def test_steering_basic():
     else:
         print("❌ Falha ao inicializar sistema de direção")
         return None
+
 
 def test_steering_movements(steering):
     """Teste de movimentos da direção"""
@@ -59,7 +74,7 @@ def test_steering_movements(steering):
         ("Direita leve", 25.0),
         ("Direita média", 50.0),
         ("Direita máxima", 100.0),
-        ("Centro", 0.0)
+        ("Centro", 0.0),
     ]
 
     for description, steering_input in test_sequence:
@@ -82,6 +97,7 @@ def test_steering_movements(steering):
         # Pausa entre movimentos
         time.sleep(0.5)
 
+
 def test_steering_modes(steering):
     """Teste dos diferentes modos de direção"""
     print("\n=== TESTE DE MODOS DE DIREÇÃO ===")
@@ -90,7 +106,7 @@ def test_steering_modes(steering):
         (SteeringMode.NORMAL, "Normal"),
         (SteeringMode.SPORT, "Sport"),
         (SteeringMode.COMFORT, "Comfort"),
-        (SteeringMode.PARKING, "Parking")
+        (SteeringMode.PARKING, "Parking"),
     ]
 
     for mode, name in modes:
@@ -111,6 +127,7 @@ def test_steering_modes(steering):
         # Volta ao centro
         steering.set_steering_input(0.0)
         time.sleep(0.3)
+
 
 def test_steering_limits(steering):
     """Teste dos limites do sistema"""
@@ -135,6 +152,7 @@ def test_steering_limits(steering):
         steering.set_steering_input(0.0)
         time.sleep(0.3)
 
+
 def test_steering_statistics(steering):
     """Teste das estatísticas do sistema"""
     print("\n=== ESTATÍSTICAS DO SISTEMA ===")
@@ -148,11 +166,16 @@ def test_steering_statistics(steering):
     print(f"   → Última posição: {stats.get('last_angle', 0):.1f}°")
     print(f"   → Sistema inicializado: {stats.get('is_initialized', False)}")
 
+
 def main():
     """Função principal do teste"""
     print("🏎️ === TESTE DO STEERING MANAGER ===")
     print("Este teste verifica o funcionamento do sistema de direção")
-    print("Certifique-se de que o servo está conectado ao GPIO24")
+    print("Certifique-se de que o servo está conectado ao PCA9685:")
+    print("  - Servo direção: Canal 2 do PCA9685")
+    print("  - PCA9685 conectado via I2C (SDA=GPIO2, SCL=GPIO3)")
+    if not PCA9685_AVAILABLE:
+        print("⚠️ Aviso: PCA9685 não disponível - sistema funcionará em modo simulação")
     print()
 
     # Teste básico
@@ -190,6 +213,7 @@ def main():
             print("✓ Sistema finalizado corretamente")
         except:
             print("⚠️ Erro na finalização")
+
 
 if __name__ == "__main__":
     main()

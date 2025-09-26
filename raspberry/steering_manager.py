@@ -1,14 +1,27 @@
 #!/usr/bin/env python3
 """
 steering_manager.py - Sistema de Direção do Carrinho F1
-Controla direção com servo MG996R
+Controla direção com servo MG996R via PCA9685
 
-PINOUT SERVO MG996R (DIREÇÃO):
-===============================
-Servo Direção -> Raspberry Pi 4 (GPIO)
-- VCC (Vermelho)  -> Pin 4 (5V) ou fonte externa 6V
-- GND (Marrom)    -> Pin 14 (GND)
-- Signal (Laranja)-> Pin 18 (GPIO24) - PWM
+PINOUT PCA9685 + SERVO MG996R (DIREÇÃO):
+=========================================
+PCA9685 -> Raspberry Pi 4 (I2C) [COMPARTILHADO COM FREIOS]
+- VCC    -> Pin 2 (5V) ou fonte externa 6V
+- GND    -> Pin 6 (GND)
+- SCL    -> Pin 5 (GPIO3/SCL)
+- SDA    -> Pin 3 (GPIO2/SDA)
+
+Servo Direção -> PCA9685
+- VCC (Vermelho)  -> V+ (fonte externa 6V recomendada)
+- GND (Marrom)    -> GND
+- Signal (Laranja)-> Canal 2 do PCA9685
+
+MAPEAMENTO COMPLETO DOS CANAIS PCA9685:
+======================================
+Canal 0: Freio frontal (brake_manager.py)
+Canal 1: Freio traseiro (brake_manager.py)
+Canal 2: Direção (steering_manager.py) <-- ESTE ARQUIVO
+Canais 3-15: Disponíveis para expansão
 
 CARACTERÍSTICAS MG996R (DIREÇÃO):
 =================================
@@ -29,23 +42,30 @@ CONFIGURAÇÃO MECÂNICA:
 
 CONFIGURAÇÃO NECESSÁRIA:
 =======================
-sudo raspi-config -> Interface Options -> SPI -> Enable
-sudo apt-get install python3-rpi.gpio
+sudo raspi-config -> Interface Options -> I2C -> Enable
+sudo pip3 install adafruit-circuitpython-pca9685
 """
 
-import time
 import math
 import threading
-from typing import Optional, Dict, Any
+import time
 from enum import Enum
+from typing import Any, Dict
 
 try:
-    import RPi.GPIO as GPIO
-    GPIO_AVAILABLE = True
+    import board
+    import busio
+    from adafruit_motor import servo
+    from adafruit_pca9685 import PCA9685
+
+    PCA9685_AVAILABLE = True
+    print("✓ PCA9685 disponível")
 except ImportError:
-    print("❌ RPi.GPIO não disponível - hardware GPIO obrigatório")
-    GPIO_AVAILABLE = False
-    exit(1)  # Para execução se GPIO não disponível
+    print(
+        "❌ PCA9685 não disponível - instale: sudo pip3 install adafruit-circuitpython-pca9685"
+    )
+    PCA9685_AVAILABLE = False
+    exit(1)  # Para execução se PCA9685 não disponível
 
 
 class SteeringMode(Enum):
@@ -58,12 +78,15 @@ class SteeringMode(Enum):
 
 
 class SteeringManager:
-    """Gerencia sistema de direção do carrinho F1"""
+    """Gerencia sistema de direção do carrinho F1 via PCA9685"""
 
     # ================== CONFIGURAÇÕES FÍSICAS ==================
 
-    # Pino GPIO do servo de direção
-    STEERING_PIN = 24  # GPIO24 - Pin 18
+    # Canal PCA9685 do servo de direção
+    STEERING_CHANNEL = 2  # Canal 2 do PCA9685
+
+    # Endereço I2C do PCA9685 (compartilhado com brake_manager)
+    PCA9685_I2C_ADDRESS = 0x40  # Endereço padrão do PCA9685
 
     # Características do servo MG996R
     PWM_FREQUENCY = 50  # 50Hz para servos
@@ -82,7 +105,8 @@ class SteeringManager:
 
     def __init__(
         self,
-        steering_pin: int = None,
+        steering_channel: int = None,
+        pca9685_address: int = None,
         steering_sensitivity: float = 1.0,
         max_steering_angle: float = 45.0,
         steering_mode: SteeringMode = SteeringMode.NORMAL,
@@ -92,13 +116,15 @@ class SteeringManager:
         Inicializa o gerenciador de direção
 
         Args:
-            steering_pin (int): Pino GPIO do servo de direção
+            steering_channel (int): Canal PCA9685 do servo de direção
+            pca9685_address (int): Endereço I2C do PCA9685
             steering_sensitivity (float): Sensibilidade da direção (0.5-2.0)
             max_steering_angle (float): Ângulo máximo de esterçamento
             steering_mode (SteeringMode): Modo de direção
             response_time (float): Tempo de resposta da direção
         """
-        self.steering_pin = steering_pin or self.STEERING_PIN
+        self.steering_channel = steering_channel or self.STEERING_CHANNEL
+        self.pca9685_address = pca9685_address or self.PCA9685_I2C_ADDRESS
 
         # Configurações
         self.steering_sensitivity = max(0.5, min(2.0, steering_sensitivity))
@@ -113,8 +139,10 @@ class SteeringManager:
         self.servo_angle = self.STEERING_CENTER  # Ângulo do servo (45° a 135°)
         self.steering_input = 0.0  # Input de direção (-100% a +100%)
 
-        # Controle PWM
-        self.steering_pwm = None
+        # Controle PCA9685
+        self.pca9685 = None
+        self.i2c = None
+        self.steering_servo = None
 
         # Controle de movimento suave
         self.smooth_movement = True
@@ -148,15 +176,14 @@ class SteeringManager:
 
     def initialize(self) -> bool:
         """
-        Inicializa o sistema de direção
+        Inicializa o sistema de direção via PCA9685
 
         Returns:
             bool: True se inicializado com sucesso
         """
-        print("Inicializando sistema de direção...")
-        print(
-            f"Servo direção: GPIO{self.steering_pin} (Pin {self._gpio_to_pin(self.steering_pin)})"
-        )
+        print("Inicializando sistema de direção via PCA9685...")
+        print(f"Servo direção: Canal {self.steering_channel} do PCA9685")
+        print(f"Endereço I2C: 0x{self.pca9685_address:02X}")
         print(f"Modo: {self.steering_mode.value.upper()}")
         print(f"Sensibilidade: {self.steering_sensitivity:.1f}x")
         print(f"Ângulo máximo: ±{self.max_steering_angle}°")
@@ -164,22 +191,27 @@ class SteeringManager:
             f"Geometria Ackermann: {'Ativada' if self.ackermann_enabled else 'Desativada'}"
         )
 
-        # GPIO sempre disponível - sem modo simulação
-
         try:
-            # Configura GPIO
-            GPIO.setmode(GPIO.BCM)
-            GPIO.setwarnings(False)
+            # Inicializa barramento I2C (pode ser compartilhado com brake_manager)
+            self.i2c = busio.I2C(board.SCL, board.SDA)
+            print("✓ Barramento I2C inicializado")
 
-            # Configura pino como saída
-            GPIO.setup(self.steering_pin, GPIO.OUT)
+            # Inicializa PCA9685
+            self.pca9685 = PCA9685(self.i2c, address=self.pca9685_address)
+            self.pca9685.frequency = self.PWM_FREQUENCY
+            print(f"✓ PCA9685 inicializado @ {self.PWM_FREQUENCY}Hz")
 
-            # Cria objeto PWM
-            self.steering_pwm = GPIO.PWM(self.steering_pin, self.PWM_FREQUENCY)
+            # Configura servo no canal especificado
+            self.steering_servo = servo.Servo(
+                self.pca9685.channels[self.steering_channel],
+                min_pulse=int(self.PULSE_MIN * 1000),  # converte para microssegundos
+                max_pulse=int(self.PULSE_MAX * 1000),
+            )
+            print(f"✓ Servo direção configurado (canal {self.steering_channel})")
 
-            # Inicia PWM na posição central
-            center_duty = self._angle_to_duty_cycle(self.STEERING_CENTER)
-            self.steering_pwm.start(center_duty)
+            # Posiciona servo na posição central
+            self.steering_servo.angle = self.STEERING_CENTER
+            print(f"✓ Servo posicionado na posição central ({self.STEERING_CENTER}°)")
 
             # Aguarda servo se posicionar
             time.sleep(0.5)
@@ -190,13 +222,14 @@ class SteeringManager:
 
             self.is_initialized = True
 
-            print("✓ Sistema de direção inicializado com sucesso")
+            print("✅ Sistema de direção inicializado com sucesso!")
             print(f"  - Frequência PWM: {self.PWM_FREQUENCY}Hz")
             print(f"  - Posição inicial: {self.STEERING_CENTER}° (centro)")
             print(f"  - Range: {self.STEERING_MIN_ANGLE}° a {self.STEERING_MAX_ANGLE}°")
             print(
                 f"  - Movimento suave: {'Ativado' if self.smooth_movement else 'Desativado'}"
             )
+            print(f"  - Canal direção: {self.steering_channel}")
 
             # Teste rápido da direção
             self._test_steering()
@@ -204,62 +237,16 @@ class SteeringManager:
             return True
 
         except Exception as e:
-            print(f"✗ Erro ao inicializar direção: {e}")
+            print(f"❌ Erro ao inicializar direção: {e}")
             print("\nVerifique:")
-            print("1. Conexão do servo (VCC, GND, Signal)")
-            print("2. Alimentação do servo (5V-6V)")
-            print("3. Pino GPIO configurado corretamente")
-            print("4. sudo apt-get install python3-rpi.gpio")
+            print("1. Conexões do PCA9685 (VCC, GND, SDA, SCL)")
+            print("2. Conexão do servo no PCA9685 (canal correto)")
+            print("3. Alimentação do servo (fonte externa 6V recomendada)")
+            print("4. sudo raspi-config -> Interface Options -> I2C -> Enable")
+            print("5. sudo pip3 install adafruit-circuitpython-pca9685")
 
             self.is_initialized = False
             return False
-
-    def _gpio_to_pin(self, gpio_num: int) -> int:
-        """Converte número GPIO para número do pino físico"""
-        gpio_to_pin_map = {
-            24: 18,
-            23: 16,
-            25: 22,
-            4: 7,
-            17: 11,
-            27: 13,
-            22: 15,
-            18: 12,
-            5: 29,
-            6: 31,
-            12: 32,
-            13: 33,
-            19: 35,
-            16: 36,
-            26: 37,
-            20: 38,
-            21: 40,
-        }
-        return gpio_to_pin_map.get(gpio_num, 0)
-
-    def _angle_to_duty_cycle(self, angle: float) -> float:
-        """
-        Converte ângulo do servo para duty cycle PWM
-
-        Args:
-            angle (float): Ângulo em graus (45-135)
-
-        Returns:
-            float: Duty cycle em porcentagem
-        """
-        # Garante que o ângulo está no range válido do servo
-        angle = max(self.STEERING_MIN_ANGLE, min(self.STEERING_MAX_ANGLE, angle))
-
-        # Converte ângulo do servo (45-135°) para duração de pulso (1.0-2.0ms)
-        angle_normalized = (angle - 45.0) / 90.0  # 0.0 a 1.0
-        pulse_width = self.PULSE_MIN + angle_normalized * (
-            self.PULSE_MAX - self.PULSE_MIN
-        )
-
-        # Converte duração para duty cycle (período = 20ms @ 50Hz)
-        duty_cycle = (pulse_width / 20.0) * 100.0
-
-        return duty_cycle
 
     def _start_movement_thread(self):
         """Inicia thread para movimento suave da direção"""
@@ -296,11 +283,15 @@ class SteeringManager:
                     # Aplica calibração
                     calibrated_angle = self.servo_angle + self.calibration_offset
 
-                    # Aplica movimento ao servo (apenas se GPIO disponível)
-                    if self.steering_pwm:
-                        duty = self._angle_to_duty_cycle(calibrated_angle)
-                        print(f"🔧 PWM aplicado: {duty:.2f}% duty cycle (ângulo: {calibrated_angle:.1f}°)")
-                        self.steering_pwm.ChangeDutyCycle(duty)
+                    # Aplica movimento ao servo (apenas se PCA9685 disponível)
+                    if self.steering_servo:
+                        # Limita ângulo ao range válido do servo
+                        final_angle = max(
+                            self.STEERING_MIN_ANGLE,
+                            min(self.STEERING_MAX_ANGLE, calibrated_angle),
+                        )
+
+                        self.steering_servo.angle = final_angle
 
                 time.sleep(0.02)  # 50Hz de atualização
 
@@ -357,7 +348,9 @@ class SteeringManager:
             target_angle = self._apply_ackermann_geometry(target_angle)
 
         self.target_angle = target_angle
-        print(f"🎯 Target angle definido: {target_angle:.1f}° (input: {steering_input:.1f}%)")
+        print(
+            f"🎯 Target angle definido: {target_angle:.1f}° (input: {steering_input:.1f}%)"
+        )
 
         # Atualiza estatísticas
         if abs(steering_input) > 5:  # Movimento significativo
@@ -566,9 +559,10 @@ class SteeringManager:
             "max_angle_reached": round(self.max_angle_reached, 1),
             "last_movement_time": self.last_movement_time,
             # === HARDWARE ===
-            "steering_pin": self.steering_pin,
+            "steering_channel": self.steering_channel,
+            "pca9685_address": f"0x{self.pca9685_address:02X}",
             "pwm_frequency": self.PWM_FREQUENCY,
-            "gpio_available": True,
+            "pca9685_available": PCA9685_AVAILABLE,
             # === TIMESTAMP ===
             "timestamp": round(time.time(), 3),
         }
@@ -660,12 +654,15 @@ class SteeringManager:
             self.center_steering()
             time.sleep(0.2)
 
-            # Para PWM
-            if self.steering_pwm:
-                self.steering_pwm.stop()
-
-                # Cleanup GPIO
-                GPIO.cleanup([self.steering_pin])
+            # Libera recursos do PCA9685
+            if self.steering_servo:
+                self.steering_servo = None
+            if self.pca9685:
+                self.pca9685.deinit()
+                self.pca9685 = None
+            if self.i2c:
+                self.i2c.deinit()
+                self.i2c = None
 
             self.is_initialized = False
             print("✓ Sistema de direção finalizado")
@@ -682,8 +679,10 @@ class SteeringManager:
 if __name__ == "__main__":
     print("=== TESTE DO SISTEMA DE DIREÇÃO ===")
 
-    # Cria instância da direção
+    # Cria instância da direção com PCA9685
     steering_mgr = SteeringManager(
+        steering_channel=2,  # Canal 2 do PCA9685 para direção
+        pca9685_address=0x40,  # Endereço I2C padrão do PCA9685 (compartilhado)
         steering_sensitivity=1.2,
         max_steering_angle=40.0,
         steering_mode=SteeringMode.SPORT,
@@ -740,7 +739,7 @@ if __name__ == "__main__":
         time.sleep(1.0)
 
         wheels = steering_mgr.get_wheel_angles()
-        print(f"   Entrada: 60% direita")
+        print("   Entrada: 60% direita")
         print(f"   Roda esquerda (externa): {wheels['left_wheel']:+.1f}°")
         print(f"   Roda direita (interna): {wheels['right_wheel']:+.1f}°")
         print(f"   Raio de curvatura: {wheels['turn_radius']:.2f}m")
@@ -751,7 +750,7 @@ if __name__ == "__main__":
 
         # Estatísticas finais
         stats = steering_mgr.get_statistics()
-        print(f"\n=== ESTATÍSTICAS FINAIS ===")
+        print("\n=== ESTATÍSTICAS FINAIS ===")
         print(f"Movimentos de direção: {stats['total_movements']}")
         print(f"Ângulo total percorrido: {stats['total_steering_angle']:.1f}°")
         print(f"Ângulo máximo atingido: {stats['max_angle_reached']:.1f}°")

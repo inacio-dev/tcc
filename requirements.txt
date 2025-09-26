@@ -2,3 +2,16 @@ opencv-python
 numpy
 picamera2
 Pillow
+
+# PCA9685 PWM Driver para controle de servos
+adafruit-circuitpython-pca9685
+
+# Dependências do CircuitPython para Raspberry Pi
+adafruit-blinka
+
+# Dependências do CircuitPython para servos
+adafruit-circuitpython-motor
+adafruit-circuitpython-servokit
+
+# Bibliotecas I2C para BMI160
+smbus2
