@@ -1,58 +1,91 @@
 #!/usr/bin/env python3
 """
 brake_manager.py - Sistema de Freios do Carrinho F1
-Controla freios dianteiros e traseiros com servo MG996R
+Controla freios dianteiros e traseiros com servo MG996R via PCA9685
 
-PINOUT SERVOS MG996R:
-====================
-Servo Freio Dianteiro -> Raspberry Pi 4 (GPIO)
-- VCC (Vermelho)  -> Pin 2 (5V) ou fonte externa 6V
-- GND (Marrom)    -> Pin 6 (GND)
-- Signal (Laranja)-> Pin 7 (GPIO4) - PWM
+PINOUT PCA9685 + SERVOS MG996R:
+===============================
+PCA9685 -> Raspberry Pi 4 (I2C)
+- VCC    -> Pin 2 (5V) ou fonte externa 6V
+- GND    -> Pin 6 (GND)
+- SCL    -> Pin 5 (GPIO3/SCL)
+- SDA    -> Pin 3 (GPIO2/SDA)
 
-Servo Freio Traseiro -> Raspberry Pi 4 (GPIO)
-- VCC (Vermelho)  -> Pin 2 (5V) ou fonte externa 6V
-- GND (Marrom)    -> Pin 9 (GND)
-- Signal (Laranja)-> Pin 11 (GPIO17) - PWM
+Servo Freio Dianteiro -> PCA9685
+- VCC (Vermelho)  -> V+ (fonte externa 6V recomendada)
+- GND (Marrom)    -> GND
+- Signal (Laranja)-> Canal 0 do PCA9685
+
+Servo Freio Traseiro -> PCA9685
+- VCC (Vermelho)  -> V+ (fonte externa 6V recomendada)
+- GND (Marrom)    -> GND
+- Signal (Laranja)-> Canal 1 do PCA9685
+
+MAPEAMENTO DE PINOS OCUPADOS NO PROJETO:
+========================================
+PINOS I2C (PCA9685 + BMI160):
+- GPIO2/Pin 3  -> SDA (I2C Data) - OCUPADO
+- GPIO3/Pin 5  -> SCL (I2C Clock) - OCUPADO
+
+PINOS GPIO LIBERADOS (agora usando PCA9685):
+- GPIO4/Pin 7   -> LIBERADO (era freio frontal)
+- GPIO17/Pin 11 -> LIBERADO (era freio traseiro)
+- GPIO24/Pin 18 -> LIBERADO (era direção - agora no PCA9685)
+
+PINOS OCUPADOS POR OUTROS COMPONENTES:
+- GPIO18/Pin 12 -> Motor BTS7960 RPWM (OCUPADO)
+- GPIO27/Pin 13 -> Motor BTS7960 LPWM (OCUPADO)
+- GPIO22/Pin 15 -> Motor BTS7960 R_EN (OCUPADO)
+- GPIO23/Pin 16 -> Motor BTS7960 L_EN (OCUPADO)
+- GPIO25/Pin 22 -> Sensor temperatura DS18B20 (OCUPADO)
 
 CARACTERÍSTICAS MG996R:
 ======================
 - Tensão: 4.8V - 7.2V (recomendado 6V para torque máximo)
 - Torque: 11kg.cm @ 6V
 - Velocidade: 0.14s/60° @ 6V
-- Ângulo: 0° - 180° (180° = freio máximo)
+- Ângulo: 0° - 180° (0°=solto, 90°=neutro, 180°=máximo)
 - PWM: 50Hz, pulso 1.0ms-2.0ms
 - Corrente: ~1.5A sob carga máxima
 
 CONFIGURAÇÃO NECESSÁRIA:
 =======================
-sudo raspi-config -> Interface Options -> SPI -> Enable
-sudo apt-get install python3-rpi.gpio python3-pigpio
-sudo pigpiod  # Para PWM de alta precisão (opcional)
+sudo raspi-config -> Interface Options -> I2C -> Enable
+sudo apt-get install python3-pip
+sudo pip3 install adafruit-circuitpython-pca9685
 """
 
-import time
-import math
 import threading
-from typing import Optional
+import time
 
 try:
-    import RPi.GPIO as GPIO
-    GPIO_AVAILABLE = True
+    import board
+    import busio
+    from adafruit_motor import servo
+    from adafruit_pca9685 import PCA9685
+
+    PCA9685_AVAILABLE = True
+    print("✓ PCA9685 disponível")
 except ImportError:
-    print("❌ RPi.GPIO não disponível - hardware GPIO obrigatório")
-    GPIO_AVAILABLE = False
-    exit(1)  # Para execução se GPIO não disponível
+    print(
+        "❌ PCA9685 não disponível - instale: sudo pip3 install adafruit-circuitpython-pca9685"
+    )
+    PCA9685_AVAILABLE = False
+    exit(1)  # Para execução se PCA9685 não disponível
 
 
 class BrakeManager:
-    """Gerencia sistema de freios dianteiro e traseiro"""
+    """Gerencia sistema de freios dianteiro e traseiro via PCA9685"""
 
     # ================== CONFIGURAÇÕES FÍSICAS ==================
 
-    # Pinos GPIO dos servos
-    FRONT_BRAKE_PIN = 4  # GPIO4 - Pin 7
-    REAR_BRAKE_PIN = 17  # GPIO17 - Pin 11
+    # Canais PCA9685 dos servos (mapeamento completo do projeto)
+    FRONT_BRAKE_CHANNEL = 0  # Canal 0 do PCA9685 - Freio frontal
+    REAR_BRAKE_CHANNEL = 1  # Canal 1 do PCA9685 - Freio traseiro
+    # STEERING_CHANNEL = 2     # Canal 2 do PCA9685 - Direção (usado pelo steering_manager)
+
+    # Endereço I2C do PCA9685
+    PCA9685_I2C_ADDRESS = 0x40  # Endereço padrão do PCA9685
 
     # Características do servo MG996R
     PWM_FREQUENCY = 50  # 50Hz para servos
@@ -67,8 +100,9 @@ class BrakeManager:
 
     def __init__(
         self,
-        front_pin: int = None,
-        rear_pin: int = None,
+        front_channel: int = None,
+        rear_channel: int = None,
+        pca9685_address: int = None,
         brake_balance: float = 50.0,  # 50% = balanceado
         max_brake_force: float = 100.0,
         response_time: float = 0.1,
@@ -77,14 +111,16 @@ class BrakeManager:
         Inicializa o sistema de freios
 
         Args:
-            front_pin (int): Pino GPIO do servo freio dianteiro
-            rear_pin (int): Pino GPIO do servo freio traseiro
+            front_channel (int): Canal PCA9685 do servo freio dianteiro
+            rear_channel (int): Canal PCA9685 do servo freio traseiro
+            pca9685_address (int): Endereço I2C do PCA9685
             brake_balance (float): Balanço de freio 0-100% (0=mais dianteiro, 100=mais traseiro)
             max_brake_force (float): Força máxima de freio 0-100%
             response_time (float): Tempo de resposta do servo em segundos
         """
-        self.front_pin = front_pin or self.FRONT_BRAKE_PIN
-        self.rear_pin = rear_pin or self.REAR_BRAKE_PIN
+        self.front_channel = front_channel or self.FRONT_BRAKE_CHANNEL
+        self.rear_channel = rear_channel or self.REAR_BRAKE_CHANNEL
+        self.pca9685_address = pca9685_address or self.PCA9685_I2C_ADDRESS
 
         # Configurações de freio
         self.brake_balance = max(0.0, min(100.0, brake_balance))  # 0-100%
@@ -98,15 +134,17 @@ class BrakeManager:
         self.rear_brake_force = 0.0  # Força atual 0-100%
         self.total_brake_input = 0.0  # Input total 0-100%
 
-        # Estado dos servos
+        # Estado dos servos e PCA9685
         self.is_initialized = False
-        self.front_pwm = None
-        self.rear_pwm = None
+        self.pca9685 = None
+        self.i2c = None
+        self.front_servo = None
+        self.rear_servo = None
 
         # Controle de movimento suave
         self.target_front_angle = self.BRAKE_NEUTRAL
         self.target_rear_angle = self.BRAKE_NEUTRAL
-        self.smooth_movement = True
+        self.smooth_movement = False  # DESABILITADO - movimento direto igual aos testes
         self.movement_thread = None
         self.should_stop = False
 
@@ -124,43 +162,49 @@ class BrakeManager:
 
     def initialize(self) -> bool:
         """
-        Inicializa o sistema de freios
+        Inicializa o sistema de freios via PCA9685
 
         Returns:
             bool: True se inicializado com sucesso
         """
-        print("Inicializando sistema de freios...")
-        print(
-            f"Freio dianteiro: GPIO{self.front_pin} (Pin {self._gpio_to_pin(self.front_pin)})"
-        )
-        print(
-            f"Freio traseiro: GPIO{self.rear_pin} (Pin {self._gpio_to_pin(self.rear_pin)})"
-        )
+        print("Inicializando sistema de freios via PCA9685...")
+        print(f"Freio dianteiro: Canal {self.front_channel} do PCA9685")
+        print(f"Freio traseiro: Canal {self.rear_channel} do PCA9685")
+        print(f"Endereço I2C: 0x{self.pca9685_address:02X}")
         print(
             f"Balanço de freio: {self.brake_balance:.1f}% (0=dianteiro, 100=traseiro)"
         )
 
-        # GPIO sempre disponível - sem modo simulação
-
         try:
-            # Configura GPIO
-            GPIO.setmode(GPIO.BCM)
-            GPIO.setwarnings(False)
+            # Inicializa barramento I2C
+            self.i2c = busio.I2C(board.SCL, board.SDA)
+            print("✓ Barramento I2C inicializado")
 
-            # Configura pinos como saída
-            GPIO.setup(self.front_pin, GPIO.OUT)
-            GPIO.setup(self.rear_pin, GPIO.OUT)
+            # Inicializa PCA9685
+            self.pca9685 = PCA9685(self.i2c, address=self.pca9685_address)
+            self.pca9685.frequency = self.PWM_FREQUENCY
+            print(f"✓ PCA9685 inicializado @ {self.PWM_FREQUENCY}Hz")
 
-            # Cria objetos PWM
-            self.front_pwm = GPIO.PWM(self.front_pin, self.PWM_FREQUENCY)
-            self.rear_pwm = GPIO.PWM(self.rear_pin, self.PWM_FREQUENCY)
+            # Configura servos nos canais especificados
+            self.front_servo = servo.Servo(
+                self.pca9685.channels[self.front_channel],
+                min_pulse=int(self.PULSE_MIN * 1000),  # converte para microssegundos
+                max_pulse=int(self.PULSE_MAX * 1000),
+            )
 
-            # Inicia PWM na posição neutra
-            front_duty = self._angle_to_duty_cycle(self.BRAKE_NEUTRAL)
-            rear_duty = self._angle_to_duty_cycle(self.BRAKE_NEUTRAL)
+            self.rear_servo = servo.Servo(
+                self.pca9685.channels[self.rear_channel],
+                min_pulse=int(self.PULSE_MIN * 1000),  # converte para microssegundos
+                max_pulse=int(self.PULSE_MAX * 1000),
+            )
+            print(
+                f"✓ Servos configurados (canais {self.front_channel} e {self.rear_channel})"
+            )
 
-            self.front_pwm.start(front_duty)
-            self.rear_pwm.start(rear_duty)
+            # Posiciona servos na posição neutra
+            self.front_servo.angle = self.BRAKE_NEUTRAL
+            self.rear_servo.angle = self.BRAKE_NEUTRAL
+            print(f"✓ Servos posicionados na posição neutra ({self.BRAKE_NEUTRAL}°)")
 
             # Aguarda servos se posicionarem
             time.sleep(0.5)
@@ -171,12 +215,14 @@ class BrakeManager:
 
             self.is_initialized = True
 
-            print("✓ Sistema de freios inicializado com sucesso")
+            print("✅ Sistema de freios inicializado com sucesso!")
             print(f"  - Frequência PWM: {self.PWM_FREQUENCY}Hz")
             print(f"  - Posição inicial: {self.BRAKE_NEUTRAL}° (neutro)")
             print(
                 f"  - Movimento suave: {'Ativado' if self.smooth_movement else 'Desativado'}"
             )
+            print(f"  - Canal frontal: {self.front_channel}")
+            print(f"  - Canal traseiro: {self.rear_channel}")
 
             # Teste rápido dos servos
             self._test_servos()
@@ -184,63 +230,16 @@ class BrakeManager:
             return True
 
         except Exception as e:
-            print(f"✗ Erro ao inicializar sistema de freios: {e}")
+            print(f"❌ Erro ao inicializar sistema de freios: {e}")
             print("\nVerifique:")
-            print("1. Conexões dos servos (VCC, GND, Signal)")
-            print("2. Alimentação dos servos (5V-6V, corrente suficiente)")
-            print("3. Pinos GPIO configurados corretamente")
-            print("4. sudo apt-get install python3-rpi.gpio")
+            print("1. Conexões do PCA9685 (VCC, GND, SDA, SCL)")
+            print("2. Conexões dos servos no PCA9685 (canais corretos)")
+            print("3. Alimentação dos servos (fonte externa 6V recomendada)")
+            print("4. sudo raspi-config -> Interface Options -> I2C -> Enable")
+            print("5. sudo pip3 install adafruit-circuitpython-pca9685")
 
             self.is_initialized = False
             return False
-
-    def _gpio_to_pin(self, gpio_num: int) -> int:
-        """Converte número GPIO para número do pino físico"""
-        gpio_to_pin_map = {
-            4: 7,
-            17: 11,
-            18: 12,
-            27: 13,
-            22: 15,
-            23: 16,
-            24: 18,
-            25: 22,
-            5: 29,
-            6: 31,
-            12: 32,
-            13: 33,
-            19: 35,
-            16: 36,
-            26: 37,
-            20: 38,
-            21: 40,
-        }
-        return gpio_to_pin_map.get(gpio_num, 0)
-
-    def _angle_to_duty_cycle(self, angle: float) -> float:
-        """
-        Converte ângulo do servo para duty cycle PWM
-
-        Args:
-            angle (float): Ângulo em graus (0-180)
-
-        Returns:
-            float: Duty cycle em porcentagem (0-100)
-        """
-        # Garante que o ângulo está no range válido
-        angle = max(self.BRAKE_MIN_ANGLE, min(self.BRAKE_MAX_ANGLE, angle))
-
-        # Converte ângulo para duração de pulso (1.0ms - 2.0ms)
-        pulse_width = self.PULSE_MIN + (angle / 180.0) * (
-            self.PULSE_MAX - self.PULSE_MIN
-        )
-
-        # Converte duração de pulso para duty cycle
-        # Período = 1/50Hz = 20ms
-        # Duty cycle = (pulse_width / 20ms) * 100
-        duty_cycle = (pulse_width / 20.0) * 100.0
-
-        return duty_cycle
 
     def _start_movement_thread(self):
         """Inicia thread para movimento suave dos servos"""
@@ -282,13 +281,20 @@ class BrakeManager:
                             self.rear_brake_angle - move_speed, self.target_rear_angle
                         )
 
-                # Aplica movimento aos servos (apenas se GPIO disponível)
-                if self.front_pwm and self.rear_pwm:
-                    front_duty = self._angle_to_duty_cycle(self.front_brake_angle)
-                    rear_duty = self._angle_to_duty_cycle(self.rear_brake_angle)
+                # Aplica movimento aos servos (apenas se PCA9685 disponível)
+                if self.front_servo and self.rear_servo:
+                    # Limita ângulos ao range válido
+                    front_angle = max(
+                        self.BRAKE_MIN_ANGLE,
+                        min(self.BRAKE_MAX_ANGLE, self.front_brake_angle),
+                    )
+                    rear_angle = max(
+                        self.BRAKE_MIN_ANGLE,
+                        min(self.BRAKE_MAX_ANGLE, self.rear_brake_angle),
+                    )
 
-                    self.front_pwm.ChangeDutyCycle(front_duty)
-                    self.rear_pwm.ChangeDutyCycle(rear_duty)
+                    self.front_servo.angle = front_angle
+                    self.rear_servo.angle = rear_angle
 
                 time.sleep(0.02)  # 50Hz de atualização
 
@@ -395,17 +401,28 @@ class BrakeManager:
             self.BRAKE_MIN_ANGLE, min(self.BRAKE_MAX_ANGLE, rear_angle)
         )
 
-        # Se movimento suave estiver desabilitado, move imediatamente
-        if not self.smooth_movement:
-            self.front_brake_angle = self.target_front_angle
-            self.rear_brake_angle = self.target_rear_angle
+        # MOVIMENTO DIRETO - igual aos testes funcionais
+        self.front_brake_angle = self.target_front_angle
+        self.rear_brake_angle = self.target_rear_angle
 
-            if GPIO_AVAILABLE and self.front_pwm and self.rear_pwm:
-                front_duty = self._angle_to_duty_cycle(self.front_brake_angle)
-                rear_duty = self._angle_to_duty_cycle(self.rear_brake_angle)
+        if self.front_servo and self.rear_servo:
+            # Limita ângulos ao range válido (0° a 180°)
+            front_angle = max(
+                self.BRAKE_MIN_ANGLE,
+                min(self.BRAKE_MAX_ANGLE, self.front_brake_angle),
+            )
+            rear_angle = max(
+                self.BRAKE_MIN_ANGLE,
+                min(self.BRAKE_MAX_ANGLE, self.rear_brake_angle),
+            )
 
-                self.front_pwm.ChangeDutyCycle(front_duty)
-                self.rear_pwm.ChangeDutyCycle(rear_duty)
+            # COMANDO DIRETO - igual ao test_brake_direto_simples.py
+            self.front_servo.angle = front_angle
+            self.rear_servo.angle = rear_angle
+
+            print(f"🛑 Freio aplicado → Frontal: {front_angle:.1f}° | Traseiro: {rear_angle:.1f}°")
+        else:
+            print(f"⚠️ Servos de freio não inicializados!")
 
     def release_brakes(self):
         """Libera completamente os freios"""
@@ -465,8 +482,8 @@ class BrakeManager:
 
         print("Calibração concluída.")
         print("Ajuste manual se necessário:")
-        print(f"- Freio dianteiro deve estar na posição neutra (sem contato)")
-        print(f"- Freio traseiro deve estar na posição neutra (sem contato)")
+        print("- Freio dianteiro deve estar na posição neutra (sem contato)")
+        print("- Freio traseiro deve estar na posição neutra (sem contato)")
 
         self.front_calibrated = True
         self.rear_calibrated = True
@@ -502,10 +519,11 @@ class BrakeManager:
             "total_brake_time": round(self.total_brake_time, 2),
             "is_braking": self.total_brake_input > 0,
             # === HARDWARE ===
-            "front_pin": self.front_pin,
-            "rear_pin": self.rear_pin,
+            "front_channel": self.front_channel,
+            "rear_channel": self.rear_channel,
+            "pca9685_address": f"0x{self.pca9685_address:02X}",
             "pwm_frequency": self.PWM_FREQUENCY,
-            "gpio_available": True,
+            "pca9685_available": PCA9685_AVAILABLE,
             # === TIMESTAMP ===
             "timestamp": round(time.time(), 3),
         }
@@ -547,14 +565,17 @@ class BrakeManager:
             self.release_brakes()
             time.sleep(0.2)
 
-            # Para PWM e limpa GPIO
-            if self.front_pwm:
-                self.front_pwm.stop()
-            if self.rear_pwm:
-                self.rear_pwm.stop()
-
-            # Cleanup GPIO
-            GPIO.cleanup([self.front_pin, self.rear_pin])
+            # Libera recursos do PCA9685
+            if self.front_servo:
+                self.front_servo = None
+            if self.rear_servo:
+                self.rear_servo = None
+            if self.pca9685:
+                self.pca9685.deinit()
+                self.pca9685 = None
+            if self.i2c:
+                self.i2c.deinit()
+                self.i2c = None
 
             self.is_initialized = False
             print("✓ Sistema de freios finalizado")
@@ -571,9 +592,12 @@ class BrakeManager:
 if __name__ == "__main__":
     print("=== TESTE DO SISTEMA DE FREIOS ===")
 
-    # Cria instância do sistema de freios
+    # Cria instância do sistema de freios com PCA9685
     brake_mgr = BrakeManager(
-        brake_balance=60.0,  # 60% mais traseiro para F1
+        front_channel=0,  # Canal 0 do PCA9685 para freio frontal
+        rear_channel=1,  # Canal 1 do PCA9685 para freio traseiro
+        pca9685_address=0x40,  # Endereço I2C padrão do PCA9685
+        brake_balance=60.0,  # 60% frontal para F1 (ajustado)
         max_brake_force=90.0,  # 90% força máxima
         response_time=0.1,  # 100ms de resposta
     )
@@ -624,7 +648,7 @@ if __name__ == "__main__":
 
         # Estatísticas finais
         stats = brake_mgr.get_statistics()
-        print(f"\n=== ESTATÍSTICAS FINAIS ===")
+        print("\n=== ESTATÍSTICAS FINAIS ===")
         print(f"Aplicações de freio: {stats['brake_applications']}")
         print(f"Tempo de operação: {stats['total_runtime']:.1f}s")
         print(

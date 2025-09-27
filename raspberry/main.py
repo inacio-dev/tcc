@@ -17,13 +17,19 @@ HARDWARE CONECTADO:
 ==================
 • Câmera OV5647        -> Slot CSI
 • BMI160 (I2C)         -> GPIO2/3 (SDA/SCL)
-• Servo Freio Diant.   -> GPIO4  (Pin 7)
-• Servo Freio Tras.    -> GPIO17 (Pin 11)
+• PCA9685 (I2C)        -> GPIO2/3 (SDA/SCL) [COMPARTILHADO COM BMI160]
+  ├── Servo Freio Diant. -> Canal 0 do PCA9685
+  ├── Servo Freio Tras.  -> Canal 1 do PCA9685
+  └── Servo Direção      -> Canal 2 do PCA9685
 • Motor BTS7960 RPWM   -> GPIO18 (Pin 12)
 • Motor BTS7960 LPWM   -> GPIO27 (Pin 13)
 • Motor BTS7960 R_EN   -> GPIO22 (Pin 15)
 • Motor BTS7960 L_EN   -> GPIO23 (Pin 16)
-• Servo Direção        -> GPIO24 (Pin 18)
+
+PINOS GPIO LIBERADOS (agora via PCA9685):
+• GPIO4  (Pin 7)  -> LIBERADO (era freio frontal)
+• GPIO17 (Pin 11) -> LIBERADO (era freio traseiro)
+• GPIO24 (Pin 18) -> LIBERADO (era direção)
 
 CONFIGURAÇÃO INICIAL:
 ====================
@@ -32,7 +38,8 @@ CONFIGURAÇÃO INICIAL:
 3. sudo raspi-config -> Interface Options -> SPI -> Enable
 4. sudo apt update && sudo apt install -y python3-opencv python3-picamera2 i2c-tools python3-rpi.gpio
 5. pip install numpy RPLCD smbus2
-6. sudo i2cdetect -y 1  # Verificar dispositivos I2C
+6. sudo pip3 install adafruit-circuitpython-pca9685 adafruit-motor adafruit-blinka
+7. sudo i2cdetect -y 1  # Verificar dispositivos I2C (BMI160: 0x69, PCA9685: 0x40)
 
 EXECUÇÃO:
 =========
@@ -45,25 +52,25 @@ Para parar: Ctrl+C
 import argparse
 import signal
 import sys
-import time
 import threading
-from typing import Optional, Dict, Any
+import time
+from typing import Any, Dict, Optional
 
 # Importa todos os gerenciadores
 try:
-    from camera_manager import CameraManager
     from bmi160_manager import BMI160Manager
     from brake_manager import BrakeManager
+    from camera_manager import CameraManager
+    from logger import LogLevel, debug, error, info, init_logger, warn
     from motor_manager import MotorManager, TransmissionMode
-    from steering_manager import SteeringManager, SteeringMode
     from network_manager import NetworkManager
+    from steering_manager import SteeringManager, SteeringMode
     from temperature_manager import TemperatureManager
-    from logger import info, debug, warn, error, init_logger, LogLevel
 except ImportError as e:
     print(f"❌ ERRO: Não foi possível importar módulos necessários: {e}")
     print("\nVerifique se todos os arquivos estão na mesma pasta:")
     print("  - camera_manager.py, bmi160_manager.py, brake_manager.py")
-    print("  - motor_manager.py, steering_manager.py, network_manager.py") 
+    print("  - motor_manager.py, steering_manager.py, network_manager.py")
     print("  - logger.py, main.py")
     sys.exit(1)
 
@@ -167,7 +174,7 @@ class F1CarCompleteSystem:
         print(
             f"\nRecebido sinal {signum} - Iniciando parada limpa do sistema completo..."
         )
-        if hasattr(self, '_stopping') and self._stopping:
+        if hasattr(self, "_stopping") and self._stopping:
             print("\n⚠️  Forçando saída imediata...")
             sys.exit(0)
         self._stopping = True
@@ -183,11 +190,19 @@ class F1CarCompleteSystem:
         info("F1 CAR SYSTEM - Inicializando componentes", "MAIN")
         if self.use_auto_discovery:
             info("🔍 Modo: Descoberta automática de clientes", "MAIN")
-            debug(f"Porta: {self.target_port}, FPS: {self.camera_fps}, Sensores: {self.sensor_rate}Hz", "MAIN")
+            debug(
+                f"Porta: {self.target_port}, FPS: {self.camera_fps}, Sensores: {self.sensor_rate}Hz",
+                "MAIN",
+            )
         else:
-            info(f"📡 Modo: Target IP fixo → {self.target_ip}:{self.target_port}", "MAIN")
+            info(
+                f"📡 Modo: Target IP fixo → {self.target_ip}:{self.target_port}", "MAIN"
+            )
             debug(f"FPS: {self.camera_fps}, Sensores: {self.sensor_rate}Hz", "MAIN")
-        debug(f"Freio: {self.brake_balance}%, Transmissão: manual, Direção: {self.steering_mode.value}", "MAIN")
+        debug(
+            f"Freio: {self.brake_balance}%, Transmissão: manual, Direção: {self.steering_mode.value}",
+            "MAIN",
+        )
 
         success_count = 0
         total_components = 7
@@ -199,7 +214,7 @@ class F1CarCompleteSystem:
         )
         # Configura callback para processar comandos do cliente
         self.network_mgr.command_callback = self._process_client_command
-        
+
         if self.network_mgr.initialize():
             self.system_status["network"] = "Online"
             success_count += 1
@@ -235,17 +250,28 @@ class F1CarCompleteSystem:
         else:
             warn("Sensor BMI160 não inicializado", "MAIN")
 
-        # 4. Sistema de freios
-        debug("Inicializando freios...", "MAIN")
+        # 4. Sistema de freios via PCA9685
+        debug("Inicializando freios via PCA9685...", "MAIN")
         self.brake_mgr = BrakeManager(
-            brake_balance=self.brake_balance, max_brake_force=90.0, response_time=0.1
+            front_channel=0,  # Canal 0 do PCA9685
+            rear_channel=1,  # Canal 1 do PCA9685
+            pca9685_address=0x40,  # Endereço I2C padrão
+            brake_balance=self.brake_balance,
+            max_brake_force=100.0,  # FORÇA MÁXIMA COMPLETA
+            response_time=0.1,
         )
         if self.brake_mgr.initialize():
             self.system_status["brakes"] = "Online"
             success_count += 1
-            info("✅ Freios inicializados - GPIO4 (frontal) e GPIO17 (traseiro)", "MAIN")
+            info(
+                "✅ Freios inicializados - PCA9685 canais 0 (frontal) e 1 (traseiro)",
+                "MAIN",
+            )
         else:
-            error("❌ Freios não inicializados - Verifique conexões dos servos", "MAIN")
+            error(
+                "❌ Freios não inicializados - Verifique PCA9685 e conexões dos servos",
+                "MAIN",
+            )
 
         # 5. Motor e transmissão
         debug("Inicializando motor...", "MAIN")
@@ -257,20 +283,25 @@ class F1CarCompleteSystem:
         else:
             warn("Motor não inicializado", "MAIN")
 
-        # 6. Sistema de direção
-        debug("Inicializando direção...", "MAIN")
+        # 6. Sistema de direção via PCA9685
+        debug("Inicializando direção via PCA9685...", "MAIN")
         self.steering_mgr = SteeringManager(
+            steering_channel=2,  # Canal 2 do PCA9685
+            pca9685_address=0x40,  # Endereço I2C compartilhado
             steering_sensitivity=1.2,
-            max_steering_angle=40.0,
+            max_steering_angle=90.0,  # RANGE COMPLETO 0°-180°
             steering_mode=self.steering_mode,
             response_time=0.12,
         )
         if self.steering_mgr.initialize():
             self.system_status["steering"] = "Online"
             success_count += 1
-            info("✅ Direção inicializada - GPIO24 servo MG996R", "MAIN")
+            info("✅ Direção inicializada - PCA9685 canal 2 servo MG996R", "MAIN")
         else:
-            error("❌ Direção não inicializada - Verifique conexão servo GPIO24", "MAIN")
+            error(
+                "❌ Direção não inicializada - Verifique PCA9685 e conexão servo canal 2",
+                "MAIN",
+            )
 
         # 7. Sensor de temperatura DS18B20
         debug("Inicializando sensor de temperatura DS18B20...", "MAIN")
@@ -285,22 +316,28 @@ class F1CarCompleteSystem:
             warn("Sensor de temperatura não inicializado", "MAIN")
 
         if success_count >= 2:  # Mínimo: rede + pelo menos 1 componente
-            info(f"SISTEMA PRONTO - {success_count}/{total_components} componentes online", "MAIN")
+            info(
+                f"SISTEMA PRONTO - {success_count}/{total_components} componentes online",
+                "MAIN",
+            )
             return True
         else:
-            error(f"FALHA CRÍTICA - Apenas {success_count}/{total_components} componentes", "MAIN")
+            error(
+                f"FALHA CRÍTICA - Apenas {success_count}/{total_components} componentes",
+                "MAIN",
+            )
             return False
 
     def run_main_loop(self):
         """Loop principal de operação do sistema completo"""
         info("Modo direto - Enviando dados para cliente fixo", "MAIN")
         info("Cliente: 192.168.5.11:9999", "MAIN")
-        
+
         # Configura cliente fixo no NetworkManager
         self.network_mgr.set_fixed_client("192.168.5.11", 9999)
-        
+
         info("Iniciando transmissão - Ctrl+C para parar", "MAIN")
-        
+
         # Garante que o sistema está executando
         self.running = True
         last_stats_display = time.time()
@@ -331,12 +368,15 @@ class F1CarCompleteSystem:
 
                         # Log dos dados BMI160 a cada 60 loops (debug)
                         if loop_count % 60 == 0:  # ~0.5s @ 120Hz
-                            debug(f"BMI160 dados: accel({sensor_data.get('bmi160_accel_x', 0):.3f}, "
-                                  f"{sensor_data.get('bmi160_accel_y', 0):.3f}, "
-                                  f"{sensor_data.get('bmi160_accel_z', 0):.3f}) m/s² | "
-                                  f"gyro({sensor_data.get('bmi160_gyro_x', 0):.3f}, "
-                                  f"{sensor_data.get('bmi160_gyro_y', 0):.3f}, "
-                                  f"{sensor_data.get('bmi160_gyro_z', 0):.3f}) °/s", "BMI160")
+                            debug(
+                                f"BMI160 dados: accel({sensor_data.get('bmi160_accel_x', 0):.3f}, "
+                                f"{sensor_data.get('bmi160_accel_y', 0):.3f}, "
+                                f"{sensor_data.get('bmi160_accel_z', 0):.3f}) m/s² | "
+                                f"gyro({sensor_data.get('bmi160_gyro_x', 0):.3f}, "
+                                f"{sensor_data.get('bmi160_gyro_y', 0):.3f}, "
+                                f"{sensor_data.get('bmi160_gyro_z', 0):.3f}) °/s",
+                                "BMI160",
+                            )
                     else:
                         if loop_count % 120 == 0:  # Log erro menos frequente
                             warn("BMI160 update() falhou", "BMI160")
@@ -355,7 +395,10 @@ class F1CarCompleteSystem:
                     steering_status = self.steering_mgr.get_steering_status()
 
                 temperature_status = {}
-                if self.temperature_mgr and self.system_status["temperature"] == "Online":
+                if (
+                    self.temperature_mgr
+                    and self.system_status["temperature"] == "Online"
+                ):
                     temperature_status = self.temperature_mgr.get_temperature_status()
 
                 # === CONSOLIDAÇÃO DE DADOS ===
@@ -382,13 +425,19 @@ class F1CarCompleteSystem:
                         frame_data, consolidated_data
                     )
                     if not success and loop_count <= 10:
-                        warn(f"Falha na transmissão do pacote {loop_count}", "MAIN", rate_limit=5.0)
+                        warn(
+                            f"Falha na transmissão do pacote {loop_count}",
+                            "MAIN",
+                            rate_limit=5.0,
+                        )
 
                     # Log da transmissão a cada 120 loops (debug)
                     if loop_count % 120 == 0:  # ~1s @ 120Hz
                         sensor_count = len(sensor_data) if sensor_data else 0
-                        debug(f"Transmissão: {sensor_count} campos de sensor enviados para cliente", "NET")
-
+                        debug(
+                            f"Transmissão: {sensor_count} campos de sensor enviados para cliente",
+                            "NET",
+                        )
 
                 # === CONTROLE AUTOMÁTICO (DEMONSTRAÇÃO) ===
 
@@ -400,7 +449,9 @@ class F1CarCompleteSystem:
 
                 # Exibe status de controles principais a cada mudança
                 if current_time - last_display_update >= 0.5:  # A cada 500ms
-                    self._display_control_status(motor_status, brake_status, steering_status)
+                    self._display_control_status(
+                        motor_status, brake_status, steering_status
+                    )
                     last_display_update = current_time
 
                 # Stats menos frequentes para tempo real
@@ -417,6 +468,7 @@ class F1CarCompleteSystem:
         except Exception as e:
             error(f"Erro durante execução: {e}", "MAIN")
             import traceback
+
             traceback.print_exc()
             self.running = False
         finally:
@@ -430,15 +482,23 @@ class F1CarCompleteSystem:
             throttle = motor_status.get("current_pwm", 0.0) if motor_status else 0.0
             gear = motor_status.get("current_gear", 1) if motor_status else 1
             rpm = motor_status.get("engine_rpm", 0.0) if motor_status else 0.0
-            
+
             # Dados dos freios
-            brake_front = brake_status.get("front_brake_percent", 0.0) if brake_status else 0.0
-            brake_rear = brake_status.get("rear_brake_percent", 0.0) if brake_status else 0.0
+            brake_front = (
+                brake_status.get("front_brake_percent", 0.0) if brake_status else 0.0
+            )
+            brake_rear = (
+                brake_status.get("rear_brake_percent", 0.0) if brake_status else 0.0
+            )
             brake_total = max(brake_front, brake_rear)
-            
+
             # Dados da direção
-            steering = steering_status.get("current_steering_percent", 0.0) if steering_status else 0.0
-            
+            steering = (
+                steering_status.get("current_steering_percent", 0.0)
+                if steering_status
+                else 0.0
+            )
+
             # Só exibe se houver mudança significativa
             if throttle > 0.1 or brake_total > 0.1 or abs(steering) > 0.1:
                 print(
@@ -488,7 +548,7 @@ class F1CarCompleteSystem:
 
                 # Modo manual - sem aceleração automática
                 # (Controle apenas via comandos do cliente)
-                
+
                 if is_turning and g_force_lateral > 0.8:
                     # Reduz potência em curvas fechadas
                     current_throttle = motor_status.get("current_pwm", 0.0)
@@ -537,7 +597,8 @@ class F1CarCompleteSystem:
         debug(
             f"STATS: {elapsed:.1f}s | {fps:.1f}fps | {sensor_rate:.1f}Hz | "
             f"{components_online}/{total_components} OK | {net_stats.get('packets_sent', 0)} pkts | "
-            f"{net_stats.get('mbps', 0):.2f}Mbps", "STATS"
+            f"{net_stats.get('mbps', 0):.2f}Mbps",
+            "STATS",
         )
 
     def start(self):
@@ -576,9 +637,10 @@ class F1CarCompleteSystem:
                     debug(f"Parando {name}...", "STOP")
                     # Timeout de 2 segundos para cada componente
                     import threading
-                    if hasattr(component, 'cleanup'):
+
+                    if hasattr(component, "cleanup"):
                         cleanup_thread = threading.Thread(target=component.cleanup)
-                    elif hasattr(component, 'shutdown'):
+                    elif hasattr(component, "shutdown"):
                         cleanup_thread = threading.Thread(target=component.shutdown)
                     else:
                         debug(f"Componente {name} sem método cleanup/shutdown", "STOP")
@@ -589,7 +651,7 @@ class F1CarCompleteSystem:
 
                     if cleanup_thread.is_alive():
                         warn(f"Timeout ao parar {name} - forçando", "STOP")
-                    
+
                     self.system_status[name] = "Offline"
                 except Exception as e:
                     warn(f"Erro ao parar {name}: {e}", "STOP")
@@ -644,18 +706,18 @@ class F1CarCompleteSystem:
     def _process_client_command(self, client_ip: str, command: str):
         """
         Processa comandos recebidos do cliente
-        
+
         Args:
             client_ip (str): IP do cliente que enviou o comando
             command (str): Comando recebido
         """
         try:
             debug(f"Comando de {client_ip}: {command}", "COMMAND")
-            
+
             # Processa diferentes tipos de comando
             if command.startswith("CONTROL:"):
                 control_cmd = command[8:]  # Remove "CONTROL:"
-                
+
                 if control_cmd.startswith("BRAKE_BALANCE:"):
                     # Comando: CONTROL:BRAKE_BALANCE:60.0
                     balance_str = control_cmd[14:]  # Remove "BRAKE_BALANCE:"
@@ -663,14 +725,20 @@ class F1CarCompleteSystem:
                         balance = float(balance_str)
                         if self.brake_mgr:
                             self.brake_mgr.set_brake_balance(balance)
-                            info(f"Balanço de freio alterado para {balance:.1f}% por {client_ip}", "COMMAND")
+                            info(
+                                f"Balanço de freio alterado para {balance:.1f}% por {client_ip}",
+                                "COMMAND",
+                            )
                         else:
                             warn("Sistema de freios não disponível", "COMMAND")
                     except ValueError:
-                        warn(f"Valor inválido para brake_balance: {balance_str}", "COMMAND")
-                        
+                        warn(
+                            f"Valor inválido para brake_balance: {balance_str}",
+                            "COMMAND",
+                        )
+
                 elif control_cmd.startswith("BRAKE:"):
-                    # Comando: CONTROL:BRAKE:50.0  
+                    # Comando: CONTROL:BRAKE:50.0
                     force_str = control_cmd[6:]  # Remove "BRAKE:"
                     try:
                         force = float(force_str)
@@ -681,13 +749,16 @@ class F1CarCompleteSystem:
                             warn("Sistema de freios não disponível", "COMMAND")
                     except ValueError:
                         warn(f"Valor inválido para brake: {force_str}", "COMMAND")
-                        
+
                 elif control_cmd.startswith("THROTTLE:"):
                     # Comando: CONTROL:THROTTLE:30.0
                     throttle_str = control_cmd[9:]  # Remove "THROTTLE:"
                     try:
                         throttle = float(throttle_str)
-                        info(f"🔧 Comando THROTTLE recebido: {throttle:.1f}% de {client_ip}", "COMMAND")
+                        info(
+                            f"🔧 Comando THROTTLE recebido: {throttle:.1f}% de {client_ip}",
+                            "COMMAND",
+                        )
                         if self.motor_mgr:
                             self.motor_mgr.set_throttle(throttle)
                             info(f"✅ Acelerador aplicado: {throttle:.1f}%", "COMMAND")
@@ -695,7 +766,7 @@ class F1CarCompleteSystem:
                             warn("Sistema de motor não disponível", "COMMAND")
                     except ValueError:
                         warn(f"Valor inválido para throttle: {throttle_str}", "COMMAND")
-                        
+
                 elif control_cmd.startswith("STEERING:"):
                     # Comando: CONTROL:STEERING:-100.0 (entrada -100% a +100%)
                     steering_str = control_cmd[9:]  # Remove "STEERING:"
@@ -709,37 +780,51 @@ class F1CarCompleteSystem:
                             warn("Sistema de direção não disponível", "COMMAND")
                     except ValueError:
                         warn(f"Valor inválido para steering: {steering_str}", "COMMAND")
-                        
+
                 elif control_cmd.startswith("GEAR_UP"):
                     # Comando: CONTROL:GEAR_UP
                     if self.motor_mgr:
                         success = self.motor_mgr.shift_gear_up()
                         if success:
-                            info(f"Marcha aumentada por {client_ip} → Marcha {self.motor_mgr.current_gear}", "COMMAND")
+                            info(
+                                f"Marcha aumentada por {client_ip} → Marcha {self.motor_mgr.current_gear}",
+                                "COMMAND",
+                            )
                         else:
-                            warn(f"Não foi possível aumentar marcha (já na máxima: {self.motor_mgr.current_gear})", "COMMAND")
+                            warn(
+                                f"Não foi possível aumentar marcha (já na máxima: {self.motor_mgr.current_gear})",
+                                "COMMAND",
+                            )
                     else:
                         warn("Sistema de motor não disponível", "COMMAND")
-                        
+
                 elif control_cmd.startswith("GEAR_DOWN"):
                     # Comando: CONTROL:GEAR_DOWN
                     if self.motor_mgr:
                         success = self.motor_mgr.shift_gear_down()
                         if success:
-                            info(f"Marcha diminuída por {client_ip} → Marcha {self.motor_mgr.current_gear}", "COMMAND")
+                            info(
+                                f"Marcha diminuída por {client_ip} → Marcha {self.motor_mgr.current_gear}",
+                                "COMMAND",
+                            )
                         else:
-                            warn(f"Não foi possível diminuir marcha (já na mínima: {self.motor_mgr.current_gear})", "COMMAND")
+                            warn(
+                                f"Não foi possível diminuir marcha (já na mínima: {self.motor_mgr.current_gear})",
+                                "COMMAND",
+                            )
                     else:
                         warn("Sistema de motor não disponível", "COMMAND")
-                        
+
                 else:
                     debug(f"Comando de controle desconhecido: {control_cmd}", "COMMAND")
-                    
+
             else:
                 debug(f"Comando não reconhecido: {command}", "COMMAND")
-                
+
         except Exception as e:
-            error(f"Erro ao processar comando '{command}' de {client_ip}: {e}", "COMMAND")
+            error(
+                f"Erro ao processar comando '{command}' de {client_ip}: {e}", "COMMAND"
+            )
 
 
 def create_argument_parser():
@@ -832,10 +917,15 @@ def main():
     # Inicializa logger com nível baseado no debug
     log_level = LogLevel.DEBUG if args.debug else LogLevel.INFO
     init_logger(log_level, enable_timestamp=args.debug)
-    
+
     info("F1 CAR REMOTE CONTROL SYSTEM", "STARTUP")
-    debug(f"Porta: {args.port}, FPS: {args.fps}, Sensores: {args.sensor_rate}Hz", "CONFIG")
-    debug(f"Freio: {args.brake_balance}%, Trans: {args.transmission}, Dir: {args.steering_mode}", "CONFIG")
+    debug(
+        f"Porta: {args.port}, FPS: {args.fps}, Sensores: {args.sensor_rate}Hz", "CONFIG"
+    )
+    debug(
+        f"Freio: {args.brake_balance}%, Trans: {args.transmission}, Dir: {args.steering_mode}",
+        "CONFIG",
+    )
 
     # Validação de argumentos
     if not (1 <= args.fps <= 60):
@@ -869,8 +959,14 @@ def main():
 
             # Mostra estatísticas finais
             final_stats = system.get_system_status()
-            debug(f"Estatísticas: {final_stats['system_uptime']:.1f}s, {final_stats['frames_processed']} frames, {final_stats['sensor_readings']} sensores", "FINAL")
-            debug(f"Componentes: {final_stats['components_online']}/{final_stats['total_components']} online", "FINAL")
+            debug(
+                f"Estatísticas: {final_stats['system_uptime']:.1f}s, {final_stats['frames_processed']} frames, {final_stats['sensor_readings']} sensores",
+                "FINAL",
+            )
+            debug(
+                f"Componentes: {final_stats['components_online']}/{final_stats['total_components']} online",
+                "FINAL",
+            )
 
         else:
             error("Falha na execução do sistema", "MAIN")
@@ -881,6 +977,7 @@ def main():
     except Exception as e:
         error(f"Erro crítico: {e}", "MAIN")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
     finally:
