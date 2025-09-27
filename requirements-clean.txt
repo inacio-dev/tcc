@@ -1,0 +1,22 @@
+# Dependências mínimas para o projeto F1 Car
+# Use: pip install -r requirements-clean.txt --break-system-packages
+
+# OpenCV para processamento de vídeo
+opencv-python
+
+# Processamento de imagem
+Pillow
+
+# PCA9685 PWM Driver para controle de servos
+adafruit-circuitpython-pca9685
+
+# Dependências do CircuitPython para Raspberry Pi
+adafruit-blinka
+
+# Dependências do CircuitPython para servos
+adafruit-circuitpython-motor
+adafruit-circuitpython-servokit
+
+# NOTA: numpy, picamera2 e smbus2 devem usar versões do sistema
+# Para instalar as do sistema:
+# sudo apt install python3-numpy python3-picamera2 python3-smbus

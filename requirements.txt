@@ -1,6 +1,14 @@
+# OpenCV para processamento de vídeo
 opencv-python
-numpy
+
+# NumPy - versão compatível com simplejpeg do sistema (1.24.2)
+# IMPORTANTE: Não instalar numpy mais novo que pode causar incompatibilidade
+numpy==1.24.2
+
+# Camera do Raspberry Pi - usar versão do sistema
 picamera2
+
+# Processamento de imagem
 Pillow
 
 # PCA9685 PWM Driver para controle de servos
@@ -13,5 +21,5 @@ adafruit-blinka
 adafruit-circuitpython-motor
 adafruit-circuitpython-servokit
 
-# Bibliotecas I2C para BMI160
+# Bibliotecas I2C para BMI160 - usar versão do sistema
 smbus2
