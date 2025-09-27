@@ -385,45 +385,12 @@ class SteeringManager:
         Returns:
             dict: Ângulos das rodas esquerda e direita
         """
-        # REMOVIDO: ackermann sempre desabilitado
-            return {
-                "left_wheel": round(self.current_angle, 1),
-                "right_wheel": round(self.current_angle, 1),
-                "turn_radius": float("inf"),
-            }
-
-        try:
-            # Cálculo do raio de curvatura
-            angle_rad = math.radians(abs(self.current_angle))
-            turn_radius = self.wheelbase / math.tan(angle_rad)
-
-            # Ângulos das rodas interna e externa
-            inner_radius = turn_radius - self.track_width / 2
-            outer_radius = turn_radius + self.track_width / 2
-
-            inner_angle = math.degrees(math.atan(self.wheelbase / inner_radius))
-            outer_angle = math.degrees(math.atan(self.wheelbase / outer_radius))
-
-            # Determina qual roda é interna
-            if self.current_angle > 0:  # Direita
-                left_wheel = outer_angle
-                right_wheel = inner_angle
-            else:  # Esquerda
-                left_wheel = -inner_angle
-                right_wheel = -outer_angle
-
-            return {
-                "left_wheel": round(left_wheel, 1),
-                "right_wheel": round(right_wheel, 1),
-                "turn_radius": round(turn_radius, 2),
-            }
-
-        except (ZeroDivisionError, ValueError):
-            return {
-                "left_wheel": round(self.current_angle, 1),
-                "right_wheel": round(self.current_angle, 1),
-                "turn_radius": float("inf"),
-            }
+        # REMOVIDO: ackermann sempre desabilitado - retorna ângulos simples
+        return {
+            "left_wheel": round(self.current_angle, 1),
+            "right_wheel": round(self.current_angle, 1),
+            "turn_radius": float("inf"),
+        }
 
     def get_statistics(self) -> Dict[str, Any]:
         """
