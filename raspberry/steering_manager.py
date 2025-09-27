@@ -46,8 +46,6 @@ sudo raspi-config -> Interface Options -> I2C -> Enable
 sudo pip3 install adafruit-circuitpython-pca9685
 """
 
-import math
-import threading
 import time
 from enum import Enum
 from typing import Any, Dict
@@ -144,10 +142,7 @@ class SteeringManager:
         self.i2c = None
         self.steering_servo = None
 
-        # REMOVIDO: movimento suave - usando movimento direto
-
-        # REMOVIDO: Sistema Ackermann - usando movimento direto
-        # REMOVIDO: Compensação de velocidade - usando movimento direto
+        # Estado da direção
 
         # Estatísticas
         self.total_steering_movements = 0
@@ -156,9 +151,6 @@ class SteeringManager:
         self.start_time = time.time()
         self.last_movement_time = 0.0
 
-        # REMOVIDO: Calibração - usando movimento direto
-        # REMOVIDO: Limites de segurança - usando movimento direto
-        # REMOVIDO: Emergency center - usando movimento direto
 
     def initialize(self) -> bool:
         """
@@ -200,7 +192,6 @@ class SteeringManager:
             # Aguarda servo se posicionar
             time.sleep(0.5)
 
-            # REMOVIDO: thread de movimento suave - usando movimento direto
 
             self.is_initialized = True
 
@@ -228,9 +219,8 @@ class SteeringManager:
             self.is_initialized = False
             return False
 
-    # REMOVIDO: funções de movimento suave - usando movimento direto
 
-    def set_steering_input(self, steering_input: float, speed_kmh: float = 0.0):
+    def set_steering_input(self, steering_input: float):
         """
         Define entrada de direção
 
@@ -245,7 +235,6 @@ class SteeringManager:
 
         print(f"🏎️ DIREÇÃO: {steering_input:.1f}% recebido")
 
-        # REMOVIDO: parada de emergência - movimento direto
 
         # Garante range válido
         steering_input = max(-100.0, min(100.0, steering_input))
@@ -254,8 +243,6 @@ class SteeringManager:
         # MOVIMENTO DIRETO - converte entrada (-100% a +100%) para ângulo (-90° a +90°)
         target_angle = (steering_input / 100.0) * self.max_steering_angle
 
-        # REMOVIDO: Limites de segurança - usar range completo
-        # REMOVIDO: Geometria Ackermann - movimento direto sem correções
 
         self.target_angle = target_angle
 
@@ -303,7 +290,6 @@ class SteeringManager:
         self.set_steering_input(0.0)
         print("🔧 Direção centralizada")
 
-    # REMOVIDO: funções não usadas - movimento direto
 
     def _test_steering(self):
         """Executa teste rápido da direção - MOVIMENTO DIRETO"""
@@ -334,7 +320,6 @@ class SteeringManager:
         except Exception as e:
             print(f"⚠ Erro durante teste: {e}")
 
-    # REMOVIDO: calibração - movimento direto
 
     def get_steering_status(self) -> Dict[str, Any]:
         """
@@ -362,7 +347,6 @@ class SteeringManager:
             "steering_left": self.current_angle < -2.0,
             "steering_right": self.current_angle > 2.0,
             "steering_center": abs(self.current_angle) <= 2.0,
-            # === MOVIMENTO DIRETO (sem compensações) ===
             # === STATUS TÉCNICO ===
             "is_initialized": self.is_initialized,
             # === ESTATÍSTICAS ===
@@ -385,7 +369,7 @@ class SteeringManager:
         Returns:
             dict: Ângulos das rodas esquerda e direita
         """
-        # REMOVIDO: ackermann sempre desabilitado - retorna ângulos simples
+        # Retorna ângulos simples (Ackermann desabilitado)
         return {
             "left_wheel": round(self.current_angle, 1),
             "right_wheel": round(self.current_angle, 1),
@@ -414,7 +398,6 @@ class SteeringManager:
                 else 0
             ),
             "system_uptime": round(elapsed, 2),
-            # REMOVIDO: calibração não usada
             "steering_mode": self.steering_mode.value,
         }
 

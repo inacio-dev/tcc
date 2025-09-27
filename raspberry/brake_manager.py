@@ -55,7 +55,6 @@ sudo apt-get install python3-pip
 sudo pip3 install adafruit-circuitpython-pca9685
 """
 
-import threading
 import time
 
 try:
@@ -141,7 +140,6 @@ class BrakeManager:
         self.front_servo = None
         self.rear_servo = None
 
-        # REMOVIDO: movimento suave - usando movimento direto
 
         # Estatísticas
         self.brake_applications = 0
@@ -149,7 +147,6 @@ class BrakeManager:
         self.last_brake_time = 0.0
         self.start_time = time.time()
 
-        # REMOVIDO: calibração - movimento direto
 
     def initialize(self) -> bool:
         """
@@ -200,7 +197,6 @@ class BrakeManager:
             # Aguarda servos se posicionarem
             time.sleep(0.5)
 
-            # REMOVIDO: thread de movimento suave - movimento direto
 
             self.is_initialized = True
 
@@ -228,7 +224,6 @@ class BrakeManager:
             self.is_initialized = False
             return False
 
-    # REMOVIDO: funções de movimento suave - usando movimento direto
 
     def set_brake_balance(self, balance: float):
         """
@@ -377,7 +372,6 @@ class BrakeManager:
         except Exception as e:
             print(f"⚠ Erro durante teste: {e}")
 
-    # REMOVIDO: calibração - movimento direto
 
     def get_brake_status(self) -> dict:
         """
@@ -398,7 +392,6 @@ class BrakeManager:
             # === ÂNGULOS DOS SERVOS ===
             "front_brake_angle": round(self.front_brake_angle, 1),
             "rear_brake_angle": round(self.rear_brake_angle, 1),
-            # REMOVIDO: target_angles não usados (movimento direto)
             # === STATUS TÉCNICO ===
             "is_initialized": self.is_initialized,
             # === ESTATÍSTICAS ===
@@ -434,7 +427,6 @@ class BrakeManager:
             ),
             "last_brake_time": self.last_brake_time,
             "system_uptime": round(elapsed, 2),
-            # REMOVIDO: calibração não usada
         }
 
     def cleanup(self):

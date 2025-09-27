@@ -29,12 +29,6 @@ import math
 import numpy as np
 from collections import deque
 
-# Para o BMI160 real, descomente uma das opções:
-# import smbus2  # Para comunicação I2C direta
-# from bmi160_i2c import BMI160
-# import board
-# import busio
-# import adafruit_bmi160
 
 
 class BMI160Manager:
@@ -148,7 +142,6 @@ class BMI160Manager:
         self.i2c_bus = None
         self.bmi160 = None
         self.is_initialized = False
-        # Sempre usa hardware real - sem modo simulação
 
         # Offsets de calibração
         self.accel_x_offset = 0.0
@@ -882,58 +875,6 @@ class BMI160Manager:
         except Exception as e:
             print(f"⚠ Erro ao finalizar BMI160: {e}")
 
-    def check_and_recover(self):
-        """
-        Verifica saúde do sensor e tenta recuperação se necessário
-
-        Returns:
-            bool: True se sensor está funcionando ou foi recuperado
-        """
-        # Sempre verifica hardware real
-
-        try:
-            # Verifica se consegue ler o CHIP_ID
-            chip_id = self._read_sensor_register(self.REG_CHIP_ID)
-            if chip_id == self.CHIP_ID_VALUE:
-                # Sensor OK
-                if hasattr(self, '_recovery_attempts'):
-                    delattr(self, '_recovery_attempts')
-                return True
-            else:
-                # Sensor não responde - tenta recuperação
-                if not hasattr(self, '_recovery_attempts'):
-                    self._recovery_attempts = 0
-
-                self._recovery_attempts += 1
-
-                if self._recovery_attempts <= 3:
-                    print(f"🔄 Tentando recuperar BMI160 (tentativa {self._recovery_attempts}/3)")
-
-                    # Tenta reinicializar
-                    try:
-                        import smbus2
-                        self.i2c_bus = smbus2.SMBus(1)
-                        time.sleep(0.01)  # 10ms
-
-                        # Tenta re-inicializar o sensor
-                        if self._soft_reset():
-                            time.sleep(0.1)  # 100ms
-                            if self.initialize():
-                                print("✓ BMI160 recuperado com sucesso!")
-                                return True
-                    except Exception as e:
-                        print(f"⚠ Falha na recuperação: {e}")
-
-                else:
-                    # Muitas tentativas falhas - sensor falhou
-                    if self._recovery_attempts == 4:
-                        print("❌ BMI160 falhou definitivamente - sensor inoperante")
-
-                return False
-
-        except Exception as e:
-            print(f"⚠ Erro ao verificar saúde do BMI160: {e}")
-            return False
 
     def _soft_reset(self):
         """Executa soft reset do BMI160"""

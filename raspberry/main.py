@@ -62,7 +62,7 @@ try:
     from brake_manager import BrakeManager
     from camera_manager import CameraManager
     from logger import LogLevel, debug, error, info, init_logger, warn
-    from motor_manager import MotorManager, TransmissionMode
+    from motor_manager import MotorManager
     from network_manager import NetworkManager
     from steering_manager import SteeringManager, SteeringMode
     from temperature_manager import TemperatureManager
@@ -105,12 +105,7 @@ class F1CarCompleteSystem:
         self.sensor_rate = sensor_rate
         self.brake_balance = brake_balance
 
-        # Converte strings para enums
-        transmission_map = {
-            "automatic": TransmissionMode.AUTOMATIC,
-            "manual": TransmissionMode.MANUAL,
-            "sport": TransmissionMode.SPORT,
-        }
+        # REMOVIDO: transmission_map não usado (transmissão sempre manual)
         steering_map = {
             "normal": SteeringMode.NORMAL,
             "sport": SteeringMode.SPORT,

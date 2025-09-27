@@ -48,7 +48,7 @@ sudo apt-get install python3-rpi.gpio
 import time
 import math
 import threading
-from typing import Optional, Dict, Any
+from typing import Dict, Any
 from enum import Enum
 
 try:
@@ -66,14 +66,6 @@ class MotorDirection(Enum):
     FORWARD = "forward"
     REVERSE = "reverse"
     STOP = "stop"
-
-
-class TransmissionMode(Enum):
-    """Modos de transmissão"""
-
-    MANUAL = "manual"
-    AUTOMATIC = "automatic"
-    SPORT = "sport"
 
 
 class MotorManager:
@@ -105,22 +97,6 @@ class MotorManager:
         5: 0.7,  # 5ª marcha - velocidade máxima (100% potência)
     }
 
-    # RPM de troca automática (5 marchas)
-    SHIFT_UP_RPM = {
-        1: 4500,  # 1ª→2ª: arranque completo
-        2: 6000,  # 2ª→3ª: aceleração
-        3: 7500,  # 3ª→4ª: velocidade alta
-        4: 9000,  # 4ª→5ª: velocidade máxima
-        5: 999999,  # 5ª: sem limite superior
-    }
-
-    SHIFT_DOWN_RPM = {
-        1: 0,     # 1ª: sem limite inferior
-        2: 2500,  # 2ª→1ª: baixa rotação
-        3: 4000,  # 3ª→2ª: rotação média
-        4: 6000,  # 4ª→3ª: rotação alta
-        5: 7500,  # 5ª→4ª: rotação muito alta
-    }
 
     def __init__(
         self,
@@ -149,8 +125,6 @@ class MotorManager:
         self.motor_direction = MotorDirection.STOP
         self.current_pwm = 0.0  # PWM atual 0-100%
         self.target_pwm = 0.0  # PWM alvo 0-100%
-        self.current_rpm = 0.0  # RPM atual calculado
-        self.target_rpm = 0.0  # RPM alvo
 
 
         # Sistema de transmissão
@@ -322,10 +296,6 @@ class MotorManager:
                 # Calcula RPM do motor baseado no PWM
                 self._calculate_engine_rpm()
 
-                # Sistema de transmissão automática DESABILITADO
-                # Apenas controle manual via teclas M/N
-                # if self.transmission_mode == TransmissionMode.AUTOMATIC:
-                #     self._automatic_transmission()
 
                 # Calcula velocidade das rodas
                 self._calculate_wheel_speed()
@@ -418,26 +388,6 @@ class MotorManager:
         # m/s para km/h
         self.calculated_speed_kmh = speed_ms * 3.6
 
-    def _automatic_transmission(self):
-        """Controla transmissão automática baseada no RPM"""
-        if self.is_shifting:
-            return
-
-        current_gear = self.current_gear
-
-        # Verifica necessidade de subir marcha
-        if current_gear < 8:
-            shift_up_rpm = self.SHIFT_UP_RPM[current_gear]
-            if self.engine_rpm > shift_up_rpm and self.current_pwm > 30:
-                self._shift_gear(current_gear + 1)
-                return
-
-        # Verifica necessidade de descer marcha
-        if current_gear > 1:
-            shift_down_rpm = self.SHIFT_DOWN_RPM[current_gear]
-            if self.engine_rpm < shift_down_rpm and self.current_pwm > 10:
-                self._shift_gear(current_gear - 1)
-                return
 
     def _shift_gear(self, new_gear: int):
         """
@@ -895,7 +845,6 @@ class MotorManager:
         self._shift_gear(new_gear)
         return True
 
-    # Função removida - transmissão sempre manual
 
     def get_motor_status(self) -> Dict[str, Any]:
         """
