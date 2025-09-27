@@ -108,7 +108,7 @@ class SteeringManager:
         steering_channel: int = None,
         pca9685_address: int = None,
         steering_sensitivity: float = 1.0,
-        max_steering_angle: float = 45.0,
+        max_steering_angle: float = 90.0,  # RANGE COMPLETO
         steering_mode: SteeringMode = SteeringMode.NORMAL,
         response_time: float = 0.15,
     ):
@@ -337,15 +337,8 @@ class SteeringManager:
             (steering_input / 100.0) * self.max_steering_angle * effective_sensitivity
         )
 
-        # Aplica limites de segurança
-        if self.steering_limit_enabled:
-            target_angle = max(
-                self.MAX_STEERING_LEFT, min(self.MAX_STEERING_RIGHT, target_angle)
-            )
-
-        # Geometria Ackermann (opcional)
-        if self.ackermann_enabled:
-            target_angle = self._apply_ackermann_geometry(target_angle)
+        # REMOVIDO: Limites de segurança - usar range completo
+        # REMOVIDO: Geometria Ackermann - movimento direto sem correções
 
         self.target_angle = target_angle
 

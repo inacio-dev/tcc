@@ -289,7 +289,7 @@ class F1CarCompleteSystem:
             steering_channel=2,  # Canal 2 do PCA9685
             pca9685_address=0x40,  # Endereço I2C compartilhado
             steering_sensitivity=1.2,
-            max_steering_angle=40.0,
+            max_steering_angle=90.0,  # RANGE COMPLETO 0°-180°
             steering_mode=self.steering_mode,
             response_time=0.12,
         )
