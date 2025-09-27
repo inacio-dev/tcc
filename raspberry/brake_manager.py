@@ -44,7 +44,7 @@ CARACTERÍSTICAS MG996R:
 - Tensão: 4.8V - 7.2V (recomendado 6V para torque máximo)
 - Torque: 11kg.cm @ 6V
 - Velocidade: 0.14s/60° @ 6V
-- Ângulo: 0° - 180° (180° = freio máximo)
+- Ângulo: 0° - 180° (0°=solto, 90°=neutro, 180°=máximo)
 - PWM: 50Hz, pulso 1.0ms-2.0ms
 - Corrente: ~1.5A sob carga máxima
 

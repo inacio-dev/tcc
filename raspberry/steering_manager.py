@@ -37,7 +37,7 @@ CONFIGURAÇÃO MECÂNICA:
 - 0° = Máximo à esquerda
 - 90° = Centro (frente)
 - 180° = Máximo à direita
-- Range útil: 45° a 135° (±45° do centro)
+- Range útil: 0° a 180° (±90° do centro)
 - Ackermann: Geometria de direção correta para F1
 
 CONFIGURAÇÃO NECESSÁRIA:
@@ -94,14 +94,14 @@ class SteeringManager:
     PULSE_MAX = 2.0  # 2.0ms = 180° (máximo direita)
     PULSE_CENTER = 1.5  # 1.5ms = 90° (centro)
 
-    # Limites mecânicos da direção (em graus)
-    STEERING_MIN_ANGLE = 45  # 45° = máximo à esquerda (do centro)
-    STEERING_MAX_ANGLE = 135  # 135° = máximo à direita (do centro)
-    STEERING_CENTER = 90  # 90° = posição central
+    # Limites mecânicos da direção (em graus) - RANGE COMPLETO MG996R
+    STEERING_MIN_ANGLE = 0   # 0° = máximo à esquerda
+    STEERING_MAX_ANGLE = 180 # 180° = máximo à direita
+    STEERING_CENTER = 90     # 90° = posição central
 
-    # Range de direção útil (±45° do centro)
-    MAX_STEERING_LEFT = -45  # -45° (esquerda)
-    MAX_STEERING_RIGHT = 45  # +45° (direita)
+    # Range de direção útil (COMPLETO 0°-180°)
+    MAX_STEERING_LEFT = -90  # -90° (esquerda máxima: 90°-90°=0°)
+    MAX_STEERING_RIGHT = 90  # +90° (direita máxima: 90°+90°=180°)
 
     def __init__(
         self,
@@ -128,15 +128,15 @@ class SteeringManager:
 
         # Configurações
         self.steering_sensitivity = max(0.5, min(2.0, steering_sensitivity))
-        self.max_steering_angle = max(10.0, min(45.0, max_steering_angle))
+        self.max_steering_angle = max(10.0, min(90.0, max_steering_angle))  # Máximo 90° (range completo)
         self.steering_mode = steering_mode
         self.response_time = max(0.05, response_time)
 
         # Estado da direção
         self.is_initialized = False
-        self.current_angle = 0.0  # Ângulo atual (-45° a +45°)
+        self.current_angle = 0.0  # Ângulo atual (-90° a +90°)
         self.target_angle = 0.0  # Ângulo alvo
-        self.servo_angle = self.STEERING_CENTER  # Ângulo do servo (45° a 135°)
+        self.servo_angle = self.STEERING_CENTER  # Ângulo do servo (0° a 180°)
         self.steering_input = 0.0  # Input de direção (-100% a +100%)
 
         # Controle PCA9685
@@ -225,7 +225,7 @@ class SteeringManager:
             print("✅ Sistema de direção inicializado com sucesso!")
             print(f"  - Frequência PWM: {self.PWM_FREQUENCY}Hz")
             print(f"  - Posição inicial: {self.STEERING_CENTER}° (centro)")
-            print(f"  - Range: {self.STEERING_MIN_ANGLE}° a {self.STEERING_MAX_ANGLE}°")
+            print(f"  - Range: {self.STEERING_MIN_ANGLE}° a {self.STEERING_MAX_ANGLE}° (COMPLETO)")
             print(
                 f"  - Movimento suave: {'Ativado' if self.smooth_movement else 'Desativado'}"
             )
@@ -277,7 +277,7 @@ class SteeringManager:
                             self.current_angle - move_speed, self.target_angle
                         )
 
-                    # Converte ângulo de direção (-45° a +45°) para ângulo do servo (45° a 135°)
+                    # Converte ângulo de direção (-90° a +90°) para ângulo do servo (0° a 180°)
                     self.servo_angle = self.STEERING_CENTER + self.current_angle
 
                     # Aplica calibração
@@ -332,7 +332,7 @@ class SteeringManager:
             speed_factor = max(0.3, min(1.0, speed_factor))  # Limita compensação
             effective_sensitivity *= speed_factor
 
-        # Converte entrada (-100% a +100%) para ângulo (-max_angle a +max_angle)
+        # Converte entrada (-100% a +100%) para ângulo (-90° a +90°)
         target_angle = (
             (steering_input / 100.0) * self.max_steering_angle * effective_sensitivity
         )
