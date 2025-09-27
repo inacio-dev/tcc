@@ -43,11 +43,17 @@ def test_brake_basic():
         response_time=0.1,
     )
 
+    # DESABILITAR MOVIMENTO SUAVE para teste
+    brake.smooth_movement = False
+    print("⚡ Movimento suave DESABILITADO para testes")
+
     print("Brake Manager criado:")
     print(f"  - Balanço de freio: {brake.brake_balance}%")
     print(f"  - Força máxima: {brake.max_brake_force}%")
-    print(f"  - GPIO frontal: {brake.front_pin}")
-    print(f"  - GPIO traseiro: {brake.rear_pin}")
+    print(f"  - Canal frontal PCA9685: {brake.front_channel}")
+    print(f"  - Canal traseiro PCA9685: {brake.rear_channel}")
+    print(f"  - Endereço I2C: 0x{brake.pca9685_address:02X}")
+    print(f"  - Movimento suave: {brake.smooth_movement}")
 
     # Tenta inicializar
     print("\n--- Inicializando sistema de freios ---")
@@ -60,15 +66,15 @@ def test_brake_basic():
 
 
 def test_brake_application(brake):
-    """Teste de aplicação de freios"""
-    print("\n=== TESTE DE APLICAÇÃO DE FREIOS ===")
+    """Teste de aplicação de freios com movimento direto"""
+    print("\n=== TESTE DE APLICAÇÃO DE FREIOS (DIRETO) ===")
 
-    # Sequência de testes
+    # Sequência de testes mais agressiva
     test_sequence = [
         ("Sem freio", 0.0),
-        ("Freio leve", 20.0),
+        ("Freio leve", 25.0),
         ("Freio médio", 50.0),
-        ("Freio forte", 80.0),
+        ("Freio forte", 75.0),
         ("Freio máximo", 100.0),
         ("Freio moderado", 60.0),
         ("Liberação gradual", 30.0),
@@ -78,24 +84,83 @@ def test_brake_application(brake):
     for description, brake_force in test_sequence:
         print(f"\n🛑 Testando {description}: {brake_force}%")
 
-        # Aplica freio
+        # Aplica freio direto
         brake.apply_brake(brake_force)
 
-        # Aguarda estabilizar
-        time.sleep(1.0)
-
-        # Mostra status
+        # Mostra status imediatamente (sem movimento suave)
         status = brake.get_brake_status()
-        front_percent = status.get("front_brake_percent", 0)
-        rear_percent = status.get("rear_brake_percent", 0)
+        front_force = status.get("front_brake_force", 0)
+        rear_force = status.get("rear_brake_force", 0)
+        front_angle = status.get("front_brake_angle", 0)
+        rear_angle = status.get("rear_brake_angle", 0)
         total = status.get("total_brake_input", 0)
 
-        print(f"   → Freio frontal: {front_percent:.1f}%")
-        print(f"   → Freio traseiro: {rear_percent:.1f}%")
-        print(f"   → Total aplicado: {total:.1f}%")
+        print(f"   → Input total: {total:.1f}%")
+        print(f"   → Freio frontal: {front_force:.1f}% (ângulo: {front_angle:.1f}°)")
+        print(f"   → Freio traseiro: {rear_force:.1f}% (ângulo: {rear_angle:.1f}°)")
 
-        # Pausa entre aplicações
+        # Aguardar para ver movimento
+        time.sleep(2.0)
+        input("   Pressione ENTER para próximo teste...")
+
+
+def test_brake_speed(brake):
+    """Teste de velocidade e responsividade dos freios"""
+    print("\n=== TESTE DE VELOCIDADE DOS FREIOS ===")
+
+    print("\n1. Teste de responsividade (freadas rápidas)")
+
+    # Sequência rápida para testar responsividade
+    quick_sequence = [0, 50, 100, 25, 75, 0]
+
+    for i, force in enumerate(quick_sequence):
+        print(f"   Freada {i+1}: {force}%")
+        start_time = time.time()
+        brake.apply_brake(force)
+        end_time = time.time()
+
+        response_time = (end_time - start_time) * 1000  # em ms
+        print(f"   → Tempo de resposta: {response_time:.1f}ms")
+
+        time.sleep(0.5)  # Pausa curta entre freadas
+
+    print("\n2. Teste de freada de emergência")
+    print("   Simulando freadas de emergência rápidas...")
+
+    for cycle in range(3):
+        print(f"   Emergência {cycle+1}/3")
+
+        # Sem freio → Freio máximo rapidamente
+        start = time.time()
+        brake.apply_brake(0)
+        time.sleep(0.1)
+        brake.apply_brake(100)  # Freada de emergência
+        time.sleep(0.3)
+        brake.apply_brake(0)    # Liberar
+        end = time.time()
+
+        cycle_time = (end - start) * 1000
+        print(f"   → Tempo total: {cycle_time:.0f}ms")
         time.sleep(0.5)
+
+    print("\n3. Teste de modulação (controle fino)")
+
+    # Modulação fina para testar precisão
+    modulation_sequence = [0, 10, 20, 30, 40, 50, 40, 30, 20, 10, 0]
+
+    for force in modulation_sequence:
+        print(f"   Modulação: {force}%")
+        brake.apply_brake(force)
+
+        status = brake.get_brake_status()
+        actual_force = status.get("total_brake_input", 0)
+        print(f"   → Força real: {actual_force:.1f}%")
+
+        time.sleep(0.8)
+
+    # Liberar completamente
+    brake.release_brakes()
+    print("   → Freios liberados")
 
 
 def test_brake_balance(brake):
@@ -237,6 +302,14 @@ def main():
 
         # Testes funcionais
         test_brake_application(brake)
+
+        # Teste de velocidade
+        print("\n" + "="*50)
+        choice = input("🚀 Deseja executar teste de velocidade dos freios? (s/N): ").lower().strip()
+        if choice in ['s', 'sim', 'y', 'yes']:
+            test_brake_speed(brake)
+
+        # Outros testes
         test_brake_balance(brake)
         test_emergency_brake(brake)
         test_brake_limits(brake)
