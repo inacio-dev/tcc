@@ -144,20 +144,10 @@ class SteeringManager:
         self.i2c = None
         self.steering_servo = None
 
-        # Controle de movimento suave
-        self.smooth_movement = False  # DESABILITADO - movimento direto igual aos testes
-        self.movement_thread = None
-        self.should_stop = False
+        # REMOVIDO: movimento suave - usando movimento direto
 
-        # Sistema Ackermann (geometria de direção)
-        self.ackermann_enabled = True
-        self.wheelbase = 0.25  # Distância entre eixos (metros, escala 1:10)
-        self.track_width = 0.15  # Largura da bitola (metros)
-
-        # Compensação baseada na velocidade
-        self.speed_compensation = True
-        self.current_speed = 0.0  # km/h (recebido externamente)
-        self.speed_compensation_factor = 0.7
+        # REMOVIDO: Sistema Ackermann - usando movimento direto
+        # REMOVIDO: Compensação de velocidade - usando movimento direto
 
         # Estatísticas
         self.total_steering_movements = 0
@@ -166,13 +156,9 @@ class SteeringManager:
         self.start_time = time.time()
         self.last_movement_time = 0.0
 
-        # Calibração
-        self.center_calibrated = False
-        self.calibration_offset = 0.0
-
-        # Limites de segurança
-        self.steering_limit_enabled = True
-        self.emergency_center = False
+        # REMOVIDO: Calibração - usando movimento direto
+        # REMOVIDO: Limites de segurança - usando movimento direto
+        # REMOVIDO: Emergency center - usando movimento direto
 
     def initialize(self) -> bool:
         """
@@ -216,9 +202,7 @@ class SteeringManager:
             # Aguarda servo se posicionar
             time.sleep(0.5)
 
-            # Inicia thread de movimento suave
-            if self.smooth_movement:
-                self._start_movement_thread()
+            # REMOVIDO: thread de movimento suave - usando movimento direto
 
             self.is_initialized = True
 
@@ -226,9 +210,7 @@ class SteeringManager:
             print(f"  - Frequência PWM: {self.PWM_FREQUENCY}Hz")
             print(f"  - Posição inicial: {self.STEERING_CENTER}° (centro)")
             print(f"  - Range: {self.STEERING_MIN_ANGLE}° a {self.STEERING_MAX_ANGLE}° (COMPLETO)")
-            print(
-                f"  - Movimento suave: {'Ativado' if self.smooth_movement else 'Desativado'}"
-            )
+            print("  - Movimento: DIRETO (sem suavização)")
             print(f"  - Canal direção: {self.steering_channel}")
 
             # Teste rápido da direção
@@ -248,56 +230,7 @@ class SteeringManager:
             self.is_initialized = False
             return False
 
-    def _start_movement_thread(self):
-        """Inicia thread para movimento suave da direção"""
-        if self.movement_thread is None or not self.movement_thread.is_alive():
-            self.should_stop = False
-            self.movement_thread = threading.Thread(target=self._smooth_movement_loop)
-            self.movement_thread.daemon = True
-            self.movement_thread.start()
-
-    def _smooth_movement_loop(self):
-        """Loop principal para movimento suave da direção"""
-        while not self.should_stop and self.is_initialized:
-            try:
-                # Velocidade de movimento baseada no tempo de resposta
-                max_speed = 90.0 / self.response_time  # graus/segundo
-                move_speed = max_speed * 0.02  # graus por iteração (50Hz)
-
-                # Movimento suave em direção ao ângulo alvo
-                angle_diff = self.target_angle - self.current_angle
-
-                if abs(angle_diff) > 0.5:  # Threshold de movimento
-                    if angle_diff > 0:
-                        self.current_angle = min(
-                            self.current_angle + move_speed, self.target_angle
-                        )
-                    else:
-                        self.current_angle = max(
-                            self.current_angle - move_speed, self.target_angle
-                        )
-
-                    # Converte ângulo de direção (-90° a +90°) para ângulo do servo (0° a 180°)
-                    self.servo_angle = self.STEERING_CENTER + self.current_angle
-
-                    # Aplica calibração
-                    calibrated_angle = self.servo_angle + self.calibration_offset
-
-                    # Aplica movimento ao servo (apenas se PCA9685 disponível)
-                    if self.steering_servo:
-                        # Limita ângulo ao range válido do servo
-                        final_angle = max(
-                            self.STEERING_MIN_ANGLE,
-                            min(self.STEERING_MAX_ANGLE, calibrated_angle),
-                        )
-
-                        self.steering_servo.angle = final_angle
-
-                time.sleep(0.02)  # 50Hz de atualização
-
-            except Exception as e:
-                print(f"⚠ Erro no movimento da direção: {e}")
-                time.sleep(0.1)
+    # REMOVIDO: funções de movimento suave - usando movimento direto
 
     def set_steering_input(self, steering_input: float, speed_kmh: float = 0.0):
         """
@@ -314,28 +247,14 @@ class SteeringManager:
 
         print(f"🏎️ DIREÇÃO: {steering_input:.1f}% recebido")
 
-        # Verifica parada de emergência
-        if self.emergency_center:
-            steering_input = 0.0
+        # REMOVIDO: parada de emergência - movimento direto
 
         # Garante range válido
         steering_input = max(-100.0, min(100.0, steering_input))
         self.steering_input = steering_input
-        self.current_speed = speed_kmh
 
-        # Aplica sensibilidade baseada no modo
-        effective_sensitivity = self._get_mode_sensitivity() * self.steering_sensitivity
-
-        # Aplica compensação de velocidade
-        if self.speed_compensation and speed_kmh > 0:
-            speed_factor = 1.0 - (speed_kmh / 50.0) * self.speed_compensation_factor
-            speed_factor = max(0.3, min(1.0, speed_factor))  # Limita compensação
-            effective_sensitivity *= speed_factor
-
-        # Converte entrada (-100% a +100%) para ângulo (-90° a +90°)
-        target_angle = (
-            (steering_input / 100.0) * self.max_steering_angle * effective_sensitivity
-        )
+        # MOVIMENTO DIRETO - converte entrada (-100% a +100%) para ângulo (-90° a +90°)
+        target_angle = (steering_input / 100.0) * self.max_steering_angle
 
         # REMOVIDO: Limites de segurança - usar range completo
         # REMOVIDO: Geometria Ackermann - movimento direto sem correções
@@ -379,109 +298,18 @@ class SteeringManager:
                 f"(Velocidade: {speed_kmh:.1f} km/h)"
             )
 
-    def _get_mode_sensitivity(self) -> float:
-        """Obtém fator de sensibilidade baseado no modo"""
-        sensitivity_map = {
-            SteeringMode.COMFORT: 0.7,  # Menos sensível
-            SteeringMode.NORMAL: 1.0,  # Sensibilidade normal
-            SteeringMode.SPORT: 1.3,  # Mais sensível
-            SteeringMode.PARKING: 1.5,  # Máxima sensibilidade
-        }
-        return sensitivity_map.get(self.steering_mode, 1.0)
-
-    def _apply_ackermann_geometry(self, target_angle: float) -> float:
-        """
-        Aplica correção de geometria Ackermann
-
-        Args:
-            target_angle (float): Ângulo alvo em graus
-
-        Returns:
-            float: Ângulo corrigido
-        """
-        if abs(target_angle) < 5.0:  # Não aplica para ângulos pequenos
-            return target_angle
-
-        # Conversão para radianos
-        target_rad = math.radians(target_angle)
-
-        # Cálculo do raio de curvatura
-        try:
-            # R = wheelbase / tan(steering_angle)
-            turn_radius = self.wheelbase / math.tan(abs(target_rad))
-
-            # Correção Ackermann para roda interna
-            # Ângulo corrigido considera diferença entre rodas interna e externa
-            ackermann_correction = math.atan(
-                self.wheelbase / (turn_radius - self.track_width / 2)
-            )
-
-            # Aplica correção (pequena para modelos em escala)
-            corrected_angle = math.degrees(ackermann_correction)
-            correction_factor = 0.1  # Correção sutil
-
-            if target_angle >= 0:
-                return (
-                    target_angle
-                    + (corrected_angle - abs(target_angle)) * correction_factor
-                )
-            else:
-                return (
-                    target_angle
-                    - (corrected_angle - abs(target_angle)) * correction_factor
-                )
-
-        except (ZeroDivisionError, ValueError):
-            return target_angle
+    # REMOVIDO: funções auxiliares não usadas - movimento direto
 
     def center_steering(self):
         """Centraliza a direção"""
         self.set_steering_input(0.0)
         print("🔧 Direção centralizada")
 
-    def emergency_center(self):
-        """Centraliza direção em emergência"""
-        self.emergency_center = True
-        self.center_steering()
-        print("🚨 CENTRALIZAÇÃO DE EMERGÊNCIA DA DIREÇÃO!")
-
-    def release_emergency(self):
-        """Libera modo de emergência"""
-        self.emergency_center = False
-        print("✓ Modo de emergência da direção liberado")
-
-    def set_steering_mode(self, mode: SteeringMode):
-        """
-        Altera modo de direção
-
-        Args:
-            mode (SteeringMode): Novo modo de direção
-        """
-        old_mode = self.steering_mode
-        self.steering_mode = mode
-        print(f"🔧 Modo de direção alterado: {old_mode.value} → {mode.value}")
-
-    def set_sensitivity(self, sensitivity: float):
-        """
-        Altera sensibilidade da direção
-
-        Args:
-            sensitivity (float): Nova sensibilidade (0.5-2.0)
-        """
-        old_sensitivity = self.steering_sensitivity
-        self.steering_sensitivity = max(0.5, min(2.0, sensitivity))
-
-        if abs(self.steering_sensitivity - old_sensitivity) > 0.1:
-            print(
-                f"🔧 Sensibilidade alterada: {old_sensitivity:.1f}x → {self.steering_sensitivity:.1f}x"
-            )
+    # REMOVIDO: funções não usadas - movimento direto
 
     def _test_steering(self):
-        """Executa teste rápido da direção"""
+        """Executa teste rápido da direção - MOVIMENTO DIRETO"""
         print("Executando teste da direção...")
-
-        original_smooth = self.smooth_movement
-        self.smooth_movement = False  # Movimento direto para teste
 
         try:
             # Teste esquerda
@@ -508,29 +336,7 @@ class SteeringManager:
         except Exception as e:
             print(f"⚠ Erro durante teste: {e}")
 
-        finally:
-            self.smooth_movement = original_smooth
-
-    def calibrate_center(self):
-        """
-        Calibra posição central da direção
-        """
-        print("=== CALIBRAÇÃO DA DIREÇÃO ===")
-        print("Centralizando servo...")
-
-        # Move para posição teórica do centro
-        self.target_angle = 0.0
-        self.current_angle = 0.0
-        self.servo_angle = self.STEERING_CENTER
-
-        time.sleep(1.0)
-
-        print("Calibração concluída.")
-        print("Ajuste manual se necessário:")
-        print("- Rodas devem estar alinhadas para frente")
-        print("- Volante deve estar centralizado")
-
-        self.center_calibrated = True
+    # REMOVIDO: calibração - movimento direto
 
     def get_steering_status(self) -> Dict[str, Any]:
         """
@@ -657,11 +463,6 @@ class SteeringManager:
         """Libera recursos da direção"""
         try:
             print("Finalizando sistema de direção...")
-
-            # Para thread de movimento
-            self.should_stop = True
-            if self.movement_thread and self.movement_thread.is_alive():
-                self.movement_thread.join(timeout=1.0)
 
             # Centraliza direção antes de desligar
             self.center_steering()

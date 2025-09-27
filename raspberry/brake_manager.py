@@ -141,12 +141,7 @@ class BrakeManager:
         self.front_servo = None
         self.rear_servo = None
 
-        # Controle de movimento suave
-        self.target_front_angle = self.BRAKE_NEUTRAL
-        self.target_rear_angle = self.BRAKE_NEUTRAL
-        self.smooth_movement = False  # DESABILITADO - movimento direto igual aos testes
-        self.movement_thread = None
-        self.should_stop = False
+        # REMOVIDO: movimento suave - usando movimento direto
 
         # Estatísticas
         self.brake_applications = 0
@@ -154,11 +149,7 @@ class BrakeManager:
         self.last_brake_time = 0.0
         self.start_time = time.time()
 
-        # Calibração
-        self.front_calibrated = False
-        self.rear_calibrated = False
-        self.calibration_offset_front = 0.0
-        self.calibration_offset_rear = 0.0
+        # REMOVIDO: calibração - movimento direto
 
     def initialize(self) -> bool:
         """
@@ -209,18 +200,14 @@ class BrakeManager:
             # Aguarda servos se posicionarem
             time.sleep(0.5)
 
-            # Inicia thread de movimento suave
-            if self.smooth_movement:
-                self._start_movement_thread()
+            # REMOVIDO: thread de movimento suave - movimento direto
 
             self.is_initialized = True
 
             print("✅ Sistema de freios inicializado com sucesso!")
             print(f"  - Frequência PWM: {self.PWM_FREQUENCY}Hz")
             print(f"  - Posição inicial: {self.BRAKE_NEUTRAL}° (neutro)")
-            print(
-                f"  - Movimento suave: {'Ativado' if self.smooth_movement else 'Desativado'}"
-            )
+            print("  - Movimento: DIRETO (sem suavização)")
             print(f"  - Canal frontal: {self.front_channel}")
             print(f"  - Canal traseiro: {self.rear_channel}")
 
@@ -241,66 +228,7 @@ class BrakeManager:
             self.is_initialized = False
             return False
 
-    def _start_movement_thread(self):
-        """Inicia thread para movimento suave dos servos"""
-        if self.movement_thread is None or not self.movement_thread.is_alive():
-            self.should_stop = False
-            self.movement_thread = threading.Thread(target=self._smooth_movement_loop)
-            self.movement_thread.daemon = True
-            self.movement_thread.start()
-
-    def _smooth_movement_loop(self):
-        """Loop principal para movimento suave dos servos"""
-        while not self.should_stop and self.is_initialized:
-            try:
-                # Velocidade de movimento (graus por iteração)
-                move_speed = 2.0  # Ajuste para mais/menos suavidade
-
-                # Movimento suave para posição alvo
-                front_diff = self.target_front_angle - self.front_brake_angle
-                rear_diff = self.target_rear_angle - self.rear_brake_angle
-
-                # Move gradualmente em direção ao alvo
-                if abs(front_diff) > 0.5:
-                    if front_diff > 0:
-                        self.front_brake_angle = min(
-                            self.front_brake_angle + move_speed, self.target_front_angle
-                        )
-                    else:
-                        self.front_brake_angle = max(
-                            self.front_brake_angle - move_speed, self.target_front_angle
-                        )
-
-                if abs(rear_diff) > 0.5:
-                    if rear_diff > 0:
-                        self.rear_brake_angle = min(
-                            self.rear_brake_angle + move_speed, self.target_rear_angle
-                        )
-                    else:
-                        self.rear_brake_angle = max(
-                            self.rear_brake_angle - move_speed, self.target_rear_angle
-                        )
-
-                # Aplica movimento aos servos (apenas se PCA9685 disponível)
-                if self.front_servo and self.rear_servo:
-                    # Limita ângulos ao range válido
-                    front_angle = max(
-                        self.BRAKE_MIN_ANGLE,
-                        min(self.BRAKE_MAX_ANGLE, self.front_brake_angle),
-                    )
-                    rear_angle = max(
-                        self.BRAKE_MIN_ANGLE,
-                        min(self.BRAKE_MAX_ANGLE, self.rear_brake_angle),
-                    )
-
-                    self.front_servo.angle = front_angle
-                    self.rear_servo.angle = rear_angle
-
-                time.sleep(0.02)  # 50Hz de atualização
-
-            except Exception as e:
-                print(f"⚠ Erro no movimento suave: {e}")
-                time.sleep(0.1)
+    # REMOVIDO: funções de movimento suave - usando movimento direto
 
     def set_brake_balance(self, balance: float):
         """
@@ -389,21 +317,9 @@ class BrakeManager:
         )
         rear_angle = self.BRAKE_NEUTRAL + (self.rear_brake_force / 100.0) * rear_range
 
-        # Aplica calibração se disponível
-        front_angle += self.calibration_offset_front
-        rear_angle += self.calibration_offset_rear
-
-        # Define novos ângulos alvo
-        self.target_front_angle = max(
-            self.BRAKE_MIN_ANGLE, min(self.BRAKE_MAX_ANGLE, front_angle)
-        )
-        self.target_rear_angle = max(
-            self.BRAKE_MIN_ANGLE, min(self.BRAKE_MAX_ANGLE, rear_angle)
-        )
-
         # MOVIMENTO DIRETO - igual aos testes funcionais
-        self.front_brake_angle = self.target_front_angle
-        self.rear_brake_angle = self.target_rear_angle
+        self.front_brake_angle = front_angle
+        self.rear_brake_angle = rear_angle
 
         if self.front_servo and self.rear_servo:
             # Limita ângulos ao range válido (0° a 180°)
@@ -435,18 +351,15 @@ class BrakeManager:
         print("🚨 FREIO DE EMERGÊNCIA ATIVADO!")
 
     def _test_servos(self):
-        """Executa teste rápido dos servos"""
+        """Executa teste rápido dos servos - MOVIMENTO DIRETO"""
         print("Executando teste dos servos...")
-
-        original_smooth = self.smooth_movement
-        self.smooth_movement = False  # Desabilita movimento suave para teste
 
         try:
             # Teste freio dianteiro
             print("  - Testando freio dianteiro...")
-            self.apply_brake(30.0)  # 30% só no dianteiro (balance = 0)
             old_balance = self.brake_balance
             self.set_brake_balance(0.0)
+            self.apply_brake(30.0)  # 30% só no dianteiro
             time.sleep(0.5)
 
             # Teste freio traseiro
@@ -464,29 +377,7 @@ class BrakeManager:
         except Exception as e:
             print(f"⚠ Erro durante teste: {e}")
 
-        finally:
-            self.smooth_movement = original_smooth
-
-    def calibrate_brakes(self):
-        """
-        Calibra os servos de freio para posição correta
-        """
-        print("=== CALIBRAÇÃO DOS FREIOS ===")
-        print("Posicionando servos na posição neutra...")
-
-        # Move para posição neutra
-        self.target_front_angle = self.BRAKE_NEUTRAL
-        self.target_rear_angle = self.BRAKE_NEUTRAL
-
-        time.sleep(1.0)  # Aguarda posicionamento
-
-        print("Calibração concluída.")
-        print("Ajuste manual se necessário:")
-        print("- Freio dianteiro deve estar na posição neutra (sem contato)")
-        print("- Freio traseiro deve estar na posição neutra (sem contato)")
-
-        self.front_calibrated = True
-        self.rear_calibrated = True
+    # REMOVIDO: calibração - movimento direto
 
     def get_brake_status(self) -> dict:
         """
@@ -555,11 +446,6 @@ class BrakeManager:
         """Libera recursos do sistema de freios"""
         try:
             print("Finalizando sistema de freios...")
-
-            # Para thread de movimento
-            self.should_stop = True
-            if self.movement_thread and self.movement_thread.is_alive():
-                self.movement_thread.join(timeout=1.0)
 
             # Libera freios antes de desligar
             self.release_brakes()
