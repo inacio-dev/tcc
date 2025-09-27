@@ -23,7 +23,7 @@ pip3 install smbus2 --break-system-packages
 # pip install smbus2
 ```
 
-asasfasfasf
+asasfasfasfafasf
 
 ```
 # Baixar a biblioteca
