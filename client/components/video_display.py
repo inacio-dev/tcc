@@ -16,7 +16,6 @@ import cv2
 import numpy as np
 import time
 import threading
-from typing import Optional
 import tkinter as tk
 from PIL import Image, ImageTk
 
@@ -89,13 +88,17 @@ class VideoDisplay:
             if abs(width - target_width) > 50:
                 aspect_ratio = height / width
                 target_height = int(target_width * aspect_ratio)
-                frame = cv2.resize(frame, (target_width, target_height), interpolation=cv2.INTER_NEAREST)
+                frame = cv2.resize(
+                    frame,
+                    (target_width, target_height),
+                    interpolation=cv2.INTER_NEAREST,
+                )
 
             # Otimização 2: Conversão BGR→RGB mais rápida
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
             # Otimização 3: Usar modo direto do PIL (mais rápido)
-            pil_image = Image.fromarray(rgb_frame, mode='RGB')
+            pil_image = Image.fromarray(rgb_frame, mode="RGB")
 
             # Otimização 4: PhotoImage direto sem cópia extra
             photo = ImageTk.PhotoImage(image=pil_image)
@@ -111,9 +114,9 @@ class VideoDisplay:
             # Atualizar status se callback definido (assíncrono)
             if self.status_callback:
                 status = {
-                    'connected': True,
-                    'resolution': f"{frame.shape[1]}x{frame.shape[0]}",
-                    'fps': self.current_fps
+                    "connected": True,
+                    "resolution": f"{frame.shape[1]}x{frame.shape[0]}",
+                    "fps": self.current_fps,
                 }
                 try:
                     self.status_callback(status)
@@ -129,21 +132,17 @@ class VideoDisplay:
             if self.tkinter_label:
                 # Atualizar texto do label para mostrar sem sinal
                 self.tkinter_label.configure(
-                    image='',
+                    image="",
                     text="📡 Sem Sinal\n\nAguardando vídeo do Raspberry Pi...",
                     fg="red",
                     bg="#1a1a1a",
-                    font=("Arial", 12)
+                    font=("Arial", 12),
                 )
                 self.tkinter_label.image = None
 
             # Atualizar status
             if self.status_callback:
-                status = {
-                    'connected': False,
-                    'resolution': 'N/A',
-                    'fps': 0
-                }
+                status = {"connected": False, "resolution": "N/A", "fps": 0}
                 self.status_callback(status)
 
         except Exception as e:
@@ -168,7 +167,9 @@ class VideoDisplay:
 
             # Apenas informações essenciais
             cv2.putText(frame, fps_text, (10, 25), font, font_scale, color, thickness)
-            cv2.putText(frame, resolution_text, (10, 50), font, font_scale, color, thickness)
+            cv2.putText(
+                frame, resolution_text, (10, 50), font, font_scale, color, thickness
+            )
 
             return frame
         except:
@@ -221,7 +222,11 @@ class VideoDisplay:
             latest_frame = None
 
             # Drena a fila e mantém apenas o frame mais recente
-            while not self.video_queue.empty() and self.is_running and frames_processed < 10:
+            while (
+                not self.video_queue.empty()
+                and self.is_running
+                and frames_processed < 10
+            ):
                 frame_data = self.video_queue.get_nowait()
                 frames_processed += 1
 
@@ -244,7 +249,10 @@ class VideoDisplay:
 
                 # Se processamos muitos frames, significa que há delay acumulado
                 if frames_processed > 3:
-                    self._log("DEBUG", f"Descartados {frames_processed-1} frames antigos para reduzir delay")
+                    self._log(
+                        "DEBUG",
+                        f"Descartados {frames_processed-1} frames antigos para reduzir delay",
+                    )
 
         except Exception as e:
             self._log("ERROR", f"Erro ao processar fila de vídeo: {e}")

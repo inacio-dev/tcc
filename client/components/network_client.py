@@ -25,8 +25,6 @@ import socket
 import struct
 import json
 import time
-import numpy as np
-from typing import Optional, Dict, Any
 
 
 class NetworkClient:
@@ -73,7 +71,7 @@ class NetworkClient:
 
         # Sockets UDP
         self.receive_socket = None  # Para receber dados
-        self.send_socket = None     # Para enviar comandos
+        self.send_socket = None  # Para enviar comandos
         self.is_running = False
 
         # Status da conexão
@@ -138,13 +136,13 @@ class NetworkClient:
             self.receive_socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 65536)
             # Timeout baixo para processamento em tempo real
             self.receive_socket.settimeout(0.001)  # 1ms timeout
-            
+
             # Vincula socket à porta de recepção
             self.receive_socket.bind((self.host, self.port))
-            
+
             # Cria socket para enviar comandos
             self.send_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            
+
             # Timeout para não bloquear indefinidamente
             self.receive_socket.settimeout(1.0)
 
@@ -157,71 +155,77 @@ class NetworkClient:
         except Exception as e:
             self._log("ERROR", f"Erro ao inicializar sockets UDP: {e}")
             return False
-            
+
     def connect_to_raspberry_pi(self, rpi_ip):
         """
         Conecta diretamente ao Raspberry Pi no IP especificado
-        
+
         Args:
             rpi_ip (str): IP do Raspberry Pi
         """
         try:
             # Envia comando CONNECT com porta de escuta
-            connect_msg = f"CONNECT:{self.port}".encode('utf-8')
+            connect_msg = f"CONNECT:{self.port}".encode("utf-8")
             self.send_socket.sendto(connect_msg, (rpi_ip, self.command_port))
             self._log("INFO", f"📡 Enviando CONNECT para {rpi_ip}:{self.command_port}")
-            
+
             # Marca como conectado diretamente
             self.raspberry_pi_ip = rpi_ip
             self.is_connected_to_rpi = True
-            self._update_status({
-                "connection": f"Conectando a {rpi_ip}:{self.command_port}",
-                "discovery": "IP direto fornecido"
-            })
-            
+            self._update_status(
+                {
+                    "connection": f"Conectando a {rpi_ip}:{self.command_port}",
+                    "discovery": "IP direto fornecido",
+                }
+            )
+
         except Exception as e:
             self._log("ERROR", f"Erro ao conectar ao Raspberry Pi {rpi_ip}: {e}")
-            
+
     def discover_raspberry_pi(self, broadcast_ip="255.255.255.255", timeout=5.0):
         """
         Procura um Raspberry Pi na rede enviando comando CONNECT
-        
+
         Args:
             broadcast_ip: IP para broadcast (padrão usa broadcast)
             timeout: Tempo limite para descoberta
         """
         self._log("INFO", "🔍 Procurando Raspberry Pi na rede...")
-        
+
         # Primeira tentativa: envia CONNECT em broadcast
         try:
             # Habilita broadcast
             self.send_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-            
+
             # Envia comando CONNECT com porta de escuta
-            connect_msg = f"CONNECT:{self.port}".encode('utf-8')
+            connect_msg = f"CONNECT:{self.port}".encode("utf-8")
             self.send_socket.sendto(connect_msg, (broadcast_ip, self.command_port))
-            self._log("INFO", f"📡 Enviando CONNECT para {broadcast_ip}:{self.command_port}")
-            
+            self._log(
+                "INFO", f"📡 Enviando CONNECT para {broadcast_ip}:{self.command_port}"
+            )
+
         except Exception as e:
             self._log("ERROR", f"Erro ao enviar comando CONNECT: {e}")
 
     def send_command_to_rpi(self, command: str) -> bool:
         """
         Envia comando para o Raspberry Pi descoberto
-        
+
         Args:
             command: Comando a ser enviado
-            
+
         Returns:
             bool: True se enviado com sucesso
         """
         if not self.raspberry_pi_ip:
             self._log("WARN", "Raspberry Pi não descoberto ainda")
             return False
-            
+
         try:
-            command_bytes = command.encode('utf-8')
-            self.send_socket.sendto(command_bytes, (self.raspberry_pi_ip, self.command_port))
+            command_bytes = command.encode("utf-8")
+            self.send_socket.sendto(
+                command_bytes, (self.raspberry_pi_ip, self.command_port)
+            )
             return True
         except Exception as e:
             self._log("ERROR", f"Erro ao enviar comando '{command}': {e}")
@@ -230,20 +234,19 @@ class NetworkClient:
     def send_control_command(self, control_type: str, value: float) -> bool:
         """
         Envia comando de controle para o Raspberry Pi
-        
+
         Args:
             control_type: Tipo do controle (THROTTLE, BRAKE, STEERING)
             value: Valor do controle
-            
+
         Returns:
             bool: True se enviado com sucesso
         """
         command = f"CONTROL:{control_type}:{value}"
         return self.send_command_to_rpi(command)
-        
+
     def ping_raspberry_pi(self) -> bool:
         """Envia ping para o Raspberry Pi"""
-        import time
         timestamp = int(time.time() * 1000)  # milliseconds
         command = f"PING:{timestamp}"
         return self.send_command_to_rpi(command)
@@ -383,7 +386,7 @@ class NetworkClient:
         self._log("INFO", "Cliente de rede iniciado em modo fixo")
         self._log("INFO", f"🔗 Raspberry Pi: {self.rpi_ip}:9999")
         self._log("INFO", f"🎮 Cliente: {self.client_ip}:9999")
-        
+
         # Modo fixo - configura Raspberry Pi IP diretamente
         if self.rpi_ip:
             self.raspberry_pi_ip = self.rpi_ip
@@ -395,12 +398,15 @@ class NetworkClient:
                 try:
                     # Recebe pacote de dados
                     packet, addr = self.receive_socket.recvfrom(self.buffer_size)
-                    
+
                     # Se é a primeira vez que recebemos dados deste endereço
                     if not self.raspberry_pi_ip:
                         self.raspberry_pi_ip = addr[0]
                         self.is_connected_to_rpi = True
-                        self._log("INFO", f"🔗 Raspberry Pi descoberto: {self.raspberry_pi_ip}")
+                        self._log(
+                            "INFO",
+                            f"🔗 Raspberry Pi descoberto: {self.raspberry_pi_ip}",
+                        )
                         self._log("INFO", "✅ Conexão estabelecida!")
 
                     # Atualiza estatísticas
@@ -484,7 +490,7 @@ class NetworkClient:
         self._log("INFO", "Parando cliente de rede...")
 
         self.is_running = False
-        
+
         # Envia comando DISCONNECT se conectado
         if self.is_connected_to_rpi:
             try:
@@ -498,7 +504,7 @@ class NetworkClient:
                 self.receive_socket.close()
             except:
                 pass
-                
+
         if self.send_socket:
             try:
                 self.send_socket.close()

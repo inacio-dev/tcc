@@ -25,10 +25,8 @@ CARACTERÍSTICAS:
 """
 
 import time
-import math
 import threading
 from collections import deque, defaultdict
-from typing import Dict, Any, Optional, List
 
 
 class SensorDisplay:
