@@ -89,7 +89,7 @@ def test_steering_movements(steering):
         print(f"\n🏎️ Testando {description}: {steering_input}%")
 
         # Aplica comando direto
-        steering.set_steering(steering_input)
+        steering.set_steering_input(steering_input)
 
         # Mostrar status imediatamente (sem movimento suave)
         status = steering.get_steering_status()
@@ -110,7 +110,7 @@ def test_steering_speed(steering):
     """Teste de velocidade e responsividade da direção"""
     print("\n=== TESTE DE VELOCIDADE ===")
 
-    print("\\n1. Teste de responsividade (movimentos rápidos)")
+    print("\n1. Teste de responsividade (movimentos rápidos)")
 
     # Sequência rápida para testar responsividade
     quick_sequence = [0, -100, 100, -50, 50, 0]
@@ -118,7 +118,7 @@ def test_steering_speed(steering):
     for i, angle in enumerate(quick_sequence):
         print(f"   Movimento {i+1}: {angle}%")
         start_time = time.time()
-        steering.set_steering(angle)
+        steering.set_steering_input(angle)
         end_time = time.time()
 
         response_time = (end_time - start_time) * 1000  # em ms
@@ -126,7 +126,7 @@ def test_steering_speed(steering):
 
         time.sleep(0.3)  # Pausa curta entre movimentos
 
-    print("\\n2. Teste de oscilação rápida")
+    print("\n2. Teste de oscilação rápida")
     print("   Oscilando entre -100% e +100% rapidamente...")
 
     for cycle in range(5):
@@ -134,11 +134,11 @@ def test_steering_speed(steering):
 
         # Esquerda máxima
         start = time.time()
-        steering.set_steering(-100)
+        steering.set_steering_input(-100)
         time.sleep(0.2)
 
         # Direita máxima
-        steering.set_steering(100)
+        steering.set_steering_input(100)
         time.sleep(0.2)
 
         end = time.time()
@@ -146,17 +146,17 @@ def test_steering_speed(steering):
         print(f"   → Tempo do ciclo: {cycle_time:.0f}ms")
 
     # Voltar ao centro
-    steering.set_steering(0)
+    steering.set_steering_input(0)
     print("   → Retornado ao centro")
 
-    print("\\n3. Teste de precisão (movimentos pequenos)")
+    print("\n3. Teste de precisão (movimentos pequenos)")
 
     # Movimentos pequenos para testar precisão
     precision_sequence = [0, 5, 10, 15, 20, 15, 10, 5, 0, -5, -10, -15, -20, -15, -10, -5, 0]
 
     for angle in precision_sequence:
         print(f"   Movimento fino: {angle}%")
-        steering.set_steering(angle)
+        steering.set_steering_input(angle)
 
         status = steering.get_steering_status()
         actual_angle = status.get("current_angle", 0)
