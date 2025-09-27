@@ -145,7 +145,7 @@ class SteeringManager:
         self.steering_servo = None
 
         # Controle de movimento suave
-        self.smooth_movement = True
+        self.smooth_movement = False  # DESABILITADO - movimento direto igual aos testes
         self.movement_thread = None
         self.should_stop = False
 
@@ -348,6 +348,26 @@ class SteeringManager:
             target_angle = self._apply_ackermann_geometry(target_angle)
 
         self.target_angle = target_angle
+
+        # MOVIMENTO DIRETO - igual aos testes funcionais
+        self.current_angle = target_angle
+        self.servo_angle = self.STEERING_CENTER + self.current_angle
+
+        # Aplica movimento DIRETO ao servo
+        if self.steering_servo:
+            # Limita ângulo ao range válido do servo (0° a 180°)
+            final_angle = max(
+                self.STEERING_MIN_ANGLE,
+                min(self.STEERING_MAX_ANGLE, self.servo_angle),
+            )
+
+            # COMANDO DIRETO - igual ao test_steering_direto_simples.py
+            self.steering_servo.angle = final_angle
+
+            print(f"🎯 Target: {target_angle:.1f}° → Servo: {final_angle:.1f}° (input: {steering_input:.1f}%)")
+        else:
+            print(f"⚠️ Servo não inicializado!")
+
         print(
             f"🎯 Target angle definido: {target_angle:.1f}° (input: {steering_input:.1f}%)"
         )

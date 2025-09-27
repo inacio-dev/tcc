@@ -144,7 +144,7 @@ class BrakeManager:
         # Controle de movimento suave
         self.target_front_angle = self.BRAKE_NEUTRAL
         self.target_rear_angle = self.BRAKE_NEUTRAL
-        self.smooth_movement = True
+        self.smooth_movement = False  # DESABILITADO - movimento direto igual aos testes
         self.movement_thread = None
         self.should_stop = False
 
@@ -401,24 +401,28 @@ class BrakeManager:
             self.BRAKE_MIN_ANGLE, min(self.BRAKE_MAX_ANGLE, rear_angle)
         )
 
-        # Se movimento suave estiver desabilitado, move imediatamente
-        if not self.smooth_movement:
-            self.front_brake_angle = self.target_front_angle
-            self.rear_brake_angle = self.target_rear_angle
+        # MOVIMENTO DIRETO - igual aos testes funcionais
+        self.front_brake_angle = self.target_front_angle
+        self.rear_brake_angle = self.target_rear_angle
 
-            if PCA9685_AVAILABLE and self.front_servo and self.rear_servo:
-                # Limita ângulos ao range válido
-                front_angle = max(
-                    self.BRAKE_MIN_ANGLE,
-                    min(self.BRAKE_MAX_ANGLE, self.front_brake_angle),
-                )
-                rear_angle = max(
-                    self.BRAKE_MIN_ANGLE,
-                    min(self.BRAKE_MAX_ANGLE, self.rear_brake_angle),
-                )
+        if self.front_servo and self.rear_servo:
+            # Limita ângulos ao range válido (0° a 180°)
+            front_angle = max(
+                self.BRAKE_MIN_ANGLE,
+                min(self.BRAKE_MAX_ANGLE, self.front_brake_angle),
+            )
+            rear_angle = max(
+                self.BRAKE_MIN_ANGLE,
+                min(self.BRAKE_MAX_ANGLE, self.rear_brake_angle),
+            )
 
-                self.front_servo.angle = front_angle
-                self.rear_servo.angle = rear_angle
+            # COMANDO DIRETO - igual ao test_brake_direto_simples.py
+            self.front_servo.angle = front_angle
+            self.rear_servo.angle = rear_angle
+
+            print(f"🛑 Freio aplicado → Frontal: {front_angle:.1f}° | Traseiro: {rear_angle:.1f}°")
+        else:
+            print(f"⚠️ Servos de freio não inicializados!")
 
     def release_brakes(self):
         """Libera completamente os freios"""
