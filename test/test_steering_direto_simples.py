@@ -31,16 +31,18 @@ try:
 
     print("\n=== TESTE DE MOVIMENTOS DIRETOS ===")
 
-    # Sequência de testes de direção F1
+    # Sequência de testes de direção F1 - RANGE COMPLETO
     steering_sequence = [
         ("Centro", 90),
-        ("Esquerda leve", 67),      # 90° - 23° = 67°
+        ("Esquerda leve", 70),      # 90° - 20° = 70°
         ("Esquerda média", 45),     # 90° - 45° = 45°
-        ("Esquerda máxima", 22),    # 90° - 68° = 22°
+        ("Esquerda forte", 20),     # 90° - 70° = 20°
+        ("Esquerda MÁXIMA", 0),     # EXTREMO ESQUERDA
         ("Centro", 90),
-        ("Direita leve", 113),      # 90° + 23° = 113°
+        ("Direita leve", 110),      # 90° + 20° = 110°
         ("Direita média", 135),     # 90° + 45° = 135°
-        ("Direita máxima", 158),    # 90° + 68° = 158°
+        ("Direita forte", 160),     # 90° + 70° = 160°
+        ("Direita MÁXIMA", 180),    # EXTREMO DIREITA
         ("Centro", 90),
     ]
 
@@ -63,19 +65,19 @@ try:
     for cycle in range(3):
         print(f"   Ciclo {cycle+1}/3")
 
-        # Esquerda → Centro → Direita → Centro
-        steering_servo.angle = 45   # Esquerda
+        # Esquerda MÁXIMA → Centro → Direita MÁXIMA → Centro
+        steering_servo.angle = 0    # EXTREMO ESQUERDA
         time.sleep(0.5)
         steering_servo.angle = 90   # Centro
         time.sleep(0.3)
-        steering_servo.angle = 135  # Direita
+        steering_servo.angle = 180  # EXTREMO DIREITA
         time.sleep(0.5)
         steering_servo.angle = 90   # Centro
         time.sleep(0.3)
 
-    print("\n2. Varredura completa")
-    # Varredura de 45° a 135° (range do steering)
-    for angle in range(45, 136, 5):  # 45°, 50°, 55°... 135°
+    print("\n2. Varredura completa (0° a 180°)")
+    # Varredura COMPLETA - aproveitando todo o range do servo
+    for angle in range(0, 181, 10):  # 0°, 10°, 20°... 180°
         print(f"   Ângulo: {angle}°")
         steering_servo.angle = angle
         time.sleep(0.2)

@@ -40,12 +40,13 @@ try:
     # Teste freio frontal
     print("\n1. Testando FREIO FRONTAL (Canal 0)")
     brake_sequence = [
-        ("Solto", 90),          # Neutro
-        ("Leve", 110),          # Pouco freio
-        ("Médio", 130),         # Freio médio
-        ("Forte", 150),         # Freio forte
-        ("Máximo", 180),        # Freio máximo
-        ("Solto", 90),          # Volta ao neutro
+        ("Completamente solto", 0),     # MÍNIMO (pode ser posição de freio solto)
+        ("Neutro", 90),                 # Neutro padrão
+        ("Leve", 110),                  # Pouco freio
+        ("Médio", 135),                 # Freio médio
+        ("Forte", 160),                 # Freio forte
+        ("MÁXIMO", 180),                # EXTREMO MÁXIMO
+        ("Neutro", 90),                 # Volta ao neutro
     ]
 
     for description, angle in brake_sequence:
