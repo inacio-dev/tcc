@@ -48,7 +48,8 @@ def test_steering_basic():
     print(f"  - Sensibilidade: {steering.steering_sensitivity}")
     print(f"  - Ângulo máximo: {steering.max_steering_angle}°")
     print(f"  - Modo: {steering.steering_mode.value}")
-    print(f"  - GPIO: {steering.steering_pin}")
+    print(f"  - Canal PCA9685: {steering.steering_channel}")
+    print(f"  - Endereço I2C: 0x{steering.pca9685_address:02X}")
 
     # Tenta inicializar
     print("\n--- Inicializando sistema de direção ---")
