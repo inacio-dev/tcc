@@ -257,7 +257,7 @@ class F1CarCompleteSystem:
             rear_channel=1,  # Canal 1 do PCA9685
             pca9685_address=0x40,  # Endereço I2C padrão
             brake_balance=self.brake_balance,
-            max_brake_force=90.0,
+            max_brake_force=100.0,  # FORÇA MÁXIMA COMPLETA
             response_time=0.1,
         )
         if self.brake_mgr.initialize():
