@@ -1,58 +1,70 @@
 #!/usr/bin/env python3
 """
 test_steering_direto_simples.py - Teste DIRETO do servo de direção
-Usa exatamente o mesmo approach do test_servo_direto.py que funcionou
+Range completo: -180° a +180° usando duty cycle direto
 """
 
 import time
 import board
 import busio
 from adafruit_pca9685 import PCA9685
-from adafruit_motor import servo
 
-print("🏎️ === TESTE DIRETO STEERING (SIMPLES) ===")
-print("Usa o mesmo código que funcionou no test_servo_direto.py")
+print("🏎️ === TESTE DIRETO STEERING (-180° a +180°) ===")
+print("Controle direto por duty cycle para range completo")
 print("Servo direção: Canal 2 do PCA9685")
 
+def angle_to_duty_cycle(angle):
+    """Converte ângulo (-180 a +180) para duty cycle do PCA9685"""
+    # Normalizar -180/+180 para 0-360
+    normalized = angle + 180  # -180 vira 0, +180 vira 360
+
+    # Mapear 0-360 para duty cycle (102 a 512 aproximadamente)
+    # 102 = 0.5ms, 512 = 2.5ms (range ampliado)
+    min_duty = 102   # 0.5ms
+    max_duty = 512   # 2.5ms
+
+    duty = int(min_duty + (normalized / 360.0) * (max_duty - min_duty))
+    return duty
+
 try:
-    # Inicializar PCA9685 - EXATAMENTE como no test_servo_direto.py
+    # Inicializar PCA9685
     i2c = busio.I2C(board.SCL, board.SDA)
     pca = PCA9685(i2c, address=0x40)
     pca.frequency = 50
     print("✓ PCA9685 inicializado @ 50Hz")
 
-    # Configurar servo - EXATAMENTE como no test_servo_direto.py
-    steering_servo = servo.Servo(
-        pca.channels[2],        # Canal 2 (direção)
-        min_pulse=1000,         # 1ms
-        max_pulse=2000,         # 2ms
-    )
-    print("✓ Servo direção configurado no canal 2")
+    # Usar canal direto (sem biblioteca servo)
+    steering_channel = pca.channels[2]
+    print("✓ Canal 2 configurado para controle direto")
 
     print("\n=== TESTE DE MOVIMENTOS DIRETOS ===")
 
-    # Sequência de testes de direção F1 - RANGE COMPLETO
+    # Sequência F1 com range COMPLETO: -180° a +180°
     steering_sequence = [
-        ("Centro", 90),
-        ("Esquerda leve", 70),      # 90° - 20° = 70°
-        ("Esquerda média", 45),     # 90° - 45° = 45°
-        ("Esquerda forte", 20),     # 90° - 70° = 20°
-        ("Esquerda MÁXIMA", 0),     # EXTREMO ESQUERDA
-        ("Centro", 90),
-        ("Direita leve", 110),      # 90° + 20° = 110°
-        ("Direita média", 135),     # 90° + 45° = 135°
-        ("Direita forte", 160),     # 90° + 70° = 160°
-        ("Direita MÁXIMA", 180),    # EXTREMO DIREITA
-        ("Centro", 90),
+        ("Centro", 0),              # Centro absoluto
+        ("Esquerda leve", -30),     # 30° à esquerda
+        ("Esquerda média", -60),    # 60° à esquerda
+        ("Esquerda forte", -90),    # 90° à esquerda
+        ("Esquerda EXTREMA", -135), # 135° à esquerda
+        ("Esquerda MÁXIMA", -180),  # 180° à esquerda (EXTREMO)
+        ("Centro", 0),
+        ("Direita leve", 30),       # 30° à direita
+        ("Direita média", 60),      # 60° à direita
+        ("Direita forte", 90),      # 90° à direita
+        ("Direita EXTREMA", 135),   # 135° à direita
+        ("Direita MÁXIMA", 180),    # 180° à direita (EXTREMO)
+        ("Centro", 0),
     ]
 
     for description, angle in steering_sequence:
         print(f"\n🏎️ {description}: {angle}°")
 
-        # COMANDO DIRETO - igual ao test_servo_direto.py
-        steering_servo.angle = angle
+        # COMANDO DIRETO por duty cycle
+        duty = angle_to_duty_cycle(angle)
+        steering_channel.duty_cycle = duty
 
-        print(f"   → Comando enviado: {angle}°")
+        print(f"   → Ângulo: {angle}°")
+        print(f"   → Duty cycle: {duty}")
         print(f"   → Aguardando movimento...")
 
         time.sleep(2)  # Tempo para ver movimento
@@ -61,30 +73,29 @@ try:
     print("\n=== TESTE DE VELOCIDADE ===")
 
     # Teste de responsividade
-    print("\n1. Oscilação rápida esquerda-direita")
+    print("\n1. Oscilação rápida esquerda-direita EXTREMA")
     for cycle in range(3):
         print(f"   Ciclo {cycle+1}/3")
 
         # Esquerda MÁXIMA → Centro → Direita MÁXIMA → Centro
-        steering_servo.angle = 0    # EXTREMO ESQUERDA
-        time.sleep(0.5)
-        steering_servo.angle = 90   # Centro
-        time.sleep(0.3)
-        steering_servo.angle = 180  # EXTREMO DIREITA
-        time.sleep(0.5)
-        steering_servo.angle = 90   # Centro
-        time.sleep(0.3)
+        angles = [-180, 0, 180, 0]
+        for angle in angles:
+            duty = angle_to_duty_cycle(angle)
+            steering_channel.duty_cycle = duty
+            time.sleep(0.4)
 
-    print("\n2. Varredura completa (0° a 180°)")
-    # Varredura COMPLETA - aproveitando todo o range do servo
-    for angle in range(0, 181, 10):  # 0°, 10°, 20°... 180°
+    print("\n2. Varredura completa (-180° a +180°)")
+    # Varredura COMPLETA - todo o range possível
+    for angle in range(-180, 181, 20):  # -180°, -160°, -140°... +180°
         print(f"   Ângulo: {angle}°")
-        steering_servo.angle = angle
-        time.sleep(0.2)
+        duty = angle_to_duty_cycle(angle)
+        steering_channel.duty_cycle = duty
+        time.sleep(0.3)
 
     # Retornar ao centro
-    steering_servo.angle = 90
-    print("\n✓ Retornado ao centro (90°)")
+    duty_center = angle_to_duty_cycle(0)
+    steering_channel.duty_cycle = duty_center
+    print("\n✓ Retornado ao centro (0°)")
 
     print("\n✅ Teste concluído!")
     print("\nSe o servo se moveu:")
@@ -101,8 +112,10 @@ except Exception as e:
     traceback.print_exc()
 finally:
     try:
-        steering_servo.angle = 90  # Centro
+        # Centralizar
+        duty_center = angle_to_duty_cycle(0)
+        steering_channel.duty_cycle = duty_center
         pca.deinit()
-        print("✓ Sistema finalizado")
+        print("✓ Sistema finalizado (posição central)")
     except:
         pass
