@@ -398,13 +398,9 @@ class BrakeManager:
             # === ÂNGULOS DOS SERVOS ===
             "front_brake_angle": round(self.front_brake_angle, 1),
             "rear_brake_angle": round(self.rear_brake_angle, 1),
-            "target_front_angle": round(self.target_front_angle, 1),
-            "target_rear_angle": round(self.target_rear_angle, 1),
+            # REMOVIDO: target_angles não usados (movimento direto)
             # === STATUS TÉCNICO ===
             "is_initialized": self.is_initialized,
-            "front_calibrated": self.front_calibrated,
-            "rear_calibrated": self.rear_calibrated,
-            "smooth_movement": self.smooth_movement,
             # === ESTATÍSTICAS ===
             "brake_applications": self.brake_applications,
             "total_brake_time": round(self.total_brake_time, 2),
@@ -438,8 +434,7 @@ class BrakeManager:
             ),
             "last_brake_time": self.last_brake_time,
             "system_uptime": round(elapsed, 2),
-            "front_calibrated": self.front_calibrated,
-            "rear_calibrated": self.rear_calibrated,
+            # REMOVIDO: calibração não usada
         }
 
     def cleanup(self):
@@ -538,7 +533,7 @@ if __name__ == "__main__":
         print(f"Aplicações de freio: {stats['brake_applications']}")
         print(f"Tempo de operação: {stats['total_runtime']:.1f}s")
         print(
-            f"Freios calibrados: Diant={stats['front_calibrated']}, Tras={stats['rear_calibrated']}"
+            "Freios: MOVIMENTO DIRETO (sem calibração)"
         )
 
         # Finaliza

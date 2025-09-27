@@ -173,9 +173,7 @@ class SteeringManager:
         print(f"Modo: {self.steering_mode.value.upper()}")
         print(f"Sensibilidade: {self.steering_sensitivity:.1f}x")
         print(f"Ângulo máximo: ±{self.max_steering_angle}°")
-        print(
-            f"Geometria Ackermann: {'Ativada' if self.ackermann_enabled else 'Desativada'}"
-        )
+        print("Geometria Ackermann: DESABILITADA (movimento direto)")
 
         try:
             # Inicializa barramento I2C (pode ser compartilhado com brake_manager)
@@ -364,15 +362,9 @@ class SteeringManager:
             "steering_left": self.current_angle < -2.0,
             "steering_right": self.current_angle > 2.0,
             "steering_center": abs(self.current_angle) <= 2.0,
-            # === COMPENSAÇÕES ===
-            "speed_compensation": self.speed_compensation,
-            "current_speed": round(self.current_speed, 1),
-            "ackermann_enabled": self.ackermann_enabled,
+            # === MOVIMENTO DIRETO (sem compensações) ===
             # === STATUS TÉCNICO ===
             "is_initialized": self.is_initialized,
-            "center_calibrated": self.center_calibrated,
-            "smooth_movement": self.smooth_movement,
-            "emergency_center": self.emergency_center,
             # === ESTATÍSTICAS ===
             "total_movements": self.total_steering_movements,
             "max_angle_reached": round(self.max_angle_reached, 1),
@@ -393,7 +385,7 @@ class SteeringManager:
         Returns:
             dict: Ângulos das rodas esquerda e direita
         """
-        if not self.ackermann_enabled or abs(self.current_angle) < 1.0:
+        # REMOVIDO: ackermann sempre desabilitado
             return {
                 "left_wheel": round(self.current_angle, 1),
                 "right_wheel": round(self.current_angle, 1),
@@ -455,7 +447,7 @@ class SteeringManager:
                 else 0
             ),
             "system_uptime": round(elapsed, 2),
-            "center_calibrated": self.center_calibrated,
+            # REMOVIDO: calibração não usada
             "steering_mode": self.steering_mode.value,
         }
 
