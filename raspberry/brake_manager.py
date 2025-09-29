@@ -127,8 +127,8 @@ class BrakeManager:
         self.response_time = max(0.05, response_time)  # Mínimo 50ms
 
         # Estado atual dos freios
-        self.front_brake_angle = self.BRAKE_NEUTRAL  # Ângulo atual do servo dianteiro
-        self.rear_brake_angle = self.BRAKE_NEUTRAL  # Ângulo atual do servo traseiro
+        self.front_brake_angle = self.BRAKE_MIN_ANGLE  # Ângulo atual do servo dianteiro (0° = solto)
+        self.rear_brake_angle = self.BRAKE_MIN_ANGLE  # Ângulo atual do servo traseiro (0° = solto)
         self.front_brake_force = 0.0  # Força atual 0-100%
         self.rear_brake_force = 0.0  # Força atual 0-100%
         self.total_brake_input = 0.0  # Input total 0-100%
@@ -189,10 +189,10 @@ class BrakeManager:
                 f"✓ Servos configurados (canais {self.front_channel} e {self.rear_channel})"
             )
 
-            # Posiciona servos na posição neutra
-            self.front_servo.angle = self.BRAKE_NEUTRAL
-            self.rear_servo.angle = self.BRAKE_NEUTRAL
-            print(f"✓ Servos posicionados na posição neutra ({self.BRAKE_NEUTRAL}°)")
+            # Posiciona servos na posição solta (freios liberados)
+            self.front_servo.angle = self.BRAKE_MIN_ANGLE
+            self.rear_servo.angle = self.BRAKE_MIN_ANGLE
+            print(f"✓ Servos posicionados na posição solta ({self.BRAKE_MIN_ANGLE}° = freios liberados)")
 
             # Aguarda servos se posicionarem
             time.sleep(0.5)
@@ -202,7 +202,7 @@ class BrakeManager:
 
             print("✅ Sistema de freios inicializado com sucesso!")
             print(f"  - Frequência PWM: {self.PWM_FREQUENCY}Hz")
-            print(f"  - Posição inicial: {self.BRAKE_NEUTRAL}° (neutro)")
+            print(f"  - Posição inicial: {self.BRAKE_MIN_ANGLE}° (freios soltos)")
             print("  - Movimento: DIRETO (sem suavização)")
             print(f"  - Canal frontal: {self.front_channel}")
             print(f"  - Canal traseiro: {self.rear_channel}")
@@ -301,16 +301,16 @@ class BrakeManager:
         self.rear_brake_force = limited_input * rear_ratio
 
         # Converte força para ângulo do servo
-        # 0% força = BRAKE_NEUTRAL (90°)
-        # 100% força = BRAKE_MAX_ANGLE (180°)
+        # 0% força = BRAKE_MIN_ANGLE (0° = freio solto)
+        # 100% força = BRAKE_MAX_ANGLE (180° = freio máximo)
 
-        front_range = self.BRAKE_MAX_ANGLE - self.BRAKE_NEUTRAL
-        rear_range = self.BRAKE_MAX_ANGLE - self.BRAKE_NEUTRAL
+        front_range = self.BRAKE_MAX_ANGLE - self.BRAKE_MIN_ANGLE
+        rear_range = self.BRAKE_MAX_ANGLE - self.BRAKE_MIN_ANGLE
 
         front_angle = (
-            self.BRAKE_NEUTRAL + (self.front_brake_force / 100.0) * front_range
+            self.BRAKE_MIN_ANGLE + (self.front_brake_force / 100.0) * front_range
         )
-        rear_angle = self.BRAKE_NEUTRAL + (self.rear_brake_force / 100.0) * rear_range
+        rear_angle = self.BRAKE_MIN_ANGLE + (self.rear_brake_force / 100.0) * rear_range
 
         # MOVIMENTO DIRETO - igual aos testes funcionais
         self.front_brake_angle = front_angle
