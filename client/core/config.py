@@ -16,7 +16,7 @@ class Config:
 
     # IPs fixos do projeto
     RASPBERRY_PI_IP = "192.168.5.33"
-    CLIENT_IP = "192.168.5.11"
+    CLIENT_IP = "192.168.5.12"
 
     # Limites
     MIN_PORT = 1024
