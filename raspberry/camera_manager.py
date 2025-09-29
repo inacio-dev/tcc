@@ -22,6 +22,7 @@ CONFIGURAÇÃO NECESSÁRIA:
 import time
 import io
 from picamera2 import Picamera2
+from picamera2.encoders import JpegEncoder
 
 
 class CameraManager:
@@ -60,11 +61,14 @@ class CameraManager:
             # Cria instância da PiCamera2
             self.camera = Picamera2()
 
-            # Configuração otimizada para OV5647 - JPEG direto da hardware
-            config = self.camera.create_video_configuration(
-                main={"size": self.resolution, "format": "YUV420"},  # Formato nativo
+            # Configuração otimizada para OV5647 baseada na documentação oficial
+            config = self.camera.create_still_configuration(
+                main={"size": self.resolution},  # Configuração para captura de imagens
                 buffer_count=2,  # Reduzido para menor latência
             )
+
+            # Cria encoder JPEG com qualidade configurável
+            self.jpeg_encoder = JpegEncoder(quality=self.jpeg_quality)
 
             # Aplica configuração
             self.camera.configure(config)
@@ -119,12 +123,13 @@ class CameraManager:
             return None
 
         try:
-            # OTIMIZAÇÃO: Captura JPEG diretamente pela hardware da câmera
-            # Isso elimina conversões RGB→BGR→JPEG no software
+            # MÉTODO OFICIAL: Usar capture_file com JpegEncoder para BytesIO
+            # Baseado na documentação oficial do Picamera2
+
             stream = io.BytesIO()
 
-            # Captura JPEG direto da hardware (muito mais rápido)
-            self.camera.capture_file(stream, format='jpeg', quality=self.jpeg_quality)
+            # Captura JPEG diretamente usando encoder oficial
+            self.camera.capture_file(stream, format='jpeg', encoder=self.jpeg_encoder)
 
             # Obtém bytes do stream
             jpeg_data = stream.getvalue()
@@ -188,6 +193,9 @@ class CameraManager:
         """
         if 1 <= quality <= 100:
             self.jpeg_quality = quality
+            # Recria encoder com nova qualidade
+            if hasattr(self, 'jpeg_encoder'):
+                self.jpeg_encoder = JpegEncoder(quality=self.jpeg_quality)
             print(f"Qualidade JPEG alterada para: {quality}%")
         else:
             print("⚠ Qualidade deve estar entre 1 e 100")
