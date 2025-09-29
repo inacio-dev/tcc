@@ -120,10 +120,12 @@ class F1ClientApplication:
                 video_queue=video_queue,
             )
 
-            # 2. Inicializa exibição de vídeo
+            # 2. Inicializa exibição de vídeo COM melhorias habilitadas
             debug("Inicializando exibição de vídeo...", "CLIENT")
             self.video_display = VideoDisplay(
-                video_queue=video_queue, log_queue=log_queue
+                video_queue=video_queue,
+                log_queue=log_queue,
+                enable_video_enhancements=True  # ATIVA correção de cor e outras melhorias
             )
 
             # 3. Inicializa exibição de sensores

@@ -69,6 +69,11 @@ class VideoDisplay:
 
         self._log("INFO", f"VideoDisplay inicializado - Melhorias: {'Ativadas' if enable_video_enhancements else 'Desativadas'}")
 
+        if enable_video_enhancements:
+            self._log("INFO", "🎨 Correção automática de cor: ATIVA (resolve tom azulado)")
+            self._log("INFO", "🔍 Sharpening inteligente: ATIVO (melhora nitidez)")
+            self._log("INFO", "💡 Ajuste automático de brilho: ATIVO (otimiza exposição)")
+
     def _log(self, level, message):
         """Envia mensagem para fila de log"""
         if self.log_queue:
@@ -247,7 +252,7 @@ class VideoDisplay:
                     # Usa numpy direto para velocidade máxima
                     nparr = np.frombuffer(frame_data, dtype=np.uint8)
 
-                    # Decodifica com flags otimizadas para velocidade
+                    # Decodifica JPEG - cv2.imdecode SEMPRE retorna BGR (padrão OpenCV)
                     frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
                     # PROCESSAMENTO ADICIONAL NO CLIENTE (configurável):

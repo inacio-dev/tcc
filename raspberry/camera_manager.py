@@ -60,9 +60,9 @@ class CameraManager:
             # Cria instância da PiCamera2
             self.camera = Picamera2()
 
-            # Configuração otimizada para OV5647 - compatível com todas as versões
+            # Configuração otimizada para OV5647 - usando RGB888 nativo da câmera
             config = self.camera.create_preview_configuration(
-                main={"size": self.resolution, "format": "BGR888"},  # BGR para compatibilidade
+                main={"size": self.resolution, "format": "RGB888"},  # RGB nativo (mais natural)
                 buffer_count=2,  # Reduzido para menor latência
             )
 
@@ -128,17 +128,19 @@ class CameraManager:
             # Usa biblioteca simplejpeg para codificação JPEG rápida
             try:
                 import simplejpeg
-                # Codificação JPEG otimizada com simplejpeg (mais rápida que cv2)
+                # Codificação JPEG otimizada - Picamera2 RGB888 → JPEG
                 jpeg_data = simplejpeg.encode_jpeg(
                     frame,
                     quality=self.jpeg_quality,
-                    colorspace='BGR'  # Picamera2 usa BGR por padrão
+                    colorspace='RGB'  # Agora usando RGB888 nativo
                 )
             except ImportError:
                 # Fallback para cv2 se simplejpeg não disponível
                 import cv2
+                # cv2 espera BGR, então converte RGB → BGR antes da codificação
+                bgr_frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
                 success, encoded_data = cv2.imencode(
-                    '.jpg', frame,
+                    '.jpg', bgr_frame,
                     [cv2.IMWRITE_JPEG_QUALITY, self.jpeg_quality]
                 )
                 if success:
