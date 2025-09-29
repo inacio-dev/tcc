@@ -124,6 +124,13 @@ class ConsoleInterface:
         self.throttle_var = tk.StringVar(value="0.0")
         self.speed_var = tk.StringVar(value="0.0")
 
+        # Cálculo de velocidade baseado no BMI160
+        self.velocity_x = 0.0  # Velocidade em m/s no eixo X
+        self.velocity_y = 0.0  # Velocidade em m/s no eixo Y
+        self.velocity_total = 0.0  # Velocidade total em km/h
+        self.last_accel_time = None  # Timestamp da última leitura
+        self.accel_threshold = 0.3  # Threshold para filtrar ruído (m/s²)
+
         # Dados dos sensores BMI160 - Raw (LSB)
         self.sensor_vars = {
             # Raw BMI160
@@ -396,14 +403,7 @@ class ConsoleInterface:
         tk.Label(throttle_inner, textvariable=self.throttle_var, bg="#2c2c2c", fg="#ff6600",
                 font=("Arial", 14, "bold")).pack(side=tk.RIGHT)
 
-        # Velocidade
-        speed_inner = tk.Frame(speed_frame, bg="#2c2c2c")
-        speed_inner.pack(fill=tk.X, pady=2)
-
-        tk.Label(speed_inner, text="Velocidade:", bg="#2c2c2c", fg="#cccccc",
-                font=("Arial", 8)).pack(side=tk.LEFT)
-        tk.Label(speed_inner, textvariable=self.speed_var, bg="#2c2c2c", fg="#00aaff",
-                font=("Arial", 14, "bold")).pack(side=tk.RIGHT)
+        # Motor não tem sensor de velocidade - velocidade está na seção BMI160
 
         # Temperatura - Painel adicional na linha inferior
         temp_frame = tk.Frame(instruments_inner, bg="#2c2c2c", relief=tk.RAISED, bd=2)
@@ -591,6 +591,17 @@ class ConsoleInterface:
         ttk.Label(gforce_frame, text="g", style="Dark.TLabel").grid(
             row=0, column=8, padx=2
         )
+
+        # Velocidade calculada pelo BMI160
+        velocity_frame = tk.LabelFrame(sensor_frame, text="Velocidade (Calculada)",
+                                     bg="#3c3c3c", fg="white", font=("Arial", 9, "bold"))
+        velocity_frame.pack(fill=tk.X, padx=5, pady=2)
+
+        ttk.Label(velocity_frame, text="Velocidade:", style="Dark.TLabel").grid(
+            row=0, column=0, padx=5, sticky=tk.W
+        )
+        self.velocity_label = ttk.Label(velocity_frame, text="0.0 km/h", style="Dark.TLabel")
+        self.velocity_label.grid(row=0, column=1, padx=5, sticky=tk.W)
 
 
     def create_force_feedback_frame(self):
@@ -962,6 +973,9 @@ class ConsoleInterface:
 
     def update_sensor_data(self, sensor_data):
         """Atualiza dados dos sensores"""
+        # Calcular velocidade baseada no BMI160 (deve ser chamado primeiro)
+        self._calculate_velocity_from_bmi160(sensor_data)
+
         # Atualizar dados do motor (RPM, marcha, throttle, velocidade)
         self._update_motor_display(sensor_data)
         
@@ -1109,16 +1123,74 @@ class ConsoleInterface:
                 throttle = sensor_data["current_pwm"]
                 self.throttle_var.set(f"{throttle:.1f}%")
             
-            # Velocidade calculada
-            if "calculated_speed_kmh" in sensor_data:
-                speed = sensor_data["calculated_speed_kmh"]
-                self.speed_var.set(f"{speed:.1f} km/h")
-            elif "speed_kmh" in sensor_data:
-                speed = sensor_data["speed_kmh"]
-                self.speed_var.set(f"{speed:.1f} km/h")
+            # Velocidade não é exibida no motor - apenas na seção BMI160
                 
         except Exception as e:
             error(f"Erro ao atualizar painel de instrumentos: {e}", "CONSOLE")
+
+    def _calculate_velocity_from_bmi160(self, sensor_data):
+        """
+        Calcula velocidade baseada nos dados de aceleração do BMI160
+
+        Args:
+            sensor_data (dict): Dados dos sensores incluindo aceleração
+        """
+        try:
+            import time
+
+            # Obtém dados de aceleração em m/s²
+            accel_x = sensor_data.get("bmi160_accel_x", 0.0)  # Longitudinal (frente/trás)
+            accel_y = sensor_data.get("bmi160_accel_y", 0.0)  # Lateral (esquerda/direita)
+
+            current_time = time.time()
+
+            # Inicializa tempo se for a primeira leitura
+            if self.last_accel_time is None:
+                self.last_accel_time = current_time
+                return
+
+            # Calcula delta time
+            dt = current_time - self.last_accel_time
+            self.last_accel_time = current_time
+
+            # Ignora se dt muito pequeno ou muito grande (evita erros)
+            if dt <= 0 or dt > 0.1:  # Máximo 100ms entre leituras
+                return
+
+            # Filtra ruído - só considera acelerações significativas
+            if abs(accel_x) < self.accel_threshold:
+                accel_x = 0.0
+            if abs(accel_y) < self.accel_threshold:
+                accel_y = 0.0
+
+            # Integração da aceleração para obter velocidade
+            # v = v0 + a*dt
+            self.velocity_x += accel_x * dt
+            self.velocity_y += accel_y * dt
+
+            # Aplicar decay para simular atrito/resistência do ar
+            decay_factor = 0.98  # 2% de redução por leitura (simula atrito)
+            self.velocity_x *= decay_factor
+            self.velocity_y *= decay_factor
+
+            # Zera velocidades muito pequenas (evita deriva)
+            if abs(self.velocity_x) < 0.1:
+                self.velocity_x = 0.0
+            if abs(self.velocity_y) < 0.1:
+                self.velocity_y = 0.0
+
+            # Calcula velocidade total (magnitude do vetor velocidade)
+            velocity_ms = (self.velocity_x**2 + self.velocity_y**2)**0.5
+
+            # Converte m/s para km/h
+            self.velocity_total = velocity_ms * 3.6
+
+            # Atualiza display da velocidade na seção BMI160
+            if hasattr(self, 'velocity_label'):
+                self.velocity_label.config(text=f"{self.velocity_total:.1f} km/h")
+
+        except Exception as e:
+            error(f"Erro ao calcular velocidade: {e}", "CONSOLE")
 
     def process_queues(self):
         """Processa filas de comunicação"""

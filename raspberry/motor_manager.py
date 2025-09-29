@@ -141,10 +141,7 @@ class MotorManager:
         self.base_acceleration_time = 5.0  # Tempo base para atingir zona ideal (5s - mais lento)
         self.last_zone_check = time.time()
 
-        # Conta-giros
-        self.engine_rpm = 0.0  # RPM do motor
-        self.wheel_rpm = 0.0  # RPM das rodas
-        self.calculated_speed_kmh = 0.0  # Velocidade calculada
+        # Motor não tem sensor de RPM - apenas controle PWM
 
         # Controle PWM
         self.rpwm = None
@@ -293,13 +290,6 @@ class MotorManager:
                 # SISTEMA F1: Aceleração baseada em zonas de eficiência
                 self._apply_f1_zone_acceleration(dt)
 
-                # Calcula RPM do motor baseado no PWM
-                self._calculate_engine_rpm()
-
-
-                # Calcula velocidade das rodas
-                self._calculate_wheel_speed()
-
                 # Aplica PWM ao motor
                 self._apply_motor_pwm()
 
@@ -313,80 +303,7 @@ class MotorManager:
                 print(f"⚠ Erro no controle do motor: {e}")
                 time.sleep(0.1)
 
-    def _calculate_engine_rpm(self):
-        """Calcula RPM do motor baseado no PWM - simulação realista de carro"""
 
-        # Obter marcha lenta correspondente à marcha atual
-        gear_idle_rpm = {
-            1: 1200,   # 1ª marcha: marcha lenta baixa
-            2: 1500,   # 2ª marcha: marcha lenta média
-            3: 1800,   # 3ª marcha: marcha lenta alta
-            4: 2100,   # 4ª marcha: marcha lenta alta
-            5: 2400,   # 5ª marcha: marcha lenta máxima
-        }
-
-        idle_rpm_for_gear = gear_idle_rpm.get(self.current_gear, 1200)
-
-        if self.current_pwm < 30.0:
-            # Motor parado - não tem torque suficiente para girar (< 30%)
-            self.engine_rpm = 0
-        else:
-            # Faixas de PWM por marcha para calcular RPM (mínimo 30% para girar)
-            gear_ranges = {
-                1: (30, 40),   # 1ª marcha: 30% a 40%
-                2: (40, 55),   # 2ª marcha: 40% a 55%
-                3: (55, 70),   # 3ª marcha: 55% a 70%
-                4: (70, 85),   # 4ª marcha: 70% a 85%
-                5: (85, 100),  # 5ª marcha: 85% a 100%
-            }
-
-            min_pwm, max_pwm = gear_ranges.get(self.current_gear, (30, 40))
-
-            # Se estiver na marcha lenta da marcha (min_pwm)
-            if abs(self.current_pwm - min_pwm) < 1.0:
-                self.engine_rpm = idle_rpm_for_gear
-            else:
-                # RPM baseado no PWM dentro da faixa da marcha
-                # min_pwm = idle_rpm, max_pwm = MAX_RPM
-                rpm_range = self.MOTOR_MAX_RPM - idle_rpm_for_gear
-
-                # Normalizar PWM dentro da faixa da marcha
-                if max_pwm > min_pwm:
-                    normalized_pwm = (self.current_pwm - min_pwm) / (max_pwm - min_pwm)
-                    normalized_pwm = max(0.0, min(1.0, normalized_pwm))
-                else:
-                    normalized_pwm = 0.0
-
-                # Curva não-linear para simular característica do motor
-                rpm_curve = math.pow(normalized_pwm, 0.7)  # Curva realista
-
-                self.engine_rpm = idle_rpm_for_gear + (rpm_range * rpm_curve)
-
-        # Simula variação natural do motor (menor variação)
-        variation = math.sin(time.time() * 10) * 30  # ±30 RPM
-        self.engine_rpm += variation
-
-        # Garante limites
-        self.engine_rpm = max(0, min(self.MOTOR_MAX_RPM, self.engine_rpm))
-
-    def _calculate_wheel_speed(self):
-        """Calcula velocidade das rodas baseada na transmissão"""
-        if self.clutch_engaged and not self.is_shifting:
-            self.wheel_rpm = self.engine_rpm / self.gear_ratio
-        else:
-            # Embreagem desacoplada - rodas desaceleram
-            self.wheel_rpm *= 0.98  # Desaceleração gradual
-
-        # Converte RPM das rodas para km/h
-        # Assumindo roda de 65mm de diâmetro (modelo 1:10)
-        wheel_diameter_m = 0.065
-        wheel_circumference = math.pi * wheel_diameter_m
-
-        # RPM para m/s
-        speed_ms = (self.wheel_rpm * wheel_circumference) / 60.0
-
-        # m/s para km/h
-        self.calculated_speed_kmh = speed_ms * 3.6
 
 
     def _shift_gear(self, new_gear: int):
@@ -405,7 +322,7 @@ class MotorManager:
 
         print(
             f"🔧 Trocando marcha: {self.current_gear}ª → {new_gear}ª "
-            f"(RPM: {self.engine_rpm:.0f})"
+            f"(PWM: {self.current_pwm:.1f}%)"
         )
 
         self.is_shifting = True
@@ -494,10 +411,7 @@ class MotorManager:
         """Atualiza estatísticas do motor"""
         self.total_runtime += dt
 
-        # Calcula distância percorrida
-        if self.calculated_speed_kmh > 0:
-            distance_km = (self.calculated_speed_kmh / 3600.0) * dt
-            self.total_distance += distance_km
+        # Distância percorrida será calculada pelos dados do BMI160
 
     def set_throttle(self, throttle_percent: float):
         """
@@ -858,9 +772,6 @@ class MotorManager:
             "motor_direction": self.motor_direction.value,
             "current_pwm": round(self.current_pwm, 1),
             "target_pwm": round(self.target_pwm, 1),
-            "engine_rpm": round(self._calculate_efficiency_zone_percentage(self.current_pwm), 0),
-            "wheel_rpm": round(self.wheel_rpm, 0),
-            "speed_kmh": round(self.calculated_speed_kmh, 1),
             # === TRANSMISSÃO ===
             "current_gear": self.current_gear,
             "gear_ratio": self.gear_ratio,
@@ -926,17 +837,11 @@ class MotorManager:
         else:
             efficiency_zone = "RED"      # Zona ruim
 
-        # RPM tradicional para compatibilidade
-        rpm_percent = (self.engine_rpm / self.MOTOR_MAX_RPM) * 100
-
         return {
             "rpm": round(self._calculate_efficiency_zone_percentage(self.current_pwm), 0),
-            "rpm_percent": round(rpm_percent, 1),
-            "rpm_zone": efficiency_zone,  # Agora baseado na eficiência F1
+            "rpm_zone": efficiency_zone,  # Baseado na eficiência F1
             "gear": self.current_gear,
-            "speed_kmh": round(self.calculated_speed_kmh, 1),
             "shift_light": gear_efficiency < 70,  # Luz acende se eficiência baixa
-            "max_rpm": self.MOTOR_MAX_RPM,
             # NOVOS DADOS F1
             "gear_efficiency": round(gear_efficiency, 1),
             "efficiency_zone": self.efficiency_zone,
@@ -1037,9 +942,9 @@ if __name__ == "__main__":
 
             print(
                 f"   Status: {status['current_pwm']:.1f}% PWM, "
-                f"{tacho['rpm']:.0f} RPM, "
+                f"Eficiência {tacho['rpm']:.0f}%, "
                 f"Marcha {status['current_gear']}ª, "
-                f"{status['speed_kmh']:.1f} km/h"
+                f"PWM {status['current_pwm']:.1f}%"
             )
 
         # Teste 2: Transmissão manual
@@ -1056,7 +961,7 @@ if __name__ == "__main__":
             print(
                 f"   Marcha {status['current_gear']}ª, "
                 f"Relação {status['gear_ratio']:.1f}:1, "
-                f"{status['speed_kmh']:.1f} km/h"
+                f"PWM {status['current_pwm']:.1f}%"
             )
 
         # Teste 3: Ré
@@ -1069,7 +974,7 @@ if __name__ == "__main__":
         time.sleep(2.0)
 
         status = motor_mgr.get_motor_status()
-        print(f"   Ré: {status['motor_direction']}, " f"{status['speed_kmh']:.1f} km/h")
+        print(f"   Ré: {status['motor_direction']}, PWM {status['current_pwm']:.1f}%")
 
         # Para motor
         motor_mgr.set_throttle(0.0)
