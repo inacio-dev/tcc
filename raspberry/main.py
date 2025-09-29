@@ -434,11 +434,10 @@ class F1CarCompleteSystem:
                             "NET",
                         )
 
-                # === CONTROLE AUTOMÁTICO (DEMONSTRAÇÃO) ===
+                # === CONTROLE MANUAL APENAS ===
 
-                # Demonstra controle automático baseado nos sensores
-                if sensor_data and len(sensor_data) > 0:
-                    self._process_automatic_control(sensor_data, motor_status)
+                # BMI160 é usado APENAS para telemetria - não interfere nos controles
+                # Todos os comandos vêm exclusivamente do cliente via network
 
                 # === ESTATÍSTICAS ===
 
@@ -506,69 +505,23 @@ class F1CarCompleteSystem:
     def _process_automatic_control(
         self, sensor_data: Dict[str, Any], motor_status: Dict[str, Any]
     ):
-        """Processa controle automático baseado nos sensores (demonstração)"""
-        try:
-            # Exemplo de controle automático baseado em sensores
-            g_force_lateral = sensor_data.get("g_force_lateral", 0.0)
-            is_turning = sensor_data.get("is_turning_left", False) or sensor_data.get(
-                "is_turning_right", False
-            )
-            is_accelerating = sensor_data.get("is_accelerating", False)
-            is_braking = sensor_data.get("is_braking", False)
-            impact_detected = sensor_data.get("impact_detected", False)
+        """
+        FUNÇÃO DESATIVADA - BMI160 é APENAS para telemetria
 
-            # Controle de segurança - parada de emergência em caso de impacto (DESATIVADO)
-            # if impact_detected and self.motor_mgr and self.brake_mgr:
-            #     error("IMPACTO DETECTADO - PARADA DE EMERGÊNCIA!", "SAFETY")
-            #     self.motor_mgr.emergency_stop()
-            #     self.brake_mgr.emergency_brake()
-            #     return
+        Esta função foi completamente desativada para evitar qualquer interferência
+        dos sensores BMI160 nos comandos de controle do veículo.
 
-            # Controle automático de freios em curvas (assistência) - TEMPORARIAMENTE DESATIVADO
-            # if self.brake_mgr and is_turning and g_force_lateral > 0.5:
-            #     # Aplica freio leve automaticamente em curvas fechadas
-            #     auto_brake = min(g_force_lateral * 20, 30)  # Máximo 30%
-            #     self.brake_mgr.apply_brake(auto_brake)
+        CONTROLE EXCLUSIVAMENTE MANUAL:
+        - Throttle: comandos via CONTROL:THROTTLE
+        - Brake: comandos via CONTROL:BRAKE
+        - Steering: comandos via CONTROL:STEERING
+        - Gears: comandos via CONTROL:GEAR_UP/GEAR_DOWN
 
-            # Liberação automática de freios
-            if self.brake_mgr and not is_braking:
-                # Libera freios se não há comando manual e não há necessidade automática
-                current_brake = self.brake_mgr.total_brake_input
-                if current_brake > 0:
-                    self.brake_mgr.release_brakes()
-
-            # Controle de motor - simula aceleração automática básica
-            if self.motor_mgr:
-                current_speed = motor_status.get("speed_kmh", 0.0)
-
-                # Modo manual - sem aceleração automática
-                # (Controle apenas via comandos do cliente)
-
-                if is_turning and g_force_lateral > 0.8:
-                    # Reduz potência em curvas fechadas
-                    current_throttle = motor_status.get("current_pwm", 0.0)
-                    reduced_throttle = current_throttle * 0.7  # Reduz 30%
-                    self.motor_mgr.set_throttle(reduced_throttle)
-
-            # Assistência de direção baseada no giroscópio
-            if self.steering_mgr and motor_status:
-                gyro_z = sensor_data.get("bmi160_gyro_z", 0.0)
-                current_speed = motor_status.get("speed_kmh", 0.0)
-
-                # Pequenas correções para compensar rotação excessiva
-                if (
-                    abs(gyro_z) > 30 and current_speed > 5
-                ):  # Só corrige em velocidades maiores
-                    correction = -gyro_z * 0.05  # Pequena correção oposta
-                    correction = max(-10, min(10, correction))  # Limita correção
-
-                    # Aplica correção sutil (descomente para ativar)
-                    # current_input = self.steering_mgr.steering_input
-                    # corrected_input = current_input + correction
-                    # self.steering_mgr.set_steering_input(corrected_input, current_speed)
-
-        except Exception as e:
-            warn(f"Erro no controle automático: {e}", "AUTO", rate_limit=10.0)
+        BMI160 fornece APENAS dados de telemetria para o cliente.
+        """
+        # TODA LÓGICA DE CONTROLE AUTOMÁTICO REMOVIDA
+        # Sensores são usados APENAS para telemetria
+        pass
 
     def _display_system_stats(self):
         """Exibe estatísticas do sistema"""
