@@ -107,22 +107,27 @@ python test/quick_temp_test.py
 ## Pré-requisitos
 
 ### Hardware Necessário
-- **Servo de direção**: MG996R conectado ao GPIO24 (Pin 18)
-- **Servo freio frontal**: MG996R conectado ao GPIO4 (Pin 7)
-- **Servo freio traseiro**: MG996R conectado ao GPIO17 (Pin 11)
-- **Sensor de temperatura**: DS18B20 conectado ao GPIO25 (Pin 22)
-- **Alimentação**: 5-6V para os servos (não usar 3.3V do Pi)
+- **Servos via PCA9685**: Freios dianteiro/traseiro + direção (canais 0/1/2)
+- **Sensor de temperatura**: DS18B20 conectado ao GPIO4 (Pin 7)
+- **Alimentação**: 5-6V para os servos via PCA9685
 
-### Conexões dos Servos
+### Conexões dos Servos (via PCA9685)
 ```
-Servo MG996R:
-├── VCC (Vermelho)  → 5V externo ou Pin 2/4 (5V)
-├── GND (Marrom)    → Pin 6/14/20 (GND)
-└── Signal (Laranja)→ GPIO específico
+PCA9685 → Raspberry Pi:
+├── VCC → Pin 1 (3.3V)
+├── GND → Pin 6 (GND)
+├── SCL → Pin 5 (GPIO3)
+└── SDA → Pin 3 (GPIO2)
 
-Direção:     GPIO24 (Pin 18)
-Freio Front: GPIO4  (Pin 7)
-Freio Rear:  GPIO17 (Pin 11)
+Servos MG996R → PCA9685:
+├── Freio Frontal  → Canal 0
+├── Freio Traseiro → Canal 1
+└── Direção        → Canal 2
+
+GPIOs LIBERADOS (agora livres):
+├── GPIO4  (Pin 7)  → DS18B20
+├── GPIO17 (Pin 11) → Livre
+└── GPIO24 (Pin 18) → Livre
 ```
 
 ### Conexões do Sensor DS18B20
@@ -130,7 +135,7 @@ Freio Rear:  GPIO17 (Pin 11)
 DS18B20:
 ├── VDD (Vermelho)  → Pin 1 (3.3V)
 ├── GND (Preto)     → Pin 6 (GND)
-├── DQ (Amarelo)    → Pin 22 (GPIO25)
+├── DQ (Amarelo)    → Pin 7 (GPIO4)
 └── Pull-up         → Resistor 4.7kΩ entre DQ e VDD
 ```
 
@@ -139,8 +144,8 @@ DS18B20:
 sudo raspi-config
 # Interface Options → 1-Wire → Enable
 
-# Adicionar ao /boot/config.txt:
-dtoverlay=w1-gpio,gpiopin=25
+# Adicionar ao /boot/firmware/config.txt:
+dtoverlay=w1-gpio,gpiopin=4
 
 sudo reboot
 ```

@@ -9,9 +9,9 @@ python3 quick_temp_test.py
 
 REQUISITOS:
 ===========
-• DS18B20 conectado no GPIO25
+• DS18B20 conectado no GPIO4 (Pin 7)
 • 1-Wire habilitado no raspi-config
-• dtoverlay=w1-gpio,gpiopin=25 no /boot/config.txt
+• dtoverlay=w1-gpio,gpiopin=4 no /boot/firmware/config.txt
 """
 
 import os
@@ -39,7 +39,7 @@ def check_1wire_setup():
     if not device_folders:
         print("❌ Nenhum sensor DS18B20 encontrado!")
         print("\nVerifique:")
-        print("• Conexões: VDD→3.3V, GND→GND, DQ→GPIO25")
+        print("• Conexões: VDD→3.3V, GND→GND, DQ→GPIO4 (Pin 7)")
         print("• Resistor pull-up 4.7kΩ entre DQ e 3.3V")
         return False
 

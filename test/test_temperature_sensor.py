@@ -10,13 +10,13 @@ HARDWARE NECESSÁRIO:
 • Conexões:
   - VDD (vermelho) → 3.3V (Pin 1)
   - GND (preto)    → GND (Pin 6)
-  - DQ (amarelo)   → GPIO25 (Pin 22) + resistor 4.7kΩ para 3.3V
+  - DQ (amarelo)   → GPIO4 (Pin 7) + resistor 4.7kΩ para 3.3V
 
 CONFIGURAÇÃO NECESSÁRIA:
 =======================
 1. sudo raspi-config → Interface Options → 1-Wire → Enable
-2. Adicionar ao /boot/config.txt:
-   dtoverlay=w1-gpio,gpiopin=25
+2. Adicionar ao /boot/firmware/config.txt:
+   dtoverlay=w1-gpio,gpiopin=4
 3. sudo reboot
 4. Verificar: ls /sys/bus/w1/devices/
 
@@ -45,12 +45,12 @@ except ImportError as e:
 class TemperatureSensorTest:
     """Teste isolado do sensor de temperatura DS18B20"""
 
-    def __init__(self, gpio_pin=25, test_duration=60):
+    def __init__(self, gpio_pin=4, test_duration=60):
         """
         Inicializa teste do sensor
 
         Args:
-            gpio_pin (int): GPIO do sensor (padrão: 25)
+            gpio_pin (int): GPIO do sensor (padrão: 4 - Pin 7)
             test_duration (int): Duração do teste em segundos
         """
         self.gpio_pin = gpio_pin
@@ -354,7 +354,7 @@ def main():
 
     # Configura teste
     test_duration = 30  # 30 segundos de teste contínuo
-    gpio_pin = 25       # GPIO padrão do projeto
+    gpio_pin = 4        # GPIO4 (Pin 7) - padrão 1-Wire
 
     # Cria e executa teste
     tester = TemperatureSensorTest(gpio_pin=gpio_pin, test_duration=test_duration)

@@ -7,17 +7,17 @@ Provides real-time temperature monitoring for system thermal management.
 
 Hardware Configuration:
 - DS18B20 Temperature Sensor (1-Wire protocol)
-- Connection: GPIO25 (Pin 22)
+- Connection: GPIO4 (Pin 7) - liberado pelo uso do PCA9685
 - Power: 3.3V (Pin 1) or 5V (Pin 2)
 - Ground: GND (Pin 6, 9, 14, 20, 25, 30, 34, or 39)
 
 DS18B20 Pin Configuration:
 - Pin 1 (GND): Connect to Raspberry Pi GND
-- Pin 2 (DQ): Connect to GPIO25 (Pin 22) with 4.7kΩ pull-up resistor to 3.3V
+- Pin 2 (DQ): Connect to GPIO4 (Pin 7) with 4.7kΩ pull-up resistor to 3.3V
 - Pin 3 (VDD): Connect to 3.3V or 5V (parasitic power mode can use GND)
 
 GPIO Pin Assignment:
-- GPIO25 (Pin 22): DS18B20 Data (1-Wire)
+- GPIO4 (Pin 7): DS18B20 Data (1-Wire) - padrão do sistema
 
 Author: F1 Car Development Team
 Date: 2025-09-13
@@ -79,13 +79,13 @@ class TemperatureManager:
     TEMP_CRITICAL_THRESHOLD = 80.0  # CPU temperature critical
     TEMP_SHUTDOWN_THRESHOLD = 85.0  # Emergency shutdown temperature
 
-    def __init__(self, gpio_pin: int = 25, sampling_rate: float = 1.0,
+    def __init__(self, gpio_pin: int = 4, sampling_rate: float = 1.0,
                  enable_history: bool = True, history_size: int = 100):
         """
         Initialize Temperature Manager
 
         Args:
-            gpio_pin: GPIO pin number for DS18B20 data line (default: 25)
+            gpio_pin: GPIO pin number for DS18B20 data line (default: 4 - Pin 7)
             sampling_rate: Temperature sampling rate in Hz (default: 1.0)
             enable_history: Enable temperature history tracking
             history_size: Maximum number of historical readings to store

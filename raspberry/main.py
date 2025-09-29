@@ -301,7 +301,7 @@ class F1CarCompleteSystem:
         # 7. Sensor de temperatura DS18B20
         debug("Inicializando sensor de temperatura DS18B20...", "MAIN")
         self.temperature_mgr = TemperatureManager(
-            gpio_pin=25, sampling_rate=1.0, enable_history=True
+            gpio_pin=4, sampling_rate=1.0, enable_history=True
         )
         if self.temperature_mgr.initialize():
             self.system_status["temperature"] = "Online"
