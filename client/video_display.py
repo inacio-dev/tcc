@@ -28,6 +28,7 @@ class VideoDisplay:
         self,
         video_queue=None,
         log_queue=None,
+        enable_video_enhancements=True,
     ):
         """
         Inicializa o display de vídeo
@@ -35,9 +36,11 @@ class VideoDisplay:
         Args:
             video_queue (Queue): Fila de frames de vídeo
             log_queue (Queue): Fila para mensagens de log
+            enable_video_enhancements (bool): Ativa processamentos avançados no cliente
         """
         self.video_queue = video_queue
         self.log_queue = log_queue
+        self.enable_video_enhancements = enable_video_enhancements
 
         # Estatísticas
         self.start_time = time.time()
@@ -58,6 +61,13 @@ class VideoDisplay:
         # Integração com Tkinter
         self.tkinter_label = None
         self.status_callback = None
+
+        # Configurações de processamento de vídeo
+        self.color_correction_enabled = enable_video_enhancements
+        self.sharpening_enabled = enable_video_enhancements
+        self.brightness_auto_adjust = enable_video_enhancements
+
+        self._log("INFO", f"VideoDisplay inicializado - Melhorias: {'Ativadas' if enable_video_enhancements else 'Desativadas'}")
 
     def _log(self, level, message):
         """Envia mensagem para fila de log"""
@@ -214,40 +224,167 @@ class VideoDisplay:
             self.last_fps_time = current_time
 
     def process_video_queue(self):
-        """Processa frames da fila de vídeo (otimizado para baixo delay)"""
+        """Processa frames da fila de vídeo (super otimizado para baixo delay)"""
         try:
-            # Otimização: Processa TODOS os frames disponíveis, descartando antigos
+            # OTIMIZAÇÃO AVANÇADA: Processa inteligentemente para mínimo delay
             frames_processed = 0
             latest_frame = None
+            total_queue_size = self.video_queue.qsize() if hasattr(self.video_queue, 'qsize') else 0
 
-            # Drena a fila e mantém apenas o frame mais recente
-            while not self.video_queue.empty() and self.is_running and frames_processed < 10:
+            # Se fila muito cheia (>5), descarta frames antigos agressivamente
+            max_frames_to_process = 15 if total_queue_size > 5 else 3
+
+            # Drena a fila mantendo apenas o frame mais recente
+            while not self.video_queue.empty() and self.is_running and frames_processed < max_frames_to_process:
                 frame_data = self.video_queue.get_nowait()
                 frames_processed += 1
 
                 if frame_data is None:
                     continue
 
-                # Decodifica JPEG rapidamente
+                # OTIMIZAÇÃO: Decodificação JPEG mais eficiente
                 if isinstance(frame_data, bytes):
-                    nparr = np.frombuffer(frame_data, np.uint8)
+                    # Usa numpy direto para velocidade máxima
+                    nparr = np.frombuffer(frame_data, dtype=np.uint8)
+
+                    # Decodifica com flags otimizadas para velocidade
                     frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+                    # PROCESSAMENTO ADICIONAL NO CLIENTE (configurável):
+                    if frame is not None and self.enable_video_enhancements:
+                        # Aqui o cliente processa o que o Raspberry Pi não fez:
+
+                        # 1. Correção automática de cor (resolve tom azulado)
+                        if self.color_correction_enabled:
+                            frame = self._enhance_colors_if_needed(frame)
+
+                        # 2. Sharpening inteligente para melhor qualidade
+                        if self.sharpening_enabled:
+                            frame = self._apply_smart_sharpening(frame)
+
+                        # 3. Ajuste automático de brilho/contraste
+                        if self.brightness_auto_adjust:
+                            frame = self._auto_brightness_contrast(frame)
+
                 else:
                     frame = frame_data
 
                 if frame is not None:
                     latest_frame = frame
 
-            # Exibe apenas o frame mais recente para reduzir delay
+            # Exibe apenas o frame mais recente
             if latest_frame is not None:
                 self.display_frame(latest_frame)
 
-                # Se processamos muitos frames, significa que há delay acumulado
-                if frames_processed > 3:
-                    self._log("DEBUG", f"Descartados {frames_processed-1} frames antigos para reduzir delay")
+                # Log inteligente sobre desempenho
+                if frames_processed > 5:
+                    self._log("DEBUG", f"Processados {frames_processed} frames (fila: {total_queue_size}) - descartando {frames_processed-1} antigos")
+                elif total_queue_size > 10:
+                    self._log("WARN", f"Fila de vídeo crescendo: {total_queue_size} frames pendentes")
 
         except Exception as e:
             self._log("ERROR", f"Erro ao processar fila de vídeo: {e}")
+
+    def _enhance_colors_if_needed(self, frame):
+        """Correção automática de cores (cliente pode processar)"""
+        try:
+            # Verifica se frame tem tom azulado excessivo (problema típico de câmeras)
+            b, g, r = cv2.split(frame)
+            blue_mean = np.mean(b)
+            green_mean = np.mean(g)
+            red_mean = np.mean(r)
+
+            # Se azul está dominando muito (>15% mais que vermelho), corrige
+            if blue_mean > red_mean * 1.15:
+                # Reduz canal azul levemente e aumenta vermelho
+                correction_factor = 0.9
+                enhanced_frame = frame.copy()
+                enhanced_frame[:,:,0] = np.clip(b * correction_factor, 0, 255)  # Reduz azul
+                enhanced_frame[:,:,2] = np.clip(r * 1.1, 0, 255)  # Aumenta vermelho
+                return enhanced_frame
+
+            return frame
+        except:
+            # Em caso de erro, retorna frame original
+            return frame
+
+    def _apply_smart_sharpening(self, frame):
+        """Aplica sharpening inteligente (cliente pode processar)"""
+        try:
+            # Aplica sharpening leve apenas se necessário
+            # Só a cada 3 frames para economizar CPU
+            if self.frame_count % 3 != 0:
+                return frame
+
+            # Kernel de sharpening suave
+            kernel = np.array([[-0.1, -0.1, -0.1],
+                              [-0.1,  1.8, -0.1],
+                              [-0.1, -0.1, -0.1]])
+
+            sharpened = cv2.filter2D(frame, -1, kernel)
+            return sharpened
+        except:
+            return frame
+
+    def _auto_brightness_contrast(self, frame):
+        """Ajuste automático de brilho/contraste (cliente pode processar)"""
+        try:
+            # Só aplica a cada 5 frames para economizar CPU
+            if self.frame_count % 5 != 0:
+                return frame
+
+            # Calcula estatísticas da imagem
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            mean_brightness = np.mean(gray)
+
+            # Se muito escuro ou muito claro, ajusta automaticamente
+            if mean_brightness < 80:  # Muito escuro
+                # Aumenta brilho
+                brightness = int((80 - mean_brightness) * 0.5)
+                brightened = cv2.convertScaleAbs(frame, alpha=1.0, beta=brightness)
+                return brightened
+            elif mean_brightness > 200:  # Muito claro
+                # Reduz brilho
+                brightness = -int((mean_brightness - 200) * 0.3)
+                darkened = cv2.convertScaleAbs(frame, alpha=1.0, beta=brightness)
+                return darkened
+
+            return frame
+        except:
+            return frame
+
+    def toggle_color_correction(self, enabled=None):
+        """Ativa/desativa correção de cor"""
+        if enabled is None:
+            self.color_correction_enabled = not self.color_correction_enabled
+        else:
+            self.color_correction_enabled = enabled
+        self._log("INFO", f"Correção de cor: {'Ativada' if self.color_correction_enabled else 'Desativada'}")
+
+    def toggle_sharpening(self, enabled=None):
+        """Ativa/desativa sharpening"""
+        if enabled is None:
+            self.sharpening_enabled = not self.sharpening_enabled
+        else:
+            self.sharpening_enabled = enabled
+        self._log("INFO", f"Sharpening: {'Ativado' if self.sharpening_enabled else 'Desativado'}")
+
+    def toggle_brightness_adjustment(self, enabled=None):
+        """Ativa/desativa ajuste automático de brilho"""
+        if enabled is None:
+            self.brightness_auto_adjust = not self.brightness_auto_adjust
+        else:
+            self.brightness_auto_adjust = enabled
+        self._log("INFO", f"Ajuste de brilho: {'Ativado' if self.brightness_auto_adjust else 'Desativado'}")
+
+    def get_enhancement_status(self):
+        """Retorna status das melhorias de vídeo"""
+        return {
+            "enhancements_enabled": self.enable_video_enhancements,
+            "color_correction": self.color_correction_enabled,
+            "sharpening": self.sharpening_enabled,
+            "brightness_adjustment": self.brightness_auto_adjust
+        }
 
     def run_display(self):
         """Loop principal de exibição de vídeo (modo Tkinter apenas)"""

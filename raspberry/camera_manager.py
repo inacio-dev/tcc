@@ -19,8 +19,8 @@ CONFIGURAÇÃO NECESSÁRIA:
 4. Teste: libcamera-hello (comando de teste)
 """
 
-import cv2
 import time
+import io
 from picamera2 import Picamera2
 
 
@@ -44,8 +44,8 @@ class CameraManager:
 
         # Estatísticas
         self.frames_captured = 0
-        self.last_frame = None
         self.last_capture_time = time.time()
+        self.last_frame_size = 0
 
     def initialize(self):
         """
@@ -60,10 +60,10 @@ class CameraManager:
             # Cria instância da PiCamera2
             self.camera = Picamera2()
 
-            # Configuração otimizada para OV5647
-            config = self.camera.create_preview_configuration(
-                main={"size": self.resolution, "format": "RGB888"},
-                buffer_count=4,  # Múltiplos buffers para melhor performance
+            # Configuração otimizada para OV5647 - JPEG direto da hardware
+            config = self.camera.create_video_configuration(
+                main={"size": self.resolution, "format": "YUV420"},  # Formato nativo
+                buffer_count=2,  # Reduzido para menor latência
             )
 
             # Aplica configuração
@@ -109,7 +109,7 @@ class CameraManager:
 
     def capture_frame(self):
         """
-        Captura um frame da câmera
+        Captura um frame da câmera otimizado para mínimo processamento
 
         Returns:
             bytes: Frame codificado em JPEG, ou None em caso de erro
@@ -119,26 +119,25 @@ class CameraManager:
             return None
 
         try:
-            # Captura frame RGB
-            frame = self.camera.capture_array()
+            # OTIMIZAÇÃO: Captura JPEG diretamente pela hardware da câmera
+            # Isso elimina conversões RGB→BGR→JPEG no software
+            stream = io.BytesIO()
 
-            # Converte de RGB para BGR (formato OpenCV)
-            frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+            # Captura JPEG direto da hardware (muito mais rápido)
+            self.camera.capture_file(stream, format='jpeg', quality=self.jpeg_quality)
 
-            # Codifica como JPEG
-            success, encoded_frame = cv2.imencode(
-                ".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, self.jpeg_quality]
-            )
+            # Obtém bytes do stream
+            jpeg_data = stream.getvalue()
+            stream.close()
 
-            if success:
-                # Atualiza estatísticas
+            if jpeg_data:
+                # Atualiza estatísticas (sem copiar frame - economia de memória)
                 self.frames_captured += 1
-                self.last_frame = frame.copy()
                 self.last_capture_time = time.time()
-
-                return encoded_frame.tobytes()
+                self.last_frame_size = len(jpeg_data)
+                return jpeg_data
             else:
-                print("⚠ Erro ao codificar frame JPEG")
+                print("⚠ Erro ao capturar frame JPEG")
                 return None
 
         except Exception as e:
@@ -177,6 +176,7 @@ class CameraManager:
             "frame_rate": self.frame_rate,
             "jpeg_quality": self.jpeg_quality,
             "last_capture_time": self.last_capture_time,
+            "last_frame_size": self.last_frame_size,
         }
 
     def set_jpeg_quality(self, quality):
