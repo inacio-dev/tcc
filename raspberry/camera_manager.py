@@ -67,8 +67,8 @@ class CameraManager:
                 buffer_count=2,  # Reduzido para menor latência
             )
 
-            # Cria encoder JPEG com qualidade configurável
-            self.jpeg_encoder = JpegEncoder(quality=self.jpeg_quality)
+            # Cria encoder JPEG com qualidade configurável (parâmetro correto: q)
+            self.jpeg_encoder = JpegEncoder(q=self.jpeg_quality)
 
             # Aplica configuração
             self.camera.configure(config)
@@ -193,9 +193,9 @@ class CameraManager:
         """
         if 1 <= quality <= 100:
             self.jpeg_quality = quality
-            # Recria encoder com nova qualidade
+            # Recria encoder com nova qualidade (parâmetro correto: q)
             if hasattr(self, 'jpeg_encoder'):
-                self.jpeg_encoder = JpegEncoder(quality=self.jpeg_quality)
+                self.jpeg_encoder = JpegEncoder(q=self.jpeg_quality)
             print(f"Qualidade JPEG alterada para: {quality}%")
         else:
             print("⚠ Qualidade deve estar entre 1 e 100")
