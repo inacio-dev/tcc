@@ -62,14 +62,20 @@ DEFAULT_BUFFER_SIZE = 131072
 class F1ClientApplication:
     """Aplicação cliente principal do sistema F1"""
 
-    def __init__(self, port=DEFAULT_PORT, buffer_size=DEFAULT_BUFFER_SIZE, rpi_ip=None, client_ip=None):
+    def __init__(
+        self,
+        port=DEFAULT_PORT,
+        buffer_size=DEFAULT_BUFFER_SIZE,
+        rpi_ip=None,
+        client_ip=None,
+    ):
         """
         Inicializa a aplicação cliente
 
         Args:
             port (int): Porta UDP para escutar dados
             buffer_size (int): Tamanho do buffer UDP
-            rpi_ip (str): IP do Raspberry Pi 
+            rpi_ip (str): IP do Raspberry Pi
             client_ip (str): IP do cliente (este PC)
         """
         self.port = port
@@ -212,6 +218,7 @@ class F1ClientApplication:
         except Exception as e:
             error(f"Erro durante execução: {e}", "CLIENT")
             import traceback
+
             traceback.print_exc()
             return False
         finally:
@@ -221,7 +228,7 @@ class F1ClientApplication:
         """Para a aplicação de forma limpa"""
         if not self.running:
             return  # Já parou
-            
+
         try:
             debug("Parando F1 Client...", "CLIENT")
         except:
@@ -231,19 +238,19 @@ class F1ClientApplication:
 
         # Para componentes na ordem correta (interface primeiro)
         try:
-            if hasattr(self, 'console_interface') and self.console_interface:
+            if hasattr(self, "console_interface") and self.console_interface:
                 self.console_interface.stop()
         except:
             pass
-            
+
         try:
-            if hasattr(self, 'video_display') and self.video_display:
+            if hasattr(self, "video_display") and self.video_display:
                 self.video_display.stop()
         except:
             pass
 
         try:
-            if hasattr(self, 'network_client') and self.network_client:
+            if hasattr(self, "network_client") and self.network_client:
                 self.network_client.stop()
         except:
             pass
@@ -304,22 +311,24 @@ def get_raspberry_pi_ip():
     """Solicita o IP do Raspberry Pi ao usuário"""
     print("🔍 CONEXÃO COM RASPBERRY PI")
     print("=" * 30)
-    
+
     while True:
         try:
             # Sugere o IP padrão do projeto
-            rpi_ip = input("📡 Digite o IP do Raspberry Pi (ex: 192.168.5.11): ").strip()
-            
+            rpi_ip = input(
+                "📡 Digite o IP do Raspberry Pi (ex: 192.168.5.12): "
+            ).strip()
+
             if not rpi_ip:
                 print("❌ Por favor, digite um IP válido!")
                 continue
-                
+
             # Validação básica de IP
-            parts = rpi_ip.split('.')
+            parts = rpi_ip.split(".")
             if len(parts) != 4:
                 print("❌ Formato de IP inválido! Use o formato: xxx.xxx.xxx.xxx")
                 continue
-                
+
             # Verifica se cada parte é um número entre 0-255
             valid = True
             for part in parts:
@@ -331,20 +340,24 @@ def get_raspberry_pi_ip():
                 except ValueError:
                     valid = False
                     break
-                    
+
             if not valid:
                 print("❌ IP inválido! Cada número deve estar entre 0 e 255")
                 continue
-                
+
             # Confirmação
-            confirm = input(f"✅ Conectar ao Raspberry Pi em {rpi_ip}? (s/n): ").strip().lower()
-            if confirm in ['s', 'sim', 'y', 'yes', '']:
+            confirm = (
+                input(f"✅ Conectar ao Raspberry Pi em {rpi_ip}? (s/n): ")
+                .strip()
+                .lower()
+            )
+            if confirm in ["s", "sim", "y", "yes", ""]:
                 return rpi_ip
-            elif confirm in ['n', 'não', 'nao', 'no']:
+            elif confirm in ["n", "não", "nao", "no"]:
                 continue
             else:
                 print("❌ Responda com 's' para sim ou 'n' para não")
-                
+
         except KeyboardInterrupt:
             print("\n⚠️ Operação cancelada pelo usuário")
             return None
@@ -387,16 +400,17 @@ def main():
 
     # Configuração fixa - sem descoberta
     rpi_ip = "192.168.5.33"
-    client_ip = "192.168.5.11"
-    
+    client_ip = "192.168.5.12"
+
     print("🔗 CONFIGURAÇÃO FIXA:")
-    print(f"   📡 Raspberry Pi: {rpi_ip}:9999 → 192.168.5.11:9999 (dados)")
+    print(f"   📡 Raspberry Pi: {rpi_ip}:9999 → 192.168.5.12:9999 (dados)")
     print(f"   🎮 Cliente: {client_ip}:9998 → 192.168.5.33:9998 (comandos)")
     print()
 
     # Criar e executar aplicação com IPs fixos
-    app = F1ClientApplication(port=args.port, buffer_size=buffer_size, 
-                             rpi_ip=rpi_ip, client_ip=client_ip)
+    app = F1ClientApplication(
+        port=args.port, buffer_size=buffer_size, rpi_ip=rpi_ip, client_ip=client_ip
+    )
 
     try:
         # Executar aplicação
@@ -411,6 +425,7 @@ def main():
     except Exception as e:
         print(f"\n❌ Erro crítico: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
     finally:

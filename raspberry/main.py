@@ -326,10 +326,10 @@ class F1CarCompleteSystem:
     def run_main_loop(self):
         """Loop principal de operação do sistema completo"""
         info("Modo direto - Enviando dados para cliente fixo", "MAIN")
-        info("Cliente: 192.168.5.11:9999", "MAIN")
+        info("Cliente: 192.168.5.12:9999", "MAIN")
 
         # Configura cliente fixo no NetworkManager
-        self.network_mgr.set_fixed_client("192.168.5.11", 9999)
+        self.network_mgr.set_fixed_client("192.168.5.12", 9999)
 
         info("Iniciando transmissão - Ctrl+C para parar", "MAIN")
 
