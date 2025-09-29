@@ -227,7 +227,6 @@ class SteeringManager:
         Args:
             steering_input (float): Entrada de direção -100% a +100%
                                   (-100% = máximo esquerda, +100% = máximo direita)
-            speed_kmh (float): Velocidade atual em km/h para compensação
         """
         if not self.is_initialized:
             print("⚠ Sistema de direção não inicializado")
@@ -279,8 +278,7 @@ class SteeringManager:
         # Debug para movimentos grandes
         if abs(steering_input) > 20:
             print(
-                f"🔧 Direção: {steering_input:+.0f}% → {target_angle:+.1f}° "
-                f"(Velocidade: {speed_kmh:.1f} km/h)"
+                f"🔧 Direção: {steering_input:+.0f}% → {target_angle:+.1f}°"
             )
 
     # REMOVIDO: funções auxiliares não usadas - movimento direto

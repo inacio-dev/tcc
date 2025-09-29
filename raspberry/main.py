@@ -721,7 +721,7 @@ class F1CarCompleteSystem:
                     try:
                         steering_input = float(steering_str)
                         if self.steering_mgr:
-                            # Usa método correto: set_steering_input (não set_steering_angle)
+                            # Controle direto - apenas comando do usuário
                             self.steering_mgr.set_steering_input(steering_input)
                             info(f"✅ Direção: {steering_input:.1f}%", "COMMAND")
                         else:
