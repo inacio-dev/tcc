@@ -96,23 +96,17 @@ class VideoDisplay:
             if not self.tkinter_label:
                 return
 
-            # Otimização 1: Redimensionar apenas se necessário
+            # Usar resolução original da câmera (sem redimensionamento forçado)
             height, width = frame.shape[:2]
-            target_width = 320
+            # Mantém resolução original recebida da câmera para máxima qualidade
 
-            # Só redimensiona se for muito diferente do target
-            if abs(width - target_width) > 50:
-                aspect_ratio = height / width
-                target_height = int(target_width * aspect_ratio)
-                frame = cv2.resize(frame, (target_width, target_height), interpolation=cv2.INTER_NEAREST)
-
-            # Otimização 2: Conversão BGR→RGB mais rápida
+            # Conversão BGR→RGB mais rápida
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-            # Otimização 3: Usar modo direto do PIL (mais rápido)
+            # Usar modo direto do PIL (mais rápido)
             pil_image = Image.fromarray(rgb_frame, mode='RGB')
 
-            # Otimização 4: PhotoImage direto sem cópia extra
+            # PhotoImage direto sem cópia extra
             photo = ImageTk.PhotoImage(image=pil_image)
 
             # Atualizar label (try/except para evitar travamentos)

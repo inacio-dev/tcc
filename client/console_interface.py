@@ -180,7 +180,7 @@ class ConsoleInterface:
         """Cria janela principal com scroll vertical e layout em grid"""
         self.root = tk.Tk()
         self.root.title("🏎️ F1 Car - Console de Controle")
-        self.root.geometry("1400x900")  # Janela maior para 2 colunas
+        self.root.geometry("1400x1000")  # Janela maior para acomodar vídeo em resolução original
         self.root.configure(bg="#2b2b2b")  # Tema escuro
 
         # Permitir redimensionamento
@@ -759,8 +759,8 @@ class ConsoleInterface:
         )
         video_frame.pack(fill=tk.X, padx=5, pady=5)
 
-        # Frame interno para o vídeo
-        self.video_container = tk.Frame(video_frame, bg="#1a1a1a", height=240)
+        # Frame interno para o vídeo (altura aumentada para resolução original da câmera)
+        self.video_container = tk.Frame(video_frame, bg="#1a1a1a", height=480)
         self.video_container.pack(fill=tk.X, padx=5, pady=5)
         self.video_container.pack_propagate(False)  # Manter altura fixa
 
