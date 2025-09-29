@@ -410,6 +410,23 @@ class NetworkClient:
                     # Atualiza status da conexão
                     self.update_connection_status(addr)
 
+                    # Verifica se é um comando de texto (como SERVER_CONNECT)
+                    try:
+                        packet_str = packet.decode('utf-8')
+                        if packet_str.startswith('SERVER_CONNECT'):
+                            self._log("INFO", f"🔄 Recebido comando de reconexão do Raspberry Pi")
+                            # Marca como conectado/reconectado
+                            self.raspberry_pi_ip = addr[0]
+                            self.is_connected_to_rpi = True
+                            self._update_status({
+                                "connection": f"Reconectado com {addr[0]}",
+                                "status": "Ativo via SERVER_CONNECT"
+                            })
+                            continue  # Pula processamento como dados binários
+                    except UnicodeDecodeError:
+                        # Não é comando de texto, processa como dados binários
+                        pass
+
                     # Processa pacote
                     frame_data, sensor_data = self.parse_packet(packet)
 

@@ -304,6 +304,45 @@ class NetworkManager:
             info(f"Cliente fixo configurado: {client_ip}:{client_port}", "NET")
             debug(f"Total clientes: {len(self.connected_clients)}", "NET")
 
+    def send_connect_to_client(self, client_ip: str, client_port: int = None):
+        """
+        Envia comando CONNECT ativo para um cliente específico
+        Usado para iniciar conexão ou reestabelecer conexão perdida
+
+        Args:
+            client_ip (str): IP do cliente
+            client_port (int): Porta do cliente (opcional, usa 9998 se não especificado)
+        """
+        try:
+            # Usa porta padrão se não especificada
+            if client_port is None:
+                client_port = 9998  # Porta padrão de comandos do cliente
+
+            # Monta comando CONNECT com informações do servidor
+            connect_cmd = f"SERVER_CONNECT:{self.data_port}"
+
+            # Envia comando via UDP
+            self.send_socket.sendto(connect_cmd.encode('utf-8'), (client_ip, client_port))
+
+            debug(f"Comando CONNECT enviado para {client_ip}:{client_port}", "NET")
+
+            # Adiciona cliente à lista se não existir
+            with self.clients_lock:
+                if client_ip not in self.connected_clients:
+                    self.connected_clients[client_ip] = {
+                        'port': self.data_port,  # Porta para envio de dados
+                        'last_seen': time.time(),
+                        'auto_connect': True  # Marca como conexão automática
+                    }
+                    info(f"Cliente auto-adicionado: {client_ip}:{self.data_port}", "NET")
+                else:
+                    # Atualiza timestamp de última conexão
+                    self.connected_clients[client_ip]['last_seen'] = time.time()
+                    debug(f"Cliente atualizado: {client_ip}", "NET")
+
+        except Exception as e:
+            warn(f"Erro ao enviar CONNECT para {client_ip}:{client_port}: {e}", "NET")
+
     def _convert_numpy_types(self, obj):
         """
         Converte tipos numpy para tipos Python nativos recursivamente

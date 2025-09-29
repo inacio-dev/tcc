@@ -337,6 +337,7 @@ class F1CarCompleteSystem:
         self.running = True
         last_stats_display = time.time()
         last_display_update = time.time()
+        last_connect_ping = time.time()  # Controle para envio periódico de CONNECT
         loop_count = 0
 
         try:
@@ -447,6 +448,12 @@ class F1CarCompleteSystem:
                         motor_status, brake_status, steering_status
                     )
                     last_display_update = current_time
+
+                # Envio periódico de CONNECT para reconexão automática (a cada 10s)
+                if current_time - last_connect_ping >= 10.0:
+                    self.network_mgr.send_connect_to_client("192.168.5.12", 9998)
+                    info("CONNECT periódico enviado para cliente", "MAIN")
+                    last_connect_ping = current_time
 
                 # Stats menos frequentes para tempo real
                 if current_time - last_stats_display >= 10.0:
