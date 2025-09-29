@@ -71,19 +71,37 @@ cd /home/inacio-rasp/tcc
 python test/test_brake.py
 ```
 
-### 🏁 `test_steering_brake.py`
-Teste combinado que simula cenários reais de uso.
+### 🌡️ `test_temperature_sensor.py`
+Teste completo do sensor de temperatura DS18B20.
 
 **O que testa:**
-- Movimentos combinados (curvas + freios)
-- Cenários de emergência
-- Controle progressivo
-- Status detalhado dos sistemas
+- Verificação de configuração 1-Wire
+- Inicialização do TemperatureManager
+- Leitura única de temperatura
+- Leituras contínuas com estatísticas
+- Detecção de zonas térmicas
+- Funcionalidade de histórico
 
 **Como executar:**
 ```bash
-cd /home/inacio-rasp/tcc
-python test/test_steering_brake.py
+cd /home/inacio/Documentos/tcc/codigo
+python test/test_temperature_sensor.py
+```
+
+### 🚀 `quick_temp_test.py`
+Teste rápido e simples do sensor DS18B20 (sem dependências do projeto).
+
+**O que testa:**
+- Configuração básica 1-Wire
+- Leituras diretas do sistema de arquivos
+- Conversão de temperaturas (°C, °F, K)
+- Status térmico em tempo real
+- Estatísticas básicas
+
+**Como executar:**
+```bash
+cd /home/inacio/Documentos/tcc/codigo
+python test/quick_temp_test.py
 ```
 
 ## Pré-requisitos
@@ -92,6 +110,7 @@ python test/test_steering_brake.py
 - **Servo de direção**: MG996R conectado ao GPIO24 (Pin 18)
 - **Servo freio frontal**: MG996R conectado ao GPIO4 (Pin 7)
 - **Servo freio traseiro**: MG996R conectado ao GPIO17 (Pin 11)
+- **Sensor de temperatura**: DS18B20 conectado ao GPIO25 (Pin 22)
 - **Alimentação**: 5-6V para os servos (não usar 3.3V do Pi)
 
 ### Conexões dos Servos
@@ -104,6 +123,26 @@ Servo MG996R:
 Direção:     GPIO24 (Pin 18)
 Freio Front: GPIO4  (Pin 7)
 Freio Rear:  GPIO17 (Pin 11)
+```
+
+### Conexões do Sensor DS18B20
+```
+DS18B20:
+├── VDD (Vermelho)  → Pin 1 (3.3V)
+├── GND (Preto)     → Pin 6 (GND)
+├── DQ (Amarelo)    → Pin 22 (GPIO25)
+└── Pull-up         → Resistor 4.7kΩ entre DQ e VDD
+```
+
+**Configuração 1-Wire necessária:**
+```bash
+sudo raspi-config
+# Interface Options → 1-Wire → Enable
+
+# Adicionar ao /boot/config.txt:
+dtoverlay=w1-gpio,gpiopin=25
+
+sudo reboot
 ```
 
 ### Software
