@@ -21,7 +21,7 @@ DADOS EXIBIDOS:
 - Eventos detectados
 - Force feedback
 - Status do sistema
-- Dados derivados (velocidade, direção, bateria)
+- Dados derivados do BMI160
 """
 
 import tkinter as tk
@@ -148,19 +148,12 @@ class ConsoleInterface:
             "roll_angle": tk.StringVar(value="0.0"),
             "pitch_angle": tk.StringVar(value="0.0"),
             "yaw_angle": tk.StringVar(value="0.0"),
-            # Eventos (como texto)
-            "events_detected": tk.StringVar(value="Nenhum"),
             # Force Feedback
             "steering_feedback": tk.StringVar(value="0.0"),
             "brake_resistance": tk.StringVar(value="0.0"),
             "seat_vibration": tk.StringVar(value="0.0"),
             "seat_tilt_x": tk.StringVar(value="0.0"),
             "seat_tilt_y": tk.StringVar(value="0.0"),
-            # Dados derivados
-            "velocidade": tk.StringVar(value="0.0"),
-            "steering_angle": tk.StringVar(value="0.0"),
-            "bateria_nivel": tk.StringVar(value="100.0"),
-            "temperatura": tk.StringVar(value="25.0"),
             # Dados do sensor de temperatura DS18B20
             "temperature_c": tk.StringVar(value="25.0"),
             "temperature_f": tk.StringVar(value="77.0"),
@@ -231,16 +224,60 @@ class ConsoleInterface:
         self.left_column.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
         self.right_column.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
 
-        # Configurar scroll com mouse wheel
-        self.main_canvas.bind("<MouseWheel>", self._on_mousewheel)
-        self.root.bind("<MouseWheel>", self._on_mousewheel)
+        # Configurar scroll com mouse wheel (multiplataforma)
+        self.main_canvas.bind("<MouseWheel>", self._on_mousewheel)  # Windows
+        self.main_canvas.bind("<Button-4>", self._on_mousewheel)     # Linux scroll up
+        self.main_canvas.bind("<Button-5>", self._on_mousewheel)     # Linux scroll down
+        self.root.bind("<MouseWheel>", self._on_mousewheel)          # Windows - janela toda
+        self.root.bind("<Button-4>", self._on_mousewheel)            # Linux scroll up - janela toda
+        self.root.bind("<Button-5>", self._on_mousewheel)            # Linux scroll down - janela toda
 
         # Bind para redimensionamento da janela
         self.main_canvas.bind('<Configure>', self._on_canvas_configure)
 
+        # Aplicar scroll a todos os widgets após criação da interface
+        self.root.after(100, self._bind_mousewheel_to_all)
+
     def _on_mousewheel(self, event):
-        """Handler para scroll com mouse wheel"""
-        self.main_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        """Handler para scroll com mouse wheel (multiplataforma)"""
+        # Windows usa event.delta, Linux usa event.num
+        if hasattr(event, 'delta'):
+            # Windows: delta é múltiplo de 120
+            delta = int(-1 * (event.delta / 120))
+        elif hasattr(event, 'num'):
+            # Linux: Button-4 (scroll up) = -1, Button-5 (scroll down) = +1
+            delta = -1 if event.num == 4 else 1
+        else:
+            # Fallback
+            delta = 1
+
+        # Scroll mais suave (3 unidades por vez)
+        self.main_canvas.yview_scroll(delta * 3, "units")
+
+        # Retorna "break" para evitar propagação adicional
+        return "break"
+
+    def _bind_mousewheel_to_all(self):
+        """Aplica scroll do mouse a todos os widgets da interface"""
+        def bind_to_widget(widget):
+            try:
+                # Bind eventos de scroll multiplataforma
+                widget.bind("<MouseWheel>", self._on_mousewheel, add="+")  # Windows
+                widget.bind("<Button-4>", self._on_mousewheel, add="+")     # Linux scroll up
+                widget.bind("<Button-5>", self._on_mousewheel, add="+")     # Linux scroll down
+            except tk.TclError:
+                # Alguns widgets não suportam bind, ignora
+                pass
+
+            # Aplica recursivamente aos filhos
+            try:
+                for child in widget.winfo_children():
+                    bind_to_widget(child)
+            except tk.TclError:
+                pass
+
+        # Aplica a toda a árvore de widgets
+        bind_to_widget(self.root)
 
     def _on_canvas_configure(self, event):
         """Handler para redimensionamento do canvas"""
@@ -555,72 +592,6 @@ class ConsoleInterface:
             row=0, column=8, padx=2
         )
 
-    def create_vehicle_data_frame(self):
-        """Cria frame com dados do veículo"""
-        vehicle_frame = ttk.LabelFrame(
-            self.right_column, text="🏎️ Dados do Veículo", style="Dark.TLabelframe"
-        )
-        vehicle_frame.pack(fill=tk.X, padx=5, pady=5)
-
-        # Linha 1: Velocidade e Direção
-        ttk.Label(vehicle_frame, text="Velocidade:", style="Dark.TLabel").grid(
-            row=0, column=0, padx=5
-        )
-        ttk.Label(
-            vehicle_frame,
-            textvariable=self.sensor_vars["velocidade"],
-            style="Dark.TLabel",
-        ).grid(row=0, column=1, padx=5)
-        ttk.Label(vehicle_frame, text="km/h", style="Dark.TLabel").grid(
-            row=0, column=2, padx=5
-        )
-
-        ttk.Label(vehicle_frame, text="Direção:", style="Dark.TLabel").grid(
-            row=0, column=3, padx=5
-        )
-        ttk.Label(
-            vehicle_frame,
-            textvariable=self.sensor_vars["steering_angle"],
-            style="Dark.TLabel",
-        ).grid(row=0, column=4, padx=5)
-        ttk.Label(vehicle_frame, text="°", style="Dark.TLabel").grid(
-            row=0, column=5, padx=5
-        )
-
-        # Linha 2: Bateria e Temperatura
-        ttk.Label(vehicle_frame, text="Bateria:", style="Dark.TLabel").grid(
-            row=1, column=0, padx=5
-        )
-        ttk.Label(
-            vehicle_frame,
-            textvariable=self.sensor_vars["bateria_nivel"],
-            style="Dark.TLabel",
-        ).grid(row=1, column=1, padx=5)
-        ttk.Label(vehicle_frame, text="%", style="Dark.TLabel").grid(
-            row=1, column=2, padx=5
-        )
-
-        ttk.Label(vehicle_frame, text="Temperatura:", style="Dark.TLabel").grid(
-            row=1, column=3, padx=5
-        )
-        ttk.Label(
-            vehicle_frame,
-            textvariable=self.sensor_vars["temperatura"],
-            style="Dark.TLabel",
-        ).grid(row=1, column=4, padx=5)
-        ttk.Label(vehicle_frame, text="°C", style="Dark.TLabel").grid(
-            row=1, column=5, padx=5
-        )
-
-        # Linha 3: Eventos detectados
-        ttk.Label(vehicle_frame, text="Eventos:", style="Dark.TLabel").grid(
-            row=2, column=0, padx=5
-        )
-        ttk.Label(
-            vehicle_frame,
-            textvariable=self.sensor_vars["events_detected"],
-            style="Dark.TLabel",
-        ).grid(row=2, column=1, columnspan=5, sticky=tk.W, padx=5)
 
     def create_force_feedback_frame(self):
         """Cria frame com dados do force feedback"""
@@ -935,7 +906,6 @@ class ConsoleInterface:
 
         # Coluna Direita
         self.create_video_frame()
-        self.create_vehicle_data_frame()
         self.create_slider_controls_frame()
         self.create_controls_frame()
         self.create_keyboard_controls_frame()
@@ -1021,11 +991,6 @@ class ConsoleInterface:
             "seat_vibration_intensity": "seat_vibration",
             "seat_tilt_x": "seat_tilt_x",
             "seat_tilt_y": "seat_tilt_y",
-            # Dados derivados
-            "velocidade": "velocidade",
-            "steering_angle": "steering_angle",
-            "bateria_nivel": "bateria_nivel",
-            "temperatura": "temperatura",
             # Dados do sensor de temperatura DS18B20
             "temperature_c": "temperature_c",
             "temperature_f": "temperature_f",
@@ -1062,7 +1027,7 @@ class ConsoleInterface:
                     "g_force_vertical",
                 ]:
                     formatted_value = f"{value:+.3f}"  # Com sinal
-                elif var_name in ["velocidade", "temperatura", "temperature_c", "temperature_f", "temperature_k"]:
+                elif var_name in ["temperature_c", "temperature_f", "temperature_k"]:
                     formatted_value = f"{value:.1f}"
                 elif var_name in ["accel_range"]:
                     formatted_value = f"±{value}g"
@@ -1092,8 +1057,7 @@ class ConsoleInterface:
         if sensor_data.get("impact_detected", False):
             events.append("💥 Impacto")
 
-        events_text = ", ".join(events) if events else "😴 Nenhum"
-        self.sensor_vars["events_detected"].set(events_text)
+        # Eventos detectados são mostrados apenas no log, não na interface visual
 
         # Atualiza cor do display de temperatura baseado no status térmico
         self._update_temperature_colors(sensor_data)
