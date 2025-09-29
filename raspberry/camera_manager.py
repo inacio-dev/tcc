@@ -22,7 +22,6 @@ CONFIGURAÇÃO NECESSÁRIA:
 import time
 import io
 from picamera2 import Picamera2
-from picamera2.encoders import JpegEncoder
 
 
 class CameraManager:
@@ -61,14 +60,11 @@ class CameraManager:
             # Cria instância da PiCamera2
             self.camera = Picamera2()
 
-            # Configuração otimizada para OV5647 baseada na documentação oficial
-            config = self.camera.create_still_configuration(
-                main={"size": self.resolution},  # Configuração para captura de imagens
+            # Configuração otimizada para OV5647 - compatível com todas as versões
+            config = self.camera.create_preview_configuration(
+                main={"size": self.resolution, "format": "BGR888"},  # BGR para compatibilidade
                 buffer_count=2,  # Reduzido para menor latência
             )
-
-            # Cria encoder JPEG com qualidade configurável (parâmetro correto: q)
-            self.jpeg_encoder = JpegEncoder(q=self.jpeg_quality)
 
             # Aplica configuração
             self.camera.configure(config)
@@ -123,17 +119,32 @@ class CameraManager:
             return None
 
         try:
-            # MÉTODO OFICIAL: Usar capture_file com JpegEncoder para BytesIO
-            # Baseado na documentação oficial do Picamera2
+            # MÉTODO COMPATÍVEL: Usar capture_array() + codificação JPEG otimizada
+            # Compatible com diferentes versões do Picamera2
 
-            stream = io.BytesIO()
+            # Captura frame como array numpy
+            frame = self.camera.capture_array()
 
-            # Captura JPEG diretamente usando encoder oficial
-            self.camera.capture_file(stream, format='jpeg', encoder=self.jpeg_encoder)
-
-            # Obtém bytes do stream
-            jpeg_data = stream.getvalue()
-            stream.close()
+            # Usa biblioteca simplejpeg para codificação JPEG rápida
+            try:
+                import simplejpeg
+                # Codificação JPEG otimizada com simplejpeg (mais rápida que cv2)
+                jpeg_data = simplejpeg.encode_jpeg(
+                    frame,
+                    quality=self.jpeg_quality,
+                    colorspace='BGR'  # Picamera2 usa BGR por padrão
+                )
+            except ImportError:
+                # Fallback para cv2 se simplejpeg não disponível
+                import cv2
+                success, encoded_data = cv2.imencode(
+                    '.jpg', frame,
+                    [cv2.IMWRITE_JPEG_QUALITY, self.jpeg_quality]
+                )
+                if success:
+                    jpeg_data = encoded_data.tobytes()
+                else:
+                    return None
 
             if jpeg_data:
                 # Atualiza estatísticas (sem copiar frame - economia de memória)
@@ -142,7 +153,7 @@ class CameraManager:
                 self.last_frame_size = len(jpeg_data)
                 return jpeg_data
             else:
-                print("⚠ Erro ao capturar frame JPEG")
+                print("⚠ Erro ao codificar frame JPEG")
                 return None
 
         except Exception as e:
@@ -193,9 +204,6 @@ class CameraManager:
         """
         if 1 <= quality <= 100:
             self.jpeg_quality = quality
-            # Recria encoder com nova qualidade (parâmetro correto: q)
-            if hasattr(self, 'jpeg_encoder'):
-                self.jpeg_encoder = JpegEncoder(q=self.jpeg_quality)
             print(f"Qualidade JPEG alterada para: {quality}%")
         else:
             print("⚠ Qualidade deve estar entre 1 e 100")
