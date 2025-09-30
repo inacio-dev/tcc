@@ -161,10 +161,10 @@ class ConsoleInterface:
             "seat_vibration": tk.StringVar(value="0.0"),
             "seat_tilt_x": tk.StringVar(value="0.0"),
             "seat_tilt_y": tk.StringVar(value="0.0"),
-            # Dados do sensor de temperatura DS18B20
-            "temperature_c": tk.StringVar(value="25.0"),
-            "temperature_f": tk.StringVar(value="77.0"),
-            "temperature_k": tk.StringVar(value="298.2"),
+            # Dados do sensor de temperatura DS18B20 (valores reais)
+            "temperature_c": tk.StringVar(value="--"),
+            "temperature_f": tk.StringVar(value="--"),
+            "temperature_k": tk.StringVar(value="--"),
             "thermal_status": tk.StringVar(value="NORMAL"),
             # Configurações
             "accel_range": tk.StringVar(value="±2g"),
@@ -1081,7 +1081,7 @@ class ConsoleInterface:
         try:
             if hasattr(self, 'temp_display'):
                 thermal_status = sensor_data.get("thermal_status", "NORMAL")
-                temperature_c = sensor_data.get("temperature_c", 25.0)
+                temperature_c = sensor_data.get("temperature_c", 0.0)
 
                 # Define cores baseadas no status térmico
                 color_mapping = {
@@ -1392,52 +1392,5 @@ class ConsoleInterface:
 # Teste independente
 if __name__ == "__main__":
     import queue
-    import threading
-    import time
-    import random
-
-    print("=== TESTE DA CONSOLE INTERFACE CORRIGIDA ===")
-
-    # Cria filas de teste
-    log_q = queue.Queue()
-    status_q = queue.Queue()
-
-    # Cria interface
-    interface = ConsoleInterface(log_queue=log_q, status_queue=status_q)
-
-    def generate_test_data():
-        """Gera dados de teste"""
-        time.sleep(2)  # Aguarda interface inicializar
-
-        for i in range(100):
-            # Log de teste
-            levels = ["INFO", "WARNING", "ERROR"]
-            level = levels[i % 3]
-            log_q.put((level, f"Mensagem de teste {i+1} - {level}"))
-
-            # Status de teste
-            if i % 5 == 0:
-                status_q.put(
-                    {
-                        "connection": "Conectado a 192.168.1.100:9999",
-                        "fps": random.uniform(25, 35),
-                        "frame_size": random.uniform(10, 25),
-                        "packets": i * 2,
-                        "data": i * 0.1,
-                        "data_quality": random.uniform(80, 100),
-                    }
-                )
-
-            time.sleep(0.5)
-
-    # Inicia gerador em thread separada
-    generator_thread = threading.Thread(target=generate_test_data, daemon=True)
-    generator_thread.start()
-
-    print("✅ Interface de teste iniciada")
-    print("📱 Aguarde 2 segundos para dados aparecerem...")
-
-    # Executa interface
-    interface.run_interface()
-
-    print("✅ Teste concluído")
+    print("=== CONSOLE INTERFACE CONFIGURADA PARA DADOS REAIS ===")
+    print("Sistema pronto para receber apenas dados reais dos sensores")

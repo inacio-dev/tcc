@@ -98,11 +98,7 @@ class SensorDisplay:
             "accel_range_g": 2,
             "gyro_range_dps": 250,
             "sample_rate": 100,
-            # Dados derivados (calculados localmente)
-            "velocidade": 0.0,  # km/h estimada
-            "steering_angle": 0.0,  # ângulo da direção estimado
-            "bateria_nivel": 100.0,  # nível da bateria estimado
-            "temperatura": 25.0,  # temperatura estimada
+            # Dados derivados removidos - apenas dados reais dos sensores
             # Metadados
             "timestamp": 0,
             "readings_count": 0,
@@ -203,54 +199,9 @@ class SensorDisplay:
         derived = {}
 
         try:
-            # Velocidade estimada (baseada na aceleração frontal integrada)
-            accel_frontal = data.get("bmi160_accel_x", 0)
-            if hasattr(self, "_last_velocity"):
-                dt = 0.01  # Aproximadamente 100Hz
-                velocity_change = accel_frontal * dt * 3.6  # Converte para km/h
-                self._last_velocity += velocity_change
-                # Aplica decay para simular atrito
-                self._last_velocity *= 0.99
-                derived["velocidade"] = max(0, self._last_velocity)
-            else:
-                self._last_velocity = 0.0
-                derived["velocidade"] = 0.0
+            # Apenas dados reais dos sensores - sem cálculos derivados simulados
 
-            # Ângulo da direção (baseado no giroscópio Z integrado)
-            gyro_z = data.get("bmi160_gyro_z", 0)
-            if hasattr(self, "_steering_angle"):
-                dt = 0.01
-                self._steering_angle += gyro_z * dt * 0.1  # Fator de escala
-                # Limita ângulo
-                self._steering_angle = max(-45, min(45, self._steering_angle))
-                # Retorna ao centro gradualmente
-                self._steering_angle *= 0.98
-                derived["steering_angle"] = self._steering_angle
-            else:
-                self._steering_angle = 0.0
-                derived["steering_angle"] = 0.0
-
-            # Nível da bateria simulado (baseado na atividade)
-            activity = abs(accel_frontal) + abs(data.get("bmi160_gyro_z", 0)) * 0.1
-            if hasattr(self, "_battery_level"):
-                # Consome bateria baseado na atividade
-                consumption = activity * 0.001 + 0.0001  # Consumo base
-                self._battery_level -= consumption
-                self._battery_level = max(0, self._battery_level)
-                derived["bateria_nivel"] = self._battery_level
-            else:
-                self._battery_level = 100.0
-                derived["bateria_nivel"] = 100.0
-
-            # Temperatura simulada (baseada na atividade)
-            if hasattr(self, "_temperature"):
-                target_temp = 25.0 + activity * 0.5  # Aquece com atividade
-                # Filtro passa-baixa para suavizar
-                self._temperature += (target_temp - self._temperature) * 0.1
-                derived["temperatura"] = self._temperature
-            else:
-                self._temperature = 25.0
-                derived["temperatura"] = 25.0
+            # Bateria e temperatura removidas - apenas dados reais dos sensores
 
             return derived
 
@@ -609,7 +560,7 @@ class SensorDisplay:
 if __name__ == "__main__":
     import queue
     import json
-    import random
+    # Random removido - sem dados simulados
 
     print("=== TESTE DO SENSOR DISPLAY ===")
 
@@ -620,84 +571,9 @@ if __name__ == "__main__":
     # Cria processador
     processor = SensorDisplay(sensor_queue=sensor_q, log_queue=log_q)
 
-    def generate_test_sensor_data():
-        """Gera dados de teste do BMI160"""
-        return {
-            # Dados raw do BMI160
-            "bmi160_accel_x_raw": random.randint(-1000, 1000),
-            "bmi160_accel_y_raw": random.randint(-800, 800),
-            "bmi160_accel_z_raw": random.randint(15000, 17000),
-            "bmi160_gyro_x_raw": random.randint(-500, 500),
-            "bmi160_gyro_y_raw": random.randint(-400, 400),
-            "bmi160_gyro_z_raw": random.randint(-2000, 2000),
-            # Dados físicos convertidos
-            "bmi160_accel_x": random.uniform(-2.0, 2.0),
-            "bmi160_accel_y": random.uniform(-1.5, 1.5),
-            "bmi160_accel_z": random.uniform(9.0, 10.5),
-            "bmi160_gyro_x": random.uniform(-50, 50),
-            "bmi160_gyro_y": random.uniform(-40, 40),
-            "bmi160_gyro_z": random.uniform(-200, 200),
-            # Forças G
-            "g_force_frontal": random.uniform(-0.5, 0.5),
-            "g_force_lateral": random.uniform(0, 0.3),
-            "g_force_vertical": random.uniform(0, 0.2),
-            # Eventos
-            "is_turning_left": random.choice([True, False]),
-            "is_turning_right": random.choice([True, False]),
-            "is_accelerating": random.choice([True, False]),
-            "is_braking": random.choice([True, False]),
-            # Force feedback
-            "steering_feedback_intensity": random.uniform(0, 100),
-            "seat_vibration_intensity": random.uniform(0, 50),
-            # Configurações
-            "accel_range_g": 2,
-            "gyro_range_dps": 250,
-            "sample_rate": 100,
-            # Metadados
-            "timestamp": time.time(),
-            "readings_count": random.randint(1000, 2000),
-            "is_initialized": True,
-        }
+    # Função de teste removida - sem dados simulados
 
-    print("Gerando dados de teste...")
+    print("Teste com dados reais apenas - aguardando dados dos sensores...")
 
-    # Gera e processa dados de teste
-    for i in range(50):
-        test_data = generate_test_sensor_data()
-        sensor_q.put(test_data)
-
-        # Processa dados
-        processor.process_queue()
-
-        # Mostra logs
-        while not log_q.empty():
-            level, message = log_q.get_nowait()
-            print(f"[{level}] {message}")
-
-        # Mostra dados processados a cada 10 iterações
-        if i % 10 == 0:
-            display_data = processor.get_display_data()
-            print(f"\n--- Iteração {i} ---")
-            print(f"Aceleração: X={display_data['bmi160_accel_x']:.2f} m/s²")
-            print(f"Giroscópio Z: {display_data['bmi160_gyro_z']:.1f} °/s")
-            print(f"G-Force Frontal: {display_data['g_force_frontal']:.2f}g")
-            print(f"Velocidade estimada: {display_data['velocidade']:.1f} km/h")
-            print(f"Status: {display_data['connection_status']}")
-
-        time.sleep(0.1)
-
-    # Mostra estatísticas finais
-    stats = processor.get_statistics()
-    print(f"\n=== ESTATÍSTICAS FINAIS ===")
-    print(f"Pacotes processados: {stats['packets_received']}")
-    print(f"Erros: {stats['processing_errors']}")
-    print(f"Qualidade dos dados: {stats['data_quality']:.1f}%")
-    print(f"Taxa: {stats['packets_per_second']:.1f} pkt/s")
-    print(f"Campos rastreados: {stats['fields_tracked']}")
-
-    # Teste de exportação
-    csv_file = processor.export_history()
-    if csv_file:
-        print(f"Histórico exportado: {csv_file}")
-
-    print("Teste concluído")
+    # Sistema pronto para processar apenas dados reais dos sensores
+    print("Sistema configurado para processar apenas dados reais do BMI160")
