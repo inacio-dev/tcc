@@ -72,13 +72,13 @@ class ConsoleInterface:
 
         # Network client para enviar comandos
         self.network_client = None
-        
+
         # Controlador de teclado
         self.keyboard_controller = KeyboardController(log_callback=self.log)
 
         # Controlador de sliders
         self.slider_controller = SliderController(log_callback=self.log)
-        
+
         # Variáveis de status da conexão
         self.connection_var = None
         self.fps_var = None
@@ -89,13 +89,13 @@ class ConsoleInterface:
 
         # Variáveis dos sensores BMI160
         self.sensor_vars = {}
-        
+
         # Controles de veículo
         self.brake_balance_var = None
         self.current_brake_force = 0.0
         self.current_throttle = 0.0
         self.current_steering = 0.0
-        
+
         # Widgets principais
         self.log_text = None
         self.pause_btn = None
@@ -114,10 +114,10 @@ class ConsoleInterface:
         self.packets_var = tk.StringVar(value="0")
         self.data_var = tk.StringVar(value="0 MB")
         self.quality_var = tk.StringVar(value="100%")
-        
+
         # Controles de veículo
         self.brake_balance_var = tk.DoubleVar(value=60.0)  # 60% dianteiro padrão
-        
+
         # Instrumentos do motor
         self.rpm_var = tk.StringVar(value="0")
         self.gear_var = tk.StringVar(value="1")
@@ -180,7 +180,9 @@ class ConsoleInterface:
         """Cria janela principal com scroll vertical e layout em grid"""
         self.root = tk.Tk()
         self.root.title("🏎️ F1 Car - Console de Controle")
-        self.root.geometry("1400x1000")  # Janela maior para acomodar vídeo em resolução original
+        self.root.geometry(
+            "1400x1000"
+        )  # Janela maior para acomodar vídeo em resolução original
         self.root.configure(bg="#2b2b2b")  # Tema escuro
 
         # Permitir redimensionamento
@@ -201,17 +203,23 @@ class ConsoleInterface:
 
         # Criar canvas principal com scrollbar
         self.main_canvas = tk.Canvas(self.root, bg="#2b2b2b", highlightthickness=0)
-        self.main_scrollbar = ttk.Scrollbar(self.root, orient="vertical", command=self.main_canvas.yview)
+        self.main_scrollbar = ttk.Scrollbar(
+            self.root, orient="vertical", command=self.main_canvas.yview
+        )
         self.scrollable_frame = ttk.Frame(self.main_canvas, style="Dark.TLabelframe")
 
         # Configurar scroll
         self.scrollable_frame.bind(
             "<Configure>",
-            lambda e: self.main_canvas.configure(scrollregion=self.main_canvas.bbox("all"))
+            lambda e: self.main_canvas.configure(
+                scrollregion=self.main_canvas.bbox("all")
+            ),
         )
 
         # Criar janela no canvas
-        self.canvas_window = self.main_canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        self.canvas_window = self.main_canvas.create_window(
+            (0, 0), window=self.scrollable_frame, anchor="nw"
+        )
 
         # Configurar canvas
         self.main_canvas.configure(yscrollcommand=self.main_scrollbar.set)
@@ -233,14 +241,18 @@ class ConsoleInterface:
 
         # Configurar scroll com mouse wheel (multiplataforma)
         self.main_canvas.bind("<MouseWheel>", self._on_mousewheel)  # Windows
-        self.main_canvas.bind("<Button-4>", self._on_mousewheel)     # Linux scroll up
-        self.main_canvas.bind("<Button-5>", self._on_mousewheel)     # Linux scroll down
-        self.root.bind("<MouseWheel>", self._on_mousewheel)          # Windows - janela toda
-        self.root.bind("<Button-4>", self._on_mousewheel)            # Linux scroll up - janela toda
-        self.root.bind("<Button-5>", self._on_mousewheel)            # Linux scroll down - janela toda
+        self.main_canvas.bind("<Button-4>", self._on_mousewheel)  # Linux scroll up
+        self.main_canvas.bind("<Button-5>", self._on_mousewheel)  # Linux scroll down
+        self.root.bind("<MouseWheel>", self._on_mousewheel)  # Windows - janela toda
+        self.root.bind(
+            "<Button-4>", self._on_mousewheel
+        )  # Linux scroll up - janela toda
+        self.root.bind(
+            "<Button-5>", self._on_mousewheel
+        )  # Linux scroll down - janela toda
 
         # Bind para redimensionamento da janela
-        self.main_canvas.bind('<Configure>', self._on_canvas_configure)
+        self.main_canvas.bind("<Configure>", self._on_canvas_configure)
 
         # Aplicar scroll a todos os widgets após criação da interface
         self.root.after(100, self._bind_mousewheel_to_all)
@@ -248,10 +260,10 @@ class ConsoleInterface:
     def _on_mousewheel(self, event):
         """Handler para scroll com mouse wheel (multiplataforma)"""
         # Windows usa event.delta, Linux usa event.num
-        if hasattr(event, 'delta'):
+        if hasattr(event, "delta"):
             # Windows: delta é múltiplo de 120
             delta = int(-1 * (event.delta / 120))
-        elif hasattr(event, 'num'):
+        elif hasattr(event, "num"):
             # Linux: Button-4 (scroll up) = -1, Button-5 (scroll down) = +1
             delta = -1 if event.num == 4 else 1
         else:
@@ -266,12 +278,17 @@ class ConsoleInterface:
 
     def _bind_mousewheel_to_all(self):
         """Aplica scroll do mouse a todos os widgets da interface"""
+
         def bind_to_widget(widget):
             try:
                 # Bind eventos de scroll multiplataforma
                 widget.bind("<MouseWheel>", self._on_mousewheel, add="+")  # Windows
-                widget.bind("<Button-4>", self._on_mousewheel, add="+")     # Linux scroll up
-                widget.bind("<Button-5>", self._on_mousewheel, add="+")     # Linux scroll down
+                widget.bind(
+                    "<Button-4>", self._on_mousewheel, add="+"
+                )  # Linux scroll up
+                widget.bind(
+                    "<Button-5>", self._on_mousewheel, add="+"
+                )  # Linux scroll down
             except tk.TclError:
                 # Alguns widgets não suportam bind, ignora
                 pass
@@ -350,58 +367,93 @@ class ConsoleInterface:
             self.left_column, text="🏎️ Painel de Instrumentos", style="Dark.TLabelframe"
         )
         instrument_frame.pack(fill=tk.X, padx=5, pady=5)
-        
+
         # Frame interno para organizar os instrumentos
         instruments_inner = tk.Frame(instrument_frame, bg="#3c3c3c")
         instruments_inner.pack(fill=tk.X, padx=10, pady=10)
-        
+
         # Conta-giros (RPM) - Lado esquerdo
         rpm_frame = tk.Frame(instruments_inner, bg="#2c2c2c", relief=tk.RAISED, bd=2)
         rpm_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
-        
-        tk.Label(rpm_frame, text="🔧 ZONA DE EFICIÊNCIA", bg="#2c2c2c", fg="white",
-                font=("Arial", 10, "bold")).pack(pady=5)
-        
+
+        tk.Label(
+            rpm_frame,
+            text="🔧 ZONA DE EFICIÊNCIA",
+            bg="#2c2c2c",
+            fg="white",
+            font=("Arial", 10, "bold"),
+        ).pack(pady=5)
+
         # RPM em fonte grande
-        self.rpm_display = tk.Label(rpm_frame, textvariable=self.rpm_var, 
-                                   bg="#2c2c2c", fg="#00ff00", 
-                                   font=("Digital-7", 24, "bold"))
+        self.rpm_display = tk.Label(
+            rpm_frame,
+            textvariable=self.rpm_var,
+            bg="#2c2c2c",
+            fg="#00ff00",
+            font=("Digital-7", 24, "bold"),
+        )
         self.rpm_display.pack(pady=5)
-        
-        tk.Label(rpm_frame, text="% IDEAL", bg="#2c2c2c", fg="#cccccc",
-                font=("Arial", 8)).pack()
-        
+
+        tk.Label(
+            rpm_frame, text="% IDEAL", bg="#2c2c2c", fg="#cccccc", font=("Arial", 8)
+        ).pack()
+
         # Marcha - Centro
         gear_frame = tk.Frame(instruments_inner, bg="#2c2c2c", relief=tk.RAISED, bd=2)
         gear_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
-        
-        tk.Label(gear_frame, text="⚙️ MARCHA", bg="#2c2c2c", fg="white",
-                font=("Arial", 10, "bold")).pack(pady=5)
-        
+
+        tk.Label(
+            gear_frame,
+            text="⚙️ MARCHA",
+            bg="#2c2c2c",
+            fg="white",
+            font=("Arial", 10, "bold"),
+        ).pack(pady=5)
+
         # Marcha em fonte muito grande
-        self.gear_display = tk.Label(gear_frame, textvariable=self.gear_var,
-                                    bg="#2c2c2c", fg="#ffaa00",
-                                    font=("Arial", 36, "bold"))
+        self.gear_display = tk.Label(
+            gear_frame,
+            textvariable=self.gear_var,
+            bg="#2c2c2c",
+            fg="#ffaa00",
+            font=("Arial", 36, "bold"),
+        )
         self.gear_display.pack(pady=10)
-        
-        tk.Label(gear_frame, text="ª", bg="#2c2c2c", fg="#cccccc",
-                font=("Arial", 12)).pack()
-        
+
+        tk.Label(
+            gear_frame, text="ª", bg="#2c2c2c", fg="#cccccc", font=("Arial", 12)
+        ).pack()
+
         # Motor e Velocidade - Lado direito
         speed_frame = tk.Frame(instruments_inner, bg="#2c2c2c", relief=tk.RAISED, bd=2)
         speed_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
 
-        tk.Label(speed_frame, text="🚀 MOTOR", bg="#2c2c2c", fg="white",
-                font=("Arial", 10, "bold")).pack(pady=5)
+        tk.Label(
+            speed_frame,
+            text="🚀 MOTOR",
+            bg="#2c2c2c",
+            fg="white",
+            font=("Arial", 10, "bold"),
+        ).pack(pady=5)
 
         # Throttle
         throttle_inner = tk.Frame(speed_frame, bg="#2c2c2c")
         throttle_inner.pack(fill=tk.X, pady=2)
 
-        tk.Label(throttle_inner, text="Acelerador:", bg="#2c2c2c", fg="#cccccc",
-                font=("Arial", 8)).pack(side=tk.LEFT)
-        tk.Label(throttle_inner, textvariable=self.throttle_var, bg="#2c2c2c", fg="#ff6600",
-                font=("Arial", 14, "bold")).pack(side=tk.RIGHT)
+        tk.Label(
+            throttle_inner,
+            text="Acelerador:",
+            bg="#2c2c2c",
+            fg="#cccccc",
+            font=("Arial", 8),
+        ).pack(side=tk.LEFT)
+        tk.Label(
+            throttle_inner,
+            textvariable=self.throttle_var,
+            bg="#2c2c2c",
+            fg="#ff6600",
+            font=("Arial", 14, "bold"),
+        ).pack(side=tk.RIGHT)
 
         # Motor não tem sensor de velocidade - velocidade está na seção BMI160
 
@@ -409,17 +461,27 @@ class ConsoleInterface:
         temp_frame = tk.Frame(instruments_inner, bg="#2c2c2c", relief=tk.RAISED, bd=2)
         temp_frame.pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=5)
 
-        tk.Label(temp_frame, text="🌡️ TEMPERATURA", bg="#2c2c2c", fg="white",
-                font=("Arial", 10, "bold")).pack(pady=5)
+        tk.Label(
+            temp_frame,
+            text="🌡️ TEMPERATURA",
+            bg="#2c2c2c",
+            fg="white",
+            font=("Arial", 10, "bold"),
+        ).pack(pady=5)
 
         # Display de temperatura com cor baseada na faixa
-        self.temp_display = tk.Label(temp_frame, textvariable=self.sensor_vars["temperature_c"],
-                                    bg="#2c2c2c", fg="#00ff88",
-                                    font=("Digital-7", 20, "bold"))
+        self.temp_display = tk.Label(
+            temp_frame,
+            textvariable=self.sensor_vars["temperature_c"],
+            bg="#2c2c2c",
+            fg="#00ff88",
+            font=("Digital-7", 20, "bold"),
+        )
         self.temp_display.pack(pady=5)
 
-        tk.Label(temp_frame, text="°C", bg="#2c2c2c", fg="#cccccc",
-                font=("Arial", 10)).pack()
+        tk.Label(
+            temp_frame, text="°C", bg="#2c2c2c", fg="#cccccc", font=("Arial", 10)
+        ).pack()
 
     def create_bmi160_frame(self):
         """Cria frame com dados do BMI160"""
@@ -593,16 +655,22 @@ class ConsoleInterface:
         )
 
         # Velocidade calculada pelo BMI160
-        velocity_frame = tk.LabelFrame(sensor_frame, text="Velocidade (Calculada)",
-                                     bg="#3c3c3c", fg="white", font=("Arial", 9, "bold"))
+        velocity_frame = tk.LabelFrame(
+            sensor_frame,
+            text="Velocidade (Calculada)",
+            bg="#3c3c3c",
+            fg="white",
+            font=("Arial", 9, "bold"),
+        )
         velocity_frame.pack(fill=tk.X, padx=5, pady=2)
 
         ttk.Label(velocity_frame, text="Velocidade:", style="Dark.TLabel").grid(
             row=0, column=0, padx=5, sticky=tk.W
         )
-        self.velocity_label = ttk.Label(velocity_frame, text="0.0 km/h", style="Dark.TLabel")
+        self.velocity_label = ttk.Label(
+            velocity_frame, text="0.0 km/h", style="Dark.TLabel"
+        )
         self.velocity_label.grid(row=0, column=1, padx=5, sticky=tk.W)
-
 
     def create_force_feedback_frame(self):
         """Cria frame com dados do force feedback"""
@@ -677,7 +745,9 @@ class ConsoleInterface:
         ).pack(side=tk.LEFT, padx=5)
 
         # Separador
-        ttk.Separator(btn_frame, orient="vertical").pack(side=tk.LEFT, fill=tk.Y, padx=10, pady=5)
+        ttk.Separator(btn_frame, orient="vertical").pack(
+            side=tk.LEFT, fill=tk.Y, padx=10, pady=5
+        )
 
         # Status das configurações
         ttk.Label(btn_frame, text="Config:", style="Dark.TLabel").pack(
@@ -721,16 +791,18 @@ class ConsoleInterface:
         self.brake_balance_scale.pack(side=tk.LEFT, padx=10)
 
         # Labels informativos
-        ttk.Label(brake_frame, text="Traseiro", style="Dark.TLabel").pack(side=tk.LEFT, padx=2)
+        ttk.Label(brake_frame, text="Traseiro", style="Dark.TLabel").pack(
+            side=tk.LEFT, padx=2
+        )
         ttk.Label(brake_frame, text="←", style="Dark.TLabel").pack(side=tk.LEFT)
         ttk.Label(brake_frame, text="→", style="Dark.TLabel").pack(side=tk.LEFT)
-        ttk.Label(brake_frame, text="Dianteiro", style="Dark.TLabel").pack(side=tk.LEFT, padx=2)
+        ttk.Label(brake_frame, text="Dianteiro", style="Dark.TLabel").pack(
+            side=tk.LEFT, padx=2
+        )
 
         # Label com valor atual
         self.brake_balance_label = ttk.Label(
-            brake_frame, 
-            text="60% Dianteiro / 40% Traseiro",
-            style="Dark.TLabel"
+            brake_frame, text="60% Dianteiro / 40% Traseiro", style="Dark.TLabel"
         )
         self.brake_balance_label.pack(side=tk.LEFT, padx=10)
 
@@ -753,7 +825,7 @@ class ConsoleInterface:
             bg="#1a1a1a",
             fg="white",
             font=("Arial", 10),
-            justify=tk.CENTER
+            justify=tk.CENTER,
         )
         self.video_label.pack(expand=True)
 
@@ -763,19 +835,29 @@ class ConsoleInterface:
 
         # Status do vídeo
         self.video_status_var = tk.StringVar(value="🔴 Sem vídeo")
-        ttk.Label(video_controls, text="Status:", style="Dark.TLabel").pack(side=tk.LEFT, padx=5)
-        ttk.Label(video_controls, textvariable=self.video_status_var, style="Dark.TLabel").pack(side=tk.LEFT)
+        ttk.Label(video_controls, text="Status:", style="Dark.TLabel").pack(
+            side=tk.LEFT, padx=5
+        )
+        ttk.Label(
+            video_controls, textvariable=self.video_status_var, style="Dark.TLabel"
+        ).pack(side=tk.LEFT)
 
         # Resolução
         self.video_resolution_var = tk.StringVar(value="N/A")
-        ttk.Label(video_controls, text="Resolução:", style="Dark.TLabel").pack(side=tk.LEFT, padx=(20,5))
-        ttk.Label(video_controls, textvariable=self.video_resolution_var, style="Dark.TLabel").pack(side=tk.LEFT)
+        ttk.Label(video_controls, text="Resolução:", style="Dark.TLabel").pack(
+            side=tk.LEFT, padx=(20, 5)
+        )
+        ttk.Label(
+            video_controls, textvariable=self.video_resolution_var, style="Dark.TLabel"
+        ).pack(side=tk.LEFT)
 
         # NOVOS CONTROLES: Melhorias de Vídeo
-        enhancements_frame = tk.Frame(video_controls, bg='#1a1a1a')
-        enhancements_frame.pack(side=tk.LEFT, padx=(20,0))
+        enhancements_frame = tk.Frame(video_controls, bg="#1a1a1a")
+        enhancements_frame.pack(side=tk.LEFT, padx=(20, 0))
 
-        ttk.Label(enhancements_frame, text="Melhorias:", style="Dark.TLabel").pack(side=tk.LEFT)
+        ttk.Label(enhancements_frame, text="Melhorias:", style="Dark.TLabel").pack(
+            side=tk.LEFT
+        )
 
         # Correção de Cor
         self.color_correction_var = tk.BooleanVar(value=True)  # Ativo por padrão
@@ -784,7 +866,7 @@ class ConsoleInterface:
             text="🎨 Cor",
             variable=self.color_correction_var,
             command=self.toggle_color_correction,
-            style="Dark.TCheckbutton"
+            style="Dark.TCheckbutton",
         )
         color_check.pack(side=tk.LEFT, padx=2)
 
@@ -795,7 +877,7 @@ class ConsoleInterface:
             text="🔍 Nitidez",
             variable=self.sharpening_var,
             command=self.toggle_sharpening,
-            style="Dark.TCheckbutton"
+            style="Dark.TCheckbutton",
         )
         sharp_check.pack(side=tk.LEFT, padx=2)
 
@@ -806,23 +888,23 @@ class ConsoleInterface:
             text="💡 Brilho",
             variable=self.brightness_var,
             command=self.toggle_brightness,
-            style="Dark.TCheckbutton"
+            style="Dark.TCheckbutton",
         )
         brightness_check.pack(side=tk.LEFT, padx=2)
 
     def toggle_color_correction(self):
         """Ativa/desativa correção automática de cor"""
-        if hasattr(self, 'video_display') and self.video_display:
+        if hasattr(self, "video_display") and self.video_display:
             self.video_display.toggle_color_correction(self.color_correction_var.get())
 
     def toggle_sharpening(self):
         """Ativa/desativa sharpening inteligente"""
-        if hasattr(self, 'video_display') and self.video_display:
+        if hasattr(self, "video_display") and self.video_display:
             self.video_display.toggle_sharpening(self.sharpening_var.get())
 
     def toggle_brightness(self):
         """Ativa/desativa ajuste automático de brilho"""
-        if hasattr(self, 'video_display') and self.video_display:
+        if hasattr(self, "video_display") and self.video_display:
             self.video_display.toggle_brightness_adjustment(self.brightness_var.get())
 
     def set_video_display(self, video_display):
@@ -834,16 +916,16 @@ class ConsoleInterface:
 
     def update_video_status(self, status_dict):
         """Atualiza status do vídeo"""
-        if hasattr(self, 'video_status_var'):
-            if status_dict.get('connected', False):
-                fps = status_dict.get('fps', 0)
+        if hasattr(self, "video_status_var"):
+            if status_dict.get("connected", False):
+                fps = status_dict.get("fps", 0)
                 self.video_status_var.set(f"🟢 Conectado ({fps:.1f} FPS)")
             else:
                 self.video_status_var.set("🔴 Desconectado")
 
-        if hasattr(self, 'video_resolution_var'):
-            width = status_dict.get('width', 0)
-            height = status_dict.get('height', 0)
+        if hasattr(self, "video_resolution_var"):
+            width = status_dict.get("width", 0)
+            height = status_dict.get("height", 0)
             if width > 0 and height > 0:
                 self.video_resolution_var.set(f"{width}x{height}")
             else:
@@ -923,10 +1005,10 @@ class ConsoleInterface:
         self.create_log_frame()
 
         # Conecta video_display se já foi definido
-        if hasattr(self, 'video_display') and self.video_display:
-            if hasattr(self.video_display, 'set_tkinter_label'):
+        if hasattr(self, "video_display") and self.video_display:
+            if hasattr(self.video_display, "set_tkinter_label"):
                 self.video_display.set_tkinter_label(self.video_label)
-            if hasattr(self.video_display, 'set_status_callback'):
+            if hasattr(self.video_display, "set_status_callback"):
                 self.video_display.set_status_callback(self.update_video_status)
 
     def log(self, level, message):
@@ -978,7 +1060,7 @@ class ConsoleInterface:
 
         # Atualizar dados do motor (RPM, marcha, throttle, velocidade)
         self._update_motor_display(sensor_data)
-        
+
         # Mapeamento de campos
         field_mapping = {
             # Dados raw BMI160
@@ -1079,16 +1161,16 @@ class ConsoleInterface:
     def _update_temperature_colors(self, sensor_data):
         """Atualiza as cores do display de temperatura baseado no status térmico"""
         try:
-            if hasattr(self, 'temp_display'):
+            if hasattr(self, "temp_display"):
                 thermal_status = sensor_data.get("thermal_status", "NORMAL")
                 temperature_c = sensor_data.get("temperature_c", 0.0)
 
                 # Define cores baseadas no status térmico
                 color_mapping = {
-                    "NORMAL": "#00ff88",        # Verde - temperatura normal
-                    "WARNING": "#ffaa00",       # Laranja - temperatura elevada
-                    "CRITICAL": "#ff4444",      # Vermelho - temperatura crítica
-                    "CRITICAL_SHUTDOWN": "#ff0000"  # Vermelho intenso - shutdown crítico
+                    "NORMAL": "#00ff88",  # Verde - temperatura normal
+                    "WARNING": "#ffaa00",  # Laranja - temperatura elevada
+                    "CRITICAL": "#ff4444",  # Vermelho - temperatura crítica
+                    "CRITICAL_SHUTDOWN": "#ff0000",  # Vermelho intenso - shutdown crítico
                 }
 
                 # Atualiza cor do display
@@ -1100,7 +1182,9 @@ class ConsoleInterface:
                     # Pisca o display em caso crítico
                     current_color = self.temp_display.cget("fg")
                     flash_color = "#ffffff" if current_color != "#ffffff" else color
-                    self.root.after(500, lambda: self.temp_display.config(fg=flash_color))
+                    self.root.after(
+                        500, lambda: self.temp_display.config(fg=flash_color)
+                    )
 
         except Exception as e:
             error(f"Erro ao atualizar cores de temperatura: {e}", "CONSOLE")
@@ -1112,19 +1196,19 @@ class ConsoleInterface:
             if "engine_rpm" in sensor_data:
                 rpm = sensor_data["engine_rpm"]
                 self.rpm_var.set(f"{rpm:.0f}")
-            
+
             # Marcha atual
             if "current_gear" in sensor_data:
                 gear = sensor_data["current_gear"]
                 self.gear_var.set(str(gear))
-            
+
             # Throttle atual (PWM)
             if "current_pwm" in sensor_data:
                 throttle = sensor_data["current_pwm"]
                 self.throttle_var.set(f"{throttle:.1f}%")
-            
+
             # Velocidade não é exibida no motor - apenas na seção BMI160
-                
+
         except Exception as e:
             error(f"Erro ao atualizar painel de instrumentos: {e}", "CONSOLE")
 
@@ -1139,8 +1223,12 @@ class ConsoleInterface:
             import time
 
             # Obtém dados de aceleração em m/s²
-            accel_x = sensor_data.get("bmi160_accel_x", 0.0)  # Longitudinal (frente/trás)
-            accel_y = sensor_data.get("bmi160_accel_y", 0.0)  # Lateral (esquerda/direita)
+            accel_x = sensor_data.get(
+                "bmi160_accel_x", 0.0
+            )  # Longitudinal (frente/trás)
+            accel_y = sensor_data.get(
+                "bmi160_accel_y", 0.0
+            )  # Lateral (esquerda/direita)
 
             current_time = time.time()
 
@@ -1180,13 +1268,13 @@ class ConsoleInterface:
                 self.velocity_y = 0.0
 
             # Calcula velocidade total (magnitude do vetor velocidade)
-            velocity_ms = (self.velocity_x**2 + self.velocity_y**2)**0.5
+            velocity_ms = (self.velocity_x**2 + self.velocity_y**2) ** 0.5
 
             # Converte m/s para km/h
             self.velocity_total = velocity_ms * 3.6
 
             # Atualiza display da velocidade na seção BMI160
-            if hasattr(self, 'velocity_label'):
+            if hasattr(self, "velocity_label"):
                 self.velocity_label.config(text=f"{self.velocity_total:.1f} km/h")
 
         except Exception as e:
@@ -1283,11 +1371,13 @@ class ConsoleInterface:
 
             # Inicia controlador de sliders
             self.slider_controller.start()
-            
+
             # Log inicial
             self.log("INFO", "Interface do console iniciada")
             self.log("INFO", "Aguardando dados do Raspberry Pi...")
-            self.log("INFO", "Controles: Use as setas ou WASD para controlar o carrinho")
+            self.log(
+                "INFO", "Controles: Use as setas ou WASD para controlar o carrinho"
+            )
 
             # Inicia loop principal do Tkinter
             self.root.mainloop()
@@ -1304,43 +1394,131 @@ class ConsoleInterface:
     def _cleanup_tkinter_resources(self):
         """Limpa todos os recursos Tkinter de forma segura"""
         try:
+            import tkinter as tk
             # Para o controlador de teclado
-            if hasattr(self, 'keyboard_controller') and self.keyboard_controller:
+            if hasattr(self, "keyboard_controller") and self.keyboard_controller:
                 self.keyboard_controller.stop()
 
             # Para o controlador de sliders
-            if hasattr(self, 'slider_controller') and self.slider_controller:
+            if hasattr(self, "slider_controller") and self.slider_controller:
                 self.slider_controller.stop()
-                
-            # Limpa variáveis Tkinter
+
+            # Lista COMPLETA de todas as variáveis Tkinter
             tkinter_vars = [
-                'connection_var', 'fps_var', 'frame_size_var', 'packets_var', 
-                'data_var', 'quality_var', 'brake_balance_var', 'autoscroll_var'
+                "connection_var",
+                "fps_var",
+                "frame_size_var",
+                "packets_var",
+                "data_var",
+                "quality_var",
+                "brake_balance_var",
+                "rpm_var",
+                "gear_var",
+                "throttle_var",
+                "speed_var",
+                "video_status_var",
+                "video_resolution_var",
+                "color_correction_var",
+                "sharpening_var",
+                "brightness_var",
+                "autoscroll_var",
             ]
-            
+
+            # Remove todas as variáveis Tkinter individuais
             for var_name in tkinter_vars:
                 if hasattr(self, var_name):
                     try:
+                        var = getattr(self, var_name)
+                        if var is not None:
+                            try:
+                                var._tk = None  # Quebra referência ao Tcl
+                            except:
+                                pass
                         delattr(self, var_name)
                     except:
                         pass
-            
-            # Limpa sensor vars
-            if hasattr(self, 'sensor_vars'):
+
+            # Limpa dicionário de sensor vars de forma mais agressiva
+            if hasattr(self, "sensor_vars"):
                 try:
+                    for key, var in list(self.sensor_vars.items()):
+                        if var is not None:
+                            try:
+                                var._tk = None  # Quebra referência ao Tcl
+                            except:
+                                pass
                     self.sensor_vars.clear()
-                    delattr(self, 'sensor_vars')
+                    delattr(self, "sensor_vars")
                 except:
                     pass
-                    
-            # Destrói a janela principal
-            if hasattr(self, 'root') and self.root:
+
+            # Remove outras referências Tkinter
+            widget_refs = [
+                "log_text",
+                "pause_btn",
+                "brake_balance_scale",
+                "video_label",
+                "main_canvas",
+                "main_scrollbar",
+                "scrollable_frame",
+                "canvas_window",
+                "left_column",
+                "right_column",
+                "video_container",
+                "rpm_display",
+                "gear_display",
+                "temp_display",
+                "velocity_label",
+                "brake_balance_label",
+            ]
+
+            for widget_name in widget_refs:
+                if hasattr(self, widget_name):
+                    try:
+                        delattr(self, widget_name)
+                    except:
+                        pass
+
+            # Força garbage collection antes de destruir janela
+            try:
+                import gc
+
+                gc.collect()
+            except:
+                pass
+
+            # Destrói a janela principal por último
+            if hasattr(self, "root") and self.root:
                 try:
-                    self.root.quit()
-                    self.root.destroy()
+                    # Para todos os after() e after_idle()
+                    self.root.after_cancel("all")
+
+                    # Força a finalização de todos os eventos pendentes
+                    try:
+                        self.root.update_idletasks()
+                    except:
+                        pass
+
+                    # Só destrói se a janela ainda existe
+                    try:
+                        # Verifica se a janela ainda está válida
+                        self.root.winfo_exists()
+                        # Se chegou aqui, a janela existe, então destroi
+                        self.root.destroy()
+                    except tk.TclError:
+                        # Janela já foi destruída, ok
+                        pass
+                    except:
+                        # Outro erro, tenta destroy mesmo assim
+                        try:
+                            self.root.destroy()
+                        except:
+                            pass
+
                     self.root = None
                 except:
                     pass
+
         except:
             pass
 
@@ -1351,22 +1529,28 @@ class ConsoleInterface:
             # Atualiza o label
             front_pct = balance
             rear_pct = 100 - balance
-            self.brake_balance_label.config(text=f"{front_pct:.0f}% Dianteiro / {rear_pct:.0f}% Traseiro")
-            
+            self.brake_balance_label.config(
+                text=f"{front_pct:.0f}% Dianteiro / {rear_pct:.0f}% Traseiro"
+            )
+
             # Envia comando para o Raspberry Pi
             self._send_brake_balance_command(balance)
-            
+
         except Exception as e:
             error(f"Erro ao alterar balanço de freio: {e}", "CONTROL")
 
     def _send_brake_balance_command(self, balance: float):
         """Envia comando de brake balance para o Raspberry Pi"""
         try:
-            if hasattr(self, 'network_client') and self.network_client:
-                success = self.network_client.send_control_command("BRAKE_BALANCE", balance)
+            if hasattr(self, "network_client") and self.network_client:
+                success = self.network_client.send_control_command(
+                    "BRAKE_BALANCE", balance
+                )
                 if success:
                     debug(f"Comando enviado: BRAKE_BALANCE:{balance}", "CONTROL")
-                    self.log("INFO", f"Balanço de freio alterado: {balance:.0f}% dianteiro")
+                    self.log(
+                        "INFO", f"Balanço de freio alterado: {balance:.0f}% dianteiro"
+                    )
                 else:
                     debug("Falha ao enviar comando brake_balance", "CONTROL")
             else:
@@ -1384,13 +1568,20 @@ class ConsoleInterface:
         """Para a interface"""
         if not self.is_running:
             return  # Já parou
-            
+
         self.is_running = False
-        self._cleanup_tkinter_resources()
 
-
-# Teste independente
-if __name__ == "__main__":
-    import queue
-    print("=== CONSOLE INTERFACE CONFIGURADA PARA DADOS REAIS ===")
-    print("Sistema pronto para receber apenas dados reais dos sensores")
+        # Se estamos na thread principal do Tkinter, limpa diretamente
+        # Senão, agenda para a thread principal
+        if hasattr(self, "root") and self.root:
+            try:
+                # Força execução na thread principal do Tkinter
+                self.root.after_idle(self._cleanup_tkinter_resources)
+                # Inicia processo de saída
+                self.root.quit()
+            except:
+                # Se falhar, tenta limpeza direta
+                self._cleanup_tkinter_resources()
+        else:
+            # Sem janela ativa, limpa diretamente
+            self._cleanup_tkinter_resources()

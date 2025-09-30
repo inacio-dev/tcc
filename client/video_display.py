@@ -67,12 +67,19 @@ class VideoDisplay:
         self.sharpening_enabled = enable_video_enhancements
         self.brightness_auto_adjust = enable_video_enhancements
 
-        self._log("INFO", f"VideoDisplay inicializado - Melhorias: {'Ativadas' if enable_video_enhancements else 'Desativadas'}")
+        self._log(
+            "INFO",
+            f"VideoDisplay inicializado - Melhorias: {'Ativadas' if enable_video_enhancements else 'Desativadas'}",
+        )
 
         if enable_video_enhancements:
-            self._log("INFO", "🎨 Correção automática de cor: ATIVA (resolve tom azulado)")
+            self._log(
+                "INFO", "🎨 Correção automática de cor: ATIVA (resolve tom azulado)"
+            )
             self._log("INFO", "🔍 Sharpening inteligente: ATIVO (melhora nitidez)")
-            self._log("INFO", "💡 Ajuste automático de brilho: ATIVO (otimiza exposição)")
+            self._log(
+                "INFO", "💡 Ajuste automático de brilho: ATIVO (otimiza exposição)"
+            )
 
     def _log(self, level, message):
         """Envia mensagem para fila de log"""
@@ -104,7 +111,7 @@ class VideoDisplay:
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
             # Usar modo direto do PIL (mais rápido)
-            pil_image = Image.fromarray(rgb_frame, mode='RGB')
+            pil_image = Image.fromarray(rgb_frame, mode="RGB")
 
             # PhotoImage direto sem cópia extra
             photo = ImageTk.PhotoImage(image=pil_image)
@@ -120,9 +127,9 @@ class VideoDisplay:
             # Atualizar status se callback definido (assíncrono)
             if self.status_callback:
                 status = {
-                    'connected': True,
-                    'resolution': f"{frame.shape[1]}x{frame.shape[0]}",
-                    'fps': self.current_fps
+                    "connected": True,
+                    "resolution": f"{frame.shape[1]}x{frame.shape[0]}",
+                    "fps": self.current_fps,
                 }
                 try:
                     self.status_callback(status)
@@ -138,21 +145,17 @@ class VideoDisplay:
             if self.tkinter_label:
                 # Atualizar texto do label para mostrar sem sinal
                 self.tkinter_label.configure(
-                    image='',
+                    image="",
                     text="📡 Sem Sinal\n\nAguardando vídeo do Raspberry Pi...",
                     fg="red",
                     bg="#1a1a1a",
-                    font=("Arial", 12)
+                    font=("Arial", 12),
                 )
                 self.tkinter_label.image = None
 
             # Atualizar status
             if self.status_callback:
-                status = {
-                    'connected': False,
-                    'resolution': 'N/A',
-                    'fps': 0
-                }
+                status = {"connected": False, "resolution": "N/A", "fps": 0}
                 self.status_callback(status)
 
         except Exception as e:
@@ -177,7 +180,9 @@ class VideoDisplay:
 
             # Apenas informações essenciais
             cv2.putText(frame, fps_text, (10, 25), font, font_scale, color, thickness)
-            cv2.putText(frame, resolution_text, (10, 50), font, font_scale, color, thickness)
+            cv2.putText(
+                frame, resolution_text, (10, 50), font, font_scale, color, thickness
+            )
 
             return frame
         except:
@@ -228,13 +233,19 @@ class VideoDisplay:
             # OTIMIZAÇÃO AVANÇADA: Processa inteligentemente para mínimo delay
             frames_processed = 0
             latest_frame = None
-            total_queue_size = self.video_queue.qsize() if hasattr(self.video_queue, 'qsize') else 0
+            total_queue_size = (
+                self.video_queue.qsize() if hasattr(self.video_queue, "qsize") else 0
+            )
 
             # Se fila muito cheia (>5), descarta frames antigos agressivamente
             max_frames_to_process = 15 if total_queue_size > 5 else 3
 
             # Drena a fila mantendo apenas o frame mais recente
-            while not self.video_queue.empty() and self.is_running and frames_processed < max_frames_to_process:
+            while (
+                not self.video_queue.empty()
+                and self.is_running
+                and frames_processed < max_frames_to_process
+            ):
                 frame_data = self.video_queue.get_nowait()
                 frames_processed += 1
 
@@ -277,9 +288,15 @@ class VideoDisplay:
 
                 # Log inteligente sobre desempenho
                 if frames_processed > 5:
-                    self._log("DEBUG", f"Processados {frames_processed} frames (fila: {total_queue_size}) - descartando {frames_processed-1} antigos")
+                    self._log(
+                        "DEBUG",
+                        f"Processados {frames_processed} frames (fila: {total_queue_size}) - descartando {frames_processed-1} antigos",
+                    )
                 elif total_queue_size > 10:
-                    self._log("WARN", f"Fila de vídeo crescendo: {total_queue_size} frames pendentes")
+                    self._log(
+                        "WARN",
+                        f"Fila de vídeo crescendo: {total_queue_size} frames pendentes",
+                    )
 
         except Exception as e:
             self._log("ERROR", f"Erro ao processar fila de vídeo: {e}")
@@ -298,8 +315,10 @@ class VideoDisplay:
                 # Reduz canal azul levemente e aumenta vermelho
                 correction_factor = 0.9
                 enhanced_frame = frame.copy()
-                enhanced_frame[:,:,0] = np.clip(b * correction_factor, 0, 255)  # Reduz azul
-                enhanced_frame[:,:,2] = np.clip(r * 1.1, 0, 255)  # Aumenta vermelho
+                enhanced_frame[:, :, 0] = np.clip(
+                    b * correction_factor, 0, 255
+                )  # Reduz azul
+                enhanced_frame[:, :, 2] = np.clip(r * 1.1, 0, 255)  # Aumenta vermelho
                 return enhanced_frame
 
             return frame
@@ -316,9 +335,9 @@ class VideoDisplay:
                 return frame
 
             # Kernel de sharpening suave
-            kernel = np.array([[-0.1, -0.1, -0.1],
-                              [-0.1,  1.8, -0.1],
-                              [-0.1, -0.1, -0.1]])
+            kernel = np.array(
+                [[-0.1, -0.1, -0.1], [-0.1, 1.8, -0.1], [-0.1, -0.1, -0.1]]
+            )
 
             sharpened = cv2.filter2D(frame, -1, kernel)
             return sharpened
@@ -358,7 +377,10 @@ class VideoDisplay:
             self.color_correction_enabled = not self.color_correction_enabled
         else:
             self.color_correction_enabled = enabled
-        self._log("INFO", f"Correção de cor: {'Ativada' if self.color_correction_enabled else 'Desativada'}")
+        self._log(
+            "INFO",
+            f"Correção de cor: {'Ativada' if self.color_correction_enabled else 'Desativada'}",
+        )
 
     def toggle_sharpening(self, enabled=None):
         """Ativa/desativa sharpening"""
@@ -366,7 +388,10 @@ class VideoDisplay:
             self.sharpening_enabled = not self.sharpening_enabled
         else:
             self.sharpening_enabled = enabled
-        self._log("INFO", f"Sharpening: {'Ativado' if self.sharpening_enabled else 'Desativado'}")
+        self._log(
+            "INFO",
+            f"Sharpening: {'Ativado' if self.sharpening_enabled else 'Desativado'}",
+        )
 
     def toggle_brightness_adjustment(self, enabled=None):
         """Ativa/desativa ajuste automático de brilho"""
@@ -374,7 +399,10 @@ class VideoDisplay:
             self.brightness_auto_adjust = not self.brightness_auto_adjust
         else:
             self.brightness_auto_adjust = enabled
-        self._log("INFO", f"Ajuste de brilho: {'Ativado' if self.brightness_auto_adjust else 'Desativado'}")
+        self._log(
+            "INFO",
+            f"Ajuste de brilho: {'Ativado' if self.brightness_auto_adjust else 'Desativado'}",
+        )
 
     def get_enhancement_status(self):
         """Retorna status das melhorias de vídeo"""
@@ -382,7 +410,7 @@ class VideoDisplay:
             "enhancements_enabled": self.enable_video_enhancements,
             "color_correction": self.color_correction_enabled,
             "sharpening": self.sharpening_enabled,
-            "brightness_adjustment": self.brightness_auto_adjust
+            "brightness_adjustment": self.brightness_auto_adjust,
         }
 
     def run_display(self):

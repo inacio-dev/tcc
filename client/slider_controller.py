@@ -28,7 +28,7 @@ class SliderController:
 
         # Estado dos controles
         self.throttle_value = 0.0  # 0-100%
-        self.brake_value = 0.0     # 0-100%
+        self.brake_value = 0.0  # 0-100%
         self.steering_value = 0.0  # -100 a +100% (esquerda/direita)
 
         # Widgets dos sliders
@@ -108,7 +108,7 @@ class SliderController:
             text="🚀 Throttle: 0%",
             bg="#3c3c3c",
             fg="#00d477",
-            font=("Arial", 12, "bold")
+            font=("Arial", 12, "bold"),
         )
         self.throttle_label.pack(pady=(0, 10))
 
@@ -126,7 +126,7 @@ class SliderController:
             highlightthickness=0,
             troughcolor="#1a1a1a",
             sliderrelief=tk.FLAT,
-            command=self._on_throttle_change
+            command=self._on_throttle_change,
         )
         self.throttle_slider.pack()
 
@@ -136,11 +136,7 @@ class SliderController:
 
         for i, mark in enumerate(["100%", "75%", "50%", "25%", "0%"]):
             label = tk.Label(
-                throttle_marks,
-                text=mark,
-                bg="#3c3c3c",
-                fg="#888888",
-                font=("Arial", 8)
+                throttle_marks, text=mark, bg="#3c3c3c", fg="#888888", font=("Arial", 8)
             )
             label.pack()
 
@@ -154,7 +150,7 @@ class SliderController:
             text="🛑 Brake: 0%",
             bg="#3c3c3c",
             fg="#ff4444",
-            font=("Arial", 12, "bold")
+            font=("Arial", 12, "bold"),
         )
         self.brake_label.pack(pady=(0, 10))
 
@@ -172,7 +168,7 @@ class SliderController:
             highlightthickness=0,
             troughcolor="#1a1a1a",
             sliderrelief=tk.FLAT,
-            command=self._on_brake_change
+            command=self._on_brake_change,
         )
         self.brake_slider.pack()
 
@@ -182,11 +178,7 @@ class SliderController:
 
         for i, mark in enumerate(["100%", "75%", "50%", "25%", "0%"]):
             label = tk.Label(
-                brake_marks,
-                text=mark,
-                bg="#3c3c3c",
-                fg="#888888",
-                font=("Arial", 8)
+                brake_marks, text=mark, bg="#3c3c3c", fg="#888888", font=("Arial", 8)
             )
             label.pack()
 
@@ -200,7 +192,7 @@ class SliderController:
             text="🏎️ Direção: 0° (Centro)",
             bg="#3c3c3c",
             fg="#4488ff",
-            font=("Arial", 12, "bold")
+            font=("Arial", 12, "bold"),
         )
         self.steering_label.pack(pady=(0, 10))
 
@@ -218,7 +210,7 @@ class SliderController:
             highlightthickness=0,
             troughcolor="#1a1a1a",
             sliderrelief=tk.FLAT,
-            command=self._on_steering_change
+            command=self._on_steering_change,
         )
         self.steering_slider.set(0)  # Inicia no centro
         self.steering_slider.pack()
@@ -232,11 +224,7 @@ class SliderController:
 
         for mark in ["⬅️ ESQ", "⬅️", "🎯 CENTRO", "➡️", "➡️ DIR"]:
             label = tk.Label(
-                marks_frame,
-                text=mark,
-                bg="#3c3c3c",
-                fg="#888888",
-                font=("Arial", 8)
+                marks_frame, text=mark, bg="#3c3c3c", fg="#888888", font=("Arial", 8)
             )
             label.pack(side=tk.LEFT, padx=15)
 
@@ -246,7 +234,7 @@ class SliderController:
             text="Arraste os sliders para controlar throttle, brake e direção de forma suave",
             bg="#3c3c3c",
             fg="#cccccc",
-            font=("Arial", 9)
+            font=("Arial", 9),
         )
         instructions.pack(pady=5)
 
@@ -261,12 +249,15 @@ class SliderController:
 
             # CORREÇÃO: Envia comando em thread separada para não travar UI
             if self.network_client:
-                self._log("DEBUG", f"🚀 Throttle: {old_throttle:.0f}% → {self.throttle_value:.0f}%")
+                self._log(
+                    "DEBUG",
+                    f"🚀 Throttle: {old_throttle:.0f}% → {self.throttle_value:.0f}%",
+                )
                 # Thread separada para envio de rede (não bloqueia UI)
                 threading.Thread(
                     target=self._send_command_async,
-                    args=('THROTTLE', self.throttle_value),
-                    daemon=True
+                    args=("THROTTLE", self.throttle_value),
+                    daemon=True,
                 ).start()
 
         except Exception as e:
@@ -281,12 +272,14 @@ class SliderController:
 
             # CORREÇÃO: Envia comando em thread separada para não travar UI
             if self.network_client:
-                self._log("DEBUG", f"🛑 Brake: {old_brake:.0f}% → {self.brake_value:.0f}%")
+                self._log(
+                    "DEBUG", f"🛑 Brake: {old_brake:.0f}% → {self.brake_value:.0f}%"
+                )
                 # Thread separada para envio de rede (não bloqueia UI)
                 threading.Thread(
                     target=self._send_command_async,
-                    args=('BRAKE', self.brake_value),
-                    daemon=True
+                    args=("BRAKE", self.brake_value),
+                    daemon=True,
                 ).start()
 
         except Exception as e:
@@ -302,7 +295,9 @@ class SliderController:
             if self.steering_value == 0:
                 direction_text = "🏎️ Direção: 0° (Centro)"
             elif self.steering_value < 0:
-                direction_text = f"🏎️ Direção: {abs(self.steering_value):.0f}° ⬅️ Esquerda"
+                direction_text = (
+                    f"🏎️ Direção: {abs(self.steering_value):.0f}° ⬅️ Esquerda"
+                )
             else:
                 direction_text = f"🏎️ Direção: {self.steering_value:.0f}° ➡️ Direita"
 
@@ -310,12 +305,15 @@ class SliderController:
 
             # CORREÇÃO: Envia comando imediatamente quando muda
             if self.network_client:
-                self._log("DEBUG", f"🏎️ Direção: {old_steering:.0f}° → {self.steering_value:.0f}°")
+                self._log(
+                    "DEBUG",
+                    f"🏎️ Direção: {old_steering:.0f}° → {self.steering_value:.0f}°",
+                )
                 # Thread separada para envio de rede (não bloqueia UI)
                 threading.Thread(
                     target=self._send_command_async,
-                    args=('STEERING', self.steering_value),
-                    daemon=True
+                    args=("STEERING", self.steering_value),
+                    daemon=True,
                 ).start()
 
         except Exception as e:
@@ -337,7 +335,9 @@ class SliderController:
                     self.commands_sent += 1
                     return True
                 else:
-                    self._log("WARN", f"Falha ao enviar comando: {command_type}:{value}")
+                    self._log(
+                        "WARN", f"Falha ao enviar comando: {command_type}:{value}"
+                    )
                     return False
             else:
                 self._log("WARN", "Network client não disponível")
@@ -367,14 +367,24 @@ class SliderController:
 
         try:
             # Envia comandos de parada
-            self._send_command('THROTTLE', 0.0)
-            self._send_command('BRAKE', 0.0)
+            self._send_command("THROTTLE", 0.0)
+            self._send_command("BRAKE", 0.0)
         except:
             pass
 
+        # Aguarda thread de envio parar
         try:
             if self.send_thread and self.send_thread.is_alive():
-                self.send_thread.join(timeout=0.5)
+                self.send_thread.join(timeout=1.0)
+                if self.send_thread.is_alive():
+                    self._log("WARN", "Thread de envio não finalizou no timeout")
+        except Exception as e:
+            self._log("ERROR", f"Erro ao parar thread de envio: {e}")
+
+        # Limpa referências
+        try:
+            self.network_client = None
+            self.log_callback = None
         except:
             pass
 
@@ -389,13 +399,19 @@ class SliderController:
             try:
                 with self.lock:
                     # Envia throttle se mudou significativamente
-                    if abs(self.throttle_value - self.last_sent_throttle) >= self.min_change_threshold:
-                        if self._send_command('THROTTLE', self.throttle_value):
+                    if (
+                        abs(self.throttle_value - self.last_sent_throttle)
+                        >= self.min_change_threshold
+                    ):
+                        if self._send_command("THROTTLE", self.throttle_value):
                             self.last_sent_throttle = self.throttle_value
 
                     # Envia brake se mudou significativamente
-                    if abs(self.brake_value - self.last_sent_brake) >= self.min_change_threshold:
-                        if self._send_command('BRAKE', self.brake_value):
+                    if (
+                        abs(self.brake_value - self.last_sent_brake)
+                        >= self.min_change_threshold
+                    ):
+                        if self._send_command("BRAKE", self.brake_value):
                             self.last_sent_brake = self.brake_value
 
                 # Aguarda próximo ciclo
@@ -407,12 +423,11 @@ class SliderController:
 
     def get_values(self) -> Dict[str, float]:
         """Retorna valores atuais dos sliders"""
-        return {
-            "throttle": self.throttle_value,
-            "brake": self.brake_value
-        }
+        return {"throttle": self.throttle_value, "brake": self.brake_value}
 
-    def set_values(self, throttle: Optional[float] = None, brake: Optional[float] = None):
+    def set_values(
+        self, throttle: Optional[float] = None, brake: Optional[float] = None
+    ):
         """Define valores dos sliders programaticamente"""
         try:
             if throttle is not None and self.throttle_slider:
@@ -437,44 +452,7 @@ class SliderController:
             "brake_value": self.brake_value,
             "is_active": self.is_active,
             "elapsed_time": round(elapsed, 2),
-            "commands_per_second": round(self.commands_sent / elapsed, 2) if elapsed > 0 else 0,
+            "commands_per_second": (
+                round(self.commands_sent / elapsed, 2) if elapsed > 0 else 0
+            ),
         }
-
-
-# Teste independente
-if __name__ == "__main__":
-    print("=== TESTE DO SLIDER CONTROLLER ===")
-
-    # Simulação de network client
-    class MockNetworkClient:
-        def send_control_command(self, command_type, value):
-            print(f"📡 COMANDO: {command_type} = {value:.1f}%")
-            return True
-
-    # Cria controlador
-    mock_client = MockNetworkClient()
-    controller = SliderController(network_client=mock_client)
-
-    # Simula interface Tkinter básica
-    root = tk.Tk()
-    root.title("Teste Slider Controller")
-    root.geometry("500x400")
-    root.configure(bg="#3c3c3c")
-
-    # Cria frame de controle
-    control_frame = controller.create_control_frame(root)
-    control_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-
-    # Inicia controlador
-    controller.start()
-
-    print("Interface iniciada - use os sliders para testar")
-    print("Feche a janela para parar")
-
-    try:
-        root.mainloop()
-    except KeyboardInterrupt:
-        pass
-    finally:
-        controller.stop()
-        print("Teste concluído")

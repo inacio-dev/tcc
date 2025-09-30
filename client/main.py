@@ -125,7 +125,7 @@ class F1ClientApplication:
             self.video_display = VideoDisplay(
                 video_queue=video_queue,
                 log_queue=log_queue,
-                enable_video_enhancements=True  # ATIVA correção de cor e outras melhorias
+                enable_video_enhancements=True,  # ATIVA correção de cor e outras melhorias
             )
 
             # 3. Inicializa exibição de sensores
@@ -242,32 +242,179 @@ class F1ClientApplication:
         try:
             if hasattr(self, "console_interface") and self.console_interface:
                 self.console_interface.stop()
-        except:
-            pass
+
+            # Aguarda thread do console finalizar antes de continuar
+            if self.console_thread and self.console_thread.is_alive():
+                self.console_thread.join(
+                    timeout=3.0
+                )  # Timeout ainda maior para Tkinter
+                if self.console_thread.is_alive():
+                    debug("Thread do console não finalizou - continuando", "CLIENT")
+
+        except Exception as e:
+            try:
+                debug(f"Erro ao parar console: {e}", "CLIENT")
+            except:
+                pass
 
         try:
             if hasattr(self, "video_display") and self.video_display:
                 self.video_display.stop()
-        except:
-            pass
+        except Exception as e:
+            try:
+                debug(f"Erro ao parar video: {e}", "CLIENT")
+            except:
+                pass
 
         try:
             if hasattr(self, "network_client") and self.network_client:
                 self.network_client.stop()
-        except:
-            pass
+        except Exception as e:
+            try:
+                debug(f"Erro ao parar network: {e}", "CLIENT")
+            except:
+                pass
 
         # Aguarda threads (timeout para evitar travamento)
         try:
-            threads = [self.network_thread, self.video_thread]
-            for thread in threads:
-                if thread and thread.is_alive():
-                    thread.join(timeout=0.5)  # Timeout menor
+            threads_to_wait = []
+
+            # Coleta todas as threads ativas
+            if self.network_thread and self.network_thread.is_alive():
+                threads_to_wait.append(("network", self.network_thread))
+            if self.video_thread and self.video_thread.is_alive():
+                threads_to_wait.append(("video", self.video_thread))
+
+            # Aguarda cada thread com timeout
+            for name, thread in threads_to_wait:
+                try:
+                    debug(f"Aguardando thread {name}...", "CLIENT")
+                    thread.join(timeout=1.0)
+                    if thread.is_alive():
+                        debug(f"Thread {name} não finalizou no timeout", "CLIENT")
+                    else:
+                        debug(f"Thread {name} finalizada", "CLIENT")
+                except Exception as e:
+                    debug(f"Erro ao aguardar thread {name}: {e}", "CLIENT")
+
+        except Exception as e:
+            try:
+                debug(f"Erro ao aguardar threads: {e}", "CLIENT")
+            except:
+                pass
+
+        # Força finalização de threads daemon restantes
+        try:
+            import threading
+
+            active_threads = threading.active_count()
+            if active_threads > 1:  # Main thread + outras
+                debug(f"Ainda há {active_threads} threads ativas", "CLIENT")
+
+                # Lista todas as threads ativas para debug
+                for thread in threading.enumerate():
+                    if thread != threading.current_thread():
+                        debug(
+                            f"Thread ativa: {thread.name} (daemon: {thread.daemon})",
+                            "CLIENT",
+                        )
+
+                # Aguarda um pouco mais para threads daemon finalizarem
+                import time
+
+                # Aguarda múltiplas vezes para threads daemon temporárias finalizarem
+                for i in range(5):  # Máximo 2.5 segundos
+                    time.sleep(0.5)
+                    current_count = threading.active_count()
+                    if current_count <= 1:
+                        debug("Todas as threads finalizaram", "CLIENT")
+                        break
+                    debug(
+                        f"Aguardando threads finalizar: {current_count} restantes",
+                        "CLIENT",
+                    )
+
+                # Verifica estado final
+                final_count = threading.active_count()
+                if final_count > 1:
+                    debug(f"AVISO: Ainda restam {final_count} threads ativas", "CLIENT")
+                    # Lista threads que não finalizaram
+                    for thread in threading.enumerate():
+                        if thread != threading.current_thread():
+                            debug(
+                                f"Thread não finalizada: {thread.name} (daemon: {thread.daemon})",
+                                "CLIENT",
+                            )
+        except:
+            pass
+
+        # Limpa referências e força garbage collection agressivo
+        try:
+            # Remove referências aos componentes
+            self.console_interface = None
+            self.video_display = None
+            self.network_client = None
+
+            # Força garbage collection múltiplas vezes
+            import gc
+            import tkinter as tk
+
+            # Força limpeza de objetos Tkinter órfãos
+            try:
+                # Destrói qualquer instância de Tkinter restante
+                for obj in gc.get_objects():
+                    if isinstance(
+                        obj,
+                        (
+                            tk.Variable,
+                            tk.StringVar,
+                            tk.IntVar,
+                            tk.DoubleVar,
+                            tk.BooleanVar,
+                        ),
+                    ):
+                        try:
+                            obj._tk = None
+                        except:
+                            pass
+            except:
+                pass
+
+            # Múltiplas passadas de garbage collection
+            for _ in range(3):
+                gc.collect()
+
         except:
             pass
 
         try:
             debug("F1 Client parado", "CLIENT")
+        except:
+            pass
+
+        # Última tentativa: força o Python a esperar todas as threads
+        try:
+            import threading
+            import time
+
+            # Aguarda até máximo 5 segundos para todas as threads não-daemon finalizarem
+            for _ in range(50):  # 50 x 100ms = 5 segundos máximo
+                non_daemon_threads = [
+                    t for t in threading.enumerate()
+                    if t != threading.current_thread() and not t.daemon
+                ]
+                if not non_daemon_threads:
+                    break
+                time.sleep(0.1)
+
+            # Log final das threads restantes
+            final_threads = threading.enumerate()
+            if len(final_threads) > 1:
+                debug(f"Threads restantes no final: {len(final_threads)}", "CLIENT")
+                for t in final_threads:
+                    if t != threading.current_thread():
+                        debug(f"Thread final: {t.name} (daemon: {t.daemon})", "CLIENT")
+
         except:
             pass
 

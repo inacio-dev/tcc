@@ -196,8 +196,6 @@ class KeyboardController:
                         if mapping["command"] in self.active_commands:
                             del self.active_commands[mapping["command"]]
 
-                        # Envia comando de parada para o tipo de controle
-                        self._send_stop_command(mapping["command"])
                         self._log("DEBUG", f"Tecla liberada: {mapping['name']}")
 
                     elif mapping["type"] == "instant":
@@ -209,11 +207,6 @@ class KeyboardController:
                         self.root.after_idle(self._update_visual_feedback)
         except Exception as e:
             self._log("ERROR", f"Erro ao processar key release: {e}")
-
-    def _send_stop_command(self, command_type: str):
-        """Envia comando para parar um tipo específico de controle"""
-        # Não há comandos contínuos para parar (apenas marchas instantâneas)
-        pass
 
     def _send_command(self, command_type: str, value: float):
         """Envia comando para o Raspberry Pi"""
@@ -255,23 +248,33 @@ class KeyboardController:
         try:
             # Para todos os comandos ativos
             with self.lock:
-                for command_type in list(self.active_commands.keys()):
-                    self._send_stop_command(command_type)
                 self.active_commands.clear()
                 self.pressed_keys.clear()
         except:
             pass
 
+        # Aguarda thread de comando parar
         try:
             if self.command_thread and self.command_thread.is_alive():
-                self.command_thread.join(timeout=0.5)
-        except:
-            pass
+                self.command_thread.join(timeout=1.0)
+                if self.command_thread.is_alive():
+                    self._log("WARN", "Thread de comando não finalizou no timeout")
+        except Exception as e:
+            self._log("ERROR", f"Erro ao parar thread de comando: {e}")
 
         try:
             # Limpa widgets de status
             if hasattr(self, "status_widgets"):
                 self.status_widgets.clear()
+                self.status_widgets = {}
+        except:
+            pass
+
+        # Limpa referências
+        try:
+            self.network_client = None
+            self.log_callback = None
+            self.root = None
         except:
             pass
 
@@ -400,46 +403,3 @@ class KeyboardController:
                 round(self.commands_sent / elapsed, 2) if elapsed > 0 else 0
             ),
         }
-
-
-# Teste independente
-if __name__ == "__main__":
-    import queue
-
-    print("=== TESTE DO KEYBOARD CONTROLLER ===")
-
-    # Simulação de network client
-    class MockNetworkClient:
-        def send_control_command(self, command_type, value):
-            print(f"📡 COMANDO: {command_type} = {value}")
-            return True
-
-    # Cria controlador
-    mock_client = MockNetworkClient()
-    controller = KeyboardController(network_client=mock_client)
-
-    # Simula interface Tkinter básica
-    root = tk.Tk()
-    root.title("Teste Keyboard Controller")
-    root.geometry("400x300")
-
-    # Cria frame de status
-    status_frame = controller.create_status_frame(root)
-    status_frame.pack(fill=tk.BOTH, expand=True)
-
-    # Vincula controles
-    controller.bind_to_widget(root)
-
-    # Inicia controlador
-    controller.start()
-
-    print("Interface iniciada - use M/N para marchas e sliders para controles")
-    print("Feche a janela para parar")
-
-    try:
-        root.mainloop()
-    except KeyboardInterrupt:
-        pass
-    finally:
-        controller.stop()
-        print("Teste concluído")

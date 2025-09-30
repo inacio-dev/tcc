@@ -186,29 +186,6 @@ class SensorDisplay:
             self._log("ERROR", f"Erro na validação de dados: {e}")
             return False
 
-    def calculate_derived_data(self, data):
-        """
-        Calcula dados derivados a partir dos sensores
-
-        Args:
-            data (dict): Dados dos sensores
-
-        Returns:
-            dict: Dados derivados calculados
-        """
-        derived = {}
-
-        try:
-            # Apenas dados reais dos sensores - sem cálculos derivados simulados
-
-            # Bateria e temperatura removidas - apenas dados reais dos sensores
-
-            return derived
-
-        except Exception as e:
-            self._log("ERROR", f"Erro ao calcular dados derivados: {e}")
-            return {}
-
     def update_history(self, data):
         """
         Atualiza histórico de dados para gráficos
@@ -352,12 +329,8 @@ class SensorDisplay:
                 self.current_data = raw_data.copy()
                 self.last_update_time = time.time()
 
-                # Calcula dados derivados
-                derived_data = self.calculate_derived_data(raw_data)
-
-                # Mescla todos os dados para exibição
+                # Atualiza dados para exibição
                 self.display_data.update(raw_data)
-                self.display_data.update(derived_data)
 
                 # Atualiza metadados de conexão
                 self.display_data["connection_status"] = "Conectado"
@@ -554,26 +527,3 @@ class SensorDisplay:
         except Exception as e:
             self._log("ERROR", f"Erro ao exportar histórico: {e}")
             return None
-
-
-# Teste independente
-if __name__ == "__main__":
-    import queue
-    import json
-    # Random removido - sem dados simulados
-
-    print("=== TESTE DO SENSOR DISPLAY ===")
-
-    # Cria filas de teste
-    sensor_q = queue.Queue()
-    log_q = queue.Queue()
-
-    # Cria processador
-    processor = SensorDisplay(sensor_queue=sensor_q, log_queue=log_q)
-
-    # Função de teste removida - sem dados simulados
-
-    print("Teste com dados reais apenas - aguardando dados dos sensores...")
-
-    # Sistema pronto para processar apenas dados reais dos sensores
-    print("Sistema configurado para processar apenas dados reais do BMI160")
