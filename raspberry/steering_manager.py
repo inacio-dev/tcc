@@ -92,14 +92,14 @@ class SteeringManager:
     PULSE_MAX = 2.0  # 2.0ms = 180° (máximo direita)
     PULSE_CENTER = 1.5  # 1.5ms = 90° (centro)
 
-    # Limites mecânicos da direção (em graus) - RANGE LIMITADO 0° a 135°
-    STEERING_MIN_ANGLE = 0   # 0° = máximo à esquerda
-    STEERING_MAX_ANGLE = 135 # 135° = máximo à direita
-    STEERING_CENTER = 67.5   # 67.5° = posição central (meio do range 0-135°)
+    # Limites mecânicos da direção (em graus) - RANGE LIMITADO 0° a 113.4°
+    STEERING_MIN_ANGLE = 0     # 0° = máximo à esquerda
+    STEERING_MAX_ANGLE = 113.4 # 113.4° = máximo à direita
+    STEERING_CENTER = 56.7     # 56.7° = posição central (meio do range 0-113.4°)
 
-    # Range de direção útil (LIMITADO 0°-135°)
-    MAX_STEERING_LEFT = -67.5  # -67.5° (esquerda máxima: 67.5°-67.5°=0°)
-    MAX_STEERING_RIGHT = 67.5  # +67.5° (direita máxima: 67.5°+67.5°=135°)
+    # Range de direção útil (LIMITADO 0°-113.4°)
+    MAX_STEERING_LEFT = -56.7  # -56.7° (esquerda máxima: 56.7°-56.7°=0°)
+    MAX_STEERING_RIGHT = 56.7  # +56.7° (direita máxima: 56.7°+56.7°=113.4°)
 
     def __init__(
         self,
@@ -126,15 +126,15 @@ class SteeringManager:
 
         # Configurações
         self.steering_sensitivity = max(0.5, min(2.0, steering_sensitivity))
-        self.max_steering_angle = max(10.0, min(67.5, max_steering_angle))  # Máximo 67.5° (range 0-135°)
+        self.max_steering_angle = max(10.0, min(56.7, max_steering_angle))  # Máximo 56.7° (range 0-113.4°)
         self.steering_mode = steering_mode
         self.response_time = max(0.05, response_time)
 
         # Estado da direção
         self.is_initialized = False
-        self.current_angle = 0.0  # Ângulo atual (-67.5° a +67.5°)
+        self.current_angle = 0.0  # Ângulo atual (-56.7° a +56.7°)
         self.target_angle = 0.0  # Ângulo alvo
-        self.servo_angle = self.STEERING_CENTER  # Ângulo do servo (0° a 135°)
+        self.servo_angle = self.STEERING_CENTER  # Ângulo do servo (0° a 113.4°)
         self.steering_input = 0.0  # Input de direção (-100% a +100%)
 
         # Controle PCA9685
@@ -198,7 +198,7 @@ class SteeringManager:
             print("✅ Sistema de direção inicializado com sucesso!")
             print(f"  - Frequência PWM: {self.PWM_FREQUENCY}Hz")
             print(f"  - Posição inicial: {self.STEERING_CENTER}° (centro)")
-            print(f"  - Range: {self.STEERING_MIN_ANGLE}° a {self.STEERING_MAX_ANGLE}° (LIMITADO 0-135°)")
+            print(f"  - Range: {self.STEERING_MIN_ANGLE}° a {self.STEERING_MAX_ANGLE}° (LIMITADO 0-113.4°)")
             print("  - Movimento: DIRETO (sem suavização)")
             print(f"  - Canal direção: {self.steering_channel}")
 
@@ -239,7 +239,7 @@ class SteeringManager:
         steering_input = max(-100.0, min(100.0, steering_input))
         self.steering_input = steering_input
 
-        # MOVIMENTO DIRETO - converte entrada (-100% a +100%) para ângulo (-67.5° a +67.5°)
+        # MOVIMENTO DIRETO - converte entrada (-100% a +100%) para ângulo (-56.7° a +56.7°)
         target_angle = (steering_input / 100.0) * self.max_steering_angle
 
 
@@ -251,7 +251,7 @@ class SteeringManager:
 
         # Aplica movimento DIRETO ao servo
         if self.steering_servo:
-            # Limita ângulo ao range válido do servo (0° a 135°)
+            # Limita ângulo ao range válido do servo (0° a 113.4°)
             final_angle = max(
                 self.STEERING_MIN_ANGLE,
                 min(self.STEERING_MAX_ANGLE, self.servo_angle),
