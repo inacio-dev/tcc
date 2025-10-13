@@ -11,6 +11,9 @@ picamera2
 # Processamento de imagem
 Pillow
 
+# Comunicação Serial para ESP32/Arduino (CLIENT)
+pyserial
+
 # PCA9685 PWM Driver para controle de servos
 adafruit-circuitpython-pca9685
 

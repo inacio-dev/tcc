@@ -238,14 +238,17 @@ class NetworkClient:
         Envia comando de controle para o Raspberry Pi
 
         Args:
-            control_type: Tipo do controle (THROTTLE, BRAKE, STEERING)
+            control_type: Tipo do controle (THROTTLE, BRAKE, STEERING, GEAR_UP, GEAR_DOWN)
             value: Valor do controle
 
         Returns:
             bool: True se enviado com sucesso
         """
         command = f"CONTROL:{control_type}:{value}"
-        return self.send_command_to_rpi(command)
+        success = self.send_command_to_rpi(command)
+        if success:
+            self._log("INFO", f"✅ Comando enviado: {control_type}:{value}")
+        return success
 
     def ping_raspberry_pi(self) -> bool:
         """Envia ping para o Raspberry Pi"""

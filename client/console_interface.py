@@ -79,6 +79,9 @@ class ConsoleInterface:
         # Controlador de sliders
         self.slider_controller = SliderController(log_callback=self.log)
 
+        # Serial receiver manager (será definido externamente)
+        self.serial_receiver = None
+
         # Variáveis de status da conexão
         self.connection_var = None
         self.fps_var = None
@@ -130,6 +133,12 @@ class ConsoleInterface:
         self.velocity_total = 0.0  # Velocidade total em km/h
         self.last_accel_time = None  # Timestamp da última leitura
         self.accel_threshold = 0.3  # Threshold para filtrar ruído (m/s²)
+
+        # Serial Port Selector
+        self.serial_port_var = tk.StringVar(value="")
+        self.serial_status_var = tk.StringVar(value="🔴 Desconectado")
+        self.serial_ports_list = []  # Lista de portas disponíveis
+        self.port_device_map = {}  # Mapa descrição -> device path
 
         # Dados dos sensores BMI160 - Raw (LSB)
         self.sensor_vars = {
@@ -208,13 +217,8 @@ class ConsoleInterface:
         )
         self.scrollable_frame = ttk.Frame(self.main_canvas, style="Dark.TLabelframe")
 
-        # Configurar scroll
-        self.scrollable_frame.bind(
-            "<Configure>",
-            lambda e: self.main_canvas.configure(
-                scrollregion=self.main_canvas.bbox("all")
-            ),
-        )
+        # Configurar scroll (usa método para proteção)
+        self.scrollable_frame.bind("<Configure>", self._on_scrollable_frame_configure)
 
         # Criar janela no canvas
         self.canvas_window = self.main_canvas.create_window(
@@ -259,19 +263,26 @@ class ConsoleInterface:
 
     def _on_mousewheel(self, event):
         """Handler para scroll com mouse wheel (multiplataforma)"""
-        # Windows usa event.delta, Linux usa event.num
-        if hasattr(event, "delta"):
-            # Windows: delta é múltiplo de 120
-            delta = int(-1 * (event.delta / 120))
-        elif hasattr(event, "num"):
-            # Linux: Button-4 (scroll up) = -1, Button-5 (scroll down) = +1
-            delta = -1 if event.num == 4 else 1
-        else:
-            # Fallback
-            delta = 1
+        if not hasattr(self, 'main_canvas'):
+            return "break"
 
-        # Scroll mais suave (3 unidades por vez)
-        self.main_canvas.yview_scroll(delta * 3, "units")
+        try:
+            # Windows usa event.delta, Linux usa event.num
+            if hasattr(event, "delta"):
+                # Windows: delta é múltiplo de 120
+                delta = int(-1 * (event.delta / 120))
+            elif hasattr(event, "num"):
+                # Linux: Button-4 (scroll up) = -1, Button-5 (scroll down) = +1
+                delta = -1 if event.num == 4 else 1
+            else:
+                # Fallback
+                delta = 1
+
+            # Scroll mais suave (3 unidades por vez)
+            self.main_canvas.yview_scroll(delta * 3, "units")
+        except Exception:
+            # Ignora erros durante inicialização ou destruição
+            pass
 
         # Retorna "break" para evitar propagação adicional
         return "break"
@@ -303,11 +314,25 @@ class ConsoleInterface:
         # Aplica a toda a árvore de widgets
         bind_to_widget(self.root)
 
+    def _on_scrollable_frame_configure(self, event):
+        """Handler para configuração do scrollable frame"""
+        if hasattr(self, 'main_canvas'):
+            try:
+                self.main_canvas.configure(scrollregion=self.main_canvas.bbox("all"))
+            except Exception:
+                # Ignora erros durante inicialização ou destruição
+                pass
+
     def _on_canvas_configure(self, event):
         """Handler para redimensionamento do canvas"""
         # Ajustar largura do frame interno
-        canvas_width = event.width
-        self.main_canvas.itemconfig(self.canvas_window, width=canvas_width)
+        if hasattr(self, 'main_canvas') and hasattr(self, 'canvas_window'):
+            try:
+                canvas_width = event.width
+                self.main_canvas.itemconfig(self.canvas_window, width=canvas_width)
+            except Exception:
+                # Ignora erros durante inicialização ou destruição
+                pass
 
     def create_connection_status_frame(self):
         """Cria frame de status da conexão"""
@@ -931,6 +956,163 @@ class ConsoleInterface:
             else:
                 self.video_resolution_var.set("N/A")
 
+    def create_serial_port_selector_frame(self):
+        """Cria frame para seleção de porta serial ESP32"""
+        serial_frame = ttk.LabelFrame(
+            self.left_column, text="🔌 Conexão ESP32 Cockpit", style="Dark.TLabelframe"
+        )
+        serial_frame.pack(fill=tk.X, padx=5, pady=5)
+
+        # Frame interno para organizar os controles
+        inner_frame = tk.Frame(serial_frame, bg="#3c3c3c")
+        inner_frame.pack(fill=tk.X, padx=5, pady=5)
+
+        # Status da conexão serial
+        status_frame = tk.Frame(inner_frame, bg="#3c3c3c")
+        status_frame.pack(fill=tk.X, pady=2)
+
+        ttk.Label(status_frame, text="Status:", style="Dark.TLabel").pack(
+            side=tk.LEFT, padx=5
+        )
+        ttk.Label(
+            status_frame, textvariable=self.serial_status_var, style="Dark.TLabel"
+        ).pack(side=tk.LEFT)
+
+        # Frame para seleção de porta
+        port_frame = tk.Frame(inner_frame, bg="#3c3c3c")
+        port_frame.pack(fill=tk.X, pady=5)
+
+        ttk.Label(port_frame, text="Porta Serial:", style="Dark.TLabel").pack(
+            side=tk.LEFT, padx=5
+        )
+
+        # Combobox para seleção de porta
+        self.port_combobox = ttk.Combobox(
+            port_frame,
+            textvariable=self.serial_port_var,
+            state="readonly",
+            width=40,
+        )
+        self.port_combobox.pack(side=tk.LEFT, padx=5)
+
+        # Botão para atualizar lista de portas
+        ttk.Button(
+            port_frame,
+            text="🔄 Atualizar",
+            command=self._refresh_serial_ports,
+            style="Dark.TButton",
+        ).pack(side=tk.LEFT, padx=2)
+
+        # Frame para botões de conexão
+        button_frame = tk.Frame(inner_frame, bg="#3c3c3c")
+        button_frame.pack(fill=tk.X, pady=2)
+
+        # Botão conectar
+        self.connect_btn = ttk.Button(
+            button_frame,
+            text="🔌 Conectar",
+            command=self._connect_serial,
+            style="Dark.TButton",
+        )
+        self.connect_btn.pack(side=tk.LEFT, padx=5)
+
+        # Botão desconectar
+        self.disconnect_btn = ttk.Button(
+            button_frame,
+            text="🔌 Desconectar",
+            command=self._disconnect_serial,
+            style="Dark.TButton",
+            state=tk.DISABLED,
+        )
+        self.disconnect_btn.pack(side=tk.LEFT, padx=5)
+
+        # Atualizar lista de portas ao iniciar
+        self._refresh_serial_ports()
+
+    def _refresh_serial_ports(self):
+        """Atualiza lista de portas seriais disponíveis"""
+        try:
+            if self.serial_receiver:
+                # Obter lista de portas disponíveis
+                ports = self.serial_receiver.list_available_ports()
+                self.serial_ports_list = [port[1] for port in ports]  # Descrições
+                self.port_device_map = {port[1]: port[0] for port in ports}  # Mapa descrição -> device
+
+                # Atualizar combobox
+                self.port_combobox['values'] = self.serial_ports_list
+
+                # Selecionar primeira porta se disponível
+                if self.serial_ports_list and not self.serial_port_var.get():
+                    self.serial_port_var.set(self.serial_ports_list[0])
+
+                self.log("INFO", f"Encontradas {len(self.serial_ports_list)} portas seriais")
+            else:
+                self.log("WARN", "Serial receiver não inicializado")
+        except Exception as e:
+            self.log("ERROR", f"Erro ao atualizar portas seriais: {e}")
+
+    def _connect_serial(self):
+        """Conecta à porta serial selecionada"""
+        try:
+            if not self.serial_receiver:
+                self.log("ERROR", "Serial receiver não inicializado")
+                return
+
+            selected_desc = self.serial_port_var.get()
+            if not selected_desc:
+                self.log("WARN", "Nenhuma porta serial selecionada")
+                return
+
+            # Obter device path da descrição
+            port_device = self.port_device_map.get(selected_desc)
+            if not port_device:
+                self.log("ERROR", f"Porta serial inválida: {selected_desc}")
+                return
+
+            # Conectar à porta
+            self.log("INFO", f"Conectando à porta {port_device}...")
+            success = self.serial_receiver.connect_to_port(port_device)
+
+            if success:
+                # Iniciar recepção se ainda não estiver rodando
+                if not self.serial_receiver.is_running:
+                    self.serial_receiver.start()
+
+                # Atualizar status
+                self.serial_status_var.set(f"🟢 Conectado - {port_device}")
+                self.connect_btn.config(state=tk.DISABLED)
+                self.disconnect_btn.config(state=tk.NORMAL)
+                self.port_combobox.config(state=tk.DISABLED)
+                self.log("INFO", f"Conectado à porta {port_device}")
+            else:
+                self.serial_status_var.set("🔴 Falha na conexão")
+                self.log("ERROR", f"Falha ao conectar à porta {port_device}")
+
+        except Exception as e:
+            self.log("ERROR", f"Erro ao conectar: {e}")
+            self.serial_status_var.set("🔴 Erro")
+
+    def _disconnect_serial(self):
+        """Desconecta da porta serial"""
+        try:
+            if self.serial_receiver:
+                self.log("INFO", "Desconectando porta serial...")
+                self.serial_receiver.stop()
+
+                # Atualizar status
+                self.serial_status_var.set("🔴 Desconectado")
+                self.connect_btn.config(state=tk.NORMAL)
+                self.disconnect_btn.config(state=tk.DISABLED)
+                self.port_combobox.config(state="readonly")
+                self.log("INFO", "Porta serial desconectada")
+
+        except Exception as e:
+            self.log("ERROR", f"Erro ao desconectar: {e}")
+
+    def set_serial_receiver(self, serial_receiver):
+        """Define o serial receiver manager"""
+        self.serial_receiver = serial_receiver
+
     def create_slider_controls_frame(self):
         """Cria frame com controles de sliders"""
         slider_frame = self.slider_controller.create_control_frame(self.right_column)
@@ -944,7 +1126,7 @@ class ConsoleInterface:
     def create_log_frame(self):
         """Cria frame do console de log"""
         log_frame = ttk.LabelFrame(
-            self.right_column, text="📋 Console de Log", style="Dark.TLabelframe"
+            self.left_column, text="📋 Console de Log", style="Dark.TLabelframe"
         )
         log_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
@@ -993,8 +1175,10 @@ class ConsoleInterface:
         """Cria todos os widgets da interface"""
         # Coluna Esquerda
         self.create_connection_status_frame()
+        self.create_serial_port_selector_frame()  # Seletor de porta ESP32
         self.create_instrument_panel()
         self.create_bmi160_frame()
+        self.create_log_frame()  # Console de log movido para cá
         self.create_force_feedback_frame()
 
         # Coluna Direita
@@ -1002,7 +1186,6 @@ class ConsoleInterface:
         self.create_slider_controls_frame()
         self.create_controls_frame()
         self.create_keyboard_controls_frame()
-        self.create_log_frame()
 
         # Conecta video_display se já foi definido
         if hasattr(self, "video_display") and self.video_display:
@@ -1016,16 +1199,24 @@ class ConsoleInterface:
         if self.paused:
             return
 
-        timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]  # Inclui milissegundos
+        # Verifica se log_text existe e está válido
+        if not hasattr(self, 'log_text') or self.log_text is None:
+            return
 
-        # Adiciona ao log
-        self.log_text.insert(tk.END, f"[{timestamp}] ", "TIMESTAMP")
-        self.log_text.insert(tk.END, f"[{level}] ", level)
-        self.log_text.insert(tk.END, f"{message}\n", level)
+        try:
+            timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]  # Inclui milissegundos
 
-        # Auto-scroll se habilitado
-        if self.autoscroll_var.get():
-            self.log_text.see(tk.END)
+            # Adiciona ao log
+            self.log_text.insert(tk.END, f"[{timestamp}] ", "TIMESTAMP")
+            self.log_text.insert(tk.END, f"[{level}] ", level)
+            self.log_text.insert(tk.END, f"{message}\n", level)
+
+            # Auto-scroll se habilitado
+            if hasattr(self, 'autoscroll_var') and self.autoscroll_var.get():
+                self.log_text.see(tk.END)
+        except Exception:
+            # Ignora erros durante destruição da interface
+            pass
 
     def update_connection_status(self, status_dict):
         """Atualiza status de conexão"""

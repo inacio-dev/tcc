@@ -40,12 +40,13 @@ try:
     from video_display import VideoDisplay
     from sensor_display import SensorDisplay
     from console_interface import ConsoleInterface
+    from serial_receiver_manager import SerialReceiverManager
     from simple_logger import init_logger, info, debug, error, LogLevel
 except ImportError as e:
     print(f"❌ ERRO: Não foi possível importar módulos necessários: {e}")
     print("\nVerifique se os arquivos estão na mesma pasta:")
     print("  - network_client.py, video_display.py, sensor_display.py")
-    print("  - console_interface.py, simple_logger.py, main_client.py")
+    print("  - console_interface.py, serial_receiver_manager.py, simple_logger.py, main_client.py")
     sys.exit(1)
 
 # Filas para comunicação entre threads
@@ -88,6 +89,7 @@ class F1ClientApplication:
         self.video_display = None
         self.sensor_display = None
         self.console_interface = None
+        self.serial_receiver = None
 
         # Controle de execução
         self.running = False
@@ -96,9 +98,30 @@ class F1ClientApplication:
         self.network_thread = None
         self.console_thread = None
         self.video_thread = None
+        self.serial_thread = None
 
         # Estatísticas
         self.start_time = time.time()
+
+    def handle_serial_command(self, command_type: str, value: str):
+        """
+        Handle commands received from Arduino Mega via serial
+        Forward them to Raspberry Pi via network client
+
+        Args:
+            command_type: Type of command (THROTTLE, BRAKE, STEERING, GEAR_UP, GEAR_DOWN)
+            value: Command value (empty for GEAR_UP/GEAR_DOWN)
+        """
+        try:
+            if self.network_client:
+                if command_type in ["THROTTLE", "BRAKE", "STEERING"]:
+                    # Send control command with value
+                    self.network_client.send_control_command(command_type, float(value))
+                elif command_type in ["GEAR_UP", "GEAR_DOWN"]:
+                    # Send gear command (same as keyboard - uses value 1.0)
+                    self.network_client.send_control_command(command_type, 1.0)
+        except Exception as e:
+            error(f"Error forwarding serial command: {e}", "SERIAL")
 
     def initialize_components(self):
         """Inicializa todos os componentes do sistema"""
@@ -118,6 +141,15 @@ class F1ClientApplication:
                 status_queue=status_queue,
                 sensor_queue=sensor_queue,
                 video_queue=video_queue,
+            )
+
+            # 1.5. Inicializa receptor serial do Arduino Mega
+            debug("Inicializando receptor serial Arduino Mega...", "CLIENT")
+            self.serial_receiver = SerialReceiverManager(
+                port=None,  # Auto-detect
+                baud_rate=115200,
+                command_callback=self.handle_serial_command,
+                log_callback=lambda level, msg: log_queue.put((level, msg))
             )
 
             # 2. Inicializa exibição de vídeo COM melhorias habilitadas
@@ -143,6 +175,10 @@ class F1ClientApplication:
             )
             # Conecta network client com console para envio de comandos
             self.console_interface.set_network_client(self.network_client)
+
+            # 4.5. Conecta serial receiver com console para seleção manual de porta
+            debug("Conectando serial receiver com interface...", "CLIENT")
+            self.console_interface.set_serial_receiver(self.serial_receiver)
 
             # 5. Conecta video display com console para exibição integrada
             debug("Conectando vídeo com interface...", "CLIENT")
@@ -173,6 +209,13 @@ class F1ClientApplication:
             self.video_thread.start()
             log_queue.put(("INFO", "Thread de vídeo iniciada"))
 
+    def start_serial_thread(self):
+        """Inicia thread de recepção serial do ESP32"""
+        if self.serial_receiver:
+            # Não auto-conecta mais - o usuário deve selecionar a porta manualmente na interface
+            log_queue.put(("INFO", "Serial receiver inicializado - aguardando seleção manual de porta"))
+            log_queue.put(("INFO", "Use o seletor de porta ESP32 na interface para conectar"))
+
     def start_console_thread(self):
         """Inicia thread do console (interface principal)"""
         if self.console_interface:
@@ -202,6 +245,10 @@ class F1ClientApplication:
             time.sleep(0.1)  # Pequena pausa
 
             self.start_video_thread()
+            time.sleep(0.1)  # Pequena pausa
+
+            # Inicia recepção serial do Arduino Mega (opcional - não bloqueia se não conectado)
+            self.start_serial_thread()
             time.sleep(0.1)  # Pequena pausa
 
             # Console por último (thread principal)
@@ -258,6 +305,15 @@ class F1ClientApplication:
                 pass
 
         try:
+            if hasattr(self, "serial_receiver") and self.serial_receiver:
+                self.serial_receiver.stop()
+        except Exception as e:
+            try:
+                debug(f"Erro ao parar serial: {e}", "CLIENT")
+            except:
+                pass
+
+        try:
             if hasattr(self, "video_display") and self.video_display:
                 self.video_display.stop()
         except Exception as e:
@@ -284,6 +340,8 @@ class F1ClientApplication:
                 threads_to_wait.append(("network", self.network_thread))
             if self.video_thread and self.video_thread.is_alive():
                 threads_to_wait.append(("video", self.video_thread))
+            if self.serial_thread and self.serial_thread.is_alive():
+                threads_to_wait.append(("serial", self.serial_thread))
 
             # Aguarda cada thread com timeout
             for name, thread in threads_to_wait:
@@ -354,6 +412,7 @@ class F1ClientApplication:
             self.console_interface = None
             self.video_display = None
             self.network_client = None
+            self.serial_receiver = None
 
             # Força garbage collection múltiplas vezes
             import gc
