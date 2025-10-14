@@ -726,16 +726,30 @@ class ConsoleInterface:
 
         ttk.Label(steering_frame, text="🎯 Força no Volante:", style="Dark.TLabel", font=("Arial", 10, "bold")).pack(side=tk.LEFT, padx=5)
 
-        self.steering_ff_value = ttk.Label(
+        # LEDs de direção (esquerda/direita)
+        self.ff_led_left = tk.Canvas(steering_frame, width=20, height=20, bg="#3c3c3c", highlightthickness=0)
+        self.ff_led_left.pack(side=tk.LEFT, padx=5)
+        self.ff_led_left_circle = self.ff_led_left.create_oval(2, 2, 18, 18, fill="#333333", outline="#666666")
+
+        ttk.Label(steering_frame, text="←", style="Dark.TLabel", font=("Arial", 12, "bold")).pack(side=tk.LEFT)
+
+        # Valor da força (0-100%)
+        self.steering_ff_intensity = ttk.Label(
             steering_frame,
-            textvariable=self.sensor_vars["steering_feedback"],
+            text="0",
             style="Dark.TLabel",
             font=("Arial", 14, "bold"),
             foreground="#00ff00"
         )
-        self.steering_ff_value.pack(side=tk.LEFT, padx=5)
+        self.steering_ff_intensity.pack(side=tk.LEFT, padx=5)
 
         ttk.Label(steering_frame, text="%", style="Dark.TLabel", font=("Arial", 10)).pack(side=tk.LEFT)
+
+        ttk.Label(steering_frame, text="→", style="Dark.TLabel", font=("Arial", 12, "bold")).pack(side=tk.LEFT, padx=(5, 0))
+
+        self.ff_led_right = tk.Canvas(steering_frame, width=20, height=20, bg="#3c3c3c", highlightthickness=0)
+        self.ff_led_right.pack(side=tk.LEFT, padx=5)
+        self.ff_led_right_circle = self.ff_led_right.create_oval(2, 2, 18, 18, fill="#333333", outline="#666666")
 
         # Descrição
         desc_label = tk.Label(
@@ -1495,6 +1509,11 @@ class ConsoleInterface:
         # Calcular forças G e force feedback localmente
         self._calculate_g_forces_and_ff(sensor_data)
 
+        # Atualizar LEDs de force feedback (IMPORTANTE: alta taxa de atualização)
+        ff_intensity = sensor_data.get("steering_feedback_intensity", 0.0)
+        ff_direction = sensor_data.get("steering_feedback_direction", "neutral")
+        self.update_ff_leds(ff_intensity, ff_direction)
+
         # Atualizar dados do motor (RPM, marcha, throttle, velocidade)
         self._update_motor_display(sensor_data)
 
@@ -1763,28 +1782,41 @@ class ConsoleInterface:
             filter_strength = self.ff_filter_var.get() / 100.0  # 0.0 a 1.0
             sensitivity = self.ff_sensitivity_var.get() / 100.0  # 0.0 a 1.0
 
-            # Aplica sensibilidade (multiplica a força base)
+            # PASSO 1: Aplica sensibilidade (multiplica a força base)
+            # Sensitivity controla a magnitude geral da resposta
             adjusted_ff = base_steering_ff * sensitivity
 
-            # Aplica damping (reduz oscilações - média com valor anterior se existir)
-            if hasattr(self, '_last_steering_ff'):
-                adjusted_ff = adjusted_ff * (1.0 - damping) + self._last_steering_ff * damping
-            self._last_steering_ff = adjusted_ff
+            # PASSO 2: Aplica friction (resistência proporcional à velocidade de rotação)
+            # Friction simula o atrito dos pneus - quanto mais rápido gira, mais resistência
+            friction_force = min(abs(gyro_z) / 100.0, 1.0) * friction * 30  # 0-30% extra
+            adjusted_ff = min(adjusted_ff + friction_force, 100.0)
 
-            # Aplica friction (adiciona resistência constante se houver movimento)
-            if abs(gyro_z) > 1.0:  # Se está girando (>1°/s)
-                adjusted_ff += friction * 20  # Adiciona até 20% de resistência
-
-            # Aplica filter (suavização exponencial)
+            # PASSO 3: Aplica filter (suavização exponencial - ANTES do damping)
+            # Filter remove ruídos de alta frequência do sensor
             if hasattr(self, '_filtered_steering_ff'):
                 adjusted_ff = adjusted_ff * (1.0 - filter_strength) + self._filtered_steering_ff * filter_strength
             self._filtered_steering_ff = adjusted_ff
 
+            # PASSO 4: Aplica damping (reduz mudanças bruscas - média móvel)
+            # Damping simula inércia do sistema - suaviza transições
+            if hasattr(self, '_last_steering_ff'):
+                adjusted_ff = adjusted_ff * (1.0 - damping) + self._last_steering_ff * damping
+            self._last_steering_ff = adjusted_ff
+
             # Limita ao intervalo 0-100%
             final_steering_ff = max(0.0, min(100.0, adjusted_ff))
 
+            # Determina direção baseado na força lateral e rotação
+            # Positivo = direita, Negativo = esquerda
+            direction = "right" if (g_force_lateral > 0 or gyro_z > 0) else "left"
+
+            # Se a força for muito pequena, considera neutro
+            if final_steering_ff < 5.0:
+                direction = "neutral"
+
             # Armazena force feedback calculado de volta no sensor_data
             sensor_data["steering_feedback_intensity"] = final_steering_ff
+            sensor_data["steering_feedback_direction"] = direction
 
             # Outros force feedbacks (ainda não implementados - valores placeholder)
             sensor_data["brake_pedal_resistance"] = 0.0
@@ -1794,6 +1826,47 @@ class ConsoleInterface:
 
         except Exception as e:
             error(f"Erro ao calcular forças G e force feedback: {e}", "CONSOLE")
+
+    def update_ff_leds(self, intensity: float, direction: str):
+        """
+        Atualiza LEDs de direção do force feedback
+
+        Args:
+            intensity: Intensidade da força (0-100%)
+            direction: Direção da força ("left", "right", "neutral")
+        """
+        try:
+            # Atualiza valor numérico
+            self.steering_ff_intensity.config(text=f"{int(intensity)}")
+
+            # Cor baseada na intensidade
+            if intensity < 30:
+                color = "#00ff00"  # Verde (baixo)
+            elif intensity < 70:
+                color = "#ffaa00"  # Laranja (médio)
+            else:
+                color = "#ff0000"  # Vermelho (alto)
+
+            self.steering_ff_intensity.config(foreground=color)
+
+            # Atualiza LEDs
+            if direction == "left":
+                # LED esquerdo LIGADO (amarelo/laranja)
+                self.ff_led_left.itemconfig(self.ff_led_left_circle, fill="#ffaa00", outline="#ff8800")
+                # LED direito DESLIGADO
+                self.ff_led_right.itemconfig(self.ff_led_right_circle, fill="#333333", outline="#666666")
+            elif direction == "right":
+                # LED esquerdo DESLIGADO
+                self.ff_led_left.itemconfig(self.ff_led_left_circle, fill="#333333", outline="#666666")
+                # LED direito LIGADO (azul/ciano)
+                self.ff_led_right.itemconfig(self.ff_led_right_circle, fill="#00aaff", outline="#0088ff")
+            else:  # neutral
+                # Ambos os LEDs DESLIGADOS
+                self.ff_led_left.itemconfig(self.ff_led_left_circle, fill="#333333", outline="#666666")
+                self.ff_led_right.itemconfig(self.ff_led_right_circle, fill="#333333", outline="#666666")
+
+        except Exception as e:
+            error(f"Erro ao atualizar LEDs de FF: {e}", "CONSOLE")
 
     def process_queues(self):
         """Processa filas de comunicação"""

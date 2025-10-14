@@ -1,0 +1,19 @@
+{
+    "calibration_data": {
+        "THROTTLE": {
+            "min": 0,
+            "max": 600
+        },
+        "BRAKE": {
+            "min": -12,
+            "max": 271
+        },
+        "STEERING": {
+            "left": -430,
+            "center": 0,
+            "right": 435
+        }
+    },
+    "last_updated": "2025-10-14T19:18:55.952953",
+    "version": "1.0"
+}

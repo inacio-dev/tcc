@@ -14,7 +14,7 @@
 SteeringManager* SteeringManager::instance = nullptr;
 
 SteeringManager::SteeringManager()
-    : encoder_position(CENTER_POSITION),
+    : encoder_position(0),  // Start at 0, not CENTER_POSITION
       last_clk(HIGH),
       current_value(0),
       calibration(EEPROM_STEERING_ADDR, true) {  // true = bipolar (-100% to +100%)
@@ -35,13 +35,13 @@ void SteeringManager::begin() {
     // Attach interrupt only to CLK pin
     attachInterrupt(digitalPinToInterrupt(PIN_ENCODER_CLK), encoder_isr, CHANGE);
 
-    // Reset to center position
-    encoder_position = CENTER_POSITION;
+    // Start at position 0 (calibration will define center)
+    encoder_position = 0;
     current_value = 0;
 
     Serial.println("[Steering] Initialized - GPIO12,13");
-    Serial.print("[Steering] Center position: ");
-    Serial.println(CENTER_POSITION);
+    Serial.print("[Steering] Starting position: ");
+    Serial.println(encoder_position);
 }
 
 void IRAM_ATTR SteeringManager::encoder_isr() {
@@ -90,7 +90,7 @@ long SteeringManager::get_raw_position() const {
 }
 
 void SteeringManager::reset() {
-    encoder_position = CENTER_POSITION;
+    encoder_position = 0;  // Reset to 0, calibration defines center
     current_value = 0;
 }
 
@@ -100,6 +100,9 @@ void SteeringManager::start_calibration() {
 }
 
 bool SteeringManager::save_calibration(int32_t left_val, int32_t center_val, int32_t right_val) {
+    // encoder_calibration expects: (min, max, center)
+    // We have: (left, center, right)
+    // So pass: (left as min, right as max, center as center)
     return calibration.save_calibration(left_val, right_val, center_val);
 }
 

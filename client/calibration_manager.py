@@ -97,7 +97,8 @@ class CalibrationManager:
         self.calibration_step = 0
         self.raw_min = None
         self.raw_max = None
-        self.raw_center = None
+        # For steering, record initial position as center
+        self.raw_center = 0 if component == "STEERING" else None
         self.raw_current = 0
 
         # Send calibration start command to ESP32
@@ -169,7 +170,7 @@ class CalibrationManager:
 
         elif component == "STEERING":
             # For steering, we need left, center, right positions
-            # Use current raw_min, raw_max, and calculate center as midpoint
+            # Center is always 0 (starting position), left is negative, right is positive
             if self.raw_min is None or self.raw_max is None:
                 self._log("ERROR", "Dados de calibração incompletos! Gire o volante completamente.")
                 return False
@@ -178,8 +179,8 @@ class CalibrationManager:
                 self._log("ERROR", f"Calibração inválida! Esquerda ({self.raw_min}) >= Direita ({self.raw_max})")
                 return False
 
-            # Calculate center as midpoint
-            raw_center = (self.raw_min + self.raw_max) // 2
+            # Center is the starting position (always 0 for steering)
+            raw_center = 0
 
             # Save steering calibration
             self.calibration_data[component] = {
@@ -238,9 +239,9 @@ class CalibrationManager:
 
         elif self.current_component == "STEERING":
             return ("🎯 Calibração da Direção:\n"
-                    "1. Gire TOTALMENTE para a ESQUERDA (-100%)\n"
-                    "2. Gire TOTALMENTE para a DIREITA (+100%)\n"
-                    "3. Pare no CENTRO (0%)\n"
+                    "1. IMPORTANTE: A posição inicial (0) será o CENTRO\n"
+                    "2. Gire TOTALMENTE para a ESQUERDA (-100%)\n"
+                    "3. Gire TOTALMENTE para a DIREITA (+100%)\n"
                     "4. Clique em 'Salvar' quando terminar")
 
         return ""

@@ -91,6 +91,33 @@ void EncoderTask(void* parameter) {
 void process_serial_command(String command) {
     command.trim();
 
+    // Ignore empty commands
+    if (command.length() == 0) {
+        return;
+    }
+
+    // Ignore responses that ESP32 sent (prevent echo loop)
+    // Only process commands FROM client (CAL_START, CAL_SAVE)
+    if (command.startsWith("CAL_STARTED:") ||
+        command.startsWith("CAL_THROTTLE:") ||
+        command.startsWith("CAL_BRAKE:") ||
+        command.startsWith("CAL_STEERING:") ||
+        command.startsWith("CAL_COMPLETE:") ||
+        command.startsWith("CAL_ERROR:") ||
+        command.startsWith("THROTTLE:") ||
+        command.startsWith("BRAKE:") ||
+        command.startsWith("STEERING:") ||
+        command.startsWith("GEAR_") ||
+        command.startsWith("===") ||
+        command.startsWith("Core") ||
+        command.startsWith("CPU") ||
+        command.startsWith("ESP32") ||
+        command.startsWith("Sending") ||
+        command.startsWith("[")) {
+        // These are responses FROM ESP32, not commands TO ESP32
+        return;
+    }
+
     if (command.startsWith("CAL_START:")) {
         String component = command.substring(10);
 
@@ -137,6 +164,9 @@ void process_serial_command(String command) {
             int32_t left_val = command.substring(first_colon + 1, second_colon).toInt();
             int32_t center_val = command.substring(second_colon + 1, third_colon).toInt();
             int32_t right_val = command.substring(third_colon + 1).toInt();
+
+            Serial.printf("[DEBUG] Received calibration: Left=%d, Center=%d, Right=%d\n",
+                         left_val, center_val, right_val);
 
             if (steering_manager.save_calibration(left_val, center_val, right_val)) {
                 Serial.println("CAL_COMPLETE:STEERING");
