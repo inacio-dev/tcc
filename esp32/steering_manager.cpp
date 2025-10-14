@@ -16,11 +16,15 @@ SteeringManager* SteeringManager::instance = nullptr;
 SteeringManager::SteeringManager()
     : encoder_position(CENTER_POSITION),
       last_clk(HIGH),
-      current_value(0) {
+      current_value(0),
+      calibration(EEPROM_STEERING_ADDR, true) {  // true = bipolar (-100% to +100%)
     instance = this;
 }
 
 void SteeringManager::begin() {
+    // Initialize calibration
+    calibration.begin();
+
     // Configure encoder pins as inputs with pull-up resistors
     pinMode(PIN_ENCODER_CLK, INPUT_PULLUP);
     pinMode(PIN_ENCODER_DT, INPUT_PULLUP);
@@ -56,12 +60,7 @@ void IRAM_ATTR SteeringManager::encoder_isr() {
                 instance->encoder_position--;
             }
 
-            // Constrain position to valid range
-            if (instance->encoder_position > MAX_POSITION) {
-                instance->encoder_position = MAX_POSITION;
-            } else if (instance->encoder_position < MIN_POSITION) {
-                instance->encoder_position = MIN_POSITION;
-            }
+            // NO constraining in calibration mode - let encoder count freely
 
             // Update last CLK state
             instance->last_clk = clk_value;
@@ -70,11 +69,13 @@ void IRAM_ATTR SteeringManager::encoder_isr() {
 }
 
 void SteeringManager::update() {
-    // Convert encoder position to percentage (-100 to +100%)
-    // Center position (300) = 0%
-    // Min position (0) = -100% (full left)
-    // Max position (600) = +100% (full right)
-    current_value = map(encoder_position, MIN_POSITION, MAX_POSITION, -100, 100);
+    // Update calibration if in calibration mode
+    if (calibration.is_in_calibration_mode()) {
+        calibration.update_calibration(encoder_position);
+    }
+
+    // Convert encoder position to percentage using calibration (bipolar: -100% to +100%)
+    current_value = calibration.map_to_percent(encoder_position);
 
     // Ensure value is within valid range
     current_value = constrain(current_value, -100, 100);
@@ -84,7 +85,24 @@ int SteeringManager::get_value() const {
     return current_value;
 }
 
+long SteeringManager::get_raw_position() const {
+    return encoder_position;
+}
+
 void SteeringManager::reset() {
     encoder_position = CENTER_POSITION;
     current_value = 0;
+}
+
+void SteeringManager::start_calibration() {
+    calibration.start_calibration();
+    Serial.println("[Steering] Calibration mode started");
+}
+
+bool SteeringManager::save_calibration(int32_t left_val, int32_t center_val, int32_t right_val) {
+    return calibration.save_calibration(left_val, right_val, center_val);
+}
+
+bool SteeringManager::is_calibrating() const {
+    return calibration.is_in_calibration_mode();
 }

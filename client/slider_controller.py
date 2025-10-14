@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 slider_controller.py - Controlador de Sliders para F1 Car
-Gerencia controles analógicos de throttle e brake via sliders
+Gerencia controles analógicos de acelerador, freio e direção via sliders
+Inclui sistema de calibração para encoders incrementais ESP32
 """
 
 import tkinter as tk
@@ -10,21 +11,24 @@ import time
 import threading
 from typing import Optional, Callable, Dict, Any
 from simple_logger import info, debug, warn, error
+from calibration_manager import CalibrationManager
 
 
 class SliderController:
-    """Gerenciador de controles analógicos (sliders) para throttle e brake"""
+    """Gerenciador de controles analógicos (sliders) para acelerador, freio e direção"""
 
-    def __init__(self, network_client=None, log_callback=None):
+    def __init__(self, network_client=None, log_callback=None, serial_sender=None):
         """
         Inicializa o controlador de sliders
 
         Args:
             network_client: Cliente de rede para enviar comandos
             log_callback: Função de callback para logging na interface
+            serial_sender: Função para enviar comandos seriais ao ESP32
         """
         self.network_client = network_client
         self.log_callback = log_callback
+        self.serial_sender = serial_sender
 
         # Estado dos controles
         self.throttle_value = 0.0  # 0-100%
@@ -38,6 +42,21 @@ class SliderController:
         self.throttle_label = None
         self.brake_label = None
         self.steering_label = None
+
+        # Calibration manager
+        self.calibration_manager = CalibrationManager(
+            serial_sender=self._send_serial_command,
+            log_callback=log_callback
+        )
+
+        # Widgets de calibração
+        self.cal_throttle_btn = None
+        self.cal_brake_btn = None
+        self.cal_steering_btn = None
+        self.cal_status_label = None
+        self.cal_raw_value_label = None
+        self.cal_save_btn = None
+        self.cal_cancel_btn = None
 
         # Controle de envio
         self.is_active = False
@@ -102,10 +121,10 @@ class SliderController:
         throttle_frame = tk.Frame(inner_frame, bg="#3c3c3c")
         throttle_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=10)
 
-        # Label do throttle
+        # Label do acelerador
         self.throttle_label = tk.Label(
             throttle_frame,
-            text="🚀 Throttle: 0%",
+            text="🚀 Acelerador: 0%",
             bg="#3c3c3c",
             fg="#00d477",
             font=("Arial", 12, "bold"),
@@ -144,10 +163,10 @@ class SliderController:
         brake_frame = tk.Frame(inner_frame, bg="#3c3c3c")
         brake_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=10)
 
-        # Label do brake
+        # Label do freio
         self.brake_label = tk.Label(
             brake_frame,
-            text="🛑 Brake: 0%",
+            text="🛑 Freio: 0%",
             bg="#3c3c3c",
             fg="#ff4444",
             font=("Arial", 12, "bold"),
@@ -231,27 +250,131 @@ class SliderController:
         # === INSTRUÇÕES ===
         instructions = tk.Label(
             control_frame,
-            text="Arraste os sliders para controlar throttle, brake e direção de forma suave",
+            text="Arraste os sliders para controlar acelerador, freio e direção de forma suave",
             bg="#3c3c3c",
             fg="#cccccc",
             font=("Arial", 9),
         )
         instructions.pack(pady=5)
 
+        # === CALIBRAÇÃO DE ENCODERS ===
+        calibration_frame = ttk.LabelFrame(
+            control_frame, text="🎯 Calibração de Encoders", style="Dark.TLabelframe"
+        )
+        calibration_frame.pack(fill=tk.X, padx=10, pady=10)
+
+        # Frame interno para layout
+        cal_inner = tk.Frame(calibration_frame, bg="#3c3c3c")
+        cal_inner.pack(padx=10, pady=10, fill=tk.X)
+
+        # Botões de calibração para cada componente
+        cal_buttons_frame = tk.Frame(cal_inner, bg="#3c3c3c")
+        cal_buttons_frame.pack(fill=tk.X, pady=5)
+
+        self.cal_throttle_btn = tk.Button(
+            cal_buttons_frame,
+            text="📊 Calibrar Acelerador",
+            command=lambda: self._start_calibration("THROTTLE"),
+            bg="#2d8659",
+            fg="white",
+            font=("Arial", 10),
+            relief=tk.RAISED,
+            bd=2,
+        )
+        self.cal_throttle_btn.pack(side=tk.LEFT, padx=5)
+
+        self.cal_brake_btn = tk.Button(
+            cal_buttons_frame,
+            text="📊 Calibrar Freio",
+            command=lambda: self._start_calibration("BRAKE"),
+            bg="#c93030",
+            fg="white",
+            font=("Arial", 10),
+            relief=tk.RAISED,
+            bd=2,
+        )
+        self.cal_brake_btn.pack(side=tk.LEFT, padx=5)
+
+        self.cal_steering_btn = tk.Button(
+            cal_buttons_frame,
+            text="📊 Calibrar Direção",
+            command=lambda: self._start_calibration("STEERING"),
+            bg="#2d5f99",
+            fg="white",
+            font=("Arial", 10),
+            relief=tk.RAISED,
+            bd=2,
+        )
+        self.cal_steering_btn.pack(side=tk.LEFT, padx=5)
+
+        # Status da calibração
+        self.cal_status_label = tk.Label(
+            cal_inner,
+            text="Nenhuma calibração em andamento",
+            bg="#3c3c3c",
+            fg="#cccccc",
+            font=("Arial", 9),
+            wraplength=600,
+            justify=tk.LEFT,
+        )
+        self.cal_status_label.pack(pady=5, fill=tk.X)
+
+        # Valor bruto do encoder
+        self.cal_raw_value_label = tk.Label(
+            cal_inner,
+            text="Valor bruto: --",
+            bg="#2c2c2c",
+            fg="#00ff00",
+            font=("Courier", 12, "bold"),
+            relief=tk.SUNKEN,
+            bd=2,
+        )
+        self.cal_raw_value_label.pack(pady=5)
+
+        # Botões de ação de calibração
+        cal_action_frame = tk.Frame(cal_inner, bg="#3c3c3c")
+        cal_action_frame.pack(pady=5)
+
+        self.cal_save_btn = tk.Button(
+            cal_action_frame,
+            text="✅ Salvar Calibração",
+            command=self._save_calibration,
+            bg="#2d8659",
+            fg="white",
+            font=("Arial", 10, "bold"),
+            relief=tk.RAISED,
+            bd=2,
+            state=tk.DISABLED,
+        )
+        self.cal_save_btn.pack(side=tk.LEFT, padx=5)
+
+        self.cal_cancel_btn = tk.Button(
+            cal_action_frame,
+            text="❌ Cancelar",
+            command=self._cancel_calibration,
+            bg="#c93030",
+            fg="white",
+            font=("Arial", 10),
+            relief=tk.RAISED,
+            bd=2,
+            state=tk.DISABLED,
+        )
+        self.cal_cancel_btn.pack(side=tk.LEFT, padx=5)
+
         return control_frame
 
     def _on_throttle_change(self, value):
-        """Callback para mudança no slider de throttle"""
+        """Callback para mudança no slider de acelerador"""
         try:
             old_throttle = self.throttle_value
             self.throttle_value = float(value)
-            self.throttle_label.config(text=f"🚀 Throttle: {self.throttle_value:.0f}%")
+            self.throttle_label.config(text=f"🚀 Acelerador: {self.throttle_value:.0f}%")
 
             # CORREÇÃO: Envia comando em thread separada para não travar UI
             if self.network_client:
                 self._log(
                     "DEBUG",
-                    f"🚀 Throttle: {old_throttle:.0f}% → {self.throttle_value:.0f}%",
+                    f"🚀 Acelerador: {old_throttle:.0f}% → {self.throttle_value:.0f}%",
                 )
                 # Thread separada para envio de rede (não bloqueia UI)
                 threading.Thread(
@@ -261,19 +384,19 @@ class SliderController:
                 ).start()
 
         except Exception as e:
-            self._log("ERROR", f"Erro ao processar mudança de throttle: {e}")
+            self._log("ERROR", f"Erro ao processar mudança de acelerador: {e}")
 
     def _on_brake_change(self, value):
-        """Callback para mudança no slider de brake"""
+        """Callback para mudança no slider de freio"""
         try:
             old_brake = self.brake_value
             self.brake_value = float(value)
-            self.brake_label.config(text=f"🛑 Brake: {self.brake_value:.0f}%")
+            self.brake_label.config(text=f"🛑 Freio: {self.brake_value:.0f}%")
 
             # CORREÇÃO: Envia comando em thread separada para não travar UI
             if self.network_client:
                 self._log(
-                    "DEBUG", f"🛑 Brake: {old_brake:.0f}% → {self.brake_value:.0f}%"
+                    "DEBUG", f"🛑 Freio: {old_brake:.0f}% → {self.brake_value:.0f}%"
                 )
                 # Thread separada para envio de rede (não bloqueia UI)
                 threading.Thread(
@@ -283,7 +406,7 @@ class SliderController:
                 ).start()
 
         except Exception as e:
-            self._log("ERROR", f"Erro ao processar mudança de brake: {e}")
+            self._log("ERROR", f"Erro ao processar mudança de freio: {e}")
 
     def _on_steering_change(self, value):
         """Callback para mudança no slider de direção"""
@@ -456,3 +579,112 @@ class SliderController:
                 round(self.commands_sent / elapsed, 2) if elapsed > 0 else 0
             ),
         }
+
+    # ===== CALIBRATION METHODS =====
+
+    def _send_serial_command(self, command: str) -> bool:
+        """
+        Envia comando serial para o ESP32
+
+        Args:
+            command: Comando a ser enviado
+
+        Returns:
+            bool: True se enviado com sucesso
+        """
+        if self.serial_sender:
+            return self.serial_sender(command)
+        else:
+            self._log("WARN", "Serial sender não disponível para calibração")
+            return False
+
+    def _start_calibration(self, component: str):
+        """Inicia calibração de um componente"""
+        success = self.calibration_manager.start_calibration(component)
+
+        if success:
+            # Atualiza UI
+            self._update_calibration_ui()
+
+            # Desabilita botões de calibração
+            self.cal_throttle_btn.config(state=tk.DISABLED)
+            self.cal_brake_btn.config(state=tk.DISABLED)
+            self.cal_steering_btn.config(state=tk.DISABLED)
+
+            # Habilita botões de ação
+            self.cal_save_btn.config(state=tk.NORMAL)
+            self.cal_cancel_btn.config(state=tk.NORMAL)
+
+            # Inicia atualização contínua
+            self._schedule_calibration_update()
+
+    def _save_calibration(self):
+        """Salva calibração atual"""
+        success = self.calibration_manager.save_calibration()
+
+        if success:
+            self._finish_calibration()
+
+    def _cancel_calibration(self):
+        """Cancela calibração atual"""
+        self.calibration_manager.cancel_calibration()
+        self._finish_calibration()
+
+    def _finish_calibration(self):
+        """Finaliza modo de calibração"""
+        # Reabilita botões de calibração
+        self.cal_throttle_btn.config(state=tk.NORMAL)
+        self.cal_brake_btn.config(state=tk.NORMAL)
+        self.cal_steering_btn.config(state=tk.NORMAL)
+
+        # Desabilita botões de ação
+        self.cal_save_btn.config(state=tk.DISABLED)
+        self.cal_cancel_btn.config(state=tk.DISABLED)
+
+        # Atualiza UI
+        self.cal_status_label.config(text="Nenhuma calibração em andamento")
+        self.cal_raw_value_label.config(text="Valor bruto: --")
+
+    def _schedule_calibration_update(self):
+        """Agenda próxima atualização da UI de calibração"""
+        if self.calibration_manager.is_calibrating:
+            self._update_calibration_ui()
+            # Agenda próxima atualização (50ms = 20Hz)
+            if hasattr(self, 'cal_status_label') and self.cal_status_label.winfo_exists():
+                self.cal_status_label.after(50, self._schedule_calibration_update)
+
+    def _update_calibration_ui(self):
+        """Atualiza UI de calibração com status atual"""
+        status = self.calibration_manager.get_calibration_status()
+
+        if status["is_calibrating"]:
+            # Atualiza instruções
+            instructions = status["instructions"]
+            self.cal_status_label.config(text=instructions, fg="#ffaa00")
+
+            # Atualiza valor bruto
+            raw_current = status["raw_current"]
+            raw_min = status["raw_min"]
+            raw_max = status["raw_max"]
+
+            value_text = f"Valor bruto: {raw_current}"
+            if raw_min is not None and raw_max is not None:
+                value_text += f"  [Min: {raw_min}, Max: {raw_max}, Range: {raw_max - raw_min}]"
+
+            self.cal_raw_value_label.config(text=value_text)
+
+    def update_calibration_raw_value(self, component: str, raw_value: int):
+        """
+        Atualiza valor bruto do encoder durante calibração
+
+        Args:
+            component: Componente sendo calibrado (THROTTLE, BRAKE, STEERING)
+            raw_value: Valor bruto do encoder
+        """
+        self.calibration_manager.update_raw_value(component, raw_value)
+
+    def set_serial_sender(self, serial_sender: Callable[[str], bool]):
+        """Define função para enviar comandos seriais"""
+        self.serial_sender = serial_sender
+        if hasattr(self, 'calibration_manager'):
+            self.calibration_manager.serial_sender = self._send_serial_command

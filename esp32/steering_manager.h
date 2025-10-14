@@ -39,6 +39,7 @@
 #define STEERING_MANAGER_H
 
 #include <Arduino.h>
+#include "encoder_calibration.h"
 
 class SteeringManager {
 private:
@@ -56,6 +57,9 @@ private:
     volatile long encoder_position;  // Raw encoder count
     volatile int last_clk;           // Last CLK state
     int current_value;               // -100 to +100%
+
+    // Calibration (bipolar mode for steering)
+    EncoderCalibration calibration;
 
     // Static instance for ISR
     static SteeringManager* instance;
@@ -83,9 +87,29 @@ public:
     int get_value() const;
 
     /**
+     * @brief Get raw encoder position (for calibration)
+     */
+    long get_raw_position() const;
+
+    /**
      * @brief Reset steering to center position
      */
     void reset();
+
+    /**
+     * @brief Start calibration mode
+     */
+    void start_calibration();
+
+    /**
+     * @brief Save calibration with left/center/right values
+     */
+    bool save_calibration(int32_t left_val, int32_t center_val, int32_t right_val);
+
+    /**
+     * @brief Check if in calibration mode
+     */
+    bool is_calibrating() const;
 };
 
 #endif // STEERING_MANAGER_H

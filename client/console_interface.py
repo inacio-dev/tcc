@@ -99,6 +99,12 @@ class ConsoleInterface:
         self.current_throttle = 0.0
         self.current_steering = 0.0
 
+        # Parâmetros de Force Feedback
+        self.ff_damping_var = None
+        self.ff_friction_var = None
+        self.ff_filter_var = None
+        self.ff_sensitivity_var = None
+
         # Widgets principais
         self.log_text = None
         self.pause_btn = None
@@ -120,6 +126,12 @@ class ConsoleInterface:
 
         # Controles de veículo
         self.brake_balance_var = tk.DoubleVar(value=60.0)  # 60% dianteiro padrão
+
+        # Parâmetros de Force Feedback (valores padrão 0-100)
+        self.ff_damping_var = tk.DoubleVar(value=50.0)  # Damping: reduz oscilações
+        self.ff_friction_var = tk.DoubleVar(value=30.0)  # Friction: resistência dos pneus
+        self.ff_filter_var = tk.DoubleVar(value=40.0)  # Filter: suavização do sinal
+        self.ff_sensitivity_var = tk.DoubleVar(value=75.0)  # Sensitivity: resposta aos eventos
 
         # Instrumentos do motor
         self.rpm_var = tk.StringVar(value="0")
@@ -698,51 +710,282 @@ class ConsoleInterface:
         self.velocity_label.grid(row=0, column=1, padx=5, sticky=tk.W)
 
     def create_force_feedback_frame(self):
-        """Cria frame com dados do force feedback"""
+        """Cria frame com dados do force feedback da direção"""
         ff_frame = ttk.LabelFrame(
-            self.left_column, text="🎮 Force Feedback", style="Dark.TLabelframe"
+            self.left_column, text="🎮 Force Feedback - Direção", style="Dark.TLabelframe"
         )
         ff_frame.pack(fill=tk.X, padx=5, pady=5)
 
-        # Linha 1: Volante e Freio
-        ttk.Label(ff_frame, text="Volante:", style="Dark.TLabel").grid(
-            row=0, column=0, padx=5
-        )
-        ttk.Label(
-            ff_frame,
+        # Frame interno para melhor organização
+        inner_frame = tk.Frame(ff_frame, bg="#3c3c3c")
+        inner_frame.pack(padx=10, pady=10, fill=tk.X)
+
+        # === FORÇA NO VOLANTE ===
+        steering_frame = tk.Frame(inner_frame, bg="#3c3c3c")
+        steering_frame.pack(fill=tk.X, pady=5)
+
+        ttk.Label(steering_frame, text="🎯 Força no Volante:", style="Dark.TLabel", font=("Arial", 10, "bold")).pack(side=tk.LEFT, padx=5)
+
+        self.steering_ff_value = ttk.Label(
+            steering_frame,
             textvariable=self.sensor_vars["steering_feedback"],
             style="Dark.TLabel",
-        ).grid(row=0, column=1, padx=5)
-        ttk.Label(ff_frame, text="%", style="Dark.TLabel").grid(row=0, column=2, padx=5)
-
-        ttk.Label(ff_frame, text="Freio:", style="Dark.TLabel").grid(
-            row=0, column=3, padx=5
+            font=("Arial", 14, "bold"),
+            foreground="#00ff00"
         )
+        self.steering_ff_value.pack(side=tk.LEFT, padx=5)
+
+        ttk.Label(steering_frame, text="%", style="Dark.TLabel", font=("Arial", 10)).pack(side=tk.LEFT)
+
+        # Descrição
+        desc_label = tk.Label(
+            inner_frame,
+            text="Calculado com base em forças laterais (G) e rotação (gyro_z)",
+            bg="#3c3c3c",
+            fg="#888888",
+            font=("Arial", 8),
+            justify=tk.LEFT
+        )
+        desc_label.pack(pady=(0, 5), anchor=tk.W)
+
+        # === COMPONENTES DO CÁLCULO ===
+        components_frame = ttk.LabelFrame(
+            ff_frame, text="Componentes do Cálculo", style="Dark.TLabelframe"
+        )
+        components_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
+
+        comp_inner = tk.Frame(components_frame, bg="#3c3c3c")
+        comp_inner.pack(padx=10, pady=10, fill=tk.X)
+
+        # Força Lateral (G)
+        lateral_frame = tk.Frame(comp_inner, bg="#3c3c3c")
+        lateral_frame.pack(fill=tk.X, pady=2)
+
+        ttk.Label(lateral_frame, text="↔️ Força Lateral (G):", style="Dark.TLabel").pack(side=tk.LEFT, padx=5)
         ttk.Label(
-            ff_frame,
-            textvariable=self.sensor_vars["brake_resistance"],
+            lateral_frame,
+            textvariable=self.sensor_vars["g_force_lateral"],
             style="Dark.TLabel",
-        ).grid(row=0, column=4, padx=5)
-        ttk.Label(ff_frame, text="%", style="Dark.TLabel").grid(row=0, column=5, padx=5)
+            font=("Arial", 10, "bold")
+        ).pack(side=tk.LEFT, padx=5)
+        ttk.Label(lateral_frame, text="g", style="Dark.TLabel").pack(side=tk.LEFT)
 
-        # Linha 2: Vibração e Inclinação
-        ttk.Label(ff_frame, text="Vibração:", style="Dark.TLabel").grid(
-            row=1, column=0, padx=5
-        )
+        # Rotação (Yaw)
+        yaw_frame = tk.Frame(comp_inner, bg="#3c3c3c")
+        yaw_frame.pack(fill=tk.X, pady=2)
+
+        ttk.Label(yaw_frame, text="🔄 Rotação (gyro_z):", style="Dark.TLabel").pack(side=tk.LEFT, padx=5)
         ttk.Label(
-            ff_frame,
-            textvariable=self.sensor_vars["seat_vibration"],
+            yaw_frame,
+            textvariable=self.sensor_vars["gyro_z"],
             style="Dark.TLabel",
-        ).grid(row=1, column=1, padx=5)
-        ttk.Label(ff_frame, text="%", style="Dark.TLabel").grid(row=1, column=2, padx=5)
+            font=("Arial", 10, "bold")
+        ).pack(side=tk.LEFT, padx=5)
+        ttk.Label(yaw_frame, text="°/s", style="Dark.TLabel").pack(side=tk.LEFT)
 
-        ttk.Label(ff_frame, text="Inclinação X:", style="Dark.TLabel").grid(
-            row=1, column=3, padx=5
+        # Fórmula (informativo)
+        formula_label = tk.Label(
+            comp_inner,
+            text="📊 Fórmula: (|G_lateral| × 50) + (|gyro_z| / 60 × 50)",
+            bg="#3c3c3c",
+            fg="#4488ff",
+            font=("Arial", 8, "italic"),
+            justify=tk.LEFT
         )
+        formula_label.pack(pady=(5, 0), anchor=tk.W)
+
+        # === PARÂMETROS AJUSTÁVEIS ===
+        params_frame = ttk.LabelFrame(
+            ff_frame, text="⚙️ Parâmetros de Force Feedback", style="Dark.TLabelframe"
+        )
+        params_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
+
+        params_inner = tk.Frame(params_frame, bg="#3c3c3c")
+        params_inner.pack(padx=10, pady=10, fill=tk.X)
+
+        # Slider 1: Damping (Amortecimento)
+        damping_frame = tk.Frame(params_inner, bg="#3c3c3c")
+        damping_frame.pack(fill=tk.X, pady=5)
+
         ttk.Label(
-            ff_frame, textvariable=self.sensor_vars["seat_tilt_x"], style="Dark.TLabel"
-        ).grid(row=1, column=4, padx=5)
-        ttk.Label(ff_frame, text="°", style="Dark.TLabel").grid(row=1, column=5, padx=5)
+            damping_frame,
+            text="🔧 Damping (Amortecimento):",
+            style="Dark.TLabel",
+            font=("Arial", 9, "bold")
+        ).pack(side=tk.LEFT, padx=5)
+
+        self.damping_value_label = ttk.Label(
+            damping_frame,
+            text="50%",
+            style="Dark.TLabel",
+            font=("Arial", 9)
+        )
+        self.damping_value_label.pack(side=tk.RIGHT, padx=5)
+
+        damping_slider = tk.Scale(
+            params_inner,
+            from_=0,
+            to=100,
+            resolution=5,
+            orient=tk.HORIZONTAL,
+            variable=self.ff_damping_var,
+            command=self._on_ff_damping_change,
+            bg="#3c3c3c",
+            fg="white",
+            highlightbackground="#3c3c3c",
+            troughcolor="#2c2c2c",
+            activebackground="#4488ff",
+            showvalue=0
+        )
+        damping_slider.pack(fill=tk.X, pady=(0, 2))
+
+        damping_desc = tk.Label(
+            params_inner,
+            text="Reduz oscilações e vibrações indesejadas no volante",
+            bg="#3c3c3c",
+            fg="#888888",
+            font=("Arial", 7),
+            justify=tk.LEFT
+        )
+        damping_desc.pack(anchor=tk.W, pady=(0, 10))
+
+        # Slider 2: Friction (Atrito)
+        friction_frame = tk.Frame(params_inner, bg="#3c3c3c")
+        friction_frame.pack(fill=tk.X, pady=5)
+
+        ttk.Label(
+            friction_frame,
+            text="🏎️ Friction (Atrito):",
+            style="Dark.TLabel",
+            font=("Arial", 9, "bold")
+        ).pack(side=tk.LEFT, padx=5)
+
+        self.friction_value_label = ttk.Label(
+            friction_frame,
+            text="30%",
+            style="Dark.TLabel",
+            font=("Arial", 9)
+        )
+        self.friction_value_label.pack(side=tk.RIGHT, padx=5)
+
+        friction_slider = tk.Scale(
+            params_inner,
+            from_=0,
+            to=100,
+            resolution=5,
+            orient=tk.HORIZONTAL,
+            variable=self.ff_friction_var,
+            command=self._on_ff_friction_change,
+            bg="#3c3c3c",
+            fg="white",
+            highlightbackground="#3c3c3c",
+            troughcolor="#2c2c2c",
+            activebackground="#ff8800",
+            showvalue=0
+        )
+        friction_slider.pack(fill=tk.X, pady=(0, 2))
+
+        friction_desc = tk.Label(
+            params_inner,
+            text="Simula a resistência dos pneus (grip disponível)",
+            bg="#3c3c3c",
+            fg="#888888",
+            font=("Arial", 7),
+            justify=tk.LEFT
+        )
+        friction_desc.pack(anchor=tk.W, pady=(0, 10))
+
+        # Slider 3: Filter (Filtro)
+        filter_frame = tk.Frame(params_inner, bg="#3c3c3c")
+        filter_frame.pack(fill=tk.X, pady=5)
+
+        ttk.Label(
+            filter_frame,
+            text="📊 Filter (Filtro):",
+            style="Dark.TLabel",
+            font=("Arial", 9, "bold")
+        ).pack(side=tk.LEFT, padx=5)
+
+        self.filter_value_label = ttk.Label(
+            filter_frame,
+            text="40%",
+            style="Dark.TLabel",
+            font=("Arial", 9)
+        )
+        self.filter_value_label.pack(side=tk.RIGHT, padx=5)
+
+        filter_slider = tk.Scale(
+            params_inner,
+            from_=0,
+            to=100,
+            resolution=5,
+            orient=tk.HORIZONTAL,
+            variable=self.ff_filter_var,
+            command=self._on_ff_filter_change,
+            bg="#3c3c3c",
+            fg="white",
+            highlightbackground="#3c3c3c",
+            troughcolor="#2c2c2c",
+            activebackground="#00ff00",
+            showvalue=0
+        )
+        filter_slider.pack(fill=tk.X, pady=(0, 2))
+
+        filter_desc = tk.Label(
+            params_inner,
+            text="Suaviza o sinal para uma experiência mais realista",
+            bg="#3c3c3c",
+            fg="#888888",
+            font=("Arial", 7),
+            justify=tk.LEFT
+        )
+        filter_desc.pack(anchor=tk.W, pady=(0, 10))
+
+        # Slider 4: Sensitivity (Sensibilidade)
+        sensitivity_frame = tk.Frame(params_inner, bg="#3c3c3c")
+        sensitivity_frame.pack(fill=tk.X, pady=5)
+
+        ttk.Label(
+            sensitivity_frame,
+            text="⚡ Sensitivity (Sensibilidade):",
+            style="Dark.TLabel",
+            font=("Arial", 9, "bold")
+        ).pack(side=tk.LEFT, padx=5)
+
+        self.sensitivity_value_label = ttk.Label(
+            sensitivity_frame,
+            text="75%",
+            style="Dark.TLabel",
+            font=("Arial", 9)
+        )
+        self.sensitivity_value_label.pack(side=tk.RIGHT, padx=5)
+
+        sensitivity_slider = tk.Scale(
+            params_inner,
+            from_=0,
+            to=100,
+            resolution=5,
+            orient=tk.HORIZONTAL,
+            variable=self.ff_sensitivity_var,
+            command=self._on_ff_sensitivity_change,
+            bg="#3c3c3c",
+            fg="white",
+            highlightbackground="#3c3c3c",
+            troughcolor="#2c2c2c",
+            activebackground="#ff00ff",
+            showvalue=0
+        )
+        sensitivity_slider.pack(fill=tk.X, pady=(0, 2))
+
+        sensitivity_desc = tk.Label(
+            params_inner,
+            text="Controla a intensidade da resposta aos eventos in-game",
+            bg="#3c3c3c",
+            fg="#888888",
+            font=("Arial", 7),
+            justify=tk.LEFT
+        )
+        sensitivity_desc.pack(anchor=tk.W, pady=(0, 10))
 
     def create_controls_frame(self):
         """Cria frame de controles"""
@@ -1178,8 +1421,8 @@ class ConsoleInterface:
         self.create_serial_port_selector_frame()  # Seletor de porta ESP32
         self.create_instrument_panel()
         self.create_bmi160_frame()
-        self.create_log_frame()  # Console de log movido para cá
         self.create_force_feedback_frame()
+        self.create_log_frame()  # Console de log movido para cá
 
         # Coluna Direita
         self.create_video_frame()
@@ -1248,6 +1491,9 @@ class ConsoleInterface:
         """Atualiza dados dos sensores"""
         # Calcular velocidade baseada no BMI160 (deve ser chamado primeiro)
         self._calculate_velocity_from_bmi160(sensor_data)
+
+        # Calcular forças G e force feedback localmente
+        self._calculate_g_forces_and_ff(sensor_data)
 
         # Atualizar dados do motor (RPM, marcha, throttle, velocidade)
         self._update_motor_display(sensor_data)
@@ -1470,6 +1716,84 @@ class ConsoleInterface:
 
         except Exception as e:
             error(f"Erro ao calcular velocidade: {e}", "CONSOLE")
+
+    def _calculate_g_forces_and_ff(self, sensor_data):
+        """
+        Calcula forças G e force feedback localmente baseado em dados raw do BMI160
+
+        Args:
+            sensor_data (dict): Dados dos sensores incluindo aceleração e giroscópio raw
+        """
+        try:
+            # Obtém dados de aceleração em m/s² (já convertidos pelo Raspberry Pi)
+            accel_x = sensor_data.get("bmi160_accel_x", 0.0)  # Frontal (frente/trás)
+            accel_y = sensor_data.get("bmi160_accel_y", 0.0)  # Lateral (esquerda/direita)
+            accel_z = sensor_data.get("bmi160_accel_z", 9.81)  # Vertical (cima/baixo)
+
+            # Obtém dados de giroscópio em °/s (já convertidos pelo Raspberry Pi)
+            gyro_z = sensor_data.get("bmi160_gyro_z", 0.0)  # Rotação (yaw)
+
+            # === CALCULA FORÇAS G ===
+            # Divide pela gravidade padrão (9.81 m/s²) para converter para G
+            g_force_frontal = accel_x / 9.81  # Aceleração/frenagem
+            g_force_lateral = accel_y / 9.81  # Curvas
+            g_force_vertical = (accel_z - 9.81) / 9.81  # Solavancos (remove gravidade base)
+
+            # Armazena forças G calculadas de volta no sensor_data
+            sensor_data["g_force_frontal"] = g_force_frontal
+            sensor_data["g_force_lateral"] = g_force_lateral
+            sensor_data["g_force_vertical"] = g_force_vertical
+
+            # === CALCULA FORCE FEEDBACK DA DIREÇÃO ===
+            # Componente 1: Força lateral (curvas)
+            # Quanto maior a força G lateral, mais resistência no volante
+            lateral_component = min(abs(g_force_lateral) * 50, 100)
+
+            # Componente 2: Rotação (yaw)
+            # Quanto mais rápido estiver girando, mais força no volante
+            yaw_component = min(abs(gyro_z) / 60.0 * 50, 50)
+
+            # Força base combinada (0-100%)
+            base_steering_ff = min(lateral_component + yaw_component, 100)
+
+            # === APLICA PARÂMETROS DE FF (SLIDERS) ===
+            # Obtém valores dos sliders (0-100%)
+            damping = self.ff_damping_var.get() / 100.0  # 0.0 a 1.0
+            friction = self.ff_friction_var.get() / 100.0  # 0.0 a 1.0
+            filter_strength = self.ff_filter_var.get() / 100.0  # 0.0 a 1.0
+            sensitivity = self.ff_sensitivity_var.get() / 100.0  # 0.0 a 1.0
+
+            # Aplica sensibilidade (multiplica a força base)
+            adjusted_ff = base_steering_ff * sensitivity
+
+            # Aplica damping (reduz oscilações - média com valor anterior se existir)
+            if hasattr(self, '_last_steering_ff'):
+                adjusted_ff = adjusted_ff * (1.0 - damping) + self._last_steering_ff * damping
+            self._last_steering_ff = adjusted_ff
+
+            # Aplica friction (adiciona resistência constante se houver movimento)
+            if abs(gyro_z) > 1.0:  # Se está girando (>1°/s)
+                adjusted_ff += friction * 20  # Adiciona até 20% de resistência
+
+            # Aplica filter (suavização exponencial)
+            if hasattr(self, '_filtered_steering_ff'):
+                adjusted_ff = adjusted_ff * (1.0 - filter_strength) + self._filtered_steering_ff * filter_strength
+            self._filtered_steering_ff = adjusted_ff
+
+            # Limita ao intervalo 0-100%
+            final_steering_ff = max(0.0, min(100.0, adjusted_ff))
+
+            # Armazena force feedback calculado de volta no sensor_data
+            sensor_data["steering_feedback_intensity"] = final_steering_ff
+
+            # Outros force feedbacks (ainda não implementados - valores placeholder)
+            sensor_data["brake_pedal_resistance"] = 0.0
+            sensor_data["seat_vibration_intensity"] = 0.0
+            sensor_data["seat_tilt_x"] = 0.0
+            sensor_data["seat_tilt_y"] = 0.0
+
+        except Exception as e:
+            error(f"Erro ao calcular forças G e force feedback: {e}", "CONSOLE")
 
     def process_queues(self):
         """Processa filas de comunicação"""
@@ -1748,6 +2072,46 @@ class ConsoleInterface:
                 debug("Network client não disponível para enviar comando", "CONTROL")
         except Exception as e:
             error(f"Erro ao enviar comando brake_balance: {e}", "CONTROL")
+
+    def _on_ff_damping_change(self, value):
+        """Callback quando o slider de damping muda"""
+        try:
+            damping = float(value)
+            self.damping_value_label.config(text=f"{damping:.0f}%")
+            debug(f"Damping alterado: {damping:.0f}%", "FF")
+            # Parâmetro armazenado localmente - não envia para Raspberry Pi
+        except Exception as e:
+            error(f"Erro ao alterar damping: {e}", "FF")
+
+    def _on_ff_friction_change(self, value):
+        """Callback quando o slider de friction muda"""
+        try:
+            friction = float(value)
+            self.friction_value_label.config(text=f"{friction:.0f}%")
+            debug(f"Friction alterado: {friction:.0f}%", "FF")
+            # Parâmetro armazenado localmente - não envia para Raspberry Pi
+        except Exception as e:
+            error(f"Erro ao alterar friction: {e}", "FF")
+
+    def _on_ff_filter_change(self, value):
+        """Callback quando o slider de filter muda"""
+        try:
+            filter_val = float(value)
+            self.filter_value_label.config(text=f"{filter_val:.0f}%")
+            debug(f"Filter alterado: {filter_val:.0f}%", "FF")
+            # Parâmetro armazenado localmente - não envia para Raspberry Pi
+        except Exception as e:
+            error(f"Erro ao alterar filter: {e}", "FF")
+
+    def _on_ff_sensitivity_change(self, value):
+        """Callback quando o slider de sensitivity muda"""
+        try:
+            sensitivity = float(value)
+            self.sensitivity_value_label.config(text=f"{sensitivity:.0f}%")
+            debug(f"Sensitivity alterado: {sensitivity:.0f}%", "FF")
+            # Parâmetro armazenado localmente - não envia para Raspberry Pi
+        except Exception as e:
+            error(f"Erro ao alterar sensitivity: {e}", "FF")
 
     def set_network_client(self, network_client):
         """Define o cliente de rede para envio de comandos"""

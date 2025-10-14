@@ -676,7 +676,7 @@ class BMI160Manager:
         )
 
     def update(self):
-        """Atualização principal do sensor"""
+        """Atualização principal do sensor - apenas lê dados, não processa"""
         current_time = time.time()
         dt = current_time - self.last_update
 
@@ -684,15 +684,7 @@ class BMI160Manager:
         if dt >= 1.0 / self.sample_rate:
             # Lê dados do sensor
             if self.read_sensor_data():
-                # Atualiza buffers
-                self.update_buffers()
-
-                # Cálculos baseados nos dados
-                self.calculate_g_forces()
-                self.detect_driving_events()
-                self.calculate_angles(dt)
-                self.calculate_force_feedback()
-
+                # Apenas atualiza o timestamp - NENHUM processamento
                 self.last_update = current_time
                 return True
 
@@ -700,10 +692,10 @@ class BMI160Manager:
 
     def get_sensor_data(self):
         """
-        Retorna dicionário com todos os dados do sensor conforme datasheet
+        Retorna apenas os dados brutos do BMI160 - SEM processamento
 
         Returns:
-            dict: Dados completos do BMI160 e cálculos derivados
+            dict: Dados RAW do BMI160 apenas
         """
         return {
             # === DADOS RAW DO BMI160 (LSB) ===
@@ -725,28 +717,6 @@ class BMI160Manager:
             "gyro_range_dps": self._get_gyro_range_dps(),
             "accel_scale_factor": self.accel_scale,
             "gyro_scale_factor": self.gyro_scale,
-            # === FORÇAS G CALCULADAS ===
-            "g_force_frontal": round(self.g_force_frontal, 3),
-            "g_force_lateral": round(self.g_force_lateral, 3),
-            "g_force_vertical": round(self.g_force_vertical, 3),
-            # === ÂNGULOS INTEGRADOS ===
-            "roll_angle": round(self.roll_angle, 1),
-            "pitch_angle": round(self.pitch_angle, 1),
-            "yaw_angle": round(self.yaw_angle, 1),
-            # === EVENTOS DETECTADOS ===
-            "is_turning_left": self.is_turning_left,
-            "is_turning_right": self.is_turning_right,
-            "is_accelerating": self.is_accelerating,
-            "is_braking": self.is_braking,
-            "is_bouncing": self.is_bouncing,
-            "impact_detected": self.impact_detected,
-            # === INTENSIDADES PARA FORCE FEEDBACK ===
-            "steering_feedback_intensity": round(self.steering_feedback_intensity, 1),
-            "brake_pedal_resistance": round(self.brake_pedal_resistance, 1),
-            "accelerator_feedback": round(self.accelerator_feedback, 1),
-            "seat_vibration_intensity": round(self.seat_vibration_intensity, 1),
-            "seat_tilt_x": round(self.seat_tilt_x, 1),
-            "seat_tilt_y": round(self.seat_tilt_y, 1),
             # === METADADOS ===
             "timestamp": round(time.time(), 3),
             "readings_count": self.readings_count,

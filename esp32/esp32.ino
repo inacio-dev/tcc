@@ -24,6 +24,19 @@
  * - USB Serial transmission (115200 baud)
  * - 240MHz clock speed (15x faster than Arduino Mega)
  * - 600 PPR encoders for precise analog control (0.6° resolution)
+ * - Dynamic encoder calibration with EEPROM persistence
+ * - Bidirectional serial protocol for calibration commands
+ *
+ * Serial Commands (Client → ESP32):
+ * - CAL_START:THROTTLE/BRAKE/STEERING - Start calibration mode
+ * - CAL_SAVE:THROTTLE:min:max - Save throttle/brake calibration (unipolar)
+ * - CAL_SAVE:STEERING:left:center:right - Save steering calibration (bipolar)
+ *
+ * Serial Responses (ESP32 → Client):
+ * - CAL_STARTED:component - Calibration mode activated
+ * - CAL_THROTTLE/BRAKE/STEERING:raw_value - Raw encoder position during calibration
+ * - CAL_COMPLETE:component - Calibration saved successfully
+ * - CAL_ERROR:component - Calibration save failed
  *
  * @author F1 RC Car Project
  * @date 2025-10-13
@@ -45,6 +58,9 @@ SerialSenderManager serial_sender;
 // Timing control
 unsigned long last_update = 0;
 const unsigned long UPDATE_INTERVAL = 10; // 100Hz update rate
+
+// Serial command buffer
+String serial_buffer = "";
 
 // FreeRTOS task handles
 TaskHandle_t EncoderTaskHandle;
@@ -70,34 +86,130 @@ void EncoderTask(void* parameter) {
 }
 
 /**
+ * @brief Process incoming serial commands from client
+ */
+void process_serial_command(String command) {
+    command.trim();
+
+    if (command.startsWith("CAL_START:")) {
+        String component = command.substring(10);
+
+        if (component == "THROTTLE") {
+            throttle_manager.start_calibration();
+            Serial.println("CAL_STARTED:THROTTLE");
+        } else if (component == "BRAKE") {
+            brake_manager.start_calibration();
+            Serial.println("CAL_STARTED:BRAKE");
+        } else if (component == "STEERING") {
+            steering_manager.start_calibration();
+            Serial.println("CAL_STARTED:STEERING");
+        }
+    }
+    else if (command.startsWith("CAL_SAVE:")) {
+        // Format: CAL_SAVE:THROTTLE:min:max or CAL_SAVE:STEERING:left:center:right
+        int first_colon = command.indexOf(':', 9);
+        int second_colon = command.indexOf(':', first_colon + 1);
+        int third_colon = command.indexOf(':', second_colon + 1);
+
+        String component = command.substring(9, first_colon);
+
+        if (component == "THROTTLE") {
+            int32_t min_val = command.substring(first_colon + 1, second_colon).toInt();
+            int32_t max_val = command.substring(second_colon + 1).toInt();
+
+            if (throttle_manager.save_calibration(min_val, max_val)) {
+                Serial.println("CAL_COMPLETE:THROTTLE");
+            } else {
+                Serial.println("CAL_ERROR:THROTTLE");
+            }
+        }
+        else if (component == "BRAKE") {
+            int32_t min_val = command.substring(first_colon + 1, second_colon).toInt();
+            int32_t max_val = command.substring(second_colon + 1).toInt();
+
+            if (brake_manager.save_calibration(min_val, max_val)) {
+                Serial.println("CAL_COMPLETE:BRAKE");
+            } else {
+                Serial.println("CAL_ERROR:BRAKE");
+            }
+        }
+        else if (component == "STEERING") {
+            int32_t left_val = command.substring(first_colon + 1, second_colon).toInt();
+            int32_t center_val = command.substring(second_colon + 1, third_colon).toInt();
+            int32_t right_val = command.substring(third_colon + 1).toInt();
+
+            if (steering_manager.save_calibration(left_val, center_val, right_val)) {
+                Serial.println("CAL_COMPLETE:STEERING");
+            } else {
+                Serial.println("CAL_ERROR:STEERING");
+            }
+        }
+    }
+}
+
+/**
  * @brief Task running on Core 1 - Serial communication
- * Handles USB serial transmission to client PC
+ * Handles USB serial transmission to client PC and receives calibration commands
  */
 void SerialTask(void* parameter) {
     for (;;) {
         unsigned long current_time = millis();
 
+        // Check for incoming serial commands (calibration)
+        while (Serial.available() > 0) {
+            char c = Serial.read();
+            if (c == '\n') {
+                process_serial_command(serial_buffer);
+                serial_buffer = "";
+            } else {
+                serial_buffer += c;
+            }
+        }
+
         if (current_time - last_update >= UPDATE_INTERVAL) {
             last_update = current_time;
 
-            // Get current values from all managers
-            int throttle_value = throttle_manager.get_value();
-            int brake_value = brake_manager.get_value();
-            int steering_value = steering_manager.get_value();
-            bool gear_up_pressed = gear_manager.is_gear_up_pressed();
-            bool gear_down_pressed = gear_manager.is_gear_down_pressed();
+            // Check if any component is in calibration mode
+            bool throttle_cal = throttle_manager.is_calibrating();
+            bool brake_cal = brake_manager.is_calibrating();
+            bool steering_cal = steering_manager.is_calibrating();
 
-            // Send all data via USB serial
-            serial_sender.send_throttle(throttle_value);
-            serial_sender.send_brake(brake_value);
-            serial_sender.send_steering(steering_value);
-
-            if (gear_up_pressed) {
-                serial_sender.send_gear_up();
+            // If in calibration mode, send raw encoder values
+            if (throttle_cal) {
+                long raw_pos = throttle_manager.get_raw_position();
+                Serial.print("CAL_THROTTLE:");
+                Serial.println(raw_pos);
             }
+            else if (brake_cal) {
+                long raw_pos = brake_manager.get_raw_position();
+                Serial.print("CAL_BRAKE:");
+                Serial.println(raw_pos);
+            }
+            else if (steering_cal) {
+                long raw_pos = steering_manager.get_raw_position();
+                Serial.print("CAL_STEERING:");
+                Serial.println(raw_pos);
+            }
+            else {
+                // Normal operation - send processed values
+                int throttle_value = throttle_manager.get_value();
+                int brake_value = brake_manager.get_value();
+                int steering_value = steering_manager.get_value();
+                bool gear_up_pressed = gear_manager.is_gear_up_pressed();
+                bool gear_down_pressed = gear_manager.is_gear_down_pressed();
 
-            if (gear_down_pressed) {
-                serial_sender.send_gear_down();
+                // Send all data via USB serial
+                serial_sender.send_throttle(throttle_value);
+                serial_sender.send_brake(brake_value);
+                serial_sender.send_steering(steering_value);
+
+                if (gear_up_pressed) {
+                    serial_sender.send_gear_up();
+                }
+
+                if (gear_down_pressed) {
+                    serial_sender.send_gear_down();
+                }
             }
         }
 

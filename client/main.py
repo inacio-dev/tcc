@@ -105,14 +105,28 @@ class F1ClientApplication:
 
     def handle_serial_command(self, command_type: str, value: str):
         """
-        Handle commands received from Arduino Mega via serial
-        Forward them to Raspberry Pi via network client
+        Handle commands received from ESP32 via serial
+        Forward them to Raspberry Pi via network client or handle calibration
 
         Args:
-            command_type: Type of command (THROTTLE, BRAKE, STEERING, GEAR_UP, GEAR_DOWN)
+            command_type: Type of command (THROTTLE, BRAKE, STEERING, GEAR_UP, GEAR_DOWN, CAL_*)
             value: Command value (empty for GEAR_UP/GEAR_DOWN)
         """
         try:
+            # Handle calibration commands
+            if command_type.startswith("CAL_"):
+                if command_type in ["CAL_THROTTLE", "CAL_BRAKE", "CAL_STEERING"]:
+                    # Update calibration raw value in slider controller
+                    if self.console_interface and hasattr(self.console_interface, 'slider_controller'):
+                        component = command_type.split("_")[1]  # Extract THROTTLE/BRAKE/STEERING
+                        raw_value = int(value)
+                        self.console_interface.slider_controller.update_calibration_raw_value(component, raw_value)
+                elif command_type == "CAL_COMPLETE":
+                    # Calibration complete notification
+                    log_queue.put(("INFO", f"Calibração completa: {value}"))
+                return
+
+            # Handle normal control commands
             if self.network_client:
                 if command_type in ["THROTTLE", "BRAKE", "STEERING"]:
                     # Send control command with value
@@ -179,6 +193,13 @@ class F1ClientApplication:
             # 4.5. Conecta serial receiver com console para seleção manual de porta
             debug("Conectando serial receiver com interface...", "CLIENT")
             self.console_interface.set_serial_receiver(self.serial_receiver)
+
+            # 4.6. Conecta serial sender com slider controller para calibração
+            debug("Conectando serial sender com slider controller...", "CLIENT")
+            if hasattr(self.console_interface, 'slider_controller') and self.serial_receiver:
+                self.console_interface.slider_controller.set_serial_sender(
+                    lambda cmd: self.serial_receiver.send_command(cmd)
+                )
 
             # 5. Conecta video display com console para exibição integrada
             debug("Conectando vídeo com interface...", "CLIENT")

@@ -23,14 +23,3 @@ pip3 install smbus2 --break-system-packages
 # pip install smbus2
 ```
 
-asasfasfasfafasf
-
-```
-# Baixar a biblioteca
-git clone https://github.com/BLavery/lib_nrf24.git
-cd lib_nrf24
-# Instalar
-sudo cp lib_nrf24.py /usr/local/lib/python3.*/dist-packages/
-# Ou alternativamente:
-# sudo cp lib_nrf24.py /usr/lib/python3/dist-packages/
-```

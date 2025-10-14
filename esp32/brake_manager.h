@@ -38,6 +38,7 @@
 #define BRAKE_MANAGER_H
 
 #include <Arduino.h>
+#include "encoder_calibration.h"
 
 class BrakeManager {
 private:
@@ -51,9 +52,12 @@ private:
     static const int MIN_POSITION = 0;    // Zero rotation = 0% brake
 
     // State variables
-    volatile int encoder_position;  // Raw encoder count
+    volatile long encoder_position;  // Raw encoder count (changed to long for unlimited range)
     volatile int last_clk;          // Last CLK state
     int current_value;              // 0-100%
+
+    // Calibration
+    EncoderCalibration calibration;
 
     // Static instance for ISR
     static BrakeManager* instance;
@@ -81,9 +85,29 @@ public:
     int get_value() const;
 
     /**
+     * @brief Get raw encoder position (for calibration)
+     */
+    long get_raw_position() const;
+
+    /**
      * @brief Reset brake to zero position
      */
     void reset();
+
+    /**
+     * @brief Start calibration mode
+     */
+    void start_calibration();
+
+    /**
+     * @brief Save calibration with min/max values
+     */
+    bool save_calibration(int32_t min_val, int32_t max_val);
+
+    /**
+     * @brief Check if in calibration mode
+     */
+    bool is_calibrating() const;
 };
 
 #endif // BRAKE_MANAGER_H

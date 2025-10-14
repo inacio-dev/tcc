@@ -212,7 +212,7 @@ class SerialReceiverManager:
 
     def parse_command(self, line: str):
         """
-        Parse command received from Arduino Mega
+        Parse command received from ESP32
 
         Args:
             line: Command line string
@@ -260,9 +260,38 @@ class SerialReceiverManager:
                     self.command_callback("GEAR_DOWN", "")
                 self._log("INFO", "🎮 Gear Down")
 
+            # === CALIBRATION COMMANDS ===
+            elif line.startswith("CAL_THROTTLE:"):
+                # Raw encoder value for throttle calibration
+                raw_value = int(line.split(":")[1])
+                if self.command_callback:
+                    self.command_callback("CAL_THROTTLE", str(raw_value))
+                # Don't log every value to avoid spam
+
+            elif line.startswith("CAL_BRAKE:"):
+                # Raw encoder value for brake calibration
+                raw_value = int(line.split(":")[1])
+                if self.command_callback:
+                    self.command_callback("CAL_BRAKE", str(raw_value))
+                # Don't log every value to avoid spam
+
+            elif line.startswith("CAL_STEERING:"):
+                # Raw encoder value for steering calibration
+                raw_value = int(line.split(":")[1])
+                if self.command_callback:
+                    self.command_callback("CAL_STEERING", str(raw_value))
+                # Don't log every value to avoid spam
+
+            elif line.startswith("CAL_COMPLETE:"):
+                # Calibration completed message
+                component = line.split(":")[1]
+                self._log("INFO", f"✅ Calibração concluída: {component}")
+                if self.command_callback:
+                    self.command_callback("CAL_COMPLETE", component)
+
             else:
                 # Unknown command or system message
-                if not line.startswith("F1 Cockpit") and not line.startswith("Arduino"):
+                if not line.startswith("F1 Cockpit") and not line.startswith("ESP32") and not line.startswith("="):
                     self._log("WARN", f"Unknown command: {line}")
 
             self.commands_received += 1
@@ -360,3 +389,30 @@ class SerialReceiverManager:
     def is_connected(self) -> bool:
         """Check if serial connection is active"""
         return self.serial_conn is not None and self.serial_conn.is_open
+
+    def send_command(self, command: str) -> bool:
+        """
+        Send command to ESP32 via serial
+
+        Args:
+            command: Command string to send
+
+        Returns:
+            bool: True if sent successfully
+        """
+        try:
+            if not self.is_connected():
+                self._log("WARN", "Not connected to ESP32")
+                return False
+
+            # Send command with newline
+            command_bytes = (command + "\n").encode("utf-8")
+            self.serial_conn.write(command_bytes)
+            self.serial_conn.flush()
+
+            self._log("DEBUG", f"Sent command: {command}")
+            return True
+
+        except Exception as e:
+            self._log("ERROR", f"Error sending command: {e}")
+            return False
