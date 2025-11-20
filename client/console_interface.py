@@ -1514,6 +1514,9 @@ class ConsoleInterface:
         ff_direction = sensor_data.get("steering_feedback_direction", "neutral")
         self.update_ff_leds(ff_intensity, ff_direction)
 
+        # Enviar comando FF para ESP32 via serial
+        self.send_ff_command(ff_intensity, ff_direction)
+
         # Atualizar dados do motor (RPM, marcha, throttle, velocidade)
         self._update_motor_display(sensor_data)
 
@@ -1772,8 +1775,15 @@ class ConsoleInterface:
             # Quanto mais rápido estiver girando, mais força no volante
             yaw_component = min(abs(gyro_z) / 60.0 * 50, 50)
 
+            # Componente 3: Ângulo da direção (centering spring)
+            # Quanto mais afastado do centro, mais força para retornar
+            # steering_value vai de -100% (esquerda) a +100% (direita)
+            steering_value = sensor_data.get("steering", 0)  # -100 a +100
+            steering_angle_ratio = abs(steering_value) / 100.0  # 0.0 a 1.0
+            centering_component = steering_angle_ratio * 40  # 0-40% baseado no ângulo
+
             # Força base combinada (0-100%)
-            base_steering_ff = min(lateral_component + yaw_component, 100)
+            base_steering_ff = min(lateral_component + yaw_component + centering_component, 100)
 
             # === APLICA PARÂMETROS DE FF (SLIDERS) ===
             # Obtém valores dos sliders (0-100%)
@@ -1806,9 +1816,31 @@ class ConsoleInterface:
             # Limita ao intervalo 0-100%
             final_steering_ff = max(0.0, min(100.0, adjusted_ff))
 
-            # Determina direção baseado na força lateral e rotação
+            # Determina direção do force feedback
+            # A direção é determinada por TRÊS fatores:
+
+            # 1. Centering force: Sempre puxa para o centro (oposto ao ângulo atual)
+            #    Se volante está à esquerda (negativo), força puxa para direita (positiva)
+            #    Se volante está à direita (positivo), força puxa para esquerda (negativa)
+            centering_direction_value = -steering_value  # Inverte o sinal
+
+            # 2. Força lateral: Resiste ao movimento (mesma direção da força G)
+            lateral_direction_value = g_force_lateral * 10  # Amplifica para dar peso
+
+            # 3. Rotação (yaw): Resiste à rotação
+            yaw_direction_value = gyro_z
+
+            # Combina os três fatores para determinar direção final
+            total_direction_value = centering_direction_value + lateral_direction_value + yaw_direction_value
+
+            # Determina direção baseado no valor combinado
             # Positivo = direita, Negativo = esquerda
-            direction = "right" if (g_force_lateral > 0 or gyro_z > 0) else "left"
+            if total_direction_value > 5:
+                direction = "right"
+            elif total_direction_value < -5:
+                direction = "left"
+            else:
+                direction = "neutral"
 
             # Se a força for muito pequena, considera neutro
             if final_steering_ff < 5.0:
@@ -1867,6 +1899,38 @@ class ConsoleInterface:
 
         except Exception as e:
             error(f"Erro ao atualizar LEDs de FF: {e}", "CONSOLE")
+
+    def send_ff_command(self, intensity: float, direction: str):
+        """
+        Envia comando de Force Feedback para o ESP32 via serial
+
+        Args:
+            intensity: Intensidade da força (0-100%)
+            direction: Direção da força ("left", "right", "neutral")
+
+        Formato do comando: FF_MOTOR:direction:intensity
+        Exemplos:
+            FF_MOTOR:LEFT:45    - Força de 45% para a esquerda
+            FF_MOTOR:RIGHT:80   - Força de 80% para a direita
+            FF_MOTOR:NEUTRAL:0  - Sem força (motor parado)
+        """
+        try:
+            # Converte direção para maiúsculas
+            direction_upper = direction.upper()
+
+            # Formata intensidade como inteiro
+            intensity_int = int(intensity)
+
+            # Cria comando
+            command = f"FF_MOTOR:{direction_upper}:{intensity_int}"
+
+            # Envia via serial (se disponível)
+            if hasattr(self, 'serial_manager') and self.serial_manager:
+                self.serial_manager.send_command(command)
+
+        except Exception as e:
+            # Não loga erro para não poluir o console (alta frequência de envio)
+            pass
 
     def process_queues(self):
         """Processa filas de comunicação"""

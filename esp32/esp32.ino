@@ -16,21 +16,30 @@
  * - 2x Push Buttons (gear up/down)
  *   - Gear Up: GPIO 32 (D32)
  *   - Gear Down: GPIO 33 (D33)
+ * - BTS7960 H-Bridge Motor Driver (Force Feedback)
+ *   - RPWM: GPIO 16 (D16) - Right PWM (clockwise)
+ *   - LPWM: GPIO 17 (D17) - Left PWM (counter-clockwise)
+ *   - R_EN: GPIO 18 (D18) - Right enable
+ *   - L_EN: GPIO 19 (D19) - Left enable
  * - USB Serial communication to client PC (115200 baud)
  *
  * Features:
- * - Dual-core processing (Core 0: encoders, Core 1: serial transmission)
+ * - Dual-core processing:
+ *   - Core 0 (Priority 2): Encoders + Force Feedback motor (high-priority, real-time)
+ *   - Core 1 (Priority 1): Serial communication (normal priority)
  * - Real-time encoder tracking with hardware interrupts
  * - USB Serial transmission (115200 baud)
  * - 240MHz clock speed (15x faster than Arduino Mega)
  * - 600 PPR encoders for precise analog control (0.6° resolution)
  * - Dynamic encoder calibration with EEPROM persistence
- * - Bidirectional serial protocol for calibration commands
+ * - Bidirectional serial protocol for calibration and force feedback commands
+ * - Thread-safe inter-core communication with mutex locks
  *
  * Serial Commands (Client → ESP32):
  * - CAL_START:THROTTLE/BRAKE/STEERING - Start calibration mode
  * - CAL_SAVE:THROTTLE:min:max - Save throttle/brake calibration (unipolar)
  * - CAL_SAVE:STEERING:left:center:right - Save steering calibration (bipolar)
+ * - FF_MOTOR:direction:intensity - Control force feedback motor (LEFT/RIGHT/NEUTRAL, 0-100%)
  *
  * Serial Responses (ESP32 → Client):
  * - CAL_STARTED:component - Calibration mode activated
@@ -47,6 +56,7 @@
 #include "steering_manager.h"
 #include "gear_manager.h"
 #include "serial_sender_manager.h"
+#include "ff_motor_manager.h"
 
 // Component managers
 ThrottleManager throttle_manager;
@@ -54,6 +64,7 @@ BrakeManager brake_manager;
 SteeringManager steering_manager;
 GearManager gear_manager;
 SerialSenderManager serial_sender;
+FFMotorManager ff_motor;
 
 // Timing control
 unsigned long last_update = 0;
@@ -62,13 +73,18 @@ const unsigned long UPDATE_INTERVAL = 10; // 100Hz update rate
 // Serial command buffer
 String serial_buffer = "";
 
+// Force Feedback motor state (shared between cores)
+volatile String ff_direction = "NEUTRAL";
+volatile int ff_intensity = 0;
+portMUX_TYPE ff_mutex = portMUX_INITIALIZER_UNLOCKED;
+
 // FreeRTOS task handles
 TaskHandle_t EncoderTaskHandle;
 TaskHandle_t SerialTaskHandle;
 
 /**
- * @brief Task running on Core 0 - Encoder processing
- * High-priority task for real-time encoder tracking
+ * @brief Task running on Core 0 - Encoder processing + Force Feedback motor
+ * High-priority task for real-time encoder tracking and motor control
  */
 void EncoderTask(void* parameter) {
     for (;;) {
@@ -79,6 +95,15 @@ void EncoderTask(void* parameter) {
         brake_manager.update();
         steering_manager.update();
         gear_manager.update();
+
+        // Update force feedback motor (thread-safe access to shared variables)
+        portENTER_CRITICAL(&ff_mutex);
+        String current_direction = ff_direction;
+        int current_intensity = ff_intensity;
+        portEXIT_CRITICAL(&ff_mutex);
+
+        // Apply motor force (high priority, instant response)
+        ff_motor.set_force(current_direction, current_intensity);
 
         // Maintain 100Hz update rate
         vTaskDelay(10 / portTICK_PERIOD_MS);
@@ -97,7 +122,7 @@ void process_serial_command(String command) {
     }
 
     // Ignore responses that ESP32 sent (prevent echo loop)
-    // Only process commands FROM client (CAL_START, CAL_SAVE)
+    // Only process commands FROM client (CAL_START, CAL_SAVE, FF_MOTOR)
     if (command.startsWith("CAL_STARTED:") ||
         command.startsWith("CAL_THROTTLE:") ||
         command.startsWith("CAL_BRAKE:") ||
@@ -115,6 +140,7 @@ void process_serial_command(String command) {
         command.startsWith("Sending") ||
         command.startsWith("[")) {
         // These are responses FROM ESP32, not commands TO ESP32
+        // Exception: FF_MOTOR is a command TO ESP32, not a response
         return;
     }
 
@@ -173,6 +199,23 @@ void process_serial_command(String command) {
             } else {
                 Serial.println("CAL_ERROR:STEERING");
             }
+        }
+    }
+    else if (command.startsWith("FF_MOTOR:")) {
+        // Format: FF_MOTOR:direction:intensity
+        // Examples: FF_MOTOR:LEFT:45, FF_MOTOR:RIGHT:80, FF_MOTOR:NEUTRAL:0
+        int first_colon = command.indexOf(':', 9);
+        int second_colon = command.indexOf(':', first_colon + 1);
+
+        if (first_colon > 0 && second_colon > 0) {
+            String direction = command.substring(first_colon + 1, second_colon);
+            int intensity = command.substring(second_colon + 1).toInt();
+
+            // Update shared variables for Core 0 to process (thread-safe)
+            portENTER_CRITICAL(&ff_mutex);
+            ff_direction = direction;
+            ff_intensity = intensity;
+            portEXIT_CRITICAL(&ff_mutex);
         }
     }
 }
@@ -265,6 +308,7 @@ void setup() {
     brake_manager.begin();
     steering_manager.begin();
     gear_manager.begin();
+    ff_motor.begin();
 
     Serial.println("\n=== Dual-Core Task Creation ===");
 

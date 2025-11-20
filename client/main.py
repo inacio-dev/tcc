@@ -46,7 +46,9 @@ except ImportError as e:
     print(f"❌ ERRO: Não foi possível importar módulos necessários: {e}")
     print("\nVerifique se os arquivos estão na mesma pasta:")
     print("  - network_client.py, video_display.py, sensor_display.py")
-    print("  - console_interface.py, serial_receiver_manager.py, simple_logger.py, main_client.py")
+    print(
+        "  - console_interface.py, serial_receiver_manager.py, simple_logger.py, main_client.py"
+    )
     sys.exit(1)
 
 # Filas para comunicação entre threads
@@ -117,10 +119,16 @@ class F1ClientApplication:
             if command_type.startswith("CAL_"):
                 if command_type in ["CAL_THROTTLE", "CAL_BRAKE", "CAL_STEERING"]:
                     # Update calibration raw value in slider controller
-                    if self.console_interface and hasattr(self.console_interface, 'slider_controller'):
-                        component = command_type.split("_")[1]  # Extract THROTTLE/BRAKE/STEERING
+                    if self.console_interface and hasattr(
+                        self.console_interface, "slider_controller"
+                    ):
+                        component = command_type.split("_")[
+                            1
+                        ]  # Extract THROTTLE/BRAKE/STEERING
                         raw_value = int(value)
-                        self.console_interface.slider_controller.update_calibration_raw_value(component, raw_value)
+                        self.console_interface.slider_controller.update_calibration_raw_value(
+                            component, raw_value
+                        )
                 elif command_type == "CAL_COMPLETE":
                     # Calibration complete notification
                     log_queue.put(("INFO", f"Calibração completa: {value}"))
@@ -163,7 +171,7 @@ class F1ClientApplication:
                 port=None,  # Auto-detect
                 baud_rate=115200,
                 command_callback=self.handle_serial_command,
-                log_callback=lambda level, msg: log_queue.put((level, msg))
+                log_callback=lambda level, msg: log_queue.put((level, msg)),
             )
 
             # 2. Inicializa exibição de vídeo COM melhorias habilitadas
@@ -196,7 +204,10 @@ class F1ClientApplication:
 
             # 4.6. Conecta serial sender com slider controller para calibração
             debug("Conectando serial sender com slider controller...", "CLIENT")
-            if hasattr(self.console_interface, 'slider_controller') and self.serial_receiver:
+            if (
+                hasattr(self.console_interface, "slider_controller")
+                and self.serial_receiver
+            ):
                 self.console_interface.slider_controller.set_serial_sender(
                     lambda cmd: self.serial_receiver.send_command(cmd)
                 )
@@ -234,8 +245,15 @@ class F1ClientApplication:
         """Inicia thread de recepção serial do ESP32"""
         if self.serial_receiver:
             # Não auto-conecta mais - o usuário deve selecionar a porta manualmente na interface
-            log_queue.put(("INFO", "Serial receiver inicializado - aguardando seleção manual de porta"))
-            log_queue.put(("INFO", "Use o seletor de porta ESP32 na interface para conectar"))
+            log_queue.put(
+                (
+                    "INFO",
+                    "Serial receiver inicializado - aguardando seleção manual de porta",
+                )
+            )
+            log_queue.put(
+                ("INFO", "Use o seletor de porta ESP32 na interface para conectar")
+            )
 
     def start_console_thread(self):
         """Inicia thread do console (interface principal)"""
@@ -480,7 +498,8 @@ class F1ClientApplication:
             # Aguarda até máximo 5 segundos para todas as threads não-daemon finalizarem
             for _ in range(50):  # 50 x 100ms = 5 segundos máximo
                 non_daemon_threads = [
-                    t for t in threading.enumerate()
+                    t
+                    for t in threading.enumerate()
                     if t != threading.current_thread() and not t.daemon
                 ]
                 if not non_daemon_threads:
@@ -545,7 +564,7 @@ def get_raspberry_pi_ip():
         try:
             # Sugere o IP padrão do projeto
             rpi_ip = input(
-                "📡 Digite o IP do Raspberry Pi (ex: 192.168.5.12): "
+                "📡 Digite o IP do Raspberry Pi (ex: 192.168.5.15): "
             ).strip()
 
             if not rpi_ip:
@@ -629,10 +648,10 @@ def main():
 
     # Configuração fixa - sem descoberta
     rpi_ip = "192.168.5.33"
-    client_ip = "192.168.5.12"
+    client_ip = "192.168.5.15"
 
     print("🔗 CONFIGURAÇÃO FIXA:")
-    print(f"   📡 Raspberry Pi: {rpi_ip}:9999 → 192.168.5.12:9999 (dados)")
+    print(f"   📡 Raspberry Pi: {rpi_ip}:9999 → 192.168.5.15:9999 (dados)")
     print(f"   🎮 Cliente: {client_ip}:9998 → 192.168.5.33:9998 (comandos)")
     print()
 
