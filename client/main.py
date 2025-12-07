@@ -28,20 +28,20 @@ O cliente está preparado para receber TODOS os dados do BMI160:
 - Metadados (timestamp, contadores)
 """
 
+import argparse
+import queue
 import sys
 import threading
 import time
-import queue
-import argparse
 
 # Importa nossos módulos
 try:
-    from network_client import NetworkClient
-    from video_display import VideoDisplay
-    from sensor_display import SensorDisplay
     from console_interface import ConsoleInterface
+    from network_client import NetworkClient
+    from sensor_display import SensorDisplay
     from serial_receiver_manager import SerialReceiverManager
-    from simple_logger import init_logger, info, debug, error, LogLevel
+    from simple_logger import LogLevel, debug, error, info, init_logger
+    from video_display import VideoDisplay
 except ImportError as e:
     print(f"❌ ERRO: Não foi possível importar módulos necessários: {e}")
     print("\nVerifique se os arquivos estão na mesma pasta:")
@@ -564,7 +564,7 @@ def get_raspberry_pi_ip():
         try:
             # Sugere o IP padrão do projeto
             rpi_ip = input(
-                "📡 Digite o IP do Raspberry Pi (ex: 192.168.5.15): "
+                "📡 Digite o IP do Raspberry Pi (ex: 192.168.5.13): "
             ).strip()
 
             if not rpi_ip:
@@ -648,11 +648,11 @@ def main():
 
     # Configuração fixa - sem descoberta
     rpi_ip = "192.168.5.33"
-    client_ip = "192.168.5.15"
+    client_ip = "192.168.5.13"
 
     print("🔗 CONFIGURAÇÃO FIXA:")
-    print(f"   📡 Raspberry Pi: {rpi_ip}:9999 → 192.168.5.15:9999 (dados)")
-    print(f"   🎮 Cliente: {client_ip}:9998 → 192.168.5.33:9998 (comandos)")
+    print(f"   📡 Raspberry Pi: {rpi_ip}:9999 → 192.168.5.33:9999 (dados)")
+    print(f"   🎮 Cliente: {client_ip}:9998 → 192.168.5.13:9998 (comandos)")
     print()
 
     # Criar e executar aplicação com IPs fixos
