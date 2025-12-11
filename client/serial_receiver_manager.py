@@ -1,22 +1,22 @@
 #!/usr/bin/env python3
 """
-serial_receiver_manager.py - Serial Receiver Manager
-Responsible for receiving serial commands from Arduino Mega cockpit
+serial_receiver_manager.py - Gerenciador de Recepção Serial
+Responsável por receber comandos seriais do cockpit Arduino Mega
 
-This module receives cockpit control commands from Arduino Mega via USB serial
-and forwards them to the Raspberry Pi via the network client.
+Este módulo recebe comandos de controle do cockpit do Arduino Mega via USB serial
+e encaminha para o Raspberry Pi via cliente de rede.
 
-Protocol Format (received from Arduino Mega):
-- THROTTLE:<value>   (0-100%)
-- BRAKE:<value>      (0-100%)
-- STEERING:<value>   (-100 to +100%)
+Formato do Protocolo (recebido do Arduino Mega):
+- THROTTLE:<valor>   (0-100%)
+- BRAKE:<valor>      (0-100%)
+- STEERING:<valor>   (-100 a +100%)
 - GEAR_UP
 - GEAR_DOWN
 
-Connection:
-- Arduino Mega USB → /dev/ttyACM0 or /dev/ttyUSB0 (Linux)
-- COM Port (Windows)
-- Baud rate: 115200
+Conexão:
+- Arduino Mega USB → /dev/ttyACM0 ou /dev/ttyUSB0 (Linux)
+- Porta COM (Windows)
+- Taxa de transmissão: 115200
 
 @author F1 RC Car Project
 @date 2025-10-09
@@ -30,7 +30,7 @@ from typing import Optional, Callable
 
 
 class SerialReceiverManager:
-    """Serial receiver for Arduino Mega cockpit commands"""
+    """Receptor serial para comandos do cockpit Arduino Mega"""
 
     def __init__(
         self,
@@ -41,14 +41,14 @@ class SerialReceiverManager:
         log_callback: Optional[Callable[[str, str], None]] = None,
     ):
         """
-        Initialize serial receiver
+        Inicializa receptor serial
 
         Args:
-            port: Serial port (auto-detect if None)
-            baud_rate: Communication baud rate (default: 115200)
-            timeout: Read timeout in seconds
-            command_callback: Callback function(command_type, value)
-            log_callback: Callback function(level, message)
+            port: Porta serial (detecção automática se None)
+            baud_rate: Taxa de transmissão (padrão: 115200)
+            timeout: Timeout de leitura em segundos
+            command_callback: Função de callback(tipo_comando, valor)
+            log_callback: Função de callback(nível, mensagem)
         """
         self.port = port
         self.baud_rate = baud_rate
@@ -56,23 +56,23 @@ class SerialReceiverManager:
         self.command_callback = command_callback
         self.log_callback = log_callback
 
-        # Serial connection
+        # Conexão serial
         self.serial_conn: Optional[serial.Serial] = None
         self.is_running = False
         self.receiver_thread: Optional[threading.Thread] = None
 
-        # Statistics
+        # Estatísticas
         self.commands_received = 0
         self.last_command_time = 0.0
         self.errors = 0
 
-        # Last values for change detection
+        # Últimos valores para detecção de mudanças
         self.last_throttle = -1
         self.last_brake = -1
         self.last_steering = 0
 
     def _log(self, level: str, message: str):
-        """Send log message"""
+        """Envia mensagem de log"""
         if self.log_callback:
             self.log_callback(level, message)
         else:
@@ -80,10 +80,10 @@ class SerialReceiverManager:
 
     def list_available_ports(self) -> list:
         """
-        List all available serial ports with descriptions
+        Lista todas as portas seriais disponíveis com descrições
 
         Returns:
-            list: List of tuples (port_device, port_description)
+            list: Lista de tuplas (dispositivo_porta, descrição_porta)
         """
         ports = serial.tools.list_ports.comports()
         available_ports = []
@@ -100,57 +100,57 @@ class SerialReceiverManager:
 
     def auto_detect_port(self) -> Optional[str]:
         """
-        Auto-detect ESP32 serial port
+        Detecta automaticamente a porta serial do ESP32
 
         Returns:
-            str: Detected port or None
+            str: Porta detectada ou None
         """
-        self._log("INFO", "Auto-detecting ESP32 port...")
+        self._log("INFO", "Detectando porta ESP32 automaticamente...")
 
-        # List all available serial ports
+        # Lista todas as portas seriais disponíveis
         ports = serial.tools.list_ports.comports()
 
-        # Look for ESP32 (VID:PID varies by manufacturer)
+        # Procura por ESP32 (VID:PID varia por fabricante)
         for port in ports:
-            # Check for common ESP32 vendor/product IDs
+            # Verifica IDs de vendor/produto comuns do ESP32
             # Silicon Labs CP2102: 0x10C4:0xEA60
             # FTDI FT232: 0x0403:0x6001
             # CH340: 0x1A86:0x7523
             if port.vid in [0x10C4, 0x0403, 0x1A86]:
-                self._log("INFO", f"Found ESP32-like device at {port.device}")
+                self._log("INFO", f"Dispositivo tipo ESP32 encontrado em {port.device}")
                 return port.device
 
-            # Fallback: check description
+            # Fallback: verifica descrição
             if "CP210" in port.description or "CH340" in port.description or "FTDI" in port.description:
-                self._log("INFO", f"Found ESP32-like device at {port.device}")
+                self._log("INFO", f"Dispositivo tipo ESP32 encontrado em {port.device}")
                 return port.device
 
-        # If no ESP32 found, try common ports
+        # Se nenhum ESP32 encontrado, tenta portas comuns
         common_ports = ["/dev/ttyUSB0", "/dev/ttyUSB1", "/dev/ttyACM0", "/dev/ttyACM1"]
         for common_port in common_ports:
             try:
                 test_serial = serial.Serial(common_port, self.baud_rate, timeout=0.5)
                 test_serial.close()
-                self._log("INFO", f"Found serial port at {common_port}")
+                self._log("INFO", f"Porta serial encontrada em {common_port}")
                 return common_port
             except:
                 continue
 
-        self._log("WARN", "Could not auto-detect ESP32 port")
+        self._log("WARN", "Não foi possível detectar porta ESP32 automaticamente")
         return None
 
     def connect_to_port(self, port: str) -> bool:
         """
-        Connect to a specific serial port
+        Conecta a uma porta serial específica
 
         Args:
-            port: Serial port device path
+            port: Caminho do dispositivo da porta serial
 
         Returns:
-            bool: True if connected successfully
+            bool: True se conectado com sucesso
         """
         try:
-            # Close existing connection if any
+            # Fecha conexão existente se houver
             if self.serial_conn:
                 try:
                     self.serial_conn.close()
@@ -158,11 +158,11 @@ class SerialReceiverManager:
                     pass
                 self.serial_conn = None
 
-            # Set new port
+            # Define nova porta
             self.port = port
 
-            # Open serial connection
-            self._log("INFO", f"Connecting to ESP32 at {self.port}")
+            # Abre conexão serial
+            self._log("INFO", f"Conectando ao ESP32 em {self.port}")
             self.serial_conn = serial.Serial(
                 port=self.port,
                 baudrate=self.baud_rate,
@@ -170,62 +170,62 @@ class SerialReceiverManager:
                 write_timeout=1.0,
             )
 
-            # Wait for ESP32 to reset (DTR causes reset)
+            # Aguarda ESP32 resetar (DTR causa reset)
             time.sleep(2.0)
 
-            # Flush any startup garbage
+            # Limpa qualquer lixo de inicialização
             self.serial_conn.reset_input_buffer()
             self.serial_conn.reset_output_buffer()
 
-            self._log("INFO", f"Connected to ESP32 at {self.port}")
+            self._log("INFO", f"Conectado ao ESP32 em {self.port}")
             return True
 
         except serial.SerialException as e:
-            self._log("ERROR", f"Failed to connect to {self.port}: {e}")
+            self._log("ERROR", f"Falha ao conectar a {self.port}: {e}")
             return False
         except Exception as e:
-            self._log("ERROR", f"Unexpected error during connection: {e}")
+            self._log("ERROR", f"Erro inesperado durante conexão: {e}")
             return False
 
     def connect(self) -> bool:
         """
-        Connect to ESP32 serial port (auto-detect if not specified)
+        Conecta à porta serial do ESP32 (detecção automática se não especificada)
 
         Returns:
-            bool: True if connected successfully
+            bool: True se conectado com sucesso
         """
         try:
-            # Auto-detect port if not specified
+            # Detecta porta automaticamente se não especificada
             if not self.port:
                 self.port = self.auto_detect_port()
 
             if not self.port:
-                self._log("ERROR", "No serial port specified or detected")
+                self._log("ERROR", "Nenhuma porta serial especificada ou detectada")
                 return False
 
-            # Use connect_to_port for actual connection
+            # Usa connect_to_port para conexão real
             return self.connect_to_port(self.port)
 
         except Exception as e:
-            self._log("ERROR", f"Unexpected error during connection: {e}")
+            self._log("ERROR", f"Erro inesperado durante conexão: {e}")
             return False
 
     def parse_command(self, line: str):
         """
-        Parse command received from ESP32
+        Analisa comando recebido do ESP32
 
         Args:
-            line: Command line string
+            line: String de linha de comando
         """
         try:
             line = line.strip()
             if not line:
                 return
 
-            # Log raw command for debugging
-            # self._log("DEBUG", f"Received: {line}")
+            # Log de comando bruto para debugging
+            # self._log("DEBUG", f"Recebido: {line}")
 
-            # Parse different command types
+            # Analisa diferentes tipos de comando
             if line.startswith("THROTTLE:"):
                 value = int(line.split(":")[1])
                 if value != self.last_throttle:
@@ -260,106 +260,106 @@ class SerialReceiverManager:
                     self.command_callback("GEAR_DOWN", "")
                 self._log("INFO", "🎮 Gear Down")
 
-            # === CALIBRATION COMMANDS ===
+            # === COMANDOS DE CALIBRAÇÃO ===
             elif line.startswith("CAL_THROTTLE:"):
-                # Raw encoder value for throttle calibration
+                # Valor bruto do encoder para calibração do acelerador
                 raw_value = int(line.split(":")[1])
                 if self.command_callback:
                     self.command_callback("CAL_THROTTLE", str(raw_value))
-                # Don't log every value to avoid spam
+                # Não loga cada valor para evitar spam
 
             elif line.startswith("CAL_BRAKE:"):
-                # Raw encoder value for brake calibration
+                # Valor bruto do encoder para calibração do freio
                 raw_value = int(line.split(":")[1])
                 if self.command_callback:
                     self.command_callback("CAL_BRAKE", str(raw_value))
-                # Don't log every value to avoid spam
+                # Não loga cada valor para evitar spam
 
             elif line.startswith("CAL_STEERING:"):
-                # Raw encoder value for steering calibration
+                # Valor bruto do encoder para calibração da direção
                 raw_value = int(line.split(":")[1])
                 if self.command_callback:
                     self.command_callback("CAL_STEERING", str(raw_value))
-                # Don't log every value to avoid spam
+                # Não loga cada valor para evitar spam
 
             elif line.startswith("CAL_COMPLETE:"):
-                # Calibration completed message
+                # Mensagem de calibração concluída
                 component = line.split(":")[1]
                 self._log("INFO", f"✅ Calibração concluída: {component}")
                 if self.command_callback:
                     self.command_callback("CAL_COMPLETE", component)
 
             else:
-                # Unknown command or system message
+                # Comando desconhecido ou mensagem do sistema
                 if not line.startswith("F1 Cockpit") and not line.startswith("ESP32") and not line.startswith("="):
-                    self._log("WARN", f"Unknown command: {line}")
+                    self._log("WARN", f"Comando desconhecido: {line}")
 
             self.commands_received += 1
             self.last_command_time = time.time()
 
         except Exception as e:
-            self._log("ERROR", f"Error parsing command '{line}': {e}")
+            self._log("ERROR", f"Erro ao analisar comando '{line}': {e}")
             self.errors += 1
 
     def receiver_loop(self):
-        """Main receiver loop (runs in separate thread)"""
-        self._log("INFO", "Serial receiver loop started")
+        """Loop principal de recepção (executa em thread separada)"""
+        self._log("INFO", "Loop de recepção serial iniciado")
 
         while self.is_running:
             try:
-                # Read line from serial
+                # Lê linha da serial
                 if self.serial_conn and self.serial_conn.in_waiting > 0:
                     line = self.serial_conn.readline().decode("utf-8", errors="ignore")
                     self.parse_command(line)
                 else:
-                    # Small sleep to prevent CPU spinning
+                    # Sleep pequeno para evitar uso excessivo de CPU
                     time.sleep(0.01)
 
             except serial.SerialException as e:
-                self._log("ERROR", f"Serial connection error: {e}")
+                self._log("ERROR", f"Erro de conexão serial: {e}")
                 break
             except Exception as e:
-                self._log("ERROR", f"Error in receiver loop: {e}")
+                self._log("ERROR", f"Erro no loop de recepção: {e}")
                 self.errors += 1
                 time.sleep(0.1)
 
-        self._log("INFO", "Serial receiver loop stopped")
+        self._log("INFO", "Loop de recepção serial parado")
 
     def start(self) -> bool:
         """
-        Start receiving serial commands
+        Inicia recepção de comandos seriais
 
         Returns:
-            bool: True if started successfully
+            bool: True se iniciado com sucesso
         """
         if self.is_running:
-            self._log("WARN", "Serial receiver already running")
+            self._log("WARN", "Receptor serial já está em execução")
             return False
 
-        # Connect to serial port
+        # Conecta à porta serial
         if not self.serial_conn:
             if not self.connect():
                 return False
 
-        # Start receiver thread
+        # Inicia thread de recepção
         self.is_running = True
         self.receiver_thread = threading.Thread(target=self.receiver_loop, daemon=True)
         self.receiver_thread.start()
 
-        self._log("INFO", "Serial receiver started")
+        self._log("INFO", "Receptor serial iniciado")
         return True
 
     def stop(self):
-        """Stop receiving serial commands"""
-        self._log("INFO", "Stopping serial receiver...")
+        """Para recepção de comandos seriais"""
+        self._log("INFO", "Parando receptor serial...")
 
         self.is_running = False
 
-        # Wait for thread to finish
+        # Aguarda thread finalizar
         if self.receiver_thread and self.receiver_thread.is_alive():
             self.receiver_thread.join(timeout=2.0)
 
-        # Close serial connection
+        # Fecha conexão serial
         if self.serial_conn:
             try:
                 self.serial_conn.close()
@@ -367,14 +367,14 @@ class SerialReceiverManager:
                 pass
             self.serial_conn = None
 
-        self._log("INFO", f"Serial receiver stopped - {self.commands_received} commands received")
+        self._log("INFO", f"Receptor serial parado - {self.commands_received} comandos recebidos")
 
     def get_statistics(self) -> dict:
         """
-        Get receiver statistics
+        Obtém estatísticas do receptor
 
         Returns:
-            dict: Statistics dictionary
+            dict: Dicionário de estatísticas
         """
         return {
             "port": self.port,
@@ -387,32 +387,32 @@ class SerialReceiverManager:
         }
 
     def is_connected(self) -> bool:
-        """Check if serial connection is active"""
+        """Verifica se a conexão serial está ativa"""
         return self.serial_conn is not None and self.serial_conn.is_open
 
     def send_command(self, command: str) -> bool:
         """
-        Send command to ESP32 via serial
+        Envia comando para o ESP32 via serial
 
         Args:
-            command: Command string to send
+            command: String de comando a enviar
 
         Returns:
-            bool: True if sent successfully
+            bool: True se enviado com sucesso
         """
         try:
             if not self.is_connected():
-                self._log("WARN", "Not connected to ESP32")
+                self._log("WARN", "Não conectado ao ESP32")
                 return False
 
-            # Send command with newline
+            # Envia comando com newline
             command_bytes = (command + "\n").encode("utf-8")
             self.serial_conn.write(command_bytes)
             self.serial_conn.flush()
 
-            self._log("DEBUG", f"Sent command: {command}")
+            self._log("DEBUG", f"Comando enviado: {command}")
             return True
 
         except Exception as e:
-            self._log("ERROR", f"Error sending command: {e}")
+            self._log("ERROR", f"Erro ao enviar comando: {e}")
             return False

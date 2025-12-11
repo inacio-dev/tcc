@@ -1,22 +1,22 @@
 /**
  * @file serial_sender_manager.h
- * @brief Serial Communication Manager for ESP32
+ * @brief Gerenciador de Comunicação Serial para ESP32
  *
- * Manages serial communication from ESP32 to client PC.
- * Sends cockpit control commands (throttle, brake, steering, gear shifts)
- * via USB serial connection at 115200 baud.
+ * Gerencia comunicação serial do ESP32 para PC cliente.
+ * Envia comandos de controle do cockpit (aceleração, freio, direção, trocas de marcha)
+ * via conexão serial USB a 115200 baud.
  *
- * Protocol Format:
+ * Formato do Protocolo:
  * - THROTTLE:<value>   (0-100%)
  * - BRAKE:<value>      (0-100%)
- * - STEERING:<value>   (-100 to +100%)
+ * - STEERING:<value>   (-100 a +100%)
  * - GEAR_UP
  * - GEAR_DOWN
  *
- * ESP32 Serial Pins:
- * - TX0 (GPIO 1): Transmit to USB
- * - RX0 (GPIO 3): Receive from USB
- * - USB Serial: Hardware Serial (Serial object)
+ * Pinos Serial ESP32:
+ * - TX0 (GPIO 1): Transmitir para USB
+ * - RX0 (GPIO 3): Receber de USB
+ * - Serial USB: Hardware Serial (objeto Serial)
  *
  * @author F1 RC Car Project
  * @date 2025-10-13
@@ -29,17 +29,17 @@
 
 class SerialSenderManager {
 private:
-    // Serial configuration
+    // Configuração serial
     static const long BAUD_RATE = 115200;
 
-    // Last sent values for change detection
+    // Últimos valores enviados para detecção de mudança
     int last_throttle;
     int last_brake;
     int last_steering;
 
     /**
-     * @brief Send command string via serial
-     * @param command Command string to send
+     * @brief Envia string de comando via serial
+     * @param command String de comando a enviar
      */
     void send_command(const String& command);
 
@@ -47,41 +47,41 @@ public:
     SerialSenderManager();
 
     /**
-     * @brief Initialize serial communication
+     * @brief Inicializa comunicação serial
      */
     void begin();
 
     /**
-     * @brief Send throttle value
-     * @param value Throttle percentage (0-100%)
+     * @brief Envia valor de aceleração
+     * @param value Porcentagem de aceleração (0-100%)
      */
     void send_throttle(int value);
 
     /**
-     * @brief Send brake value
-     * @param value Brake percentage (0-100%)
+     * @brief Envia valor de freio
+     * @param value Porcentagem de freio (0-100%)
      */
     void send_brake(int value);
 
     /**
-     * @brief Send steering value
-     * @param value Steering percentage (-100 to +100%)
+     * @brief Envia valor de direção
+     * @param value Porcentagem de direção (-100 a +100%)
      */
     void send_steering(int value);
 
     /**
-     * @brief Send gear up command
+     * @brief Envia comando de marcha cima
      */
     void send_gear_up();
 
     /**
-     * @brief Send gear down command
+     * @brief Envia comando de marcha baixo
      */
     void send_gear_down();
 
     /**
-     * @brief Check if serial connection is available
-     * @return true if connected
+     * @brief Verifica se conexão serial está disponível
+     * @return true se conectado
      */
     bool is_connected() const;
 };

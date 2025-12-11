@@ -1,51 +1,51 @@
 /**
  * @file esp32.ino
- * @brief ESP32 Main Controller for F1 Cockpit
+ * @brief Controlador Principal ESP32 para Cockpit F1
  *
- * This file orchestrates all cockpit hardware components for the F1-style
- * remote-controlled car project. It manages rotary encoders for throttle,
- * brake, and steering, plus gear shift buttons.
+ * Este arquivo orquestra todos os componentes de hardware do cockpit para o
+ * projeto de carro de controle remoto estilo F1. Gerencia encoders rotativos
+ * para aceleração, freio e direção, além de botões de troca de marcha.
  *
- * Hardware: ESP32 DevKit V1 (or compatible)
+ * Hardware: ESP32 DevKit V1 (ou compatível)
  *
- * Components:
- * - 3x LPD3806-600BM-G5-24C Incremental Rotary Encoders (600 PPR)
- *   - Throttle: GPIO 25/26 (D25/D26) - CLK/DT pins SWAPPED (white→CLK, green→DT) for correct direction
- *   - Brake: GPIO 27/14 (D27/D14)
- *   - Steering: GPIO 12/13 (D12/D13)
- * - 2x Push Buttons (gear up/down)
- *   - Gear Up: GPIO 32 (D32)
- *   - Gear Down: GPIO 33 (D33)
- * - BTS7960 H-Bridge Motor Driver (Force Feedback)
- *   - RPWM: GPIO 16 (D16) - Right PWM (clockwise)
- *   - LPWM: GPIO 17 (D17) - Left PWM (counter-clockwise)
- *   - R_EN: GPIO 18 (D18) - Right enable
- *   - L_EN: GPIO 19 (D19) - Left enable
- * - USB Serial communication to client PC (115200 baud)
+ * Componentes:
+ * - 3x Encoders Rotativos Incrementais LPD3806-600BM-G5-24C (600 PPR)
+ *   - Acelerador: GPIO 25/26 (D25/D26) - Pinos CLK/DT INVERTIDOS (branco→CLK, verde→DT) para direção correta
+ *   - Freio: GPIO 27/14 (D27/D14)
+ *   - Direção: GPIO 12/13 (D12/D13) - Pinos CLK/DT INVERTIDOS (branco→CLK, verde→DT) para direção correta
+ * - 2x Botões de Pressão (troca de marcha cima/baixo)
+ *   - Marcha Cima: GPIO 32 (D32)
+ *   - Marcha Baixo: GPIO 33 (D33)
+ * - Driver Motor Ponte H BTS7960 (Force Feedback)
+ *   - RPWM: GPIO 16 (D16) - PWM direita (sentido horário)
+ *   - LPWM: GPIO 17 (D17) - PWM esquerda (sentido anti-horário)
+ *   - R_EN: GPIO 18 (D18) - Habilitação direita
+ *   - L_EN: GPIO 19 (D19) - Habilitação esquerda
+ * - Comunicação serial USB para PC cliente (115200 baud)
  *
- * Features:
- * - Dual-core processing:
- *   - Core 0 (Priority 2): Encoders + Force Feedback motor (high-priority, real-time)
- *   - Core 1 (Priority 1): Serial communication (normal priority)
- * - Real-time encoder tracking with hardware interrupts
- * - USB Serial transmission (115200 baud)
- * - 240MHz clock speed (15x faster than Arduino Mega)
- * - 600 PPR encoders for precise analog control (0.6° resolution)
- * - Dynamic encoder calibration with EEPROM persistence
- * - Bidirectional serial protocol for calibration and force feedback commands
- * - Thread-safe inter-core communication with mutex locks
+ * Recursos:
+ * - Processamento dual-core:
+ *   - Core 0 (Prioridade 2): Encoders + Motor Force Feedback (alta prioridade, tempo real)
+ *   - Core 1 (Prioridade 1): Comunicação serial (prioridade normal)
+ * - Rastreamento de encoder em tempo real com interrupções de hardware
+ * - Transmissão serial USB (115200 baud)
+ * - Velocidade de clock 240MHz (15x mais rápido que Arduino Mega)
+ * - Encoders 600 PPR para controle analógico preciso (resolução 0.6°)
+ * - Calibração dinâmica de encoder com persistência EEPROM
+ * - Protocolo serial bidirecional para calibração e comandos force feedback
+ * - Comunicação inter-core thread-safe com mutex locks
  *
- * Serial Commands (Client → ESP32):
- * - CAL_START:THROTTLE/BRAKE/STEERING - Start calibration mode
- * - CAL_SAVE:THROTTLE:min:max - Save throttle/brake calibration (unipolar)
- * - CAL_SAVE:STEERING:left:center:right - Save steering calibration (bipolar)
- * - FF_MOTOR:direction:intensity - Control force feedback motor (LEFT/RIGHT/NEUTRAL, 0-100%)
+ * Comandos Serial (Cliente → ESP32):
+ * - CAL_START:THROTTLE/BRAKE/STEERING - Iniciar modo de calibração
+ * - CAL_SAVE:THROTTLE:min:max - Salvar calibração acelerador/freio (unipolar)
+ * - CAL_SAVE:STEERING:left:center:right - Salvar calibração direção (bipolar)
+ * - FF_MOTOR:direction:intensity - Controlar motor force feedback (LEFT/RIGHT/NEUTRAL, 0-100%)
  *
- * Serial Responses (ESP32 → Client):
- * - CAL_STARTED:component - Calibration mode activated
- * - CAL_THROTTLE/BRAKE/STEERING:raw_value - Raw encoder position during calibration
- * - CAL_COMPLETE:component - Calibration saved successfully
- * - CAL_ERROR:component - Calibration save failed
+ * Respostas Serial (ESP32 → Cliente):
+ * - CAL_STARTED:component - Modo de calibração ativado
+ * - CAL_THROTTLE/BRAKE/STEERING:raw_value - Posição bruta do encoder durante calibração
+ * - CAL_COMPLETE:component - Calibração salva com sucesso
+ * - CAL_ERROR:component - Falha ao salvar calibração
  *
  * @author F1 RC Car Project
  * @date 2025-10-13
@@ -58,7 +58,7 @@
 #include "serial_sender_manager.h"
 #include "ff_motor_manager.h"
 
-// Component managers
+// Gerenciadores de componentes
 ThrottleManager throttle_manager;
 BrakeManager brake_manager;
 SteeringManager steering_manager;
@@ -66,63 +66,63 @@ GearManager gear_manager;
 SerialSenderManager serial_sender;
 FFMotorManager ff_motor;
 
-// Timing control
+// Controle de temporização
 unsigned long last_update = 0;
-const unsigned long UPDATE_INTERVAL = 10; // 100Hz update rate
+const unsigned long UPDATE_INTERVAL = 10; // Taxa de atualização 100Hz
 
-// Serial command buffer
+// Buffer de comandos serial
 String serial_buffer = "";
 
-// Force Feedback motor state (shared between cores)
+// Estado do motor Force Feedback (compartilhado entre cores)
 volatile String ff_direction = "NEUTRAL";
 volatile int ff_intensity = 0;
 portMUX_TYPE ff_mutex = portMUX_INITIALIZER_UNLOCKED;
 
-// FreeRTOS task handles
+// Handles de tarefas FreeRTOS
 TaskHandle_t EncoderTaskHandle;
 TaskHandle_t SerialTaskHandle;
 
 /**
- * @brief Task running on Core 0 - Encoder processing + Force Feedback motor
- * High-priority task for real-time encoder tracking and motor control
+ * @brief Tarefa executando no Core 0 - Processamento de encoders + Motor Force Feedback
+ * Tarefa de alta prioridade para rastreamento de encoder em tempo real e controle de motor
  */
 void EncoderTask(void* parameter) {
     for (;;) {
         unsigned long current_time = millis();
 
-        // Update all components at 100Hz
+        // Atualiza todos os componentes a 100Hz
         throttle_manager.update();
         brake_manager.update();
         steering_manager.update();
         gear_manager.update();
 
-        // Update force feedback motor (thread-safe access to shared variables)
+        // Atualiza motor force feedback (acesso thread-safe a variáveis compartilhadas)
         portENTER_CRITICAL(&ff_mutex);
         String current_direction = ff_direction;
         int current_intensity = ff_intensity;
         portEXIT_CRITICAL(&ff_mutex);
 
-        // Apply motor force (high priority, instant response)
+        // Aplica força do motor (alta prioridade, resposta instantânea)
         ff_motor.set_force(current_direction, current_intensity);
 
-        // Maintain 100Hz update rate
+        // Mantém taxa de atualização 100Hz
         vTaskDelay(10 / portTICK_PERIOD_MS);
     }
 }
 
 /**
- * @brief Process incoming serial commands from client
+ * @brief Processa comandos serial recebidos do cliente
  */
 void process_serial_command(String command) {
     command.trim();
 
-    // Ignore empty commands
+    // Ignora comandos vazios
     if (command.length() == 0) {
         return;
     }
 
-    // Ignore responses that ESP32 sent (prevent echo loop)
-    // Only process commands FROM client (CAL_START, CAL_SAVE, FF_MOTOR)
+    // Ignora respostas que o ESP32 enviou (previne loop de eco)
+    // Processa apenas comandos DO cliente (CAL_START, CAL_SAVE, FF_MOTOR)
     if (command.startsWith("CAL_STARTED:") ||
         command.startsWith("CAL_THROTTLE:") ||
         command.startsWith("CAL_BRAKE:") ||
@@ -139,8 +139,8 @@ void process_serial_command(String command) {
         command.startsWith("ESP32") ||
         command.startsWith("Sending") ||
         command.startsWith("[")) {
-        // These are responses FROM ESP32, not commands TO ESP32
-        // Exception: FF_MOTOR is a command TO ESP32, not a response
+        // Estas são respostas DO ESP32, não comandos PARA o ESP32
+        // Exceção: FF_MOTOR é um comando PARA o ESP32, não uma resposta
         return;
     }
 
@@ -159,7 +159,7 @@ void process_serial_command(String command) {
         }
     }
     else if (command.startsWith("CAL_SAVE:")) {
-        // Format: CAL_SAVE:THROTTLE:min:max or CAL_SAVE:STEERING:left:center:right
+        // Formato: CAL_SAVE:THROTTLE:min:max ou CAL_SAVE:STEERING:left:center:right
         int first_colon = command.indexOf(':', 9);
         int second_colon = command.indexOf(':', first_colon + 1);
         int third_colon = command.indexOf(':', second_colon + 1);
@@ -202,8 +202,8 @@ void process_serial_command(String command) {
         }
     }
     else if (command.startsWith("FF_MOTOR:")) {
-        // Format: FF_MOTOR:direction:intensity
-        // Examples: FF_MOTOR:LEFT:45, FF_MOTOR:RIGHT:80, FF_MOTOR:NEUTRAL:0
+        // Formato: FF_MOTOR:direction:intensity
+        // Exemplos: FF_MOTOR:LEFT:45, FF_MOTOR:RIGHT:80, FF_MOTOR:NEUTRAL:0
         int first_colon = command.indexOf(':', 9);
         int second_colon = command.indexOf(':', first_colon + 1);
 
@@ -211,7 +211,7 @@ void process_serial_command(String command) {
             String direction = command.substring(first_colon + 1, second_colon);
             int intensity = command.substring(second_colon + 1).toInt();
 
-            // Update shared variables for Core 0 to process (thread-safe)
+            // Atualiza variáveis compartilhadas para o Core 0 processar (thread-safe)
             portENTER_CRITICAL(&ff_mutex);
             ff_direction = direction;
             ff_intensity = intensity;
@@ -221,14 +221,14 @@ void process_serial_command(String command) {
 }
 
 /**
- * @brief Task running on Core 1 - Serial communication
- * Handles USB serial transmission to client PC and receives calibration commands
+ * @brief Tarefa executando no Core 1 - Comunicação serial
+ * Gerencia transmissão serial USB para PC cliente e recebe comandos de calibração
  */
 void SerialTask(void* parameter) {
     for (;;) {
         unsigned long current_time = millis();
 
-        // Check for incoming serial commands (calibration)
+        // Verifica comandos serial recebidos (calibração)
         while (Serial.available() > 0) {
             char c = Serial.read();
             if (c == '\n') {
@@ -242,12 +242,12 @@ void SerialTask(void* parameter) {
         if (current_time - last_update >= UPDATE_INTERVAL) {
             last_update = current_time;
 
-            // Check if any component is in calibration mode
+            // Verifica se algum componente está em modo de calibração
             bool throttle_cal = throttle_manager.is_calibrating();
             bool brake_cal = brake_manager.is_calibrating();
             bool steering_cal = steering_manager.is_calibrating();
 
-            // If in calibration mode, send raw encoder values
+            // Se em modo de calibração, envia valores brutos do encoder
             if (throttle_cal) {
                 long raw_pos = throttle_manager.get_raw_position();
                 Serial.print("CAL_THROTTLE:");
@@ -264,14 +264,14 @@ void SerialTask(void* parameter) {
                 Serial.println(raw_pos);
             }
             else {
-                // Normal operation - send processed values
+                // Operação normal - envia valores processados
                 int throttle_value = throttle_manager.get_value();
                 int brake_value = brake_manager.get_value();
                 int steering_value = steering_manager.get_value();
                 bool gear_up_pressed = gear_manager.is_gear_up_pressed();
                 bool gear_down_pressed = gear_manager.is_gear_down_pressed();
 
-                // Send all data via USB serial
+                // Envia todos os dados via serial USB
                 serial_sender.send_throttle(throttle_value);
                 serial_sender.send_brake(brake_value);
                 serial_sender.send_steering(steering_value);
@@ -286,13 +286,13 @@ void SerialTask(void* parameter) {
             }
         }
 
-        // Small delay to prevent watchdog reset
+        // Pequeno delay para prevenir reset do watchdog
         vTaskDelay(5 / portTICK_PERIOD_MS);
     }
 }
 
 void setup() {
-    // Initialize serial communication (115200 baud for high-speed data)
+    // Inicializa comunicação serial (115200 baud para dados de alta velocidade)
     Serial.begin(115200);
     delay(1000);
 
@@ -300,10 +300,10 @@ void setup() {
     Serial.println("ESP32 Dual-Core Controller");
     Serial.println("CPU Freq: " + String(getCpuFrequencyMhz()) + " MHz");
 
-    // Initialize serial sender
+    // Inicializa sender serial
     serial_sender.begin();
 
-    // Initialize all hardware component managers
+    // Inicializa todos os gerenciadores de componentes de hardware
     throttle_manager.begin();
     brake_manager.begin();
     steering_manager.begin();
@@ -312,26 +312,26 @@ void setup() {
 
     Serial.println("\n=== Dual-Core Task Creation ===");
 
-    // Create encoder task on Core 0 (high priority for real-time)
+    // Cria tarefa de encoder no Core 0 (alta prioridade para tempo real)
     xTaskCreatePinnedToCore(
-        EncoderTask,          // Task function
-        "EncoderTask",        // Task name
-        4096,                 // Stack size (bytes)
-        NULL,                 // Parameters
-        2,                    // Priority (2 = high)
-        &EncoderTaskHandle,   // Task handle
+        EncoderTask,          // Função da tarefa
+        "EncoderTask",        // Nome da tarefa
+        4096,                 // Tamanho da pilha (bytes)
+        NULL,                 // Parâmetros
+        2,                    // Prioridade (2 = alta)
+        &EncoderTaskHandle,   // Handle da tarefa
         0                     // Core 0
     );
     Serial.println("Core 0: Encoder Task (Priority 2)");
 
-    // Create serial task on Core 1 (default Arduino core)
+    // Cria tarefa serial no Core 1 (core padrão do Arduino)
     xTaskCreatePinnedToCore(
-        SerialTask,           // Task function
-        "SerialTask",         // Task name
-        4096,                 // Stack size (bytes)
-        NULL,                 // Parameters
-        1,                    // Priority (1 = normal)
-        &SerialTaskHandle,    // Task handle
+        SerialTask,           // Função da tarefa
+        "SerialTask",         // Nome da tarefa
+        4096,                 // Tamanho da pilha (bytes)
+        NULL,                 // Parâmetros
+        1,                    // Prioridade (1 = normal)
+        &SerialTaskHandle,    // Handle da tarefa
         1                     // Core 1
     );
     Serial.println("Core 1: Serial Task (Priority 1)");
@@ -341,8 +341,8 @@ void setup() {
 }
 
 void loop() {
-    // Main loop runs on Core 1
-    // All work is done in FreeRTOS tasks
-    // Keep this minimal to avoid interfering with tasks
+    // Loop principal executa no Core 1
+    // Todo o trabalho é feito nas tarefas FreeRTOS
+    // Mantém isso mínimo para evitar interferir com as tarefas
     vTaskDelay(1000 / portTICK_PERIOD_MS);
 }

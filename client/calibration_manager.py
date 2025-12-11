@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 """
-calibration_manager.py - Encoder Calibration Manager
-Manages calibration of incremental encoders (throttle, brake, steering)
+calibration_manager.py - Gerenciador de Calibração de Encoders
+Gerencia calibração de encoders incrementais (acelerador, freio, direção)
 
-This module handles the calibration process for ESP32 incremental encoders,
-allowing dynamic adjustment of encoder ranges without hardcoded pulse limits.
+Este módulo trata o processo de calibração para encoders incrementais do ESP32,
+permitindo ajuste dinâmico das faixas de encoder sem limites de pulsos fixos no código.
 
-Calibration Flow:
-1. User clicks "Calibrar" button for a specific control
-2. System enters calibration mode and displays instructions
-3. User physically moves the encoder through its full range
-4. System records min/max/center raw encoder values
-5. User clicks "Salvar" to save calibration
-6. System calculates mapping from raw pulses to 0-100% (or -100 to +100%)
+Fluxo de Calibração:
+1. Usuário clica no botão "Calibrar" para um controle específico
+2. Sistema entra em modo de calibração e exibe instruções
+3. Usuário move fisicamente o encoder através de sua faixa completa
+4. Sistema registra valores brutos mín/máx/centro do encoder
+5. Usuário clica em "Salvar" para salvar calibração
+6. Sistema calcula mapeamento de pulsos brutos para 0-100% (ou -100 a +100%)
 
 @author F1 RC Car Project
 @date 2025-10-14
@@ -25,7 +25,7 @@ from datetime import datetime
 
 
 class CalibrationManager:
-    """Manages encoder calibration for throttle, brake, and steering"""
+    """Gerencia calibração de encoders para acelerador, freio e direção"""
 
     def __init__(
         self,
@@ -34,40 +34,40 @@ class CalibrationManager:
         config_file: str = "encoder_calibration.json",
     ):
         """
-        Initialize calibration manager
+        Inicializa gerenciador de calibração
 
         Args:
-            serial_sender: Function to send commands to ESP32 (command: str) -> bool
-            log_callback: Function to log messages (level: str, message: str)
-            config_file: JSON file to save/load calibration data
+            serial_sender: Função para enviar comandos ao ESP32 (comando: str) -> bool
+            log_callback: Função para registrar mensagens (nível: str, mensagem: str)
+            config_file: Arquivo JSON para salvar/carregar dados de calibração
         """
         self.serial_sender = serial_sender
         self.log_callback = log_callback
         self.config_file = config_file
 
-        # Calibration state
+        # Estado de calibração
         self.is_calibrating = False
         self.current_component = None  # "THROTTLE", "BRAKE", "STEERING"
         self.calibration_step = 0
 
-        # Raw encoder values during calibration
+        # Valores brutos do encoder durante calibração
         self.raw_min = None
         self.raw_max = None
         self.raw_center = None
         self.raw_current = 0
 
-        # Calibration data for all components
+        # Dados de calibração para todos os componentes
         self.calibration_data = {
-            "THROTTLE": {"min": 0, "max": 600},  # Default values
+            "THROTTLE": {"min": 0, "max": 600},  # Valores padrão
             "BRAKE": {"min": 0, "max": 600},
             "STEERING": {"left": 0, "center": 300, "right": 600},
         }
 
-        # Load existing calibration if available
+        # Carrega calibração existente se disponível
         self.load_calibration()
 
     def _log(self, level: str, message: str):
-        """Send log message"""
+        """Envia mensagem de log"""
         if self.log_callback:
             self.log_callback(level, message)
         else:
@@ -75,13 +75,13 @@ class CalibrationManager:
 
     def start_calibration(self, component: str) -> bool:
         """
-        Start calibration process for a component
+        Inicia processo de calibração para um componente
 
         Args:
-            component: "THROTTLE", "BRAKE", or "STEERING"
+            component: "THROTTLE", "BRAKE", ou "STEERING"
 
         Returns:
-            bool: True if calibration started successfully
+            bool: True se calibração iniciada com sucesso
         """
         if self.is_calibrating:
             self._log("WARN", "Calibração já em andamento!")
@@ -91,17 +91,17 @@ class CalibrationManager:
             self._log("ERROR", f"Componente inválido: {component}")
             return False
 
-        # Reset calibration state
+        # Reseta estado de calibração
         self.is_calibrating = True
         self.current_component = component
         self.calibration_step = 0
         self.raw_min = None
         self.raw_max = None
-        # For steering, record initial position as center
+        # Para direção, registra posição inicial como centro
         self.raw_center = 0 if component == "STEERING" else None
         self.raw_current = 0
 
-        # Send calibration start command to ESP32
+        # Envia comando de início de calibração ao ESP32
         if self.serial_sender:
             command = f"CAL_START:{component}"
             success = self.serial_sender(command)
@@ -115,18 +115,18 @@ class CalibrationManager:
 
     def update_raw_value(self, component: str, raw_value: int):
         """
-        Update raw encoder value during calibration
+        Atualiza valor bruto do encoder durante calibração
 
         Args:
-            component: Component being calibrated
-            raw_value: Current raw encoder position
+            component: Componente sendo calibrado
+            raw_value: Posição bruta atual do encoder
         """
         if not self.is_calibrating or component != self.current_component:
             return
 
         self.raw_current = raw_value
 
-        # Auto-detect min/max as user moves encoder
+        # Auto-detecta mín/máx conforme usuário move encoder
         if self.raw_min is None or raw_value < self.raw_min:
             self.raw_min = raw_value
         if self.raw_max is None or raw_value > self.raw_max:
@@ -134,10 +134,10 @@ class CalibrationManager:
 
     def save_calibration(self) -> bool:
         """
-        Save current calibration data
+        Salva dados de calibração atuais
 
         Returns:
-            bool: True if calibration saved successfully
+            bool: True se calibração salva com sucesso
         """
         if not self.is_calibrating:
             self._log("WARN", "Nenhuma calibração em andamento!")
@@ -145,7 +145,7 @@ class CalibrationManager:
 
         component = self.current_component
 
-        # Validate calibration data
+        # Valida dados de calibração
         if component in ["THROTTLE", "BRAKE"]:
             if self.raw_min is None or self.raw_max is None:
                 self._log("ERROR", "Dados de calibração incompletos! Mova o encoder pelo range completo.")
@@ -155,13 +155,13 @@ class CalibrationManager:
                 self._log("ERROR", f"Calibração inválida! Min ({self.raw_min}) >= Max ({self.raw_max})")
                 return False
 
-            # Save throttle/brake calibration
+            # Salva calibração de acelerador/freio
             self.calibration_data[component] = {
                 "min": self.raw_min,
                 "max": self.raw_max,
             }
 
-            # Send calibration to ESP32
+            # Envia calibração ao ESP32
             if self.serial_sender:
                 command = f"CAL_SAVE:{component}:{self.raw_min}:{self.raw_max}"
                 self.serial_sender(command)
@@ -169,7 +169,7 @@ class CalibrationManager:
             self._log("INFO", f"✅ Calibração salva: {component} = [{self.raw_min}, {self.raw_max}]")
 
         elif component == "STEERING":
-            # For steering, we need left, center, right positions
+            # Para direção, precisamos das posições esquerda, centro, direita
             if self.raw_min is None or self.raw_max is None:
                 self._log("ERROR", "Dados de calibração incompletos! Gire o volante completamente.")
                 return False
@@ -178,34 +178,34 @@ class CalibrationManager:
                 self._log("ERROR", f"Calibração inválida! Esquerda ({self.raw_min}) >= Direita ({self.raw_max})")
                 return False
 
-            # Calculate center as midpoint between left and right
+            # Calcula centro como ponto médio entre esquerda e direita
             raw_center = (self.raw_min + self.raw_max) // 2
 
-            # Save steering calibration
+            # Salva calibração de direção
             self.calibration_data[component] = {
                 "left": self.raw_min,
                 "center": raw_center,
                 "right": self.raw_max,
             }
 
-            # Send calibration to ESP32
+            # Envia calibração ao ESP32
             if self.serial_sender:
                 command = f"CAL_SAVE:{component}:{self.raw_min}:{raw_center}:{self.raw_max}"
                 self.serial_sender(command)
 
             self._log("INFO", f"✅ Calibração salva: {component} = [Esq:{self.raw_min}, Centro:{raw_center}, Dir:{self.raw_max}]")
 
-        # Save to file
+        # Salva em arquivo
         self.save_to_file()
 
-        # End calibration mode
+        # Finaliza modo de calibração
         self.is_calibrating = False
         self.current_component = None
 
         return True
 
     def cancel_calibration(self):
-        """Cancel current calibration"""
+        """Cancela calibração atual"""
         if self.is_calibrating:
             self._log("INFO", f"Calibração cancelada: {self.current_component}")
         self.is_calibrating = False
@@ -216,10 +216,10 @@ class CalibrationManager:
 
     def get_calibration_instructions(self) -> str:
         """
-        Get calibration instructions for current component
+        Obtém instruções de calibração para componente atual
 
         Returns:
-            str: Instruction text
+            str: Texto de instruções
         """
         if not self.is_calibrating:
             return ""
@@ -247,10 +247,10 @@ class CalibrationManager:
 
     def get_calibration_status(self) -> Dict:
         """
-        Get current calibration status
+        Obtém status atual de calibração
 
         Returns:
-            dict: Status information
+            dict: Informações de status
         """
         return {
             "is_calibrating": self.is_calibrating,
@@ -264,26 +264,26 @@ class CalibrationManager:
 
     def get_calibration_data(self, component: str) -> Optional[Dict]:
         """
-        Get calibration data for a component
+        Obtém dados de calibração para um componente
 
         Args:
-            component: "THROTTLE", "BRAKE", or "STEERING"
+            component: "THROTTLE", "BRAKE", ou "STEERING"
 
         Returns:
-            dict: Calibration data or None if not available
+            dict: Dados de calibração ou None se não disponível
         """
         return self.calibration_data.get(component)
 
     def map_raw_to_percent(self, component: str, raw_value: int) -> int:
         """
-        Map raw encoder value to percentage based on calibration
+        Mapeia valor bruto do encoder para porcentagem baseado na calibração
 
         Args:
-            component: "THROTTLE", "BRAKE", or "STEERING"
-            raw_value: Raw encoder position
+            component: "THROTTLE", "BRAKE", ou "STEERING"
+            raw_value: Posição bruta do encoder
 
         Returns:
-            int: Mapped value (0-100% for throttle/brake, -100 to +100% for steering)
+            int: Valor mapeado (0-100% para acelerador/freio, -100 a +100% para direção)
         """
         cal_data = self.calibration_data.get(component)
         if not cal_data:
@@ -293,14 +293,14 @@ class CalibrationManager:
             min_val = cal_data["min"]
             max_val = cal_data["max"]
 
-            # Ensure min < max for correct mapping
+            # Garante min < max para mapeamento correto
             if min_val > max_val:
                 min_val, max_val = max_val, min_val
 
-            # Constrain raw value
+            # Restringe valor bruto
             raw_value = max(min_val, min(max_val, raw_value))
 
-            # Map to 0-100%
+            # Mapeia para 0-100%
             if max_val == min_val:
                 return 0
             percent = int(((raw_value - min_val) / (max_val - min_val)) * 100)
@@ -312,17 +312,17 @@ class CalibrationManager:
             center_val = cal_data["center"]
             right_val = cal_data["right"]
 
-            # Constrain raw value
+            # Restringe valor bruto
             raw_value = max(left_val, min(right_val, raw_value))
 
-            # Map to -100 to +100%
+            # Mapeia para -100 a +100%
             if raw_value < center_val:
-                # Left side: left_val to center_val maps to -100% to 0%
+                # Lado esquerdo: left_val até center_val mapeia para -100% a 0%
                 if center_val == left_val:
                     return 0
                 percent = int(((raw_value - center_val) / (center_val - left_val)) * 100)
             else:
-                # Right side: center_val to right_val maps to 0% to +100%
+                # Lado direito: center_val até right_val mapeia para 0% a +100%
                 if right_val == center_val:
                     return 0
                 percent = int(((raw_value - center_val) / (right_val - center_val)) * 100)
@@ -333,13 +333,13 @@ class CalibrationManager:
 
     def save_to_file(self) -> bool:
         """
-        Save calibration data to JSON file
+        Salva dados de calibração em arquivo JSON
 
         Returns:
-            bool: True if saved successfully
+            bool: True se salvo com sucesso
         """
         try:
-            # Add metadata
+            # Adiciona metadados
             data = {
                 "calibration_data": self.calibration_data,
                 "last_updated": datetime.now().isoformat(),
@@ -358,10 +358,10 @@ class CalibrationManager:
 
     def load_calibration(self) -> bool:
         """
-        Load calibration data from JSON file
+        Carrega dados de calibração de arquivo JSON
 
         Returns:
-            bool: True if loaded successfully
+            bool: True se carregado com sucesso
         """
         try:
             if not os.path.exists(self.config_file):
@@ -382,14 +382,14 @@ class CalibrationManager:
             return False
 
     def reset_to_defaults(self):
-        """Reset all calibrations to default values"""
+        """Reseta todas as calibrações para valores padrão"""
         self.calibration_data = {
             "THROTTLE": {"min": 0, "max": 600},
             "BRAKE": {"min": 0, "max": 600},
             "STEERING": {"left": 0, "center": 300, "right": 600},
         }
 
-        # Send reset command to ESP32
+        # Envia comando de reset ao ESP32
         if self.serial_sender:
             self.serial_sender("CAL_RESET")
 

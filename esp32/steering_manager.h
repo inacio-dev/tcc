@@ -1,35 +1,37 @@
 /**
  * @file steering_manager.h
- * @brief Steering Control Manager for F1 Cockpit (ESP32)
+ * @brief Gerenciador de Controle de Direção para Cockpit F1 (ESP32)
  *
- * Manages an LPD3806-600BM-G5-24C incremental rotary encoder for steering control.
- * Provides smooth steering input from -100% (left) to +100% (right).
+ * Gerencia um encoder rotativo incremental LPD3806-600BM-G5-24C para controle de direção.
+ * Fornece entrada suave de direção de -100% (esquerda) a +100% (direita).
  *
- * Encoder Specifications:
- * - Model: LPD3806-600BM-G5-24C
- * - Type: Incremental rotary encoder
- * - Resolution: 600 pulses per revolution (PPR)
- * - Output: AB phase quadrature (2-channel)
- * - Operating Voltage: 5-24V DC
- * - Output Type: NPN open collector
+ * Especificações do Encoder:
+ * - Modelo: LPD3806-600BM-G5-24C
+ * - Tipo: Encoder rotativo incremental
+ * - Resolução: 600 pulsos por revolução (PPR)
+ * - Saída: Quadratura fase AB (2 canais)
+ * - Tensão de Operação: 5-24V DC
+ * - Tipo de Saída: Coletor aberto NPN
  *
- * ESP32 Pinout:
- * - Encoder CLK (A): GPIO 12 (D12) - Fio Verde
- * - Encoder DT (B):  GPIO 13 (D13) - Fio Branco
- * - Encoder VCC: 5V (or 3.3V with pull-ups) - Fio Vermelho
+ * Pinagem ESP32:
+ * - Encoder CLK (A): GPIO 12 (D12) - Fio Branco (INVERTIDO - era Verde)
+ * - Encoder DT (B):  GPIO 13 (D13) - Fio Verde (INVERTIDO - era Branco)
+ * - Encoder VCC: 5V (ou 3.3V com pull-ups) - Fio Vermelho
  * - Encoder GND: GND - Fio Preto
  *
- * Hardware Components Required:
- * - Capacitor: 100nF (0.1µF) ceramic X7R between GPIO 12 and GND (anti-bounce filter)
- * - Capacitor: 100nF (0.1µF) ceramic X7R between GPIO 13 and GND (anti-bounce filter)
- * - Resistor: 10kΩ pull-up (OPTIONAL - ESP32 has internal pull-ups enabled in code)
+ * Nota: Pinos CLK/DT estão INVERTIDOS para direção correta (esquerda=-100%, direita=+100%)
  *
- * Notes:
- * - Capacitors should be placed as close as possible to ESP32 pins
- * - Internal pull-ups are enabled via INPUT_PULLUP, external resistors not required
- * - Use ceramic X7R capacitors (better thermal stability than Y5V)
- * - Center position is at 300 pulses (half of 600 PPR encoder)
- * - LPD3806 provides 600 pulses per full rotation for precise steering control
+ * Componentes de Hardware Necessários:
+ * - Capacitor: 100nF (0.1µF) cerâmico X7R entre GPIO 12 e GND (filtro anti-bounce)
+ * - Capacitor: 100nF (0.1µF) cerâmico X7R entre GPIO 13 e GND (filtro anti-bounce)
+ * - Resistor: 10kΩ pull-up (OPCIONAL - ESP32 tem pull-ups internos habilitados no código)
+ *
+ * Observações:
+ * - Capacitores devem ser posicionados o mais próximo possível dos pinos do ESP32
+ * - Pull-ups internos são habilitados via INPUT_PULLUP, resistores externos não são necessários
+ * - Use capacitores cerâmicos X7R (melhor estabilidade térmica que Y5V)
+ * - Posição central está em 300 pulsos (metade do encoder 600 PPR)
+ * - LPD3806 fornece 600 pulsos por rotação completa para controle preciso de direção
  *
  * @author F1 RC Car Project
  * @date 2025-10-13
@@ -43,71 +45,71 @@
 
 class SteeringManager {
 private:
-    // Pin definitions (ESP32 GPIO)
+    // Definições de pinos (GPIO ESP32)
     static const int PIN_ENCODER_CLK = 12;  // CLK (A)
     static const int PIN_ENCODER_DT = 13;   // DT (B)
 
-    // Encoder configuration
+    // Configuração do encoder
     static const int PULSES_PER_REV = 600;
-    static const int CENTER_POSITION = 300;  // Center = 0% steering
-    static const int MAX_POSITION = 600;     // Full right = +100%
-    static const int MIN_POSITION = 0;       // Full left = -100%
+    static const int CENTER_POSITION = 300;  // Centro = 0% direção
+    static const int MAX_POSITION = 600;     // Completo direita = +100%
+    static const int MIN_POSITION = 0;       // Completo esquerda = -100%
 
-    // State variables
-    volatile long encoder_position;  // Raw encoder count
-    volatile int last_clk;           // Last CLK state
-    int current_value;               // -100 to +100%
+    // Variáveis de estado
+    volatile long encoder_position;  // Contagem bruta do encoder
+    volatile int last_clk;           // Último estado CLK
+    int current_value;               // -100 a +100%
 
-    // Calibration (bipolar mode for steering)
+    // Calibração (modo bipolar para direção)
     EncoderCalibration calibration;
 
-    // Static instance for ISR
+    // Instância estática para ISR
     static SteeringManager* instance;
 
-    // Interrupt service routine
+    // Rotina de serviço de interrupção
     static void IRAM_ATTR encoder_isr();
 
 public:
     SteeringManager();
 
     /**
-     * @brief Initialize steering encoder
+     * @brief Inicializa encoder de direção
      */
     void begin();
 
     /**
-     * @brief Update steering state (call in main loop)
+     * @brief Atualiza estado da direção (chamar no loop principal)
      */
     void update();
 
     /**
-     * @brief Get current steering value
-     * @return Steering percentage (-100 to +100%)
+     * @brief Obtém valor atual da direção
+     * @return Porcentagem de direção (-100 a +100%)
      */
     int get_value() const;
 
     /**
-     * @brief Get raw encoder position (for calibration)
+     * @brief Obtém posição bruta do encoder (para calibração)
      */
     long get_raw_position() const;
 
     /**
-     * @brief Reset steering to center position
+     * @brief Reseta direção para posição central
      */
     void reset();
 
     /**
-     * @brief Start calibration mode
+     * @brief Inicia modo de calibração
      */
     void start_calibration();
 
     /**
-     * @brief Save calibration with left/center/right values
+     * @brief Salva calibração com valores esquerda/centro/direita
      */
     bool save_calibration(int32_t left_val, int32_t center_val, int32_t right_val);
 
     /**
-     * @brief Check if in calibration mode
+     * @brief Verifica se está em modo de calibração
      */
     bool is_calibrating() const;
 };

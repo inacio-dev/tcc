@@ -107,43 +107,43 @@ class F1ClientApplication:
 
     def handle_serial_command(self, command_type: str, value: str):
         """
-        Handle commands received from ESP32 via serial
-        Forward them to Raspberry Pi via network client or handle calibration
+        Trata comandos recebidos do ESP32 via serial
+        Encaminha para o Raspberry Pi via network client ou trata calibração
 
         Args:
-            command_type: Type of command (THROTTLE, BRAKE, STEERING, GEAR_UP, GEAR_DOWN, CAL_*)
-            value: Command value (empty for GEAR_UP/GEAR_DOWN)
+            command_type: Tipo do comando (THROTTLE, BRAKE, STEERING, GEAR_UP, GEAR_DOWN, CAL_*)
+            value: Valor do comando (vazio para GEAR_UP/GEAR_DOWN)
         """
         try:
-            # Handle calibration commands
+            # Trata comandos de calibração
             if command_type.startswith("CAL_"):
                 if command_type in ["CAL_THROTTLE", "CAL_BRAKE", "CAL_STEERING"]:
-                    # Update calibration raw value in slider controller
+                    # Atualiza valor bruto de calibração no slider controller
                     if self.console_interface and hasattr(
                         self.console_interface, "slider_controller"
                     ):
                         component = command_type.split("_")[
                             1
-                        ]  # Extract THROTTLE/BRAKE/STEERING
+                        ]  # Extrai THROTTLE/BRAKE/STEERING
                         raw_value = int(value)
                         self.console_interface.slider_controller.update_calibration_raw_value(
                             component, raw_value
                         )
                 elif command_type == "CAL_COMPLETE":
-                    # Calibration complete notification
+                    # Notificação de calibração completa
                     log_queue.put(("INFO", f"Calibração completa: {value}"))
                 return
 
-            # Handle normal control commands
+            # Trata comandos de controle normais
             if self.network_client:
                 if command_type in ["THROTTLE", "BRAKE", "STEERING"]:
-                    # Send control command with value
+                    # Envia comando de controle com valor
                     self.network_client.send_control_command(command_type, float(value))
                 elif command_type in ["GEAR_UP", "GEAR_DOWN"]:
-                    # Send gear command (same as keyboard - uses value 1.0)
+                    # Envia comando de marcha (mesmo que teclado - usa valor 1.0)
                     self.network_client.send_control_command(command_type, 1.0)
         except Exception as e:
-            error(f"Error forwarding serial command: {e}", "SERIAL")
+            error(f"Erro ao encaminhar comando serial: {e}", "SERIAL")
 
     def initialize_components(self):
         """Inicializa todos os componentes do sistema"""

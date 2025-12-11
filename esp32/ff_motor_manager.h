@@ -1,23 +1,23 @@
 /**
  * @file ff_motor_manager.h
- * @brief Force Feedback Motor Manager (ESP32)
+ * @brief Gerenciador de Motor Force Feedback (ESP32)
  *
- * Controls a DC motor via BTS7960 H-Bridge driver for steering force feedback.
- * Provides bidirectional control with PWM intensity (0-100%).
+ * Controla um motor DC via driver ponte H BTS7960 para force feedback de direção.
+ * Fornece controle bidirecional com intensidade PWM (0-100%).
  *
- * Hardware: BTS7960 43A Dual H-Bridge Motor Driver
+ * Hardware: Driver Motor Ponte H Dupla BTS7960 43A
  *
- * Pinout (ESP32 → BTS7960):
- * - GPIO 16 (D16) → RPWM (Right PWM - clockwise rotation)
- * - GPIO 17 (D17) → LPWM (Left PWM - counter-clockwise rotation)
- * - GPIO 18 (D18) → R_EN (Right enable - HIGH to activate)
- * - GPIO 19 (D19) → L_EN (Left enable - HIGH to activate)
- * - GND → GND (common ground)
+ * Pinagem (ESP32 → BTS7960):
+ * - GPIO 16 (D16) → RPWM (PWM direita - rotação horária)
+ * - GPIO 17 (D17) → LPWM (PWM esquerda - rotação anti-horária)
+ * - GPIO 18 (D18) → R_EN (Habilitação direita - HIGH para ativar)
+ * - GPIO 19 (D19) → L_EN (Habilitação esquerda - HIGH para ativar)
+ * - GND → GND (terra comum)
  *
- * BTS7960 Power:
- * - VCC (5V logic) → 5V from ESP32 or external power
- * - B+ / B- → Motor terminals
- * - Vcc motor → Motor power supply (6V-27V, depending on motor specs)
+ * Alimentação BTS7960:
+ * - VCC (lógica 5V) → 5V do ESP32 ou alimentação externa
+ * - B+ / B- → Terminais do motor
+ * - Vcc motor → Fonte de alimentação do motor (6V-27V, dependendo das especificações do motor)
  *
  * @author F1 RC Car Project
  * @date 2025-10-14
@@ -30,19 +30,19 @@
 
 class FFMotorManager {
 private:
-    // BTS7960 Pin Configuration
-    static const int PIN_RPWM = 16;  // GPIO16 - Right PWM (clockwise)
-    static const int PIN_LPWM = 17;  // GPIO17 - Left PWM (counter-clockwise)
-    static const int PIN_R_EN = 18;  // GPIO18 - Right enable
-    static const int PIN_L_EN = 19;  // GPIO19 - Left enable
+    // Configuração de Pinos BTS7960
+    static const int PIN_RPWM = 16;  // GPIO16 - PWM direita (horário)
+    static const int PIN_LPWM = 17;  // GPIO17 - PWM esquerda (anti-horário)
+    static const int PIN_R_EN = 18;  // GPIO18 - Habilitação direita
+    static const int PIN_L_EN = 19;  // GPIO19 - Habilitação esquerda
 
-    // PWM Configuration
-    static const int PWM_CHANNEL_R = 0;  // PWM channel for RPWM
-    static const int PWM_CHANNEL_L = 1;  // PWM channel for LPWM
-    static const int PWM_FREQ = 1000;    // 1kHz PWM frequency
-    static const int PWM_RESOLUTION = 8; // 8-bit resolution (0-255)
+    // Configuração PWM
+    static const int PWM_CHANNEL_R = 0;  // Canal PWM para RPWM
+    static const int PWM_CHANNEL_L = 1;  // Canal PWM para LPWM
+    static const int PWM_FREQ = 1000;    // Frequência PWM 1kHz
+    static const int PWM_RESOLUTION = 8; // Resolução 8-bit (0-255)
 
-    // Current motor state
+    // Estado atual do motor
     int current_intensity;
     String current_direction;
 
@@ -50,39 +50,39 @@ public:
     FFMotorManager();
 
     /**
-     * @brief Initialize BTS7960 pins and PWM channels
+     * @brief Inicializa pinos BTS7960 e canais PWM
      */
     void begin();
 
     /**
-     * @brief Set motor force and direction
-     * @param direction "LEFT", "RIGHT", or "NEUTRAL"
-     * @param intensity 0-100 (percentage)
+     * @brief Define força e direção do motor
+     * @param direction "LEFT", "RIGHT", ou "NEUTRAL"
+     * @param intensity 0-100 (porcentagem)
      */
     void set_force(String direction, int intensity);
 
     /**
-     * @brief Stop motor immediately
+     * @brief Para motor imediatamente
      */
     void stop();
 
     /**
-     * @brief Get current motor intensity
-     * @return Current intensity (0-100%)
+     * @brief Obtém intensidade atual do motor
+     * @return Intensidade atual (0-100%)
      */
     int get_intensity() const;
 
     /**
-     * @brief Get current motor direction
-     * @return Current direction ("LEFT", "RIGHT", "NEUTRAL")
+     * @brief Obtém direção atual do motor
+     * @return Direção atual ("LEFT", "RIGHT", "NEUTRAL")
      */
     String get_direction() const;
 
 private:
     /**
-     * @brief Convert 0-100% to PWM duty cycle (0-255)
-     * @param intensity Percentage (0-100)
-     * @return PWM value (0-255)
+     * @brief Converte 0-100% para ciclo de trabalho PWM (0-255)
+     * @param intensity Porcentagem (0-100)
+     * @return Valor PWM (0-255)
      */
     int intensity_to_pwm(int intensity);
 };

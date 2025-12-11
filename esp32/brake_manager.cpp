@@ -1,8 +1,8 @@
 /**
  * @file brake_manager.cpp
- * @brief Brake Control Manager Implementation (ESP32)
+ * @brief Implementação do Gerenciador de Controle de Freio (ESP32)
  *
- * Simple and reliable encoder reading using CLK-based interrupts
+ * Leitura de encoder simples e confiável usando interrupções baseadas em CLK
  *
  * @author F1 RC Car Project
  * @date 2025-10-13
@@ -10,7 +10,7 @@
 
 #include "brake_manager.h"
 
-// Initialize static instance pointer
+// Inicializa ponteiro de instância estática
 BrakeManager* BrakeManager::instance = nullptr;
 
 BrakeManager::BrakeManager()
@@ -22,20 +22,20 @@ BrakeManager::BrakeManager()
 }
 
 void BrakeManager::begin() {
-    // Initialize calibration
+    // Inicializa calibração
     calibration.begin();
 
-    // Configure encoder pins as inputs with pull-up resistors
+    // Configura pinos do encoder como entradas com resistores pull-up
     pinMode(PIN_ENCODER_CLK, INPUT_PULLUP);
     pinMode(PIN_ENCODER_DT, INPUT_PULLUP);
 
-    // Read initial CLK state
+    // Lê estado inicial do CLK
     last_clk = digitalRead(PIN_ENCODER_CLK);
 
-    // Attach interrupt only to CLK pin
+    // Anexa interrupção apenas ao pino CLK
     attachInterrupt(digitalPinToInterrupt(PIN_ENCODER_CLK), encoder_isr, CHANGE);
 
-    // Reset position
+    // Reseta posição
     encoder_position = 0;
     current_value = 0;
 
@@ -44,38 +44,38 @@ void BrakeManager::begin() {
 
 void IRAM_ATTR BrakeManager::encoder_isr() {
     if (instance != nullptr) {
-        // Read current pin states
+        // Lê estados atuais dos pinos
         int clk_value = digitalRead(instance->PIN_ENCODER_CLK);
         int dt_value = digitalRead(instance->PIN_ENCODER_DT);
 
-        // Detect rotation direction based on CLK edge and DT state
+        // Detecta direção de rotação baseada na borda CLK e estado DT
         if (clk_value != instance->last_clk) {
             if (dt_value != clk_value) {
-                // Clockwise rotation
+                // Rotação horária
                 instance->encoder_position++;
             } else {
-                // Counter-clockwise rotation
+                // Rotação anti-horária
                 instance->encoder_position--;
             }
 
-            // NO constraining in calibration mode - let encoder count freely
+            // SEM restrição em modo de calibração - deixa encoder contar livremente
 
-            // Update last CLK state
+            // Atualiza último estado CLK
             instance->last_clk = clk_value;
         }
     }
 }
 
 void BrakeManager::update() {
-    // Update calibration if in calibration mode
+    // Atualiza calibração se em modo de calibração
     if (calibration.is_in_calibration_mode()) {
         calibration.update_calibration(encoder_position);
     }
 
-    // Convert encoder position to percentage using calibration
+    // Converte posição do encoder para porcentagem usando calibração
     current_value = calibration.map_to_percent(encoder_position);
 
-    // Ensure value is within valid range
+    // Garante que o valor está dentro da faixa válida
     current_value = constrain(current_value, 0, 100);
 }
 

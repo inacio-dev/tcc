@@ -9,11 +9,11 @@
             "max": 65
         },
         "STEERING": {
-            "left": -1772,
-            "center": 17,
-            "right": 1806
+            "left": -1958,
+            "center": -187,
+            "right": 1585
         }
     },
-    "last_updated": "2025-12-11T11:44:21.810173",
+    "last_updated": "2025-12-11T11:55:25.066250",
     "version": "1.0"
 }

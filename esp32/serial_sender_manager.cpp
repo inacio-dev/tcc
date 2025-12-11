@@ -1,6 +1,6 @@
 /**
  * @file serial_sender_manager.cpp
- * @brief Serial Communication Manager Implementation (ESP32)
+ * @brief Implementação do Gerenciador de Comunicação Serial (ESP32)
  *
  * @author F1 RC Car Project
  * @date 2025-10-13
@@ -13,8 +13,8 @@ SerialSenderManager::SerialSenderManager()
 }
 
 void SerialSenderManager::begin() {
-    // Serial is already initialized in main setup()
-    // Just log initialization
+    // Serial já está inicializado no setup() principal
+    // Apenas registra inicialização
     Serial.println("[Serial] USB Serial Sender initialized - 115200 baud");
 }
 
@@ -25,7 +25,7 @@ void SerialSenderManager::send_command(const String& command) {
 }
 
 void SerialSenderManager::send_throttle(int value) {
-    // Only send if value changed (reduce serial traffic)
+    // Envia apenas se valor mudou (reduz tráfego serial)
     if (value != last_throttle) {
         String command = "THROTTLE:" + String(value);
         send_command(command);
@@ -34,7 +34,7 @@ void SerialSenderManager::send_throttle(int value) {
 }
 
 void SerialSenderManager::send_brake(int value) {
-    // Only send if value changed
+    // Envia apenas se valor mudou
     if (value != last_brake) {
         String command = "BRAKE:" + String(value);
         send_command(command);
@@ -43,7 +43,7 @@ void SerialSenderManager::send_brake(int value) {
 }
 
 void SerialSenderManager::send_steering(int value) {
-    // Only send if value changed
+    // Envia apenas se valor mudou
     if (value != last_steering) {
         String command = "STEERING:" + String(value);
         send_command(command);

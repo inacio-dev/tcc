@@ -1,26 +1,26 @@
 /**
  * @file gear_manager.h
- * @brief Gear Shift Manager for F1 Cockpit (ESP32)
+ * @brief Gerenciador de Troca de Marchas para Cockpit F1 (ESP32)
  *
- * Manages two push buttons for gear shifting (up/down).
- * Implements debouncing for reliable button detection.
+ * Gerencia dois botões de pressão para troca de marchas (cima/baixo).
+ * Implementa debouncing para detecção confiável de botões.
  *
- * ESP32 Pinout:
- * - Gear Up Button:   GPIO 32 (D32)
- * - Gear Down Button: GPIO 33 (D33)
- * - Button GND:       GND
+ * Pinagem ESP32:
+ * - Botão Marcha Cima:   GPIO 32 (D32)
+ * - Botão Marcha Baixo: GPIO 33 (D33)
+ * - GND do Botão:       GND
  *
- * Hardware Components Required:
- * - Capacitor: 100nF (0.1µF) ceramic X7R between GPIO 32 and GND (debounce filter)
- * - Capacitor: 100nF (0.1µF) ceramic X7R between GPIO 33 and GND (debounce filter)
- * - Resistor: 10kΩ pull-up (OPTIONAL - ESP32 has internal pull-ups enabled in code)
+ * Componentes de Hardware Necessários:
+ * - Capacitor: 100nF (0.1µF) cerâmico X7R entre GPIO 32 e GND (filtro debounce)
+ * - Capacitor: 100nF (0.1µF) cerâmico X7R entre GPIO 33 e GND (filtro debounce)
+ * - Resistor: 10kΩ pull-up (OPCIONAL - ESP32 tem pull-ups internos habilitados no código)
  *
- * Notes:
- * - Capacitors should be placed as close as possible to ESP32 pins
- * - Internal pull-ups are enabled via INPUT_PULLUP, external resistors not required
- * - Use ceramic X7R capacitors (better thermal stability than Y5V)
- * - Buttons are active LOW (pressed = LOW, released = HIGH)
- * - Software debounce: 50ms implemented in code for additional reliability
+ * Observações:
+ * - Capacitores devem ser posicionados o mais próximo possível dos pinos do ESP32
+ * - Pull-ups internos são habilitados via INPUT_PULLUP, resistores externos não são necessários
+ * - Use capacitores cerâmicos X7R (melhor estabilidade térmica que Y5V)
+ * - Botões são ativos LOW (pressionado = LOW, solto = HIGH)
+ * - Debounce em software: 50ms implementado no código para confiabilidade adicional
  *
  * @author F1 RC Car Project
  * @date 2025-10-13
@@ -33,14 +33,14 @@
 
 class GearManager {
 private:
-    // Pin definitions (ESP32 GPIO)
-    static const int PIN_GEAR_UP = 32;    // Gear up button
-    static const int PIN_GEAR_DOWN = 33;  // Gear down button
+    // Definições de pinos (GPIO ESP32)
+    static const int PIN_GEAR_UP = 32;    // Botão marcha cima
+    static const int PIN_GEAR_DOWN = 33;  // Botão marcha baixo
 
-    // Debounce configuration
+    // Configuração de debounce
     static const unsigned long DEBOUNCE_DELAY = 50;  // 50ms debounce
 
-    // Button states
+    // Estados dos botões
     int gear_up_state;
     int last_gear_up_state;
     unsigned long last_gear_up_time;
@@ -49,16 +49,16 @@ private:
     int last_gear_down_state;
     unsigned long last_gear_down_time;
 
-    // Press detection flags
+    // Flags de detecção de pressão
     bool gear_up_pressed;
     bool gear_down_pressed;
 
     /**
-     * @brief Read button with debouncing
-     * @param pin Button pin to read
-     * @param last_state Previous button state
-     * @param last_time Last state change time
-     * @return true if button press detected
+     * @brief Lê botão com debouncing
+     * @param pin Pino do botão a ler
+     * @param last_state Estado anterior do botão
+     * @param last_time Tempo da última mudança de estado
+     * @return true se pressão do botão detectada
      */
     bool read_button(int pin, int& last_state, unsigned long& last_time);
 
@@ -66,29 +66,29 @@ public:
     GearManager();
 
     /**
-     * @brief Initialize gear shift buttons
+     * @brief Inicializa botões de troca de marcha
      */
     void begin();
 
     /**
-     * @brief Update button states (call in main loop)
+     * @brief Atualiza estados dos botões (chamar no loop principal)
      */
     void update();
 
     /**
-     * @brief Check if gear up button was pressed
-     * @return true if pressed (single-shot detection)
+     * @brief Verifica se botão marcha cima foi pressionado
+     * @return true se pressionado (detecção single-shot)
      */
     bool is_gear_up_pressed();
 
     /**
-     * @brief Check if gear down button was pressed
-     * @return true if pressed (single-shot detection)
+     * @brief Verifica se botão marcha baixo foi pressionado
+     * @return true se pressionado (detecção single-shot)
      */
     bool is_gear_down_pressed();
 
     /**
-     * @brief Reset all button states
+     * @brief Reseta todos os estados dos botões
      */
     void reset();
 };

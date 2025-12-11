@@ -76,7 +76,7 @@ F1-style remote-controlled car with complete telemetry system using Raspberry Pi
 **ESP32 DevKit V1 Pinout:**
 - **Throttle Encoder**: GPIO 25 (CLK), GPIO 26 (DT) - **PINS SWAPPED** (white→CLK, green→DT) for correct increasing direction
 - **Brake Encoder**: GPIO 27 (CLK), GPIO 14 (DT)
-- **Steering Encoder**: GPIO 12 (CLK), GPIO 13 (DT)
+- **Steering Encoder**: GPIO 12 (CLK), GPIO 13 (DT) - **PINS SWAPPED** (white→CLK, green→DT) for correct direction (left=-100%, right=+100%)
 - **Gear Buttons**: GPIO 32 (UP), GPIO 33 (DOWN)
 - **Force Feedback Motor (BTS7960)**: GPIO 16 (RPWM), GPIO 17 (LPWM), GPIO 18 (R_EN), GPIO 19 (L_EN)
 

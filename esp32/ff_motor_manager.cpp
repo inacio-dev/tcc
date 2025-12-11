@@ -1,9 +1,9 @@
 /**
  * @file ff_motor_manager.cpp
- * @brief Force Feedback Motor Manager Implementation (ESP32)
+ * @brief Implementação do Gerenciador de Motor Force Feedback (ESP32)
  *
- * BTS7960 H-Bridge control for steering force feedback motor.
- * Supports bidirectional rotation with PWM intensity control.
+ * Controle de ponte H BTS7960 para motor force feedback de direção.
+ * Suporta rotação bidirecional com controle de intensidade PWM.
  *
  * @author F1 RC Car Project
  * @date 2025-10-14
@@ -17,27 +17,27 @@ FFMotorManager::FFMotorManager()
 }
 
 void FFMotorManager::begin() {
-    // Configure enable pins as outputs
+    // Configura pinos de habilitação como saídas
     pinMode(PIN_R_EN, OUTPUT);
     pinMode(PIN_L_EN, OUTPUT);
 
-    // Configure PWM pins
+    // Configura pinos PWM
     pinMode(PIN_RPWM, OUTPUT);
     pinMode(PIN_LPWM, OUTPUT);
 
-    // Setup PWM channels
+    // Configura canais PWM
     ledcSetup(PWM_CHANNEL_R, PWM_FREQ, PWM_RESOLUTION);
     ledcSetup(PWM_CHANNEL_L, PWM_FREQ, PWM_RESOLUTION);
 
-    // Attach PWM channels to pins
+    // Anexa canais PWM aos pinos
     ledcAttachPin(PIN_RPWM, PWM_CHANNEL_R);
     ledcAttachPin(PIN_LPWM, PWM_CHANNEL_L);
 
-    // Enable both H-bridge sides (always enabled for this application)
+    // Habilita ambos os lados da ponte H (sempre habilitado para esta aplicação)
     digitalWrite(PIN_R_EN, HIGH);
     digitalWrite(PIN_L_EN, HIGH);
 
-    // Start with motor stopped
+    // Inicia com motor parado
     stop();
 
     Serial.println("[FF Motor] Initialized - GPIO16,17,18,19");
@@ -45,39 +45,39 @@ void FFMotorManager::begin() {
 }
 
 void FFMotorManager::set_force(String direction, int intensity) {
-    // Constrain intensity to valid range
+    // Restringe intensidade à faixa válida
     intensity = constrain(intensity, 0, 100);
 
-    // Update current state
+    // Atualiza estado atual
     current_intensity = intensity;
     current_direction = direction;
 
-    // Convert intensity to PWM value (0-255)
+    // Converte intensidade para valor PWM (0-255)
     int pwm_value = intensity_to_pwm(intensity);
 
     if (direction == "LEFT") {
-        // Counter-clockwise rotation (LPWM active, RPWM off)
+        // Rotação anti-horária (LPWM ativo, RPWM desligado)
         ledcWrite(PWM_CHANNEL_L, pwm_value);
         ledcWrite(PWM_CHANNEL_R, 0);
     }
     else if (direction == "RIGHT") {
-        // Clockwise rotation (RPWM active, LPWM off)
+        // Rotação horária (RPWM ativo, LPWM desligado)
         ledcWrite(PWM_CHANNEL_R, pwm_value);
         ledcWrite(PWM_CHANNEL_L, 0);
     }
     else {  // NEUTRAL
-        // Stop motor
+        // Para motor
         ledcWrite(PWM_CHANNEL_R, 0);
         ledcWrite(PWM_CHANNEL_L, 0);
     }
 }
 
 void FFMotorManager::stop() {
-    // Set both PWM channels to 0
+    // Define ambos os canais PWM para 0
     ledcWrite(PWM_CHANNEL_R, 0);
     ledcWrite(PWM_CHANNEL_L, 0);
 
-    // Update state
+    // Atualiza estado
     current_intensity = 0;
     current_direction = "NEUTRAL";
 }
@@ -91,6 +91,6 @@ String FFMotorManager::get_direction() const {
 }
 
 int FFMotorManager::intensity_to_pwm(int intensity) {
-    // Map 0-100% to 0-255 PWM duty cycle
+    // Mapeia 0-100% para ciclo de trabalho PWM 0-255
     return map(intensity, 0, 100, 0, 255);
 }

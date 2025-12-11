@@ -1,6 +1,6 @@
 /**
  * @file encoder_calibration.cpp
- * @brief Encoder Calibration Module Implementation
+ * @brief Implementação do Módulo de Calibração de Encoder
  *
  * @author F1 RC Car Project
  * @date 2025-10-14
@@ -15,22 +15,22 @@ EncoderCalibration::EncoderCalibration(int eeprom_addr, bool bipolar)
       cal_raw_min(0),
       cal_raw_max(0) {
 
-    // Initialize calibration data
+    // Inicializa dados de calibração
     cal_data.magic = 0;
     cal_data.min_value = 0;
-    cal_data.max_value = 600;  // Default for 600 PPR encoder
-    cal_data.center_value = 300;  // Default center
+    cal_data.max_value = 600;  // Padrão para encoder 600 PPR
+    cal_data.center_value = 300;  // Centro padrão
     cal_data.checksum = 0;
 }
 
 void EncoderCalibration::begin() {
-    // Initialize EEPROM
+    // Inicializa EEPROM
     EEPROM.begin(EEPROM_SIZE);
 
-    // Try to load calibration from EEPROM
+    // Tenta carregar calibração da EEPROM
     if (!load_calibration()) {
         Serial.println("[Calibration] No valid calibration found, using defaults");
-        // Set default values
+        // Define valores padrão
         if (is_bipolar) {
             reset_to_defaults(0, 600, 300);
         } else {
@@ -44,7 +44,7 @@ void EncoderCalibration::begin() {
 }
 
 uint16_t EncoderCalibration::calculate_checksum(const CalibrationData& data) {
-    // Simple XOR checksum
+    // Checksum XOR simples
     uint16_t checksum = data.magic;
     checksum ^= (uint16_t)(data.min_value & 0xFFFF);
     checksum ^= (uint16_t)((data.min_value >> 16) & 0xFFFF);
@@ -70,7 +70,7 @@ void EncoderCalibration::start_calibration() {
 void EncoderCalibration::update_calibration(int32_t raw_value) {
     if (!is_calibrating) return;
 
-    // Track min/max values
+    // Rastreia valores min/max
     if (raw_value < cal_raw_min) {
         cal_raw_min = raw_value;
     }
@@ -80,20 +80,20 @@ void EncoderCalibration::update_calibration(int32_t raw_value) {
 }
 
 bool EncoderCalibration::save_calibration(int32_t min_val, int32_t max_val, int32_t center_val) {
-    // Validate inputs
+    // Valida entradas
     if (min_val >= max_val) {
         Serial.println("[Calibration] ERROR: Invalid calibration (min >= max)");
         return false;
     }
 
-    // Update calibration data
+    // Atualiza dados de calibração
     cal_data.magic = EEPROM_MAGIC_NUMBER;
     cal_data.min_value = min_val;
     cal_data.max_value = max_val;
     cal_data.center_value = center_val;
     cal_data.checksum = calculate_checksum(cal_data);
 
-    // Write to EEPROM
+    // Escreve na EEPROM
     EEPROM.put(eeprom_address, cal_data);
     EEPROM.commit();
 
@@ -106,10 +106,10 @@ bool EncoderCalibration::save_calibration(int32_t min_val, int32_t max_val, int3
 }
 
 bool EncoderCalibration::load_calibration() {
-    // Read from EEPROM
+    // Lê da EEPROM
     EEPROM.get(eeprom_address, cal_data);
 
-    // Verify magic number and checksum
+    // Verifica número mágico e checksum
     if (cal_data.magic != EEPROM_MAGIC_NUMBER) {
         Serial.println("[Calibration] Invalid magic number");
         return false;
@@ -120,7 +120,7 @@ bool EncoderCalibration::load_calibration() {
         return false;
     }
 
-    // Validate ranges
+    // Valida faixas
     if (cal_data.min_value >= cal_data.max_value) {
         Serial.println("[Calibration] Invalid range (min >= max)");
         return false;
@@ -136,7 +136,7 @@ void EncoderCalibration::reset_to_defaults(int32_t default_min, int32_t default_
     cal_data.center_value = default_center;
     cal_data.checksum = calculate_checksum(cal_data);
 
-    // Save to EEPROM
+    // Salva na EEPROM
     EEPROM.put(eeprom_address, cal_data);
     EEPROM.commit();
 
@@ -146,30 +146,30 @@ void EncoderCalibration::reset_to_defaults(int32_t default_min, int32_t default_
 
 int EncoderCalibration::map_to_percent(int32_t raw_value) {
     if (!is_valid()) {
-        // No valid calibration, return 0
+        // Sem calibração válida, retorna 0
         return 0;
     }
 
-    // Constrain raw value to calibrated range
+    // Restringe valor bruto à faixa calibrada
     int32_t constrained = constrain(raw_value, cal_data.min_value, cal_data.max_value);
 
     if (is_bipolar) {
-        // Bipolar mapping (-100 to +100% for steering)
+        // Mapeamento bipolar (-100 a +100% para direção)
         int32_t center = cal_data.center_value;
 
         if (constrained < center) {
-            // Left side: min to center → -100% to 0%
+            // Lado esquerdo: min para centro → -100% a 0%
             int32_t range = center - cal_data.min_value;
             if (range == 0) return 0;
             return map(constrained, cal_data.min_value, center, -100, 0);
         } else {
-            // Right side: center to max → 0% to +100%
+            // Lado direito: centro para max → 0% a +100%
             int32_t range = cal_data.max_value - center;
             if (range == 0) return 0;
             return map(constrained, center, cal_data.max_value, 0, 100);
         }
     } else {
-        // Unipolar mapping (0-100% for throttle/brake)
+        // Mapeamento unipolar (0-100% para aceleração/freio)
         return map(constrained, cal_data.min_value, cal_data.max_value, 0, 100);
     }
 }

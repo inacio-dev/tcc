@@ -1,34 +1,34 @@
 /**
  * @file brake_manager.h
- * @brief Brake Control Manager for F1 Cockpit (ESP32)
+ * @brief Gerenciador de Controle de Freio para Cockpit F1 (ESP32)
  *
- * Manages an LPD3806-600BM-G5-24C incremental rotary encoder for brake control.
- * Provides smooth brake input from 0% to 100%.
+ * Gerencia um encoder rotativo incremental LPD3806-600BM-G5-24C para controle de freio.
+ * Fornece entrada suave de freio de 0% a 100%.
  *
- * Encoder Specifications:
- * - Model: LPD3806-600BM-G5-24C
- * - Type: Incremental rotary encoder
- * - Resolution: 600 pulses per revolution (PPR)
- * - Output: AB phase quadrature (2-channel)
- * - Operating Voltage: 5-24V DC
- * - Output Type: NPN open collector
+ * Especificações do Encoder:
+ * - Modelo: LPD3806-600BM-G5-24C
+ * - Tipo: Encoder rotativo incremental
+ * - Resolução: 600 pulsos por revolução (PPR)
+ * - Saída: Quadratura fase AB (2 canais)
+ * - Tensão de Operação: 5-24V DC
+ * - Tipo de Saída: Coletor aberto NPN
  *
- * ESP32 Pinout:
+ * Pinagem ESP32:
  * - Encoder CLK (A): GPIO 27 (D27) - Fio Verde
  * - Encoder DT (B):  GPIO 14 (D14) - Fio Branco
- * - Encoder VCC: 5V (or 3.3V with pull-ups) - Fio Vermelho
+ * - Encoder VCC: 5V (ou 3.3V com pull-ups) - Fio Vermelho
  * - Encoder GND: GND - Fio Preto
  *
- * Hardware Components Required:
- * - Capacitor: 100nF (0.1µF) ceramic X7R between GPIO 27 and GND (anti-bounce filter)
- * - Capacitor: 100nF (0.1µF) ceramic X7R between GPIO 14 and GND (anti-bounce filter)
- * - Resistor: 10kΩ pull-up (OPTIONAL - ESP32 has internal pull-ups enabled in code)
+ * Componentes de Hardware Necessários:
+ * - Capacitor: 100nF (0.1µF) cerâmico X7R entre GPIO 27 e GND (filtro anti-bounce)
+ * - Capacitor: 100nF (0.1µF) cerâmico X7R entre GPIO 14 e GND (filtro anti-bounce)
+ * - Resistor: 10kΩ pull-up (OPCIONAL - ESP32 tem pull-ups internos habilitados no código)
  *
- * Notes:
- * - Capacitors should be placed as close as possible to ESP32 pins
- * - Internal pull-ups are enabled via INPUT_PULLUP, external resistors not required
- * - Use ceramic X7R capacitors (better thermal stability than Y5V)
- * - LPD3806 provides 600 pulses per full rotation for precise brake control
+ * Observações:
+ * - Capacitores devem ser posicionados o mais próximo possível dos pinos do ESP32
+ * - Pull-ups internos são habilitados via INPUT_PULLUP, resistores externos não são necessários
+ * - Use capacitores cerâmicos X7R (melhor estabilidade térmica que Y5V)
+ * - LPD3806 fornece 600 pulsos por rotação completa para controle preciso de freio
  *
  * @author F1 RC Car Project
  * @date 2025-10-13
@@ -42,70 +42,70 @@
 
 class BrakeManager {
 private:
-    // Pin definitions (ESP32 GPIO)
+    // Definições de pinos (GPIO ESP32)
     static const int PIN_ENCODER_CLK = 27;  // CLK (A)
     static const int PIN_ENCODER_DT = 14;   // DT (B)
 
-    // Encoder configuration
+    // Configuração do encoder
     static const int PULSES_PER_REV = 600;
-    static const int MAX_POSITION = 600;  // Full rotation = 100% brake
-    static const int MIN_POSITION = 0;    // Zero rotation = 0% brake
+    static const int MAX_POSITION = 600;  // Rotação completa = 100% freio
+    static const int MIN_POSITION = 0;    // Rotação zero = 0% freio
 
-    // State variables
-    volatile long encoder_position;  // Raw encoder count (changed to long for unlimited range)
-    volatile int last_clk;          // Last CLK state
+    // Variáveis de estado
+    volatile long encoder_position;  // Contagem bruta do encoder (alterado para long para faixa ilimitada)
+    volatile int last_clk;          // Último estado CLK
     int current_value;              // 0-100%
 
-    // Calibration
+    // Calibração
     EncoderCalibration calibration;
 
-    // Static instance for ISR
+    // Instância estática para ISR
     static BrakeManager* instance;
 
-    // Interrupt service routine
+    // Rotina de serviço de interrupção
     static void IRAM_ATTR encoder_isr();
 
 public:
     BrakeManager();
 
     /**
-     * @brief Initialize brake encoder
+     * @brief Inicializa encoder de freio
      */
     void begin();
 
     /**
-     * @brief Update brake state (call in main loop)
+     * @brief Atualiza estado do freio (chamar no loop principal)
      */
     void update();
 
     /**
-     * @brief Get current brake value
-     * @return Brake percentage (0-100%)
+     * @brief Obtém valor atual do freio
+     * @return Porcentagem de freio (0-100%)
      */
     int get_value() const;
 
     /**
-     * @brief Get raw encoder position (for calibration)
+     * @brief Obtém posição bruta do encoder (para calibração)
      */
     long get_raw_position() const;
 
     /**
-     * @brief Reset brake to zero position
+     * @brief Reseta freio para posição zero
      */
     void reset();
 
     /**
-     * @brief Start calibration mode
+     * @brief Inicia modo de calibração
      */
     void start_calibration();
 
     /**
-     * @brief Save calibration with min/max values
+     * @brief Salva calibração com valores min/max
      */
     bool save_calibration(int32_t min_val, int32_t max_val);
 
     /**
-     * @brief Check if in calibration mode
+     * @brief Verifica se está em modo de calibração
      */
     bool is_calibrating() const;
 };
