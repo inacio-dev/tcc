@@ -10,7 +10,7 @@
  *
  * Components:
  * - 3x LPD3806-600BM-G5-24C Incremental Rotary Encoders (600 PPR)
- *   - Throttle: GPIO 25/26 (D25/D26)
+ *   - Throttle: GPIO 25/26 (D25/D26) - CLK/DT pins SWAPPED (white→CLK, green→DT) for correct direction
  *   - Brake: GPIO 27/14 (D27/D14)
  *   - Steering: GPIO 12/13 (D12/D13)
  * - 2x Push Buttons (gear up/down)

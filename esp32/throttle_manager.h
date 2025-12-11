@@ -14,10 +14,12 @@
  * - Output Type: NPN open collector
  *
  * ESP32 Pinout:
- * - Encoder CLK (A): GPIO 25 (D25) - Fio Verde
- * - Encoder DT (B):  GPIO 26 (D26) - Fio Branco
+ * - Encoder CLK (A): GPIO 25 (D25) - Fio Branco (SWAPPED - era Verde)
+ * - Encoder DT (B):  GPIO 26 (D26) - Fio Verde (SWAPPED - era Branco)
  * - Encoder VCC: 5V (or 3.3V with pull-ups) - Fio Vermelho
  * - Encoder GND: GND - Fio Preto
+ *
+ * Note: CLK/DT pins are SWAPPED compared to brake/steering for correct increasing direction
  *
  * Hardware Components Required:
  * - Capacitor: 100nF (0.1µF) ceramic X7R between GPIO 25 and GND (anti-bounce filter)

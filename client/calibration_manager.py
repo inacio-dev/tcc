@@ -170,7 +170,6 @@ class CalibrationManager:
 
         elif component == "STEERING":
             # For steering, we need left, center, right positions
-            # Center is always 0 (starting position), left is negative, right is positive
             if self.raw_min is None or self.raw_max is None:
                 self._log("ERROR", "Dados de calibração incompletos! Gire o volante completamente.")
                 return False
@@ -179,8 +178,8 @@ class CalibrationManager:
                 self._log("ERROR", f"Calibração inválida! Esquerda ({self.raw_min}) >= Direita ({self.raw_max})")
                 return False
 
-            # Center is the starting position (always 0 for steering)
-            raw_center = 0
+            # Calculate center as midpoint between left and right
+            raw_center = (self.raw_min + self.raw_max) // 2
 
             # Save steering calibration
             self.calibration_data[component] = {
@@ -239,9 +238,9 @@ class CalibrationManager:
 
         elif self.current_component == "STEERING":
             return ("🎯 Calibração da Direção:\n"
-                    "1. IMPORTANTE: A posição inicial (0) será o CENTRO\n"
-                    "2. Gire TOTALMENTE para a ESQUERDA (-100%)\n"
-                    "3. Gire TOTALMENTE para a DIREITA (+100%)\n"
+                    "1. Gire TOTALMENTE para a ESQUERDA (-100%)\n"
+                    "2. Gire TOTALMENTE para a DIREITA (+100%)\n"
+                    "3. PARE NO CENTRO (o sistema calculará automaticamente)\n"
                     "4. Clique em 'Salvar' quando terminar")
 
         return ""
@@ -294,6 +293,10 @@ class CalibrationManager:
             min_val = cal_data["min"]
             max_val = cal_data["max"]
 
+            # Ensure min < max for correct mapping
+            if min_val > max_val:
+                min_val, max_val = max_val, min_val
+
             # Constrain raw value
             raw_value = max(min_val, min(max_val, raw_value))
 
@@ -301,6 +304,7 @@ class CalibrationManager:
             if max_val == min_val:
                 return 0
             percent = int(((raw_value - min_val) / (max_val - min_val)) * 100)
+
             return max(0, min(100, percent))
 
         elif component == "STEERING":
