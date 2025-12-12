@@ -564,7 +564,7 @@ def get_raspberry_pi_ip():
         try:
             # Sugere o IP padrão do projeto
             rpi_ip = input(
-                "📡 Digite o IP do Raspberry Pi (ex: 192.168.5.15): "
+                "📡 Digite o IP do Raspberry Pi (ex: 192.168.1.161): "
             ).strip()
 
             if not rpi_ip:
@@ -647,12 +647,12 @@ def main():
         sys.exit(1)
 
     # Configuração fixa - sem descoberta
-    rpi_ip = "192.168.5.33"
-    client_ip = "192.168.5.15"
+    rpi_ip = "192.168.2.223"
+    client_ip = "192.168.1.161"
 
     print("🔗 CONFIGURAÇÃO FIXA:")
-    print(f"   📡 Raspberry Pi: {rpi_ip}:9999 → 192.168.5.33:9999 (dados)")
-    print(f"   🎮 Cliente: {client_ip}:9998 → 192.168.5.15:9998 (comandos)")
+    print(f"   📡 Raspberry Pi: {rpi_ip}:9999 → 192.168.2.223:9999 (dados)")
+    print(f"   🎮 Cliente: {client_ip}:9998 → 192.168.1.161:9998 (comandos)")
     print()
 
     # Criar e executar aplicação com IPs fixos

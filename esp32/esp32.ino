@@ -74,7 +74,7 @@ const unsigned long UPDATE_INTERVAL = 10; // Taxa de atualização 100Hz
 String serial_buffer = "";
 
 // Estado do motor Force Feedback (compartilhado entre cores)
-volatile String ff_direction = "NEUTRAL";
+String ff_direction = "NEUTRAL";
 volatile int ff_intensity = 0;
 portMUX_TYPE ff_mutex = portMUX_INITIALIZER_UNLOCKED;
 
