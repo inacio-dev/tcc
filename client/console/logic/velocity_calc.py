@@ -80,6 +80,9 @@ class VelocityCalculator:
             # Converte m/s para km/h
             self.velocity_total = velocity_ms * 3.6
 
+            # Adiciona velocidade ao sensor_data para uso em gráficos
+            sensor_data["velocity_total"] = self.velocity_total
+
             # Atualiza display da velocidade na seção BMI160
             if hasattr(self.console, "velocity_label"):
                 self.console.velocity_label.config(

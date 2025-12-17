@@ -24,3 +24,6 @@ pyserial>=3.5
 
 # PyAV para decodificacao H.264 (wrapper FFmpeg)
 av>=10.0.0
+
+# Matplotlib para graficos de telemetria F1 em tempo real
+matplotlib>=3.7.0

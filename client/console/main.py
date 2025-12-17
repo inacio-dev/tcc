@@ -45,6 +45,7 @@ from .frames.log import create_log_frame
 from .logic.force_feedback_calc import ForceFeedbackCalculator
 from .logic.velocity_calc import VelocityCalculator
 from .logic.auto_save import AutoSaveManager
+from .telemetry_plotter import F1TelemetryPlotter, create_telemetry_frame
 
 from .utils.constants import (
     MAX_LOG_LINES,
@@ -144,6 +145,7 @@ class ConsoleInterface:
         self.ff_calculator = None
         self.velocity_calculator = None
         self.auto_save_manager = None
+        self.telemetry_plotter = None
 
     def create_tkinter_variables(self):
         """Cria variáveis do Tkinter"""
@@ -372,6 +374,7 @@ class ConsoleInterface:
 
         # Coluna Direita
         create_video_frame(self)
+        self.create_telemetry_frame()  # Gráficos F1 abaixo do vídeo
         self.create_slider_controls_frame()
         create_controls_frame(self)
         self.create_keyboard_controls_frame()
@@ -382,6 +385,18 @@ class ConsoleInterface:
                 self.video_display.set_tkinter_label(self.video_label)
             if hasattr(self.video_display, "set_status_callback"):
                 self.video_display.set_status_callback(self.update_video_status)
+
+    def create_telemetry_frame(self):
+        """Cria frame com gráficos de telemetria F1"""
+        try:
+            self.telemetry_plotter = F1TelemetryPlotter(
+                max_points=500,
+                update_interval=100  # 10Hz de atualização dos gráficos
+            )
+            telemetry_frame = self.telemetry_plotter.create_frame(self.right_column)
+            telemetry_frame.pack(fill=tk.X, padx=5, pady=5)
+        except Exception as e:
+            error(f"Erro ao criar frame de telemetria: {e}", "CONSOLE")
 
     def create_slider_controls_frame(self):
         """Cria frame com controles de sliders"""
@@ -560,6 +575,10 @@ class ConsoleInterface:
 
         # Atualizar dados do motor
         self._update_motor_display(sensor_data)
+
+        # Atualizar gráficos de telemetria F1
+        if self.telemetry_plotter:
+            self.telemetry_plotter.update_data(sensor_data)
 
         # Mapeamento de campos
         field_mapping = {
@@ -760,6 +779,10 @@ class ConsoleInterface:
             # Inicia controlador de sliders
             self.slider_controller.start()
 
+            # Inicia gráficos de telemetria F1
+            if self.telemetry_plotter:
+                self.telemetry_plotter.start(self.root)
+
             # Log inicial
             self.log("INFO", "Interface do console iniciada")
             self.log("INFO", "Aguardando dados do Raspberry Pi...")
@@ -786,6 +809,10 @@ class ConsoleInterface:
             # Para o controlador de sliders
             if hasattr(self, "slider_controller") and self.slider_controller:
                 self.slider_controller.stop()
+
+            # Para os gráficos de telemetria
+            if hasattr(self, "telemetry_plotter") and self.telemetry_plotter:
+                self.telemetry_plotter.stop()
 
             # Lista de variáveis Tkinter
             tkinter_vars = [
