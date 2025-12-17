@@ -341,10 +341,10 @@ class F1CarCompleteSystem:
     def run_main_loop(self):
         """Loop principal de operação do sistema completo"""
         info("Modo direto - Enviando dados para cliente fixo", "MAIN")
-        info("Cliente: 192.168.5.25:9999", "MAIN")
+        info("Cliente: f1client.local:9999 (mDNS)", "MAIN")
 
-        # Configura cliente fixo no NetworkManager
-        self.network_mgr.set_fixed_client("192.168.5.25", 9999)
+        # Configura cliente fixo no NetworkManager (via mDNS)
+        self.network_mgr.set_fixed_client("f1client.local", 9999)
 
         info("Iniciando transmissão - Ctrl+C para parar", "MAIN")
 
@@ -472,8 +472,8 @@ class F1CarCompleteSystem:
 
                 # Envio periódico de CONNECT para reconexão automática (a cada 10s)
                 if current_time - last_connect_ping >= 10.0:
-                    self.network_mgr.send_connect_to_client("192.168.5.25", 9998)
-                    info("CONNECT periódico enviado para cliente", "MAIN")
+                    self.network_mgr.send_connect_to_client("f1client.local", 9998)
+                    debug("CONNECT periódico enviado para cliente", "MAIN")
                     last_connect_ping = current_time
 
                 # Stats menos frequentes para tempo real

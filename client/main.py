@@ -590,13 +590,13 @@ def main():
         print("❌ ERRO: Buffer deve estar entre 32 e 1024 KB")
         sys.exit(1)
 
-    # Configuração fixa - sem descoberta
-    rpi_ip = "192.168.5.33"
-    client_ip = "192.168.5.25"
+    # Configuração via mDNS - funciona em qualquer rede
+    rpi_ip = "f1car.local"
+    client_ip = "f1client.local"
 
-    print("🔗 CONFIGURAÇÃO FIXA:")
-    print(f"   📡 Raspberry Pi: {rpi_ip}:9999 → 192.168.5.33:9999 (dados)")
-    print(f"   🎮 Cliente: {client_ip}:9998 → 192.168.5.25:9998 (comandos)")
+    print("🔗 CONFIGURAÇÃO mDNS:")
+    print(f"   📡 Raspberry Pi: {rpi_ip}:9999 (dados)")
+    print(f"   🎮 Cliente: {client_ip}:9998 (comandos)")
     print()
 
     # Criar e executar aplicação com IPs fixos
