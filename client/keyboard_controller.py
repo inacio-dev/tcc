@@ -22,7 +22,7 @@ FUNCIONALIDADES:
 import tkinter as tk
 import time
 import threading
-from typing import Optional, Callable, Dict, Any
+from typing import Optional, Callable
 from simple_logger import info, debug, warn, error
 
 
@@ -94,10 +94,6 @@ class KeyboardController:
         """Define o cliente de rede para envio de comandos"""
         self.network_client = network_client
         debug("Network client configurado no KeyboardController", "KEYBOARD")
-
-    def set_log_callback(self, log_callback):
-        """Define callback para logging na interface"""
-        self.log_callback = log_callback
 
     def _log(self, level: str, message: str):
         """Log com fallback"""
@@ -388,17 +384,3 @@ class KeyboardController:
 
         return status_frame
 
-    def get_statistics(self) -> Dict[str, Any]:
-        """Retorna estatísticas do controlador"""
-        elapsed = time.time() - self.start_time
-
-        return {
-            "commands_sent": self.commands_sent,
-            "active_commands": len(self.active_commands),
-            "pressed_keys": len(self.pressed_keys),
-            "is_active": self.is_active,
-            "elapsed_time": round(elapsed, 2),
-            "commands_per_second": (
-                round(self.commands_sent / elapsed, 2) if elapsed > 0 else 0
-            ),
-        }

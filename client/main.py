@@ -174,12 +174,11 @@ class F1ClientApplication:
                 log_callback=lambda level, msg: log_queue.put((level, msg)),
             )
 
-            # 2. Inicializa exibição de vídeo COM melhorias habilitadas
+            # 2. Inicializa exibição de vídeo
             debug("Inicializando exibição de vídeo...", "CLIENT")
             self.video_display = VideoDisplay(
                 video_queue=video_queue,
                 log_queue=log_queue,
-                enable_video_enhancements=True,  # ATIVA correção de cor e outras melhorias
             )
 
             # 3. Inicializa exibição de sensores
@@ -553,65 +552,6 @@ Para parar: Feche a janela do console ou pressione Ctrl+C.
     )
 
     return parser
-
-
-def get_raspberry_pi_ip():
-    """Solicita o IP do Raspberry Pi ao usuário"""
-    print("🔍 CONEXÃO COM RASPBERRY PI")
-    print("=" * 30)
-
-    while True:
-        try:
-            # Sugere o IP padrão do projeto
-            rpi_ip = input(
-                "📡 Digite o IP do Raspberry Pi (ex: 192.168.5.25): "
-            ).strip()
-
-            if not rpi_ip:
-                print("❌ Por favor, digite um IP válido!")
-                continue
-
-            # Validação básica de IP
-            parts = rpi_ip.split(".")
-            if len(parts) != 4:
-                print("❌ Formato de IP inválido! Use o formato: xxx.xxx.xxx.xxx")
-                continue
-
-            # Verifica se cada parte é um número entre 0-255
-            valid = True
-            for part in parts:
-                try:
-                    num = int(part)
-                    if not (0 <= num <= 255):
-                        valid = False
-                        break
-                except ValueError:
-                    valid = False
-                    break
-
-            if not valid:
-                print("❌ IP inválido! Cada número deve estar entre 0 e 255")
-                continue
-
-            # Confirmação
-            confirm = (
-                input(f"✅ Conectar ao Raspberry Pi em {rpi_ip}? (s/n): ")
-                .strip()
-                .lower()
-            )
-            if confirm in ["s", "sim", "y", "yes", ""]:
-                return rpi_ip
-            elif confirm in ["n", "não", "nao", "no"]:
-                continue
-            else:
-                print("❌ Responda com 's' para sim ou 'n' para não")
-
-        except KeyboardInterrupt:
-            print("\n⚠️ Operação cancelada pelo usuário")
-            return None
-        except Exception as e:
-            print(f"❌ Erro: {e}")
-            continue
 
 
 def main():

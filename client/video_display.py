@@ -104,23 +104,16 @@ class H264Decoder:
 class VideoDisplay:
     """Gerencia a exibição de vídeo do carrinho F1 (H.264 + Tkinter)"""
 
-    def __init__(
-        self,
-        video_queue=None,
-        log_queue=None,
-        enable_video_enhancements=True,
-    ):
+    def __init__(self, video_queue=None, log_queue=None):
         """
         Inicializa o display de vídeo
 
         Args:
             video_queue (Queue): Fila de frames de vídeo
             log_queue (Queue): Fila para mensagens de log
-            enable_video_enhancements (bool): Ativa processamentos avançados no cliente
         """
         self.video_queue = video_queue
         self.log_queue = log_queue
-        self.enable_video_enhancements = enable_video_enhancements
 
         # Decoder H.264
         self.h264_decoder = H264Decoder()
@@ -146,11 +139,6 @@ class VideoDisplay:
         self.tkinter_label = None
         self.status_callback = None
 
-        # Configurações de processamento de vídeo
-        self.color_correction_enabled = enable_video_enhancements
-        self.sharpening_enabled = enable_video_enhancements
-        self.brightness_auto_adjust = enable_video_enhancements
-
         # Inicializa decoder H.264
         if H264_AVAILABLE:
             if self.h264_decoder.initialize():
@@ -161,10 +149,7 @@ class VideoDisplay:
         else:
             self._log("WARN", "PyAV não disponível - usando JPEG")
 
-        self._log(
-            "INFO",
-            f"VideoDisplay inicializado - Melhorias: {'Ativadas' if enable_video_enhancements else 'Desativadas'}",
-        )
+        self._log("INFO", "VideoDisplay inicializado")
 
     def _log(self, level, message):
         """Envia mensagem para fila de log"""
@@ -357,15 +342,6 @@ class VideoDisplay:
 
                 if isinstance(frame_data, bytes):
                     frame = self._decode_frame(frame_data)
-
-                    # Processamento adicional (se habilitado)
-                    if frame is not None and self.enable_video_enhancements:
-                        if self.color_correction_enabled:
-                            frame = self._enhance_colors_if_needed(frame)
-                        if self.sharpening_enabled:
-                            frame = self._apply_smart_sharpening(frame)
-                        if self.brightness_auto_adjust:
-                            frame = self._auto_brightness_contrast(frame)
                 else:
                     frame = frame_data
 
@@ -383,102 +359,6 @@ class VideoDisplay:
 
         except Exception as e:
             self._log("ERROR", f"Erro ao processar fila de vídeo: {e}")
-
-    def _enhance_colors_if_needed(self, frame):
-        """Correção automática de cores"""
-        try:
-            b, g, r = cv2.split(frame)
-            blue_mean = np.mean(b)
-            red_mean = np.mean(r)
-
-            if blue_mean > red_mean * 1.15:
-                correction_factor = 0.9
-                enhanced_frame = frame.copy()
-                enhanced_frame[:, :, 0] = np.clip(b * correction_factor, 0, 255)
-                enhanced_frame[:, :, 2] = np.clip(r * 1.1, 0, 255)
-                return enhanced_frame
-
-            return frame
-        except:
-            return frame
-
-    def _apply_smart_sharpening(self, frame):
-        """Aplica sharpening inteligente"""
-        try:
-            if self.frame_count % 3 != 0:
-                return frame
-
-            kernel = np.array(
-                [[-0.1, -0.1, -0.1], [-0.1, 1.8, -0.1], [-0.1, -0.1, -0.1]]
-            )
-            sharpened = cv2.filter2D(frame, -1, kernel)
-            return sharpened
-        except:
-            return frame
-
-    def _auto_brightness_contrast(self, frame):
-        """Ajuste automático de brilho/contraste"""
-        try:
-            if self.frame_count % 5 != 0:
-                return frame
-
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            mean_brightness = np.mean(gray)
-
-            if mean_brightness < 80:
-                brightness = int((80 - mean_brightness) * 0.5)
-                return cv2.convertScaleAbs(frame, alpha=1.0, beta=brightness)
-            elif mean_brightness > 200:
-                brightness = -int((mean_brightness - 200) * 0.3)
-                return cv2.convertScaleAbs(frame, alpha=1.0, beta=brightness)
-
-            return frame
-        except:
-            return frame
-
-    def toggle_color_correction(self, enabled=None):
-        """Ativa/desativa correção de cor"""
-        if enabled is None:
-            self.color_correction_enabled = not self.color_correction_enabled
-        else:
-            self.color_correction_enabled = enabled
-        self._log(
-            "INFO",
-            f"Correção de cor: {'Ativada' if self.color_correction_enabled else 'Desativada'}",
-        )
-
-    def toggle_sharpening(self, enabled=None):
-        """Ativa/desativa sharpening"""
-        if enabled is None:
-            self.sharpening_enabled = not self.sharpening_enabled
-        else:
-            self.sharpening_enabled = enabled
-        self._log(
-            "INFO",
-            f"Sharpening: {'Ativado' if self.sharpening_enabled else 'Desativado'}",
-        )
-
-    def toggle_brightness_adjustment(self, enabled=None):
-        """Ativa/desativa ajuste automático de brilho"""
-        if enabled is None:
-            self.brightness_auto_adjust = not self.brightness_auto_adjust
-        else:
-            self.brightness_auto_adjust = enabled
-        self._log(
-            "INFO",
-            f"Ajuste de brilho: {'Ativado' if self.brightness_auto_adjust else 'Desativado'}",
-        )
-
-    def get_enhancement_status(self):
-        """Retorna status das melhorias de vídeo"""
-        return {
-            "enhancements_enabled": self.enable_video_enhancements,
-            "color_correction": self.color_correction_enabled,
-            "sharpening": self.sharpening_enabled,
-            "brightness_adjustment": self.brightness_auto_adjust,
-            "codec": "H.264" if self.use_h264 else "JPEG",
-            "h264_frames_decoded": self.h264_decoder.frames_decoded if self.use_h264 else 0,
-        }
 
     def run_display(self):
         """Loop principal de exibição de vídeo"""

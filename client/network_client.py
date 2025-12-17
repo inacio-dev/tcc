@@ -184,30 +184,6 @@ class NetworkClient:
         except Exception as e:
             self._log("ERROR", f"Erro ao conectar ao Raspberry Pi {rpi_ip}: {e}")
 
-    def discover_raspberry_pi(self, broadcast_ip="255.255.255.255", timeout=5.0):
-        """
-        Procura um Raspberry Pi na rede enviando comando CONNECT
-
-        Args:
-            broadcast_ip: IP para broadcast (padrão usa broadcast)
-            timeout: Tempo limite para descoberta
-        """
-        self._log("INFO", "🔍 Procurando Raspberry Pi na rede...")
-
-        # Primeira tentativa: envia CONNECT em broadcast
-        try:
-            # Habilita broadcast
-            self.send_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-
-            # Envia comando CONNECT com porta de escuta
-            connect_msg = f"CONNECT:{self.port}".encode("utf-8")
-            self.send_socket.sendto(connect_msg, (broadcast_ip, self.command_port))
-            self._log(
-                "INFO", f"📡 Enviando CONNECT para {broadcast_ip}:{self.command_port}"
-            )
-
-        except Exception as e:
-            self._log("ERROR", f"Erro ao enviar comando CONNECT: {e}")
 
     def send_command_to_rpi(self, command: str) -> bool:
         """
@@ -250,13 +226,6 @@ class NetworkClient:
             self._log("INFO", f"✅ Comando enviado: {control_type}:{value}")
         return success
 
-    def ping_raspberry_pi(self) -> bool:
-        """Envia ping para o Raspberry Pi"""
-        import time
-
-        timestamp = int(time.time() * 1000)  # milliseconds
-        command = f"PING:{timestamp}"
-        return self.send_command_to_rpi(command)
 
     def parse_packet(self, packet):
         """

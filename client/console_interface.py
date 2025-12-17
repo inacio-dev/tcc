@@ -1207,62 +1207,6 @@ class ConsoleInterface:
             video_controls, textvariable=self.video_resolution_var, style="Dark.TLabel"
         ).pack(side=tk.LEFT)
 
-        # NOVOS CONTROLES: Melhorias de Vídeo
-        enhancements_frame = tk.Frame(video_controls, bg="#1a1a1a")
-        enhancements_frame.pack(side=tk.LEFT, padx=(20, 0))
-
-        ttk.Label(enhancements_frame, text="Melhorias:", style="Dark.TLabel").pack(
-            side=tk.LEFT
-        )
-
-        # Correção de Cor
-        self.color_correction_var = tk.BooleanVar(value=True)  # Ativo por padrão
-        color_check = ttk.Checkbutton(
-            enhancements_frame,
-            text="🎨 Cor",
-            variable=self.color_correction_var,
-            command=self.toggle_color_correction,
-            style="Dark.TCheckbutton",
-        )
-        color_check.pack(side=tk.LEFT, padx=2)
-
-        # Sharpening
-        self.sharpening_var = tk.BooleanVar(value=True)  # Ativo por padrão
-        sharp_check = ttk.Checkbutton(
-            enhancements_frame,
-            text="🔍 Nitidez",
-            variable=self.sharpening_var,
-            command=self.toggle_sharpening,
-            style="Dark.TCheckbutton",
-        )
-        sharp_check.pack(side=tk.LEFT, padx=2)
-
-        # Brilho Automático
-        self.brightness_var = tk.BooleanVar(value=True)  # Ativo por padrão
-        brightness_check = ttk.Checkbutton(
-            enhancements_frame,
-            text="💡 Brilho",
-            variable=self.brightness_var,
-            command=self.toggle_brightness,
-            style="Dark.TCheckbutton",
-        )
-        brightness_check.pack(side=tk.LEFT, padx=2)
-
-    def toggle_color_correction(self):
-        """Ativa/desativa correção automática de cor"""
-        if hasattr(self, "video_display") and self.video_display:
-            self.video_display.toggle_color_correction(self.color_correction_var.get())
-
-    def toggle_sharpening(self):
-        """Ativa/desativa sharpening inteligente"""
-        if hasattr(self, "video_display") and self.video_display:
-            self.video_display.toggle_sharpening(self.sharpening_var.get())
-
-    def toggle_brightness(self):
-        """Ativa/desativa ajuste automático de brilho"""
-        if hasattr(self, "video_display") and self.video_display:
-            self.video_display.toggle_brightness_adjustment(self.brightness_var.get())
-
     def set_video_display(self, video_display):
         """Define o video_display para integração"""
         self.video_display = video_display

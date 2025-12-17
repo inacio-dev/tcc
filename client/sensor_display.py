@@ -28,7 +28,7 @@ import time
 import math
 import threading
 from collections import deque, defaultdict
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional
 
 
 class SensorDisplay:
@@ -527,3 +527,4 @@ class SensorDisplay:
         except Exception as e:
             self._log("ERROR", f"Erro ao exportar histórico: {e}")
             return None
+

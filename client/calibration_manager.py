@@ -381,17 +381,3 @@ class CalibrationManager:
             self._log("ERROR", f"Erro ao carregar calibração: {e}")
             return False
 
-    def reset_to_defaults(self):
-        """Reseta todas as calibrações para valores padrão"""
-        self.calibration_data = {
-            "THROTTLE": {"min": 0, "max": 600},
-            "BRAKE": {"min": 0, "max": 600},
-            "STEERING": {"left": 0, "center": 300, "right": 600},
-        }
-
-        # Envia comando de reset ao ESP32
-        if self.serial_sender:
-            self.serial_sender("CAL_RESET")
-
-        self.save_to_file()
-        self._log("INFO", "✅ Calibração resetada para valores padrão")

@@ -9,7 +9,7 @@ import tkinter as tk
 import tkinter.ttk as ttk
 import time
 import threading
-from typing import Optional, Callable, Dict, Any
+from typing import Optional, Callable
 from simple_logger import info, debug, warn, error
 from calibration_manager import CalibrationManager
 
@@ -80,10 +80,6 @@ class SliderController:
         """Define o cliente de rede para envio de comandos"""
         self.network_client = network_client
         debug("Network client configurado no SliderController", "SLIDERS")
-
-    def set_log_callback(self, log_callback):
-        """Define callback para logging na interface"""
-        self.log_callback = log_callback
 
     def _log(self, level: str, message: str):
         """Log com fallback"""
@@ -543,42 +539,6 @@ class SliderController:
             except Exception as e:
                 self._log("ERROR", f"Erro no loop de envio: {e}")
                 time.sleep(0.1)
-
-    def get_values(self) -> Dict[str, float]:
-        """Retorna valores atuais dos sliders"""
-        return {"throttle": self.throttle_value, "brake": self.brake_value}
-
-    def set_values(
-        self, throttle: Optional[float] = None, brake: Optional[float] = None
-    ):
-        """Define valores dos sliders programaticamente"""
-        try:
-            if throttle is not None and self.throttle_slider:
-                self.throttle_slider.set(throttle)
-
-            if brake is not None and self.brake_slider:
-                self.brake_slider.set(brake)
-        except Exception as e:
-            self._log("ERROR", f"Erro ao definir valores: {e}")
-
-    def reset_controls(self):
-        """Reseta todos os controles para zero"""
-        self.set_values(throttle=0.0, brake=0.0)
-
-    def get_statistics(self) -> Dict[str, Any]:
-        """Retorna estatísticas do controlador"""
-        elapsed = time.time() - self.start_time
-
-        return {
-            "commands_sent": self.commands_sent,
-            "throttle_value": self.throttle_value,
-            "brake_value": self.brake_value,
-            "is_active": self.is_active,
-            "elapsed_time": round(elapsed, 2),
-            "commands_per_second": (
-                round(self.commands_sent / elapsed, 2) if elapsed > 0 else 0
-            ),
-        }
 
     # ===== CALIBRATION METHODS =====
 
