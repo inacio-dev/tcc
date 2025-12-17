@@ -114,6 +114,11 @@ class ConsoleInterface:
         # Atualização
         self.update_interval = 100  # ms
 
+        # Auto-save periódico
+        self.auto_save_interval = 10000  # 10 segundos em ms
+        self.last_log_count = 0
+        self.last_sensor_count = 0
+
     def create_tkinter_variables(self):
         """Cria variáveis do Tkinter"""
         # Status da conexão
@@ -1086,25 +1091,6 @@ class ConsoleInterface:
         btn_frame = tk.Frame(control_frame, bg="#3c3c3c")
         btn_frame.pack(fill=tk.X, padx=5, pady=2)
 
-        ttk.Button(
-            btn_frame,
-            text="Reset Stats",
-            command=self.reset_statistics,
-            style="Dark.TButton",
-        ).pack(side=tk.LEFT, padx=5)
-
-        ttk.Button(
-            btn_frame,
-            text="Export Data",
-            command=self.export_data,
-            style="Dark.TButton",
-        ).pack(side=tk.LEFT, padx=5)
-
-        # Separador
-        ttk.Separator(btn_frame, orient="vertical").pack(
-            side=tk.LEFT, fill=tk.Y, padx=10, pady=5
-        )
-
         # Status das configurações
         ttk.Label(btn_frame, text="Config:", style="Dark.TLabel").pack(
             side=tk.LEFT, padx=5
@@ -1469,6 +1455,137 @@ class ConsoleInterface:
             if hasattr(self.video_display, "set_status_callback"):
                 self.video_display.set_status_callback(self.update_video_status)
 
+    # Limite máximo de linhas no console de log
+    MAX_LOG_LINES = 5000
+    AUTO_EXPORT_DIR = "exports/auto"
+
+    def _auto_export_on_limit(self):
+        """Exporta automaticamente logs e dados quando o limite é atingido"""
+        try:
+            import os
+            from datetime import datetime
+
+            # Cria diretório de export automático se não existir
+            os.makedirs(self.AUTO_EXPORT_DIR, exist_ok=True)
+
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+            # 1. Exporta logs do console
+            log_filename = os.path.join(self.AUTO_EXPORT_DIR, f"logs_{timestamp}.txt")
+            try:
+                log_content = self.log_text.get("1.0", tk.END)
+                with open(log_filename, "w", encoding="utf-8") as f:
+                    f.write(f"# F1 Client - Auto Export (Limite atingido)\n")
+                    f.write(f"# Data: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                    f.write(f"# Linhas: {self.MAX_LOG_LINES}\n")
+                    f.write("#" + "=" * 60 + "\n\n")
+                    f.write(log_content)
+            except Exception as e:
+                print(f"Erro ao exportar logs: {e}")
+
+            # 2. Exporta dados de sensores (Pickle - mais rápido que CSV)
+            if self.sensor_display:
+                sensor_filename = os.path.join(self.AUTO_EXPORT_DIR, f"sensors_{timestamp}.pkl")
+                try:
+                    self.sensor_display.export_history_fast(sensor_filename)
+                except Exception:
+                    pass
+
+            # Log discreto (não vai para o console principal para evitar loop)
+            print(f"[AUTO-EXPORT] Dados salvos em: {self.AUTO_EXPORT_DIR}/")
+
+        except Exception as e:
+            print(f"[AUTO-EXPORT] Erro: {e}")
+
+    def _periodic_auto_save(self):
+        """Auto-save periódico a cada 10 segundos (apenas se houver dados novos)"""
+        if not self.is_running:
+            return
+
+        try:
+            has_new_data = False
+
+            # Verifica se há novos logs
+            current_log_count = 0
+            if hasattr(self, 'log_text') and self.log_text:
+                try:
+                    current_log_count = int(self.log_text.index('end-1c').split('.')[0])
+                except:
+                    pass
+
+            # Verifica se há novos dados de sensores
+            current_sensor_count = 0
+            if self.sensor_display and hasattr(self.sensor_display, 'history'):
+                try:
+                    current_sensor_count = len(self.sensor_display.history.get("timestamp", []))
+                except:
+                    pass
+
+            # Só salva se houver dados significativos (mínimo 10 logs ou 100 sensores)
+            MIN_LOGS = 10
+            MIN_SENSORS = 100
+
+            if (current_log_count >= MIN_LOGS or current_sensor_count >= MIN_SENSORS) and \
+               (current_log_count > self.last_log_count or current_sensor_count > self.last_sensor_count):
+                has_new_data = True
+                self.last_log_count = current_log_count
+                self.last_sensor_count = current_sensor_count
+
+            if has_new_data:
+                import os
+                from datetime import datetime
+
+                os.makedirs(self.AUTO_EXPORT_DIR, exist_ok=True)
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+                # Salva logs
+                if current_log_count > 0:
+                    log_filename = os.path.join(self.AUTO_EXPORT_DIR, f"logs_{timestamp}.txt")
+                    try:
+                        log_content = self.log_text.get("1.0", tk.END)
+                        with open(log_filename, "w", encoding="utf-8") as f:
+                            f.write(f"# F1 Client - Auto Save (10s)\n")
+                            f.write(f"# Data: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                            f.write(f"# Linhas: {current_log_count}\n")
+                            f.write("#" + "=" * 60 + "\n\n")
+                            f.write(log_content)
+                    except:
+                        pass
+
+                # Salva sensores
+                if current_sensor_count > 0 and self.sensor_display:
+                    sensor_filename = os.path.join(self.AUTO_EXPORT_DIR, f"sensors_{timestamp}.pkl")
+                    try:
+                        self.sensor_display.export_history_fast(sensor_filename)
+                    except:
+                        pass
+
+                print(f"[AUTO-SAVE] {current_log_count} logs, {current_sensor_count} sensores -> {self.AUTO_EXPORT_DIR}/")
+
+                # Reset após salvar para não duplicar dados
+                try:
+                    # Limpa console de logs
+                    if self.log_text:
+                        self.log_text.delete('1.0', tk.END)
+                    # Reseta histórico de sensores
+                    if self.sensor_display:
+                        self.sensor_display.reset_statistics()
+                    # Reseta contadores
+                    self.last_log_count = 0
+                    self.last_sensor_count = 0
+                except:
+                    pass
+
+        except Exception as e:
+            print(f"[AUTO-SAVE] Erro: {e}")
+
+        # Reagenda próximo auto-save
+        if self.is_running and self.root:
+            try:
+                self.root.after(self.auto_save_interval, self._periodic_auto_save)
+            except:
+                pass
+
     def log(self, level, message):
         """Adiciona mensagem ao log"""
         if self.paused:
@@ -1485,6 +1602,14 @@ class ConsoleInterface:
             self.log_text.insert(tk.END, f"[{timestamp}] ", "TIMESTAMP")
             self.log_text.insert(tk.END, f"[{level}] ", level)
             self.log_text.insert(tk.END, f"{message}\n", level)
+
+            # Limita número de linhas para evitar uso excessivo de memória
+            line_count = int(self.log_text.index('end-1c').split('.')[0])
+            if line_count > self.MAX_LOG_LINES:
+                # Auto-export antes de limpar
+                self._auto_export_on_limit()
+                # Remove as primeiras 500 linhas quando exceder o limite
+                self.log_text.delete('1.0', '501.0')
 
             # Auto-scroll se habilitado
             if hasattr(self, 'autoscroll_var') and self.autoscroll_var.get():
@@ -2005,23 +2130,6 @@ class ConsoleInterface:
         """Alterna auto-scroll"""
         self.auto_scroll = self.autoscroll_var.get()
 
-    def reset_statistics(self):
-        """Reseta estatísticas"""
-        if self.sensor_display:
-            self.sensor_display.reset_statistics()
-        self.log("INFO", "Estatísticas resetadas")
-
-    def export_data(self):
-        """Exporta dados para arquivo"""
-        if self.sensor_display:
-            filename = self.sensor_display.export_history()
-            if filename:
-                self.log("INFO", f"Dados exportados para: {filename}")
-            else:
-                self.log("WARNING", "Falha ao exportar dados")
-        else:
-            self.log("WARNING", "Processador de sensores não disponível")
-
     def on_closing(self):
         """Manipula fechamento da janela"""
         try:
@@ -2049,6 +2157,9 @@ class ConsoleInterface:
 
             # Inicia processamento de filas
             self.root.after(self.update_interval, self.process_queues)
+
+            # Inicia auto-save periódico (a cada 10s)
+            self.root.after(self.auto_save_interval, self._periodic_auto_save)
 
             # Configura controles de teclado
             self.keyboard_controller.bind_to_widget(self.root)

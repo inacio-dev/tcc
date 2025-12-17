@@ -34,14 +34,14 @@ from typing import Dict, Any, Optional
 class SensorDisplay:
     """Gerencia processamento e exibição de dados de sensores"""
 
-    def __init__(self, sensor_queue=None, log_queue=None, history_size=1000):
+    def __init__(self, sensor_queue=None, log_queue=None, history_size=10000):
         """
         Inicializa o processador de sensores
 
         Args:
             sensor_queue (Queue): Fila de dados de sensores
             log_queue (Queue): Fila para mensagens de log
-            history_size (int): Tamanho do histórico de dados
+            history_size (int): Tamanho do histórico de dados (padrão: 10000 = ~100s @ 100Hz)
         """
         self.sensor_queue = sensor_queue
         self.log_queue = log_queue
@@ -477,8 +477,6 @@ class SensorDisplay:
             # Limpa histórico
             self.history.clear()
 
-            self._log("INFO", "Estatísticas de sensores resetadas")
-
     def export_history(self, filename=None):
         """
         Exporta histórico para arquivo CSV
@@ -526,5 +524,37 @@ class SensorDisplay:
 
         except Exception as e:
             self._log("ERROR", f"Erro ao exportar histórico: {e}")
+            return None
+
+    def export_history_fast(self, filename=None):
+        """
+        Exporta histórico para arquivo Pickle (mais rápido que CSV)
+
+        Args:
+            filename (str): Nome do arquivo (opcional)
+
+        Returns:
+            str: Caminho do arquivo criado
+        """
+        try:
+            import pickle
+            from datetime import datetime
+
+            if filename is None:
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                filename = f"sensor_history_{timestamp}.pkl"
+
+            with self.data_lock:
+                if len(self.history["timestamp"]) == 0:
+                    return None
+
+                # Pickle direto do dict - muito mais rápido que CSV
+                with open(filename, "wb") as f:
+                    pickle.dump(dict(self.history), f, protocol=pickle.HIGHEST_PROTOCOL)
+
+                return filename
+
+        except Exception as e:
+            print(f"[EXPORT] Erro pickle: {e}")
             return None
 

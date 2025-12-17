@@ -375,6 +375,10 @@ class NetworkClient:
                     # Recebe pacote de dados
                     packet, addr = self.receive_socket.recvfrom(self.buffer_size)
 
+                    # Filtra: só aceita pacotes do IP configurado
+                    if self.rpi_ip and addr[0] != self.rpi_ip:
+                        continue  # Ignora pacotes de outros IPs
+
                     # Se é a primeira vez que recebemos dados deste endereço
                     if not self.raspberry_pi_ip:
                         self.raspberry_pi_ip = addr[0]

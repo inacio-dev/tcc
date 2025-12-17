@@ -96,8 +96,8 @@ class H264Decoder:
 
     def cleanup(self):
         """Libera recursos do decoder"""
-        if self.codec:
-            self.codec.close()
+        # PyAV codec context não tem método close(), apenas libera referência
+        self.codec = None
         self.is_initialized = False
 
 
@@ -170,7 +170,15 @@ class VideoDisplay:
     def update_tkinter_frame(self, frame):
         """Atualiza frame no label Tkinter (otimizado para baixo delay)"""
         try:
-            if not self.tkinter_label:
+            # Verifica se ainda está rodando e se o label existe
+            if not self.is_running or not self.tkinter_label:
+                return
+
+            # Verifica se o widget Tkinter ainda é válido
+            try:
+                if not self.tkinter_label.winfo_exists():
+                    return
+            except Exception:
                 return
 
             height, width = frame.shape[:2]
@@ -188,11 +196,12 @@ class VideoDisplay:
             try:
                 self.tkinter_label.configure(image=photo)
                 self.tkinter_label.image = photo
-            except tk.TclError:
+            except (tk.TclError, RuntimeError):
+                # Tkinter foi destruído
                 return
 
             # Atualizar status
-            if self.status_callback:
+            if self.status_callback and self.is_running:
                 status = {
                     "connected": True,
                     "resolution": f"{width}x{height}",
@@ -201,31 +210,46 @@ class VideoDisplay:
                 }
                 try:
                     self.status_callback(status)
-                except:
+                except Exception:
                     pass
 
-        except Exception as e:
-            self._log("ERROR", f"Erro ao atualizar frame Tkinter: {e}")
+        except Exception:
+            # Ignora erros durante shutdown
+            pass
 
     def display_no_signal(self):
         """Exibe mensagem de 'Sem Sinal' no Tkinter"""
         try:
-            if self.tkinter_label:
-                self.tkinter_label.configure(
-                    image="",
-                    text="Sem Sinal\n\nAguardando vídeo do Raspberry Pi...",
-                    fg="red",
-                    bg="#1a1a1a",
-                    font=("Arial", 12),
-                )
-                self.tkinter_label.image = None
+            # Verifica se ainda está rodando e se o label existe
+            if not self.is_running or not self.tkinter_label:
+                return
 
-            if self.status_callback:
+            # Verifica se o widget Tkinter ainda é válido
+            try:
+                if not self.tkinter_label.winfo_exists():
+                    return
+            except Exception:
+                return
+
+            self.tkinter_label.configure(
+                image="",
+                text="Sem Sinal\n\nAguardando vídeo do Raspberry Pi...",
+                fg="red",
+                bg="#1a1a1a",
+                font=("Arial", 12),
+            )
+            self.tkinter_label.image = None
+
+            if self.status_callback and self.is_running:
                 status = {"connected": False, "resolution": "N/A", "fps": 0, "codec": "N/A"}
-                self.status_callback(status)
+                try:
+                    self.status_callback(status)
+                except Exception:
+                    pass
 
-        except Exception as e:
-            self._log("ERROR", f"Erro ao exibir 'sem sinal': {e}")
+        except Exception:
+            # Ignora erros durante shutdown
+            pass
 
     def add_overlay_info(self, frame):
         """Adiciona informações overlay no frame"""
@@ -420,23 +444,27 @@ class VideoDisplay:
 
     def stop(self):
         """Para o display de vídeo"""
-        self._log("INFO", "Parando display de vídeo...")
+        if not self.is_running:
+            return
 
         self.is_running = False
 
-        # Cleanup decoder H.264
-        if self.h264_decoder:
-            self.h264_decoder.cleanup()
+        # Cleanup decoder H.264 (thread-safe)
+        try:
+            if self.h264_decoder:
+                self.h264_decoder.cleanup()
+        except Exception:
+            pass
+
+        # Não limpa tkinter_label aqui - será limpo pelo main thread
+        # Isso evita o erro "Tcl_AsyncDelete: async handler deleted by the wrong thread"
 
         try:
             stats = self.get_statistics()
             self._log(
                 "INFO",
-                f"Estatísticas finais: {stats['total_frames']} frames, "
-                f"{stats['avg_fps']:.1f} FPS médio, "
-                f"codec: {stats['codec']}",
+                f"Display parado: {stats['total_frames']} frames, "
+                f"{stats['avg_fps']:.1f} FPS médio",
             )
-        except:
+        except Exception:
             pass
-
-        self._log("INFO", "Display de vídeo parado")

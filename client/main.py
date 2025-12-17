@@ -323,22 +323,19 @@ class F1ClientApplication:
 
         self.running = False
 
-        # Para componentes na ordem correta (interface primeiro)
+        # Para componentes na ordem correta:
+        # 1. Video PRIMEIRO (para de atualizar Tkinter)
+        # 2. Serial
+        # 3. Console/Tkinter POR ÚLTIMO
         try:
-            if hasattr(self, "console_interface") and self.console_interface:
-                self.console_interface.stop()
-
-            # Aguarda thread do console finalizar antes de continuar
-            if self.console_thread and self.console_thread.is_alive():
-                self.console_thread.join(
-                    timeout=3.0
-                )  # Timeout ainda maior para Tkinter
-                if self.console_thread.is_alive():
-                    debug("Thread do console não finalizou - continuando", "CLIENT")
-
+            if hasattr(self, "video_display") and self.video_display:
+                self.video_display.stop()
+                # Aguarda thread do vídeo parar antes de destruir Tkinter
+                if self.video_thread and self.video_thread.is_alive():
+                    self.video_thread.join(timeout=1.0)
         except Exception as e:
             try:
-                debug(f"Erro ao parar console: {e}", "CLIENT")
+                debug(f"Erro ao parar video: {e}", "CLIENT")
             except:
                 pass
 
@@ -352,11 +349,18 @@ class F1ClientApplication:
                 pass
 
         try:
-            if hasattr(self, "video_display") and self.video_display:
-                self.video_display.stop()
+            if hasattr(self, "console_interface") and self.console_interface:
+                self.console_interface.stop()
+
+            # Aguarda thread do console finalizar
+            if self.console_thread and self.console_thread.is_alive():
+                self.console_thread.join(timeout=3.0)
+                if self.console_thread.is_alive():
+                    debug("Thread do console não finalizou - continuando", "CLIENT")
+
         except Exception as e:
             try:
-                debug(f"Erro ao parar video: {e}", "CLIENT")
+                debug(f"Erro ao parar console: {e}", "CLIENT")
             except:
                 pass
 
@@ -623,6 +627,11 @@ def main():
         except:
             pass
         print("\n👋 Obrigado por usar o F1 Client!")
+
+        # Força saída limpa para evitar erro "Tcl_AsyncDelete" do Tkinter
+        # Este erro ocorre quando objetos Tkinter são garbage-collected em threads secundárias
+        import os
+        os._exit(0)
 
 
 if __name__ == "__main__":
