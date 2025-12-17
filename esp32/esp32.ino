@@ -82,28 +82,39 @@ portMUX_TYPE ff_mutex = portMUX_INITIALIZER_UNLOCKED;
 TaskHandle_t EncoderTaskHandle;
 TaskHandle_t SerialTaskHandle;
 
+// Flag de inicialização completa
+volatile bool system_fully_initialized = false;
+
 /**
  * @brief Tarefa executando no Core 0 - Processamento de encoders + Motor Force Feedback
  * Tarefa de alta prioridade para rastreamento de encoder em tempo real e controle de motor
  */
 void EncoderTask(void* parameter) {
     for (;;) {
-        unsigned long current_time = millis();
-
         // Atualiza todos os componentes a 100Hz
         throttle_manager.update();
         brake_manager.update();
         steering_manager.update();
         gear_manager.update();
 
-        // Atualiza motor force feedback (acesso thread-safe a variáveis compartilhadas)
-        portENTER_CRITICAL(&ff_mutex);
-        String current_direction = ff_direction;
-        int current_intensity = ff_intensity;
-        portEXIT_CRITICAL(&ff_mutex);
+        // Se sistema inicializado, processa checagem ou force feedback
+        if (system_fully_initialized) {
+            // Se checagem em progresso, atualiza máquina de estados
+            if (ff_motor.is_checking()) {
+                ff_motor.update_startup_check();
+            }
+            // Se motor pronto, processa comandos force feedback
+            else if (ff_motor.is_ready()) {
+                // Atualiza motor force feedback (acesso thread-safe a variáveis compartilhadas)
+                portENTER_CRITICAL(&ff_mutex);
+                String current_direction = ff_direction;
+                int current_intensity = ff_intensity;
+                portEXIT_CRITICAL(&ff_mutex);
 
-        // Aplica força do motor (alta prioridade, resposta instantânea)
-        ff_motor.set_force(current_direction, current_intensity);
+                // Aplica força do motor (alta prioridade, resposta instantânea)
+                ff_motor.set_force(current_direction, current_intensity);
+            }
+        }
 
         // Mantém taxa de atualização 100Hz
         vTaskDelay(10 / portTICK_PERIOD_MS);
@@ -335,6 +346,15 @@ void setup() {
         1                     // Core 1
     );
     Serial.println("Core 1: Serial Task (Priority 1)");
+
+    Serial.println("\n=== Starting Motor Check ===");
+
+    // Pequeno delay para garantir que todas as tarefas estejam rodando
+    delay(500);
+
+    // Marca sistema como inicializado e inicia checagem do motor
+    system_fully_initialized = true;
+    ff_motor.start_startup_check();
 
     Serial.println("\n=== System Ready ===");
     Serial.println("Sending commands via USB Serial - 115200 baud");

@@ -9,8 +9,8 @@
 #include "gear_manager.h"
 
 GearManager::GearManager()
-    : gear_up_state(HIGH), last_gear_up_state(HIGH), last_gear_up_time(0),
-      gear_down_state(HIGH), last_gear_down_state(HIGH), last_gear_down_time(0),
+    : last_gear_up_state(HIGH), last_gear_up_time(0),
+      last_gear_down_state(HIGH), last_gear_down_time(0),
       gear_up_pressed(false), gear_down_pressed(false) {
 }
 
@@ -21,10 +21,8 @@ void GearManager::begin() {
     pinMode(PIN_GEAR_DOWN, INPUT_PULLUP);
 
     // Inicializa estados dos botões
-    gear_up_state = digitalRead(PIN_GEAR_UP);
-    gear_down_state = digitalRead(PIN_GEAR_DOWN);
-    last_gear_up_state = gear_up_state;
-    last_gear_down_state = gear_down_state;
+    last_gear_up_state = digitalRead(PIN_GEAR_UP);
+    last_gear_down_state = digitalRead(PIN_GEAR_DOWN);
 
     Serial.println("[Gear] Initialized - GPIO32,33");
 }
@@ -79,11 +77,4 @@ bool GearManager::is_gear_down_pressed() {
     bool result = gear_down_pressed;
     gear_down_pressed = false;  // Detecção single-shot
     return result;
-}
-
-void GearManager::reset() {
-    gear_up_pressed = false;
-    gear_down_pressed = false;
-    last_gear_up_state = HIGH;
-    last_gear_down_state = HIGH;
 }

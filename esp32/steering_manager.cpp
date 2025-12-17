@@ -89,11 +89,6 @@ long SteeringManager::get_raw_position() const {
     return encoder_position;
 }
 
-void SteeringManager::reset() {
-    encoder_position = 0;  // Reseta para 0, calibração define o centro
-    current_value = 0;
-}
-
 void SteeringManager::start_calibration() {
     calibration.start_calibration();
     Serial.println("[Steering] Calibration mode started");

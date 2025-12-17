@@ -88,11 +88,6 @@ long ThrottleManager::get_raw_position() const {
     return encoder_position;
 }
 
-void ThrottleManager::reset() {
-    encoder_position = 0;
-    current_value = 0;
-}
-
 void ThrottleManager::start_calibration() {
     calibration.start_calibration();
     Serial.println("[Throttle] Calibration mode started");

@@ -29,9 +29,6 @@
 
 class SerialSenderManager {
 private:
-    // Configuração serial
-    static const long BAUD_RATE = 115200;
-
     // Últimos valores enviados para detecção de mudança
     int last_throttle;
     int last_brake;
@@ -78,12 +75,6 @@ public:
      * @brief Envia comando de marcha baixo
      */
     void send_gear_down();
-
-    /**
-     * @brief Verifica se conexão serial está disponível
-     * @return true se conectado
-     */
-    bool is_connected() const;
 };
 
 #endif // SERIAL_SENDER_MANAGER_H

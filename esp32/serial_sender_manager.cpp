@@ -58,7 +58,3 @@ void SerialSenderManager::send_gear_up() {
 void SerialSenderManager::send_gear_down() {
     send_command("GEAR_DOWN");
 }
-
-bool SerialSenderManager::is_connected() const {
-    return Serial;
-}

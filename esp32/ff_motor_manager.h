@@ -46,11 +46,22 @@ private:
     int current_intensity;
     String current_direction;
 
+    // Estado de inicialização
+    bool initialized;           // Motor pronto para operação
+    bool startup_check_done;    // Checagem inicial concluída
+    bool startup_check_running; // Checagem em progresso
+
+    // Parâmetros de checagem inicial
+    int startup_phase;          // Fase atual: 0=left, 1=right, 2=center, 3=done
+    unsigned long phase_start_time;
+    static const int PHASE_DURATION_MS = 500;  // 500ms por fase
+    static const int STARTUP_INTENSITY = 20;   // 20% de força durante checagem
+
 public:
     FFMotorManager();
 
     /**
-     * @brief Inicializa pinos BTS7960 e canais PWM
+     * @brief Inicializa pinos BTS7960 e canais PWM (motor permanece DESABILITADO)
      */
     void begin();
 
@@ -62,21 +73,28 @@ public:
     void set_force(String direction, int intensity);
 
     /**
-     * @brief Para motor imediatamente
+     * @brief Inicia sequência de checagem inicial (esquerda → direita → centro)
+     * Deve ser chamado APÓS toda inicialização do sistema estar completa
      */
-    void stop();
+    void start_startup_check();
 
     /**
-     * @brief Obtém intensidade atual do motor
-     * @return Intensidade atual (0-100%)
+     * @brief Atualiza máquina de estados da checagem inicial
+     * @return True se checagem ainda em progresso, False se concluída
      */
-    int get_intensity() const;
+    bool update_startup_check();
 
     /**
-     * @brief Obtém direção atual do motor
-     * @return Direção atual ("LEFT", "RIGHT", "NEUTRAL")
+     * @brief Verifica se motor está pronto para operação normal
+     * @return True se checagem inicial foi concluída
      */
-    String get_direction() const;
+    bool is_ready() const;
+
+    /**
+     * @brief Verifica se checagem inicial está em progresso
+     * @return True se checagem está rodando
+     */
+    bool is_checking() const;
 
 private:
     /**

@@ -49,12 +49,6 @@ private:
     static const int PIN_ENCODER_CLK = 12;  // CLK (A)
     static const int PIN_ENCODER_DT = 13;   // DT (B)
 
-    // Configuração do encoder
-    static const int PULSES_PER_REV = 600;
-    static const int CENTER_POSITION = 300;  // Centro = 0% direção
-    static const int MAX_POSITION = 600;     // Completo direita = +100%
-    static const int MIN_POSITION = 0;       // Completo esquerda = -100%
-
     // Variáveis de estado
     volatile long encoder_position;  // Contagem bruta do encoder
     volatile int last_clk;           // Último estado CLK
@@ -92,11 +86,6 @@ public:
      * @brief Obtém posição bruta do encoder (para calibração)
      */
     long get_raw_position() const;
-
-    /**
-     * @brief Reseta direção para posição central
-     */
-    void reset();
 
     /**
      * @brief Inicia modo de calibração

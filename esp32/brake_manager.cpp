@@ -87,11 +87,6 @@ long BrakeManager::get_raw_position() const {
     return encoder_position;
 }
 
-void BrakeManager::reset() {
-    encoder_position = 0;
-    current_value = 0;
-}
-
 void BrakeManager::start_calibration() {
     calibration.start_calibration();
     Serial.println("[Brake] Calibration mode started");

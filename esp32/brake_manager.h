@@ -46,11 +46,6 @@ private:
     static const int PIN_ENCODER_CLK = 27;  // CLK (A)
     static const int PIN_ENCODER_DT = 14;   // DT (B)
 
-    // Configuração do encoder
-    static const int PULSES_PER_REV = 600;
-    static const int MAX_POSITION = 600;  // Rotação completa = 100% freio
-    static const int MIN_POSITION = 0;    // Rotação zero = 0% freio
-
     // Variáveis de estado
     volatile long encoder_position;  // Contagem bruta do encoder (alterado para long para faixa ilimitada)
     volatile int last_clk;          // Último estado CLK
@@ -88,11 +83,6 @@ public:
      * @brief Obtém posição bruta do encoder (para calibração)
      */
     long get_raw_position() const;
-
-    /**
-     * @brief Reseta freio para posição zero
-     */
-    void reset();
 
     /**
      * @brief Inicia modo de calibração

@@ -41,11 +41,9 @@ private:
     static const unsigned long DEBOUNCE_DELAY = 50;  // 50ms debounce
 
     // Estados dos botões
-    int gear_up_state;
     int last_gear_up_state;
     unsigned long last_gear_up_time;
 
-    int gear_down_state;
     int last_gear_down_state;
     unsigned long last_gear_down_time;
 
@@ -86,11 +84,6 @@ public:
      * @return true se pressionado (detecção single-shot)
      */
     bool is_gear_down_pressed();
-
-    /**
-     * @brief Reseta todos os estados dos botões
-     */
-    void reset();
 };
 
 #endif // GEAR_MANAGER_H
