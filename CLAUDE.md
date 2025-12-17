@@ -69,7 +69,7 @@ F1-style remote-controlled car with complete telemetry system using Raspberry Pi
 
 - **Vehicle**: Raspberry Pi 4B (8GB), OV5647 camera, BMI160 IMU, RS550 motor, 3x MG996R servos
 - **Cockpit**: ESP32 DevKit V1 (240MHz dual-core), 3x rotary encoders (600 PPR), 2x buttons, BTS7960 H-bridge
-- **Network**: Fixed IPs (RPi: 192.168.2.223, Client: 192.168.5.11)
+- **Network**: Fixed IPs (RPi: 192.168.5.33, Client: 192.168.5.11)
 - **Serial**: ESP32→Client via USB (115200 baud, 100Hz)
 
 **Raspberry Pi 4 Pinout:**
@@ -144,7 +144,7 @@ cd codigo/client && python3 main.py --port 9999
 
 ### Network Protocol
 
-- **Fixed IP UDP**: RPi (192.168.2.223:9999/9998) ↔ Client (192.168.5.11)
+- **Fixed IP UDP**: RPi (192.168.5.33:9999/9998) ↔ Client (192.168.5.11)
 - **Ports**: 9999 (data), 9998 (commands)
 - **Commands**: CONNECT, DISCONNECT, PING, CONTROL:THROTTLE/BRAKE/STEERING/BRAKE_BALANCE/GEAR_UP/GEAR_DOWN
 

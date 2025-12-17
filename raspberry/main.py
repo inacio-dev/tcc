@@ -64,9 +64,9 @@ try:
     from logger import LogLevel, debug, error, info, init_logger, warn
     from motor_manager import MotorManager
     from network_manager import NetworkManager
+    from power_monitor_manager import PowerMonitorManager
     from steering_manager import SteeringManager, SteeringMode
     from temperature_manager import TemperatureManager
-    from power_monitor_manager import PowerMonitorManager
 except ImportError as e:
     print(f"❌ ERRO: Não foi possível importar módulos necessários: {e}")
     print("\nVerifique se todos os arquivos estão na mesma pasta:")
@@ -341,10 +341,10 @@ class F1CarCompleteSystem:
     def run_main_loop(self):
         """Loop principal de operação do sistema completo"""
         info("Modo direto - Enviando dados para cliente fixo", "MAIN")
-        info("Cliente: 192.168.1.161:9999", "MAIN")
+        info("Cliente: 192.168.5.25:9999", "MAIN")
 
         # Configura cliente fixo no NetworkManager
-        self.network_mgr.set_fixed_client("192.168.1.161", 9999)
+        self.network_mgr.set_fixed_client("192.168.5.25", 9999)
 
         info("Iniciando transmissão - Ctrl+C para parar", "MAIN")
 
@@ -472,7 +472,7 @@ class F1CarCompleteSystem:
 
                 # Envio periódico de CONNECT para reconexão automática (a cada 10s)
                 if current_time - last_connect_ping >= 10.0:
-                    self.network_mgr.send_connect_to_client("192.168.1.161", 9998)
+                    self.network_mgr.send_connect_to_client("192.168.5.25", 9998)
                     info("CONNECT periódico enviado para cliente", "MAIN")
                     last_connect_ping = current_time
 
