@@ -18,8 +18,8 @@ VELOCITY_DECAY_FACTOR = 0.98  # Fator de decay para simular atrito
 MIN_VELOCITY_THRESHOLD = 0.1  # Velocidade mínima antes de zerar (m/s)
 
 # Limites mínimos para auto-save
-MIN_LOGS_FOR_SAVE = 200
-MIN_SENSORS_FOR_SAVE = 100
+MIN_LOGS_FOR_SAVE = 100
+MIN_SENSORS_FOR_SAVE = 1000
 
 # Valores padrão de Force Feedback
 FF_DAMPING_DEFAULT = 50.0

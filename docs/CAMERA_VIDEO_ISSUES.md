@@ -5,7 +5,7 @@ Documento para rastrear problemas e soluções relacionados ao sistema de vídeo
 ## Status Atual
 
 - **Data**: 2025-12-17
-- **Status**: Em investigação - distorção visual ocasional
+- **Status**: RESOLVIDO - Migração para MJPEG
 
 ---
 
@@ -65,49 +65,34 @@ if rpi_ip:
 
 ---
 
-## Problema Atual: Distorção Visual
+### 4. Distorção Visual com H.264 (RESOLVIDO)
 
-### Descrição
-A imagem às vezes aparece com bandas horizontais distorcidas/corrompidas.
+**Sintoma**: Bandas horizontais distorcidas/corrompidas na imagem.
 
-### Possíveis Causas
+**Causa**: H.264 usa P-frames que dependem de frames anteriores. Perda de pacote UDP corrompe múltiplos frames.
 
-1. **Perda de pacotes UDP**
-   - Frames H.264 podem ter 4-30KB
-   - UDP não garante entrega
-   - Fragmentação de pacotes grandes
+**Solução**: Migração de H.264 para MJPEG.
 
-2. **Decoder sem keyframe inicial**
-   - H.264 precisa de SPS/PPS para inicializar
-   - P-frames dependem de frames anteriores
-   - Se perder um frame, os seguintes ficam corrompidos
+```python
+# ANTES (H.264 - com distorção)
+from picamera2.encoders import H264Encoder
+encoder = H264Encoder(bitrate=1500000, repeat=True, iperiod=15)
 
-3. **Memória não-contígua**
-   - PyAV pode retornar arrays com stride incorreto
-   - Corrigido com `np.ascontiguousarray()`
+# DEPOIS (MJPEG - sem distorção)
+from picamera2.encoders import MJPEGEncoder
+encoder = MJPEGEncoder()
+```
 
-4. **Processamento em lote**
-   - Decodificar múltiplos frames mas exibir só o último
-   - Pode causar dessincronização do decoder
+**Por que MJPEG resolve:**
 
-### Correções Aplicadas
+| Característica | H.264 | MJPEG |
+|----------------|-------|-------|
+| Dependência entre frames | P-frames dependem dos anteriores | Cada frame é independente |
+| Efeito de perda de pacote | Corrompe múltiplos frames | Perde só 1 frame |
+| Uso de banda | ~1.5-2.5 Mbps | ~6-8 Mbps |
+| Qualidade | Boa | Excelente |
 
-1. **Keyframe mais frequente** (`raspberry/camera_manager.py`):
-   ```python
-   iperiod=15  # Keyframe a cada 0.5s (era 30 = 1s)
-   ```
-
-2. **Memória contígua** (`client/video_display.py`):
-   ```python
-   if not img.flags['C_CONTIGUOUS']:
-       img = np.ascontiguousarray(img)
-   ```
-
-3. **Loop baseado em eventos** (`client/video_display.py`):
-   ```python
-   # Bloqueia esperando frame (não polling)
-   frame_data = self.video_queue.get(timeout=0.1)
-   ```
+**Trade-off aceito**: Mais banda (~4x) em troca de imagem perfeita.
 
 ---
 

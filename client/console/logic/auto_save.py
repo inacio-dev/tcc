@@ -111,8 +111,11 @@ class AutoSaveManager:
                 os.makedirs(AUTO_EXPORT_DIR, exist_ok=True)
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-                # Salva logs
-                if current_log_count > 0:
+                saved_logs = False
+                saved_sensors = False
+
+                # Salva logs apenas se tiver quantidade mínima
+                if current_log_count >= MIN_LOGS_FOR_SAVE:
                     log_filename = os.path.join(
                         AUTO_EXPORT_DIR, f"logs_{timestamp}.txt"
                     )
@@ -126,35 +129,39 @@ class AutoSaveManager:
                             f.write(f"# Linhas: {current_log_count}\n")
                             f.write("#" + "=" * 60 + "\n\n")
                             f.write(log_content)
+                        saved_logs = True
                     except Exception:
                         pass
 
-                # Salva sensores
-                if current_sensor_count > 0 and self.console.sensor_display:
+                # Salva sensores apenas se tiver quantidade mínima
+                if current_sensor_count >= MIN_SENSORS_FOR_SAVE and self.console.sensor_display:
                     sensor_filename = os.path.join(
                         AUTO_EXPORT_DIR, f"sensors_{timestamp}.pkl"
                     )
                     try:
                         self.console.sensor_display.export_history_fast(sensor_filename)
+                        saved_sensors = True
                     except Exception:
                         pass
 
-                print(
-                    f"[AUTO-SAVE] {current_log_count} logs, "
-                    f"{current_sensor_count} sensores -> {AUTO_EXPORT_DIR}/"
-                )
+                # Log apenas do que foi salvo
+                saved_items = []
+                if saved_logs:
+                    saved_items.append(f"{current_log_count} logs")
+                if saved_sensors:
+                    saved_items.append(f"{current_sensor_count} sensores")
 
-                # Reset após salvar para não duplicar dados
+                if saved_items:
+                    print(f"[AUTO-SAVE] {', '.join(saved_items)} -> {AUTO_EXPORT_DIR}/")
+
+                # Reset apenas do que foi salvo
                 try:
-                    # Limpa console de logs
-                    if self.console.log_text:
+                    if saved_logs and self.console.log_text:
                         self.console.log_text.delete("1.0", tk.END)
-                    # Reseta histórico de sensores
-                    if self.console.sensor_display:
+                        self.last_log_count = 0
+                    if saved_sensors and self.console.sensor_display:
                         self.console.sensor_display.reset_statistics()
-                    # Reseta contadores
-                    self.last_log_count = 0
-                    self.last_sensor_count = 0
+                        self.last_sensor_count = 0
                 except Exception:
                     pass
 

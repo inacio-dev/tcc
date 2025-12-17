@@ -849,6 +849,21 @@ class ConsoleInterface:
                 except Exception:
                     pass
 
+            # Limpa imagem do vídeo para evitar erro de thread
+            if hasattr(self, "video_label") and self.video_label:
+                try:
+                    self.video_label.configure(image="")
+                    self.video_label.image = None
+                except Exception:
+                    pass
+
+            # Para o video_display
+            if hasattr(self, "video_display") and self.video_display:
+                try:
+                    self.video_display.stop()
+                except Exception:
+                    pass
+
             # Força garbage collection
             try:
                 import gc
