@@ -1,5 +1,10 @@
 """
-auto_save.py - Sistema de auto-save de logs e dados de sensores
+auto_save.py - Sistema de auto-save de logs, dados de sensores e telemetria
+
+Arquivos salvos em exports/auto/:
+- logs_YYYYMMDD_HHMMSS.txt - Logs do console
+- sensors_YYYYMMDD_HHMMSS.pkl - Dados brutos dos sensores
+- telemetry_YYYYMMDD_HHMMSS.pkl - Dados dos gráficos de telemetria
 """
 
 import os
@@ -11,11 +16,12 @@ from ..utils.constants import (
     MAX_LOG_LINES,
     MIN_LOGS_FOR_SAVE,
     MIN_SENSORS_FOR_SAVE,
+    MIN_TELEMETRY_FOR_SAVE,
 )
 
 
 class AutoSaveManager:
-    """Gerencia auto-save periódico de logs e dados de sensores"""
+    """Gerencia auto-save periódico de logs, dados de sensores e telemetria"""
 
     def __init__(self, console):
         """
@@ -25,6 +31,7 @@ class AutoSaveManager:
         self.console = console
         self.last_log_count = 0
         self.last_sensor_count = 0
+        self.last_telemetry_count = 0
 
     def auto_export_on_limit(self):
         """Exporta automaticamente logs e dados quando o limite é atingido"""
@@ -56,6 +63,16 @@ class AutoSaveManager:
                 )
                 try:
                     self.console.sensor_display.export_history_fast(sensor_filename)
+                except Exception:
+                    pass
+
+            # 3. Exporta dados de telemetria (gráficos)
+            if hasattr(self.console, "telemetry_plotter") and self.console.telemetry_plotter:
+                telemetry_filename = os.path.join(
+                    AUTO_EXPORT_DIR, f"telemetry_{timestamp}.pkl"
+                )
+                try:
+                    self.console.telemetry_plotter.export_data(telemetry_filename)
                 except Exception:
                     pass
 
@@ -95,17 +112,28 @@ class AutoSaveManager:
                 except Exception:
                     pass
 
+            # Verifica se há novos dados de telemetria
+            current_telemetry_count = 0
+            if hasattr(self.console, "telemetry_plotter") and self.console.telemetry_plotter:
+                try:
+                    current_telemetry_count = self.console.telemetry_plotter.get_data_count()
+                except Exception:
+                    pass
+
             # Só salva se houver dados significativos
             if (
                 current_log_count >= MIN_LOGS_FOR_SAVE
                 or current_sensor_count >= MIN_SENSORS_FOR_SAVE
+                or current_telemetry_count >= MIN_TELEMETRY_FOR_SAVE
             ) and (
                 current_log_count > self.last_log_count
                 or current_sensor_count > self.last_sensor_count
+                or current_telemetry_count > self.last_telemetry_count
             ):
                 has_new_data = True
                 self.last_log_count = current_log_count
                 self.last_sensor_count = current_sensor_count
+                self.last_telemetry_count = current_telemetry_count
 
             if has_new_data:
                 os.makedirs(AUTO_EXPORT_DIR, exist_ok=True)
@@ -113,6 +141,7 @@ class AutoSaveManager:
 
                 saved_logs = False
                 saved_sensors = False
+                saved_telemetry = False
 
                 # Salva logs apenas se tiver quantidade mínima
                 if current_log_count >= MIN_LOGS_FOR_SAVE:
@@ -144,12 +173,25 @@ class AutoSaveManager:
                     except Exception:
                         pass
 
+                # Salva telemetria apenas se tiver quantidade mínima
+                if current_telemetry_count >= MIN_TELEMETRY_FOR_SAVE:
+                    telemetry_filename = os.path.join(
+                        AUTO_EXPORT_DIR, f"telemetry_{timestamp}.pkl"
+                    )
+                    try:
+                        self.console.telemetry_plotter.export_data(telemetry_filename)
+                        saved_telemetry = True
+                    except Exception:
+                        pass
+
                 # Log apenas do que foi salvo
                 saved_items = []
                 if saved_logs:
                     saved_items.append(f"{current_log_count} logs")
                 if saved_sensors:
                     saved_items.append(f"{current_sensor_count} sensores")
+                if saved_telemetry:
+                    saved_items.append(f"{current_telemetry_count} telemetria")
 
                 if saved_items:
                     print(f"[AUTO-SAVE] {', '.join(saved_items)} -> {AUTO_EXPORT_DIR}/")
@@ -162,6 +204,9 @@ class AutoSaveManager:
                     if saved_sensors and self.console.sensor_display:
                         self.console.sensor_display.reset_statistics()
                         self.last_sensor_count = 0
+                    if saved_telemetry and self.console.telemetry_plotter:
+                        self.console.telemetry_plotter.reset()
+                        self.last_telemetry_count = 0
                 except Exception:
                     pass
 

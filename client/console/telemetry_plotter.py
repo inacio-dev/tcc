@@ -6,8 +6,9 @@ Inspirado no Fast-F1, mas usando dados locais dos sensores
 import tkinter as tk
 from tkinter import ttk
 from collections import deque
-from typing import Optional
+from typing import Optional, Dict, List
 import time
+import pickle
 
 try:
     import matplotlib
@@ -319,6 +320,54 @@ class F1TelemetryPlotter:
         self.gear_data.clear()
         self.start_time = time.time()
         debug("Dados do plotter resetados", "PLOTTER")
+
+    def get_data_count(self) -> int:
+        """Retorna quantidade de pontos de dados"""
+        return len(self.time_data)
+
+    def get_data_dict(self) -> Dict[str, List]:
+        """
+        Retorna todos os dados de telemetria como dicionário
+
+        Returns:
+            Dict com todos os buffers convertidos para listas
+        """
+        return {
+            "time": list(self.time_data),
+            "speed": list(self.speed_data),
+            "throttle": list(self.throttle_data),
+            "brake": list(self.brake_data),
+            "g_lateral": list(self.g_lateral_data),
+            "g_frontal": list(self.g_frontal_data),
+            "gear": list(self.gear_data),
+            "start_time": self.start_time,
+            "max_points": self.max_points,
+        }
+
+    def export_data(self, filename: str) -> bool:
+        """
+        Exporta dados de telemetria para arquivo Pickle
+
+        Args:
+            filename: Caminho do arquivo de saída
+
+        Returns:
+            True se exportou com sucesso
+        """
+        try:
+            data = self.get_data_dict()
+            data["export_time"] = time.time()
+            data["points_count"] = len(self.time_data)
+
+            with open(filename, "wb") as f:
+                pickle.dump(data, f)
+
+            debug(f"Telemetria exportada: {len(self.time_data)} pontos", "PLOTTER")
+            return True
+
+        except Exception as e:
+            error(f"Erro ao exportar telemetria: {e}", "PLOTTER")
+            return False
 
 
 def create_telemetry_frame(console) -> Optional[ttk.LabelFrame]:

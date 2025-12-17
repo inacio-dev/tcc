@@ -206,19 +206,32 @@ class SensorDisplay:
 
             # Seleciona campos importantes para histórico
             history_fields = [
+                # BMI160 - Acelerômetro e Giroscópio
                 "bmi160_accel_x",
                 "bmi160_accel_y",
                 "bmi160_accel_z",
                 "bmi160_gyro_x",
                 "bmi160_gyro_y",
                 "bmi160_gyro_z",
+                # Forças G calculadas
                 "g_force_frontal",
                 "g_force_lateral",
                 "g_force_vertical",
+                # Force Feedback
                 "steering_feedback_intensity",
                 "seat_vibration_intensity",
+                # Outros
                 "velocidade",
                 "temperatura",
+                # Power Monitor (ADS1115 + INA219)
+                "current_rpi",
+                "current_servos",
+                "current_motor",
+                "voltage_rpi",
+                "power_rpi",
+                "power_motor",
+                "power_servos",
+                "power_total",
             ]
 
             # Adiciona timestamp
