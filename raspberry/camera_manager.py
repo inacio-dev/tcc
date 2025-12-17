@@ -108,18 +108,20 @@ class CircularBuffer(io.BufferedIOBase):
 class CameraManager:
     """Gerencia a captura de vídeo da câmera OV5647 com H.264 hardware encoding"""
 
-    def __init__(self, resolution=(640, 480), frame_rate=30, bitrate=1500000):
+    def __init__(self, resolution=(640, 480), frame_rate=30, bitrate=2500000, quality_preset="high"):
         """
         Inicializa o gerenciador da câmera
 
         Args:
             resolution (tuple): Resolução do vídeo (largura, altura)
             frame_rate (int): Taxa de frames por segundo
-            bitrate (int): Bitrate do H.264 em bps (padrão: 1.5 Mbps)
+            bitrate (int): Bitrate do H.264 em bps (padrão: 2.5 Mbps)
+            quality_preset (str): Preset de qualidade ('low', 'medium', 'high')
         """
         self.resolution = resolution
         self.frame_rate = frame_rate
         self.bitrate = bitrate
+        self.quality_preset = quality_preset
         self.camera = None
         self.encoder = None
         self.buffer = None
@@ -180,11 +182,17 @@ class CameraManager:
             except Exception as e:
                 print(f"⚠ Aviso: FrameDurationLimits não configurado: {e}")
 
-            # Cria encoder H.264 com configurações de baixa latência
+            # Configura qp baseado no preset de qualidade
+            qp_values = {"low": 35, "medium": 28, "high": 22}
+            qp = qp_values.get(self.quality_preset, 25)
+
+            # Cria encoder H.264 com configurações otimizadas para qualidade
             self.encoder = H264Encoder(
                 bitrate=self.bitrate,
                 repeat=True,          # Repete SPS/PPS para resiliência
-                iperiod=15,           # Keyframe a cada 15 frames (~0.5s) para melhor recuperação
+                iperiod=15,           # Keyframe a cada 15 frames (~0.5s)
+                profile="high",       # Perfil 'high' para melhor qualidade/compressão
+                qp=qp,                # Quantization parameter (menor = melhor qualidade)
             )
 
             # Cria buffer circular
@@ -207,6 +215,7 @@ class CameraManager:
             print("✓ Câmera OV5647 inicializada com H.264 hardware encoder")
             print(f"  Resolução: {self.resolution[0]}x{self.resolution[1]}")
             print(f"  Bitrate: {self.bitrate / 1000000:.1f} Mbps")
+            print(f"  Profile: high | QP: {qp} | Preset: {self.quality_preset}")
             print(f"  Encoder: H.264 (VideoCore VI hardware)")
 
             return True

@@ -83,6 +83,15 @@ class H264Decoder:
             for frame in frames:
                 # Converte para numpy array (formato YUV → BGR)
                 img = frame.to_ndarray(format='bgr24')
+
+                # Valida dimensões (640x480 esperado)
+                if img.shape[0] < 100 or img.shape[1] < 100:
+                    continue  # Frame inválido, pula
+
+                # Garante memória contígua para evitar distorção na exibição
+                if not img.flags['C_CONTIGUOUS']:
+                    img = np.ascontiguousarray(img)
+
                 self.frames_decoded += 1
                 return img
 
@@ -380,30 +389,53 @@ class VideoDisplay:
 
         self.is_running = True
         no_signal_displayed = False
-        last_frame_check = time.time()
+        last_frame_time = time.time()
 
         try:
             while self.is_running:
-                current_time = time.time()
+                try:
+                    # Aguarda frame com timeout de 100ms (bloqueia até chegar frame)
+                    frame_data = self.video_queue.get(timeout=0.1)
+                    latest_frame = None
 
-                if self.video_queue and not self.video_queue.empty():
-                    self.process_video_queue()
-                    no_signal_displayed = False
-                    last_frame_check = current_time
-                else:
-                    if (
-                        current_time - last_frame_check > 2.0
-                        and not no_signal_displayed
-                    ):
+                    # Processa o frame recebido
+                    if frame_data is not None:
+                        if isinstance(frame_data, bytes):
+                            frame = self._decode_frame(frame_data)
+                        else:
+                            frame = frame_data
+                        if frame is not None:
+                            latest_frame = frame
+
+                    # Se há mais frames na fila, processa todos para manter decoder sync
+                    # (mas só exibe o último para não travar)
+                    frames_extra = 0
+                    while not self.video_queue.empty() and frames_extra < 5:
+                        try:
+                            extra_data = self.video_queue.get_nowait()
+                            frames_extra += 1
+                            if extra_data is not None:
+                                if isinstance(extra_data, bytes):
+                                    frame = self._decode_frame(extra_data)
+                                else:
+                                    frame = extra_data
+                                if frame is not None:
+                                    latest_frame = frame
+                        except:
+                            break
+
+                    # Exibe o frame mais recente
+                    if latest_frame is not None:
+                        self.display_frame(latest_frame)
+                        last_frame_time = time.time()
+                        no_signal_displayed = False
+
+                except:
+                    # Timeout ou fila vazia - verifica se precisa mostrar "sem sinal"
+                    current_time = time.time()
+                    if current_time - last_frame_time > 2.0 and not no_signal_displayed:
                         self.display_no_signal()
                         no_signal_displayed = True
-                    elif (
-                        self.last_frame is not None
-                        and current_time - self.last_frame_time < 5.0
-                    ):
-                        self.display_frame(self.last_frame)
-
-                time.sleep(0.016)  # ~60 FPS máximo
 
         except KeyboardInterrupt:
             self._log("INFO", "Display de vídeo interrompido pelo usuário")
