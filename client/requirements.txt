@@ -27,3 +27,14 @@ av>=10.0.0
 
 # Matplotlib para graficos de telemetria F1 em tempo real
 matplotlib>=3.7.0
+
+# CuPy para processamento de imagem na GPU NVIDIA (OPCIONAL)
+# Requer CUDA Toolkit instalado no sistema!
+# Arch Linux: sudo pacman -S cuda
+# Ubuntu: sudo apt install nvidia-cuda-toolkit
+#
+# Depois instale manualmente:
+#   CUDA 12.x: pip install cupy-cuda12x
+#   CUDA 11.x: pip install cupy-cuda11x
+#
+# Se nao tiver GPU/CUDA, o sistema usa CPU automaticamente

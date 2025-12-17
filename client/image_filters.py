@@ -8,6 +8,10 @@ Implementa máscaras e filtros para aprimoramento de qualidade de vídeo:
 - Realce: CLAHE (Contrast Limited Adaptive Histogram Equalization)
 - Super-resolução: Upscale com Lanczos
 
+Suporte a GPU NVIDIA via CuPy (opcional):
+- Se CuPy estiver instalado, usa GPU para operações de convolução
+- Fallback automático para CPU se GPU não disponível
+
 Referências teóricas:
 - Gonzalez & Woods, "Digital Image Processing"
 - Máscaras de convolução para realce espacial
@@ -16,6 +20,26 @@ Referências teóricas:
 import cv2
 import numpy as np
 from typing import Optional, Callable, Dict, List
+
+# Tenta importar CuPy para aceleração GPU
+GPU_AVAILABLE = False
+cp = None
+cp_ndimage = None
+
+try:
+    import cupy as cp
+    # Testa se CUDA realmente funciona
+    cp.cuda.runtime.getDeviceCount()
+    from cupyx.scipy import ndimage as cp_ndimage
+    GPU_AVAILABLE = True
+    print("[FILTERS] GPU NVIDIA detectada - usando CuPy para aceleração")
+except ImportError:
+    print("[FILTERS] CuPy não instalado - usando CPU")
+except Exception as e:
+    # CUDA não disponível ou erro de runtime
+    cp = None
+    cp_ndimage = None
+    print(f"[FILTERS] GPU não disponível ({type(e).__name__}) - usando CPU")
 
 
 class ImageFilters:
@@ -82,13 +106,34 @@ class ImageFilters:
         },
     }
 
-    def __init__(self):
-        """Inicializa o gerenciador de filtros"""
+    def __init__(self, use_gpu=True):
+        """
+        Inicializa o gerenciador de filtros
+
+        Args:
+            use_gpu: Se True, usa GPU quando disponível
+        """
         self.current_filter = "original"
+        self.use_gpu = use_gpu and GPU_AVAILABLE
         self.clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
 
         # Cache para super-resolução (evita recriar toda vez)
         self._super_res_size = None
+
+        # Kernels para GPU (CuPy)
+        if self.use_gpu:
+            self._gpu_kernels = {
+                "laplacian": cp.array([
+                    [0, -1, 0],
+                    [-1, 5, -1],
+                    [0, -1, 0]
+                ], dtype=cp.float32),
+                "high_boost": cp.array([
+                    [-1, -1, -1],
+                    [-1, 10, -1],
+                    [-1, -1, -1]
+                ], dtype=cp.float32) / 2,
+            }
 
     @classmethod
     def get_filter_names(cls) -> List[str]:
@@ -154,6 +199,8 @@ class ImageFilters:
         A máscara 3x3 com centro 5 preserva a imagem original
         enquanto realça as bordas.
         """
+        if self.use_gpu:
+            return self._gpu_convolve(frame, "laplacian")
         return cv2.filter2D(frame, -1, self.KERNELS["laplacian"])
 
     def _apply_unsharp(self, frame: np.ndarray) -> np.ndarray:
@@ -181,6 +228,8 @@ class ImageFilters:
         Onde A > 1 para aumentar a contribuição do original.
         Mais suave que Laplaciano puro, preserva mais detalhes.
         """
+        if self.use_gpu:
+            return self._gpu_convolve(frame, "high_boost")
         return cv2.filter2D(frame, -1, self.KERNELS["high_boost"])
 
     def _apply_clahe(self, frame: np.ndarray) -> np.ndarray:
@@ -254,10 +303,55 @@ class ImageFilters:
 
     def get_current_filter_info(self) -> Dict:
         """Retorna informações do filtro atual"""
-        return {
+        info = {
             "key": self.current_filter,
             **self.FILTERS.get(self.current_filter, {})
         }
+        if self.use_gpu:
+            info["gpu"] = True
+        return info
+
+    def _gpu_convolve(self, frame: np.ndarray, kernel_name: str) -> np.ndarray:
+        """
+        Aplica convolução usando GPU (CuPy)
+
+        Args:
+            frame: Frame BGR (numpy array)
+            kernel_name: Nome do kernel em _gpu_kernels
+
+        Returns:
+            Frame processado (numpy array)
+        """
+        try:
+            kernel = self._gpu_kernels.get(kernel_name)
+            if kernel is None:
+                return frame
+
+            # Transfere para GPU
+            gpu_frame = cp.asarray(frame, dtype=cp.float32)
+
+            # Aplica convolução em cada canal separadamente
+            result = cp.zeros_like(gpu_frame)
+            for i in range(3):  # BGR
+                result[:, :, i] = cp_ndimage.convolve(gpu_frame[:, :, i], kernel)
+
+            # Clipa valores e converte de volta
+            result = cp.clip(result, 0, 255).astype(cp.uint8)
+
+            # Transfere de volta para CPU
+            return cp.asnumpy(result)
+
+        except Exception as e:
+            print(f"[FILTER-GPU] Erro, usando CPU: {e}")
+            # Fallback para CPU
+            cpu_kernel = self.KERNELS.get(kernel_name)
+            if cpu_kernel is not None:
+                return cv2.filter2D(frame, -1, cpu_kernel)
+            return frame
+
+    def is_gpu_enabled(self) -> bool:
+        """Retorna se GPU está sendo usada"""
+        return self.use_gpu
 
 
 # Instância global para uso fácil

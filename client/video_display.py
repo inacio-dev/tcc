@@ -290,7 +290,8 @@ class VideoDisplay:
             if self.image_filter:
                 info = self.image_filter.get_current_filter_info()
                 if info.get("key") != "original":
-                    filter_text = f"Filtro: {info.get('name', '')}"
+                    gpu_tag = " [GPU]" if info.get("gpu") else ""
+                    filter_text = f"Filtro: {info.get('name', '')}{gpu_tag}"
 
             font = cv2.FONT_HERSHEY_SIMPLEX
             font_scale = 0.5
