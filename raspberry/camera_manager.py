@@ -143,15 +143,22 @@ class CameraManager:
         try:
             print("Inicializando câmera OV5647 com H.264 hardware encoder...")
 
-            # Cria instância da PiCamera2
-            self.camera = Picamera2()
+            # Verifica câmeras disponíveis ANTES de criar instância
+            try:
+                camera_info = Picamera2.global_camera_info()
+                print(f"  Câmeras encontradas: {len(camera_info)}")
+                if camera_info:
+                    for i, cam in enumerate(camera_info):
+                        print(f"    [{i}] {cam.get('Model', 'Desconhecida')}")
+                else:
+                    print("❌ Nenhuma câmera detectada pelo sistema!")
+                    print("   Execute: libcamera-hello --list-cameras")
+                    return False
+            except Exception as e:
+                print(f"⚠ Erro ao listar câmeras: {e}")
 
-            # Lista câmeras disponíveis
-            camera_info = self.camera.global_camera_info()
-            if not camera_info:
-                print("❌ Nenhuma câmera detectada!")
-                return False
-            print(f"  Câmera detectada: {camera_info[0].get('Model', 'Desconhecida')}")
+            # Cria instância da PiCamera2 com índice explícito
+            self.camera = Picamera2(camera_num=0)
 
             # Configuração para encoding de vídeo H.264
             config = self.camera.create_video_configuration(
