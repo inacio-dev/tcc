@@ -148,6 +148,9 @@ class VideoDisplay:
         self.tkinter_label = None
         self.status_callback = None
 
+        # Filtro de imagem PDI (None = sem filtro)
+        self.image_filter = None
+
         # Inicializa decoder H.264 como fallback (MJPEG é o padrão agora)
         if H264_AVAILABLE:
             if self.h264_decoder.initialize():
@@ -175,6 +178,18 @@ class VideoDisplay:
     def set_status_callback(self, callback):
         """Define callback para atualizar status do vídeo"""
         self.status_callback = callback
+
+    def set_image_filter(self, image_filter):
+        """
+        Define o filtro de imagem PDI a ser aplicado nos frames
+
+        Args:
+            image_filter: Instância de ImageFilters ou None para desativar
+        """
+        self.image_filter = image_filter
+        if image_filter:
+            info = image_filter.get_current_filter_info()
+            self._log("INFO", f"Filtro PDI: {info.get('name', 'Desconhecido')}")
 
     def update_tkinter_frame(self, frame):
         """Atualiza frame no label Tkinter (otimizado para baixo delay)"""
@@ -270,6 +285,13 @@ class VideoDisplay:
             fps_text = f"{codec_text} | FPS: {self.current_fps:.1f}"
             resolution_text = f"{frame.shape[1]}x{frame.shape[0]}"
 
+            # Adiciona info do filtro se ativo
+            filter_text = ""
+            if self.image_filter:
+                info = self.image_filter.get_current_filter_info()
+                if info.get("key") != "original":
+                    filter_text = f"Filtro: {info.get('name', '')}"
+
             font = cv2.FONT_HERSHEY_SIMPLEX
             font_scale = 0.5
             color = (0, 255, 0)
@@ -277,6 +299,9 @@ class VideoDisplay:
 
             cv2.putText(frame, fps_text, (10, 25), font, font_scale, color, thickness)
             cv2.putText(frame, resolution_text, (10, 50), font, font_scale, color, thickness)
+
+            if filter_text:
+                cv2.putText(frame, filter_text, (10, 75), font, font_scale, (255, 255, 0), thickness)
 
             return frame
         except:
@@ -291,6 +316,10 @@ class VideoDisplay:
         """
         try:
             with self.frame_lock:
+                # Aplica filtro PDI se configurado
+                if self.image_filter:
+                    frame = self.image_filter.apply(frame)
+
                 frame_with_overlay = self.add_overlay_info(frame.copy())
 
                 if self.tkinter_label:
