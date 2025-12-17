@@ -224,7 +224,7 @@ class F1CarCompleteSystem:
         # 2. Câmera (MJPEG encoder)
         debug("Inicializando câmera com MJPEG encoder...", "MAIN")
         self.camera_mgr = CameraManager(
-            resolution=(640, 480), frame_rate=self.camera_fps, quality=85
+            resolution=(640, 480), frame_rate=self.camera_fps
         )
         if self.camera_mgr.initialize():
             self.system_status["camera"] = "Online"

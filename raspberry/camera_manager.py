@@ -105,18 +105,16 @@ class CircularBuffer(io.BufferedIOBase):
 class CameraManager:
     """Gerencia a captura de vídeo da câmera OV5647 com MJPEG encoding"""
 
-    def __init__(self, resolution=(640, 480), frame_rate=30, quality=85):
+    def __init__(self, resolution=(640, 480), frame_rate=30):
         """
         Inicializa o gerenciador da câmera
 
         Args:
             resolution (tuple): Resolução do vídeo (largura, altura)
             frame_rate (int): Taxa de frames por segundo
-            quality (int): Qualidade JPEG (1-100, padrão: 85)
         """
         self.resolution = resolution
         self.frame_rate = frame_rate
-        self.quality = max(1, min(100, quality))  # Clamp entre 1-100
         self.camera = None
         self.encoder = None
         self.buffer = None
@@ -177,8 +175,9 @@ class CameraManager:
             except Exception as e:
                 print(f"⚠ Aviso: FrameDurationLimits não configurado: {e}")
 
-            # Cria encoder MJPEG com qualidade configurável
-            self.encoder = MJPEGEncoder(q=self.quality)
+            # Cria encoder MJPEG (usa hardware do Raspberry Pi)
+            # Qualidade é controlada via bitrate (None = automático baseado em resolução)
+            self.encoder = MJPEGEncoder()
 
             # Cria buffer circular
             self.buffer = CircularBuffer(max_frames=10)
@@ -199,8 +198,7 @@ class CameraManager:
 
             print("✓ Câmera OV5647 inicializada com MJPEG encoder")
             print(f"  Resolução: {self.resolution[0]}x{self.resolution[1]}")
-            print(f"  Qualidade JPEG: {self.quality}%")
-            print(f"  Encoder: MJPEG (cada frame é JPEG independente)")
+            print(f"  Encoder: MJPEG (hardware, cada frame é JPEG independente)")
 
             return True
 
@@ -304,7 +302,6 @@ class CameraManager:
             "is_recording": self.is_recording,
             "resolution": self.resolution,
             "frame_rate": self.frame_rate,
-            "quality": self.quality,
             "last_capture_time": self.last_capture_time,
             "last_frame_size": self.last_frame_size,
             "encoder": "MJPEG",
@@ -322,20 +319,6 @@ class CameraManager:
                     stats["actual_fps"] = self.buffer.frame_count / elapsed
 
         return stats
-
-    def set_quality(self, quality):
-        """
-        Altera a qualidade JPEG do encoder (requer reinicialização)
-
-        Args:
-            quality (int): Nova qualidade (1-100)
-        """
-        if 1 <= quality <= 100:
-            self.quality = quality
-            print(f"Qualidade JPEG alterada para: {quality}%")
-            print("⚠ Reinicialize a câmera para aplicar a mudança")
-        else:
-            print("⚠ Qualidade deve estar entre 1 e 100")
 
     def cleanup(self):
         """Libera recursos da câmera e encoder"""
