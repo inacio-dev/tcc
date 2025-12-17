@@ -28,49 +28,81 @@ FORMATO DE SAÍDA:
 - Bitrate: 1.5 Mbps (ajustável)
 """
 
+import io
 import time
 import threading
 from collections import deque
 from picamera2 import Picamera2
 from picamera2.encoders import H264Encoder
-from picamera2.outputs import Output
+from picamera2.outputs import FileOutput
 
 
-class StreamingOutput(Output):
-    """Output customizado para capturar frames H.264 em buffer circular"""
+class CircularBuffer(io.BufferedIOBase):
+    """Buffer circular para streaming H.264"""
 
-    def __init__(self, buffer_size=5):
-        super().__init__()
-        self.frame_buffer = deque(maxlen=buffer_size)
+    def __init__(self, max_frames=10):
+        self.frames = deque(maxlen=max_frames)
+        self.current_frame = io.BytesIO()
         self.lock = threading.Lock()
         self.frame_count = 0
         self.total_bytes = 0
 
-    def outputframe(self, frame, keyframe=True, timestamp=None):
-        """Recebe frame codificado do encoder H.264"""
+    def write(self, data):
+        """Recebe dados do encoder"""
         with self.lock:
-            self.frame_buffer.append({
-                'data': bytes(frame),
-                'keyframe': keyframe,
-                'timestamp': timestamp or time.time(),
-                'size': len(frame)
-            })
-            self.frame_count += 1
-            self.total_bytes += len(frame)
+            # Detecta início de novo frame (NAL unit start code)
+            if data[:4] == b'\x00\x00\x00\x01' or data[:3] == b'\x00\x00\x01':
+                # Salva frame anterior se existir
+                if self.current_frame.tell() > 0:
+                    frame_data = self.current_frame.getvalue()
+                    self.frames.append({
+                        'data': frame_data,
+                        'timestamp': time.time(),
+                        'size': len(frame_data),
+                        'keyframe': self._is_keyframe(frame_data)
+                    })
+                    self.frame_count += 1
+                    self.total_bytes += len(frame_data)
+
+                # Inicia novo frame
+                self.current_frame = io.BytesIO()
+
+            self.current_frame.write(data)
+            return len(data)
+
+    def _is_keyframe(self, data):
+        """Detecta se é keyframe (IDR NAL unit)"""
+        if len(data) < 5:
+            return False
+        # NAL unit type está nos bits 0-4 do byte após start code
+        if data[:4] == b'\x00\x00\x00\x01':
+            nal_type = data[4] & 0x1F
+        elif data[:3] == b'\x00\x00\x01':
+            nal_type = data[3] & 0x1F
+        else:
+            return False
+        # IDR = 5, SPS = 7, PPS = 8
+        return nal_type in (5, 7, 8)
 
     def get_frame(self):
-        """Obtém o frame mais recente do buffer"""
+        """Obtém o frame mais recente"""
         with self.lock:
-            if self.frame_buffer:
-                return self.frame_buffer[-1]
+            if self.frames:
+                return self.frames[-1]
             return None
 
-    def get_all_frames(self):
-        """Obtém todos os frames do buffer e limpa"""
-        with self.lock:
-            frames = list(self.frame_buffer)
-            self.frame_buffer.clear()
-            return frames
+    def flush(self):
+        """Flush do buffer"""
+        pass
+
+    def readable(self):
+        return False
+
+    def writable(self):
+        return True
+
+    def seekable(self):
+        return False
 
 
 class CameraManager:
@@ -90,6 +122,7 @@ class CameraManager:
         self.bitrate = bitrate
         self.camera = None
         self.encoder = None
+        self.buffer = None
         self.output = None
         self.is_initialized = False
         self.is_recording = False
@@ -113,9 +146,16 @@ class CameraManager:
             # Cria instância da PiCamera2
             self.camera = Picamera2()
 
+            # Lista câmeras disponíveis
+            camera_info = self.camera.global_camera_info()
+            if not camera_info:
+                print("❌ Nenhuma câmera detectada!")
+                return False
+            print(f"  Câmera detectada: {camera_info[0].get('Model', 'Desconhecida')}")
+
             # Configuração para encoding de vídeo H.264
             config = self.camera.create_video_configuration(
-                main={"size": self.resolution, "format": "YUV420"},
+                main={"size": self.resolution},
                 buffer_count=4,
             )
 
@@ -139,12 +179,15 @@ class CameraManager:
                 iperiod=30,           # Keyframe a cada 30 frames
             )
 
-            # Cria output para capturar frames
-            self.output = StreamingOutput(buffer_size=5)
+            # Cria buffer circular
+            self.buffer = CircularBuffer(max_frames=10)
+
+            # Cria output que escreve no buffer
+            self.output = FileOutput(self.buffer)
 
             # Inicia câmera
             self.camera.start()
-            time.sleep(0.3)
+            time.sleep(0.5)
 
             # Inicia gravação com encoder H.264
             self.camera.start_encoder(self.encoder, self.output)
@@ -160,12 +203,21 @@ class CameraManager:
 
             return True
 
-        except Exception as e:
-            print(f"✗ Erro ao inicializar câmera: {e}")
+        except IndexError as e:
+            print(f"✗ Erro ao detectar câmera: {e}")
             print("\nVerifique:")
             print("1. Cabo da câmera conectado corretamente")
             print("2. Câmera habilitada: sudo raspi-config -> Interface Options -> Camera")
             print("3. Sistema reiniciado após habilitar")
+            print("4. Execute: libcamera-hello para testar")
+
+            self.is_initialized = False
+            return False
+
+        except Exception as e:
+            print(f"✗ Erro ao inicializar câmera: {e}")
+            import traceback
+            traceback.print_exc()
 
             self.is_initialized = False
             return False
@@ -177,11 +229,11 @@ class CameraManager:
         Returns:
             bytes: Frame H.264 codificado (NAL units), ou None se não disponível
         """
-        if not self.is_initialized or self.output is None:
+        if not self.is_initialized or self.buffer is None:
             return None
 
         try:
-            frame_info = self.output.get_frame()
+            frame_info = self.buffer.get_frame()
 
             if frame_info:
                 self.frames_captured += 1
@@ -202,11 +254,11 @@ class CameraManager:
         Returns:
             dict: {'data': bytes, 'keyframe': bool, 'timestamp': float, 'size': int}
         """
-        if not self.is_initialized or self.output is None:
+        if not self.is_initialized or self.buffer is None:
             return None
 
         try:
-            frame_info = self.output.get_frame()
+            frame_info = self.buffer.get_frame()
 
             if frame_info:
                 self.frames_captured += 1
@@ -258,16 +310,16 @@ class CameraManager:
             "encoder": "H.264 Hardware",
         }
 
-        # Estatísticas do output
-        if self.output:
-            stats["encoder_frames"] = self.output.frame_count
-            stats["encoder_bytes"] = self.output.total_bytes
+        # Estatísticas do buffer
+        if self.buffer:
+            stats["encoder_frames"] = self.buffer.frame_count
+            stats["encoder_bytes"] = self.buffer.total_bytes
 
             if self.start_time:
                 elapsed = time.time() - self.start_time
                 if elapsed > 0:
-                    stats["actual_bitrate"] = (self.output.total_bytes * 8) / elapsed
-                    stats["actual_fps"] = self.output.frame_count / elapsed
+                    stats["actual_bitrate"] = (self.buffer.total_bytes * 8) / elapsed
+                    stats["actual_fps"] = self.buffer.frame_count / elapsed
 
         return stats
 
@@ -299,6 +351,7 @@ class CameraManager:
             self.is_initialized = False
             self.camera = None
             self.encoder = None
+            self.buffer = None
             self.output = None
 
         except Exception as e:
