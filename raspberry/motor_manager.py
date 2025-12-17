@@ -119,6 +119,8 @@ class MotorManager:
         self.r_en_pin = r_en_pin or self.R_EN_PIN
         self.l_en_pin = l_en_pin or self.L_EN_PIN
 
+        # Lock para thread-safety (acesso concorrente por threads de comando e TX)
+        self.state_lock = threading.Lock()
 
         # Estado do motor
         self.is_initialized = False
@@ -427,29 +429,30 @@ class MotorManager:
         # Garante range válido
         throttle_percent = max(0.0, min(100.0, throttle_percent))
 
-        # CORREÇÃO: Salva último throttle para reaplicar após troca de marcha
-        self.last_throttle_percent = throttle_percent
+        with self.state_lock:
+            # CORREÇÃO: Salva último throttle para reaplicar após troca de marcha
+            self.last_throttle_percent = throttle_percent
 
-        # Define direção baseada no throttle
-        if throttle_percent > 0:
-            if self.motor_direction == MotorDirection.STOP:
-                self.motor_direction = MotorDirection.FORWARD
+            # Define direção baseada no throttle
+            if throttle_percent > 0:
+                if self.motor_direction == MotorDirection.STOP:
+                    self.motor_direction = MotorDirection.FORWARD
 
-            # PWM mínimo para motor se mexer (baseado nos testes)
-            min_motor_pwm = 15.0
-            if throttle_percent > 0 and throttle_percent < min_motor_pwm:
-                # Mapeia 1-100% para 15-100% (PWM útil)
-                self.target_pwm = min_motor_pwm + (throttle_percent / 100.0) * (100.0 - min_motor_pwm)
+                # PWM mínimo para motor se mexer (baseado nos testes)
+                min_motor_pwm = 15.0
+                if throttle_percent > 0 and throttle_percent < min_motor_pwm:
+                    # Mapeia 1-100% para 15-100% (PWM útil)
+                    self.target_pwm = min_motor_pwm + (throttle_percent / 100.0) * (100.0 - min_motor_pwm)
+                else:
+                    self.target_pwm = throttle_percent
             else:
                 self.target_pwm = throttle_percent
-        else:
-            self.target_pwm = throttle_percent
 
-        # Calcula PWM inteligente baseado na marcha e velocidade
-        intelligent_pwm = self._calculate_intelligent_pwm(throttle_percent)
+            # Calcula PWM inteligente baseado na marcha e velocidade
+            intelligent_pwm = self._calculate_intelligent_pwm(throttle_percent)
 
-        # Define target PWM para a thread aplicar gradualmente
-        self.target_pwm = intelligent_pwm
+            # Define target PWM para a thread aplicar gradualmente
+            self.target_pwm = intelligent_pwm
 
         # Debug temporário para verificar comandos
         print(f"🚗 THROTTLE: {throttle_percent}% → PWM target: {intelligent_pwm:.1f}% (marcha: {self.current_gear}ª)")
@@ -732,29 +735,31 @@ class MotorManager:
     def shift_gear_up(self) -> bool:
         """
         Sobe uma marcha (controle manual via teclado)
-        
+
         Returns:
             bool: True se a troca foi bem-sucedida
         """
-        if self.current_gear >= 5:
-            return False  # Já está na marcha máxima
-            
-        new_gear = self.current_gear + 1
+        with self.state_lock:
+            if self.current_gear >= 5:
+                return False  # Já está na marcha máxima
+            new_gear = self.current_gear + 1
+
         # Troca manual - sem alterar modo de transmissão
         self._shift_gear(new_gear)
         return True
-        
+
     def shift_gear_down(self) -> bool:
         """
         Desce uma marcha (controle manual via teclado)
-        
+
         Returns:
             bool: True se a troca foi bem-sucedida
         """
-        if self.current_gear <= 1:
-            return False  # Já está na marcha mínima
-            
-        new_gear = self.current_gear - 1
+        with self.state_lock:
+            if self.current_gear <= 1:
+                return False  # Já está na marcha mínima
+            new_gear = self.current_gear - 1
+
         # Troca manual - sem alterar modo de transmissão
         self._shift_gear(new_gear)
         return True
@@ -767,39 +772,40 @@ class MotorManager:
         Returns:
             dict: Status atual do motor e transmissão
         """
-        return {
-            # === MOTOR ===
-            "motor_direction": self.motor_direction.value,
-            "current_pwm": round(self.current_pwm, 1),
-            "target_pwm": round(self.target_pwm, 1),
-            # === TRANSMISSÃO ===
-            "current_gear": self.current_gear,
-            "gear_ratio": self.gear_ratio,
-            "transmission_mode": "manual",
-            "clutch_engaged": self.clutch_engaged,
-            "is_shifting": self.is_shifting,
-            # === CONTA-GIROS ===
-            "rpm_display": round(self._calculate_efficiency_zone_percentage(self.current_pwm), 0),
-            "max_rpm": self.MOTOR_MAX_RPM,
-            "idle_rpm": self.MOTOR_IDLE_RPM,
-            "rpm_percent": round(self._calculate_efficiency_zone_percentage(self.current_pwm), 1),
-            # === STATUS TÉCNICO ===
-            "is_initialized": self.is_initialized,
-            "motor_temperature": round(25 + (self.current_pwm * 0.6), 1),  # Simulado
-            "motor_current": round(0.5 + (self.current_pwm * 0.1), 2),  # Simulado
-            # === HARDWARE ===
-            "rpwm_pin": self.rpwm_pin,
-            "lpwm_pin": self.lpwm_pin,
-            "pwm_frequency": self.PWM_FREQUENCY,
-            "gpio_available": GPIO_AVAILABLE,
-            # === ESTATÍSTICAS ===
-            "gear_changes": self.gear_changes,
-            "total_runtime": round(self.total_runtime, 1),
-            "total_distance": round(self.total_distance, 3),
-            "engine_starts": self.engine_starts,
-            # === TIMESTAMP ===
-            "timestamp": round(time.time(), 3),
-        }
+        with self.state_lock:
+            return {
+                # === MOTOR ===
+                "motor_direction": self.motor_direction.value,
+                "current_pwm": round(self.current_pwm, 1),
+                "target_pwm": round(self.target_pwm, 1),
+                # === TRANSMISSÃO ===
+                "current_gear": self.current_gear,
+                "gear_ratio": self.gear_ratio,
+                "transmission_mode": "manual",
+                "clutch_engaged": self.clutch_engaged,
+                "is_shifting": self.is_shifting,
+                # === CONTA-GIROS ===
+                "rpm_display": round(self._calculate_efficiency_zone_percentage(self.current_pwm), 0),
+                "max_rpm": self.MOTOR_MAX_RPM,
+                "idle_rpm": self.MOTOR_IDLE_RPM,
+                "rpm_percent": round(self._calculate_efficiency_zone_percentage(self.current_pwm), 1),
+                # === STATUS TÉCNICO ===
+                "is_initialized": self.is_initialized,
+                "motor_temperature": round(25 + (self.current_pwm * 0.6), 1),  # Simulado
+                "motor_current": round(0.5 + (self.current_pwm * 0.1), 2),  # Simulado
+                # === HARDWARE ===
+                "rpwm_pin": self.rpwm_pin,
+                "lpwm_pin": self.lpwm_pin,
+                "pwm_frequency": self.PWM_FREQUENCY,
+                "gpio_available": GPIO_AVAILABLE,
+                # === ESTATÍSTICAS ===
+                "gear_changes": self.gear_changes,
+                "total_runtime": round(self.total_runtime, 1),
+                "total_distance": round(self.total_distance, 3),
+                "engine_starts": self.engine_starts,
+                # === TIMESTAMP ===
+                "timestamp": round(time.time(), 3),
+            }
 
     def get_tachometer_data(self) -> Dict[str, Any]:
         """

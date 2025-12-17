@@ -58,6 +58,7 @@ FILTROS DE SOFTWARE (este módulo):
 """
 
 import time
+import threading
 from typing import Dict, Any, Optional, List
 from collections import deque
 from statistics import median
@@ -129,6 +130,9 @@ class PowerMonitorManager:
 
         self.ads1115_address = ads1115_address or self.ADS1115_ADDRESS
         self.ina219_address = ina219_address or self.INA219_ADDRESS
+
+        # Lock para thread-safety (acesso concorrente por threads de energia e TX)
+        self.state_lock = threading.Lock()
 
         # Barramento I2C
         self.i2c_bus = None
@@ -660,67 +664,68 @@ class PowerMonitorManager:
         Returns:
             dict: Dados de energia do sistema
         """
-        # Calcula médias dos buffers
-        avg_current_rpi = (
-            sum(self.buffer_current_rpi) / len(self.buffer_current_rpi)
-            if self.buffer_current_rpi else self.current_rpi
-        )
-        avg_current_servos = (
-            sum(self.buffer_current_servos) / len(self.buffer_current_servos)
-            if self.buffer_current_servos else self.current_servos
-        )
-        avg_current_motor = (
-            sum(self.buffer_current_motor) / len(self.buffer_current_motor)
-            if self.buffer_current_motor else self.current_motor
-        )
-        avg_voltage_rpi = (
-            sum(self.buffer_voltage_rpi) / len(self.buffer_voltage_rpi)
-            if self.buffer_voltage_rpi else self.voltage_rpi
-        )
+        with self.state_lock:
+            # Calcula médias dos buffers
+            avg_current_rpi = (
+                sum(self.buffer_current_rpi) / len(self.buffer_current_rpi)
+                if self.buffer_current_rpi else self.current_rpi
+            )
+            avg_current_servos = (
+                sum(self.buffer_current_servos) / len(self.buffer_current_servos)
+                if self.buffer_current_servos else self.current_servos
+            )
+            avg_current_motor = (
+                sum(self.buffer_current_motor) / len(self.buffer_current_motor)
+                if self.buffer_current_motor else self.current_motor
+            )
+            avg_voltage_rpi = (
+                sum(self.buffer_voltage_rpi) / len(self.buffer_voltage_rpi)
+                if self.buffer_voltage_rpi else self.voltage_rpi
+            )
 
-        # Calcula potências
-        power_motor = abs(self.current_motor) * 11.1  # Bateria 11.1V
-        power_servos = abs(self.current_servos) * 5.25  # UBEC 5.25V
-        power_total = power_motor + power_servos + self.power_rpi
+            # Calcula potências
+            power_motor = abs(self.current_motor) * 11.1  # Bateria 11.1V
+            power_servos = abs(self.current_servos) * 5.25  # UBEC 5.25V
+            power_total = power_motor + power_servos + self.power_rpi
 
-        return {
-            # Correntes instantâneas (A)
-            "current_rpi": round(self.current_rpi, 3),
-            "current_servos": round(self.current_servos, 3),
-            "current_motor": round(self.current_motor, 3),
+            return {
+                # Correntes instantâneas (A)
+                "current_rpi": round(self.current_rpi, 3),
+                "current_servos": round(self.current_servos, 3),
+                "current_motor": round(self.current_motor, 3),
 
-            # Correntes médias (A)
-            "current_rpi_avg": round(avg_current_rpi, 3),
-            "current_servos_avg": round(avg_current_servos, 3),
-            "current_motor_avg": round(avg_current_motor, 3),
+                # Correntes médias (A)
+                "current_rpi_avg": round(avg_current_rpi, 3),
+                "current_servos_avg": round(avg_current_servos, 3),
+                "current_motor_avg": round(avg_current_motor, 3),
 
-            # Tensão RPi (V)
-            "voltage_rpi": round(self.voltage_rpi, 3),
-            "voltage_rpi_avg": round(avg_voltage_rpi, 3),
+                # Tensão RPi (V)
+                "voltage_rpi": round(self.voltage_rpi, 3),
+                "voltage_rpi_avg": round(avg_voltage_rpi, 3),
 
-            # INA219 direto
-            "current_rpi_ina219": round(self.current_rpi_ina, 3),
-            "power_rpi": round(self.power_rpi, 3),
+                # INA219 direto
+                "current_rpi_ina219": round(self.current_rpi_ina, 3),
+                "power_rpi": round(self.power_rpi, 3),
 
-            # Potências calculadas (W)
-            "power_motor": round(power_motor, 2),
-            "power_servos": round(power_servos, 2),
-            "power_total": round(power_total, 2),
+                # Potências calculadas (W)
+                "power_motor": round(power_motor, 2),
+                "power_servos": round(power_servos, 2),
+                "power_total": round(power_total, 2),
 
-            # Valores raw do ADC
-            "raw_rpi": self.raw_rpi,
-            "raw_servos": self.raw_servos,
-            "raw_motor": self.raw_motor,
+                # Valores raw do ADC
+                "raw_rpi": self.raw_rpi,
+                "raw_servos": self.raw_servos,
+                "raw_motor": self.raw_motor,
 
-            # Status
-            "ads1115_available": self.ads1115_available,
-            "ina219_available": self.ina219_available,
+                # Status
+                "ads1115_available": self.ads1115_available,
+                "ina219_available": self.ina219_available,
 
-            # Metadados
-            "power_readings_count": self.readings_count,
-            "power_errors_count": self.errors_count,
-            "timestamp": round(time.time(), 3),
-        }
+                # Metadados
+                "power_readings_count": self.readings_count,
+                "power_errors_count": self.errors_count,
+                "timestamp": round(time.time(), 3),
+            }
 
     def get_power_status(self) -> Dict[str, Any]:
         """

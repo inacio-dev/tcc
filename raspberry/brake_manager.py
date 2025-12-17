@@ -56,6 +56,7 @@ sudo pip3 install adafruit-circuitpython-pca9685
 """
 
 import time
+import threading
 
 try:
     import board
@@ -120,6 +121,9 @@ class BrakeManager:
         self.front_channel = front_channel or self.FRONT_BRAKE_CHANNEL
         self.rear_channel = rear_channel or self.REAR_BRAKE_CHANNEL
         self.pca9685_address = pca9685_address or self.PCA9685_I2C_ADDRESS
+
+        # Lock para thread-safety (acesso concorrente por threads de comando e TX)
+        self.state_lock = threading.Lock()
 
         # Configurações de freio
         self.brake_balance = max(0.0, min(100.0, brake_balance))  # 0-100%
@@ -232,15 +236,16 @@ class BrakeManager:
         Args:
             balance (float): Balanço 0-100% (0=mais dianteiro, 100=mais traseiro)
         """
-        old_balance = self.brake_balance
-        self.brake_balance = max(0.0, min(100.0, balance))
+        with self.state_lock:
+            old_balance = self.brake_balance
+            self.brake_balance = max(0.0, min(100.0, balance))
 
-        if abs(self.brake_balance - old_balance) > 0.1:
-            print(f"Balanço de freio alterado: {self.brake_balance:.1f}%")
+            if abs(self.brake_balance - old_balance) > 0.1:
+                print(f"Balanço de freio alterado: {self.brake_balance:.1f}%")
 
-            # Recalcula distribuição se freios estão aplicados
-            if self.total_brake_input > 0:
-                self._calculate_brake_distribution(self.total_brake_input)
+                # Recalcula distribuição se freios estão aplicados
+                if self.total_brake_input > 0:
+                    self._calculate_brake_distribution(self.total_brake_input)
 
     def apply_brake(self, brake_input: float):
         """
@@ -257,25 +262,27 @@ class BrakeManager:
 
         # Garante que o input está no range válido
         brake_input = max(0.0, min(100.0, brake_input))
-        self.total_brake_input = brake_input
 
-        # Calcula distribuição entre dianteiro e traseiro
-        self._calculate_brake_distribution(brake_input)
+        with self.state_lock:
+            self.total_brake_input = brake_input
 
-        # Atualiza estatísticas
-        if brake_input > 0:
-            current_time = time.time()
-            if self.last_brake_time == 0:
-                self.brake_applications += 1
-            self.last_brake_time = current_time
+            # Calcula distribuição entre dianteiro e traseiro
+            self._calculate_brake_distribution(brake_input)
 
-        # Debug
-        if brake_input > 10:  # Log apenas freadas significativas
-            print(
-                f"🔧 Freio aplicado: {brake_input:.1f}% "
-                f"(Diant: {self.front_brake_force:.1f}%, "
-                f"Tras: {self.rear_brake_force:.1f}%)"
-            )
+            # Atualiza estatísticas
+            if brake_input > 0:
+                current_time = time.time()
+                if self.last_brake_time == 0:
+                    self.brake_applications += 1
+                self.last_brake_time = current_time
+
+            # Debug
+            if brake_input > 10:  # Log apenas freadas significativas
+                print(
+                    f"🔧 Freio aplicado: {brake_input:.1f}% "
+                    f"(Diant: {self.front_brake_force:.1f}%, "
+                    f"Tras: {self.rear_brake_force:.1f}%)"
+                )
 
     def _calculate_brake_distribution(self, total_input: float):
         """
@@ -380,33 +387,34 @@ class BrakeManager:
         Returns:
             dict: Status atual dos freios
         """
-        return {
-            # === CONFIGURAÇÃO ===
-            "brake_balance": round(self.brake_balance, 1),
-            "max_brake_force": round(self.max_brake_force, 1),
-            "response_time": round(self.response_time, 3),
-            # === ESTADO ATUAL ===
-            "total_brake_input": round(self.total_brake_input, 1),
-            "front_brake_force": round(self.front_brake_force, 1),
-            "rear_brake_force": round(self.rear_brake_force, 1),
-            # === ÂNGULOS DOS SERVOS ===
-            "front_brake_angle": round(self.front_brake_angle, 1),
-            "rear_brake_angle": round(self.rear_brake_angle, 1),
-            # === STATUS TÉCNICO ===
-            "is_initialized": self.is_initialized,
-            # === ESTATÍSTICAS ===
-            "brake_applications": self.brake_applications,
-            "total_brake_time": round(self.total_brake_time, 2),
-            "is_braking": self.total_brake_input > 0,
-            # === HARDWARE ===
-            "front_channel": self.front_channel,
-            "rear_channel": self.rear_channel,
-            "pca9685_address": f"0x{self.pca9685_address:02X}",
-            "pwm_frequency": self.PWM_FREQUENCY,
-            "pca9685_available": PCA9685_AVAILABLE,
-            # === TIMESTAMP ===
-            "timestamp": round(time.time(), 3),
-        }
+        with self.state_lock:
+            return {
+                # === CONFIGURAÇÃO ===
+                "brake_balance": round(self.brake_balance, 1),
+                "max_brake_force": round(self.max_brake_force, 1),
+                "response_time": round(self.response_time, 3),
+                # === ESTADO ATUAL ===
+                "total_brake_input": round(self.total_brake_input, 1),
+                "front_brake_force": round(self.front_brake_force, 1),
+                "rear_brake_force": round(self.rear_brake_force, 1),
+                # === ÂNGULOS DOS SERVOS ===
+                "front_brake_angle": round(self.front_brake_angle, 1),
+                "rear_brake_angle": round(self.rear_brake_angle, 1),
+                # === STATUS TÉCNICO ===
+                "is_initialized": self.is_initialized,
+                # === ESTATÍSTICAS ===
+                "brake_applications": self.brake_applications,
+                "total_brake_time": round(self.total_brake_time, 2),
+                "is_braking": self.total_brake_input > 0,
+                # === HARDWARE ===
+                "front_channel": self.front_channel,
+                "rear_channel": self.rear_channel,
+                "pca9685_address": f"0x{self.pca9685_address:02X}",
+                "pwm_frequency": self.PWM_FREQUENCY,
+                "pca9685_available": PCA9685_AVAILABLE,
+                # === TIMESTAMP ===
+                "timestamp": round(time.time(), 3),
+            }
 
     def get_statistics(self) -> dict:
         """

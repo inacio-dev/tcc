@@ -47,6 +47,7 @@ sudo pip3 install adafruit-circuitpython-pca9685
 """
 
 import time
+import threading
 from enum import Enum
 from typing import Any, Dict
 
@@ -123,6 +124,9 @@ class SteeringManager:
         """
         self.steering_channel = steering_channel or self.STEERING_CHANNEL
         self.pca9685_address = pca9685_address or self.PCA9685_I2C_ADDRESS
+
+        # Lock para thread-safety (acesso concorrente por threads de comando e TX)
+        self.state_lock = threading.Lock()
 
         # Configurações
         self.steering_sensitivity = max(0.5, min(2.0, steering_sensitivity))
@@ -234,46 +238,46 @@ class SteeringManager:
 
         print(f"🏎️ DIREÇÃO: {steering_input:.1f}% recebido")
 
-
         # Garante range válido
         steering_input = max(-100.0, min(100.0, steering_input))
-        self.steering_input = steering_input
 
-        # MOVIMENTO DIRETO - converte entrada (-100% a +100%) para ângulo (-56.7° a +56.7°)
-        target_angle = (steering_input / 100.0) * self.max_steering_angle
+        with self.state_lock:
+            self.steering_input = steering_input
 
+            # MOVIMENTO DIRETO - converte entrada (-100% a +100%) para ângulo (-56.7° a +56.7°)
+            target_angle = (steering_input / 100.0) * self.max_steering_angle
 
-        self.target_angle = target_angle
+            self.target_angle = target_angle
 
-        # MOVIMENTO DIRETO - igual aos testes funcionais
-        self.current_angle = target_angle
-        self.servo_angle = self.STEERING_CENTER + self.current_angle
+            # MOVIMENTO DIRETO - igual aos testes funcionais
+            self.current_angle = target_angle
+            self.servo_angle = self.STEERING_CENTER + self.current_angle
 
-        # Aplica movimento DIRETO ao servo
-        if self.steering_servo:
-            # Limita ângulo ao range válido do servo (0° a 113.4°)
-            final_angle = max(
-                self.STEERING_MIN_ANGLE,
-                min(self.STEERING_MAX_ANGLE, self.servo_angle),
+            # Aplica movimento DIRETO ao servo
+            if self.steering_servo:
+                # Limita ângulo ao range válido do servo (0° a 113.4°)
+                final_angle = max(
+                    self.STEERING_MIN_ANGLE,
+                    min(self.STEERING_MAX_ANGLE, self.servo_angle),
+                )
+
+                # COMANDO DIRETO - igual ao test_steering_direto_simples.py
+                self.steering_servo.angle = final_angle
+
+                print(f"🎯 Target: {target_angle:.1f}° → Servo: {final_angle:.1f}° (input: {steering_input:.1f}%)")
+            else:
+                print(f"⚠️ Servo não inicializado!")
+
+            print(
+                f"🎯 Target angle definido: {target_angle:.1f}° (input: {steering_input:.1f}%)"
             )
 
-            # COMANDO DIRETO - igual ao test_steering_direto_simples.py
-            self.steering_servo.angle = final_angle
-
-            print(f"🎯 Target: {target_angle:.1f}° → Servo: {final_angle:.1f}° (input: {steering_input:.1f}%)")
-        else:
-            print(f"⚠️ Servo não inicializado!")
-
-        print(
-            f"🎯 Target angle definido: {target_angle:.1f}° (input: {steering_input:.1f}%)"
-        )
-
-        # Atualiza estatísticas
-        if abs(steering_input) > 5:  # Movimento significativo
-            self.total_steering_movements += 1
-            self.total_steering_angle += abs(target_angle)
-            self.max_angle_reached = max(self.max_angle_reached, abs(target_angle))
-            self.last_movement_time = time.time()
+            # Atualiza estatísticas
+            if abs(steering_input) > 5:  # Movimento significativo
+                self.total_steering_movements += 1
+                self.total_steering_angle += abs(target_angle)
+                self.max_angle_reached = max(self.max_angle_reached, abs(target_angle))
+                self.last_movement_time = time.time()
 
         # Debug para movimentos grandes
         if abs(steering_input) > 20:
@@ -326,39 +330,40 @@ class SteeringManager:
         Returns:
             dict: Status atual da direção
         """
-        return {
-            # === CONFIGURAÇÃO ===
-            "steering_mode": self.steering_mode.value,
-            "steering_sensitivity": round(self.steering_sensitivity, 2),
-            "max_steering_angle": round(self.max_steering_angle, 1),
-            "response_time": round(self.response_time, 3),
-            # === ESTADO ATUAL ===
-            "steering_input": round(self.steering_input, 1),
-            "current_angle": round(self.current_angle, 1),
-            "target_angle": round(self.target_angle, 1),
-            "servo_angle": round(self.servo_angle, 1),
-            # === ÂNGULOS EM DIFERENTES FORMATOS ===
-            "angle_degrees": round(self.current_angle, 1),
-            "angle_percent": round(
-                (self.current_angle / self.max_steering_angle) * 100, 1
-            ),
-            "steering_left": self.current_angle < -2.0,
-            "steering_right": self.current_angle > 2.0,
-            "steering_center": abs(self.current_angle) <= 2.0,
-            # === STATUS TÉCNICO ===
-            "is_initialized": self.is_initialized,
-            # === ESTATÍSTICAS ===
-            "total_movements": self.total_steering_movements,
-            "max_angle_reached": round(self.max_angle_reached, 1),
-            "last_movement_time": self.last_movement_time,
-            # === HARDWARE ===
-            "steering_channel": self.steering_channel,
-            "pca9685_address": f"0x{self.pca9685_address:02X}",
-            "pwm_frequency": self.PWM_FREQUENCY,
-            "pca9685_available": PCA9685_AVAILABLE,
-            # === TIMESTAMP ===
-            "timestamp": round(time.time(), 3),
-        }
+        with self.state_lock:
+            return {
+                # === CONFIGURAÇÃO ===
+                "steering_mode": self.steering_mode.value,
+                "steering_sensitivity": round(self.steering_sensitivity, 2),
+                "max_steering_angle": round(self.max_steering_angle, 1),
+                "response_time": round(self.response_time, 3),
+                # === ESTADO ATUAL ===
+                "steering_input": round(self.steering_input, 1),
+                "current_angle": round(self.current_angle, 1),
+                "target_angle": round(self.target_angle, 1),
+                "servo_angle": round(self.servo_angle, 1),
+                # === ÂNGULOS EM DIFERENTES FORMATOS ===
+                "angle_degrees": round(self.current_angle, 1),
+                "angle_percent": round(
+                    (self.current_angle / self.max_steering_angle) * 100, 1
+                ),
+                "steering_left": self.current_angle < -2.0,
+                "steering_right": self.current_angle > 2.0,
+                "steering_center": abs(self.current_angle) <= 2.0,
+                # === STATUS TÉCNICO ===
+                "is_initialized": self.is_initialized,
+                # === ESTATÍSTICAS ===
+                "total_movements": self.total_steering_movements,
+                "max_angle_reached": round(self.max_angle_reached, 1),
+                "last_movement_time": self.last_movement_time,
+                # === HARDWARE ===
+                "steering_channel": self.steering_channel,
+                "pca9685_address": f"0x{self.pca9685_address:02X}",
+                "pwm_frequency": self.PWM_FREQUENCY,
+                "pca9685_available": PCA9685_AVAILABLE,
+                # === TIMESTAMP ===
+                "timestamp": round(time.time(), 3),
+            }
 
     def get_wheel_angles(self) -> Dict[str, float]:
         """

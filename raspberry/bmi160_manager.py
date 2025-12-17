@@ -25,7 +25,7 @@ REGISTRADORES IMPORTANTES (conforme datasheet):
 """
 
 import time
-
+import threading
 
 
 class BMI160Manager:
@@ -124,6 +124,9 @@ class BMI160Manager:
         )
 
         self.sample_rate = sample_rate
+
+        # Lock para thread-safety (acesso concorrente por threads de sensores e TX)
+        self.state_lock = threading.Lock()
 
         # Mapear sample_rate para ODR
         self.odr_value = self._get_odr_value(sample_rate)
@@ -476,31 +479,33 @@ class BMI160Manager:
             # CONVERSÃO CONFORME DATASHEET:
             # Dados em complemento de 2, LSB primeiro
 
-            # Hardware real - converte dados I2C
-            self.accel_x_raw = self._bytes_to_int16(accel_data[0], accel_data[1])
-            self.accel_y_raw = self._bytes_to_int16(accel_data[2], accel_data[3])
-            self.accel_z_raw = self._bytes_to_int16(accel_data[4], accel_data[5])
+            with self.state_lock:
+                # Hardware real - converte dados I2C
+                self.accel_x_raw = self._bytes_to_int16(accel_data[0], accel_data[1])
+                self.accel_y_raw = self._bytes_to_int16(accel_data[2], accel_data[3])
+                self.accel_z_raw = self._bytes_to_int16(accel_data[4], accel_data[5])
 
-            self.gyro_x_raw = self._bytes_to_int16(gyro_data[0], gyro_data[1])
-            self.gyro_y_raw = self._bytes_to_int16(gyro_data[2], gyro_data[3])
-            self.gyro_z_raw = self._bytes_to_int16(gyro_data[4], gyro_data[5])
+                self.gyro_x_raw = self._bytes_to_int16(gyro_data[0], gyro_data[1])
+                self.gyro_y_raw = self._bytes_to_int16(gyro_data[2], gyro_data[3])
+                self.gyro_z_raw = self._bytes_to_int16(gyro_data[4], gyro_data[5])
 
-            # Converter para unidades físicas usando fatores de escala
-            self.accel_x = (
-                self.accel_x_raw * self.accel_scale - self.accel_x_offset
-            ) * 9.81  # m/s²
-            self.accel_y = (
-                self.accel_y_raw * self.accel_scale - self.accel_y_offset
-            ) * 9.81
-            self.accel_z = (
-                self.accel_z_raw * self.accel_scale - self.accel_z_offset
-            ) * 9.81
+                # Converter para unidades físicas usando fatores de escala
+                self.accel_x = (
+                    self.accel_x_raw * self.accel_scale - self.accel_x_offset
+                ) * 9.81  # m/s²
+                self.accel_y = (
+                    self.accel_y_raw * self.accel_scale - self.accel_y_offset
+                ) * 9.81
+                self.accel_z = (
+                    self.accel_z_raw * self.accel_scale - self.accel_z_offset
+                ) * 9.81
 
-            self.gyro_x = self.gyro_x_raw * self.gyro_scale - self.gyro_x_offset  # °/s
-            self.gyro_y = self.gyro_y_raw * self.gyro_scale - self.gyro_y_offset
-            self.gyro_z = self.gyro_z_raw * self.gyro_scale - self.gyro_z_offset
+                self.gyro_x = self.gyro_x_raw * self.gyro_scale - self.gyro_x_offset  # °/s
+                self.gyro_y = self.gyro_y_raw * self.gyro_scale - self.gyro_y_offset
+                self.gyro_z = self.gyro_z_raw * self.gyro_scale - self.gyro_z_offset
 
-            self.readings_count += 1
+                self.readings_count += 1
+
             return True
 
         except Exception as e:
@@ -536,32 +541,33 @@ class BMI160Manager:
         Returns:
             dict: Dados RAW do BMI160 apenas
         """
-        return {
-            # === DADOS RAW DO BMI160 (LSB) ===
-            "bmi160_accel_x_raw": self.accel_x_raw,
-            "bmi160_accel_y_raw": self.accel_y_raw,
-            "bmi160_accel_z_raw": self.accel_z_raw,
-            "bmi160_gyro_x_raw": self.gyro_x_raw,
-            "bmi160_gyro_y_raw": self.gyro_y_raw,
-            "bmi160_gyro_z_raw": self.gyro_z_raw,
-            # === DADOS CONVERTIDOS (UNIDADES FÍSICAS) ===
-            "bmi160_accel_x": round(self.accel_x, 3),  # m/s²
-            "bmi160_accel_y": round(self.accel_y, 3),
-            "bmi160_accel_z": round(self.accel_z, 3),
-            "bmi160_gyro_x": round(self.gyro_x, 3),  # °/s
-            "bmi160_gyro_y": round(self.gyro_y, 3),
-            "bmi160_gyro_z": round(self.gyro_z, 3),
-            # === CONFIGURAÇÕES DO SENSOR ===
-            "accel_range_g": self._get_accel_range_g(),
-            "gyro_range_dps": self._get_gyro_range_dps(),
-            "accel_scale_factor": self.accel_scale,
-            "gyro_scale_factor": self.gyro_scale,
-            # === METADADOS ===
-            "timestamp": round(time.time(), 3),
-            "readings_count": self.readings_count,
-            "sample_rate": self.sample_rate,
-            "is_initialized": self.is_initialized,
-        }
+        with self.state_lock:
+            return {
+                # === DADOS RAW DO BMI160 (LSB) ===
+                "bmi160_accel_x_raw": self.accel_x_raw,
+                "bmi160_accel_y_raw": self.accel_y_raw,
+                "bmi160_accel_z_raw": self.accel_z_raw,
+                "bmi160_gyro_x_raw": self.gyro_x_raw,
+                "bmi160_gyro_y_raw": self.gyro_y_raw,
+                "bmi160_gyro_z_raw": self.gyro_z_raw,
+                # === DADOS CONVERTIDOS (UNIDADES FÍSICAS) ===
+                "bmi160_accel_x": round(self.accel_x, 3),  # m/s²
+                "bmi160_accel_y": round(self.accel_y, 3),
+                "bmi160_accel_z": round(self.accel_z, 3),
+                "bmi160_gyro_x": round(self.gyro_x, 3),  # °/s
+                "bmi160_gyro_y": round(self.gyro_y, 3),
+                "bmi160_gyro_z": round(self.gyro_z, 3),
+                # === CONFIGURAÇÕES DO SENSOR ===
+                "accel_range_g": self._get_accel_range_g(),
+                "gyro_range_dps": self._get_gyro_range_dps(),
+                "accel_scale_factor": self.accel_scale,
+                "gyro_scale_factor": self.gyro_scale,
+                # === METADADOS ===
+                "timestamp": round(time.time(), 3),
+                "readings_count": self.readings_count,
+                "sample_rate": self.sample_rate,
+                "is_initialized": self.is_initialized,
+            }
 
     def get_statistics(self):
         """
