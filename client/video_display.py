@@ -345,21 +345,15 @@ class VideoDisplay:
     def process_video_queue(self):
         """Processa frames da fila de vídeo (H.264 ou JPEG)"""
         try:
-            frames_processed = 0
+            # Para H.264, TODOS os frames precisam ser decodificados em sequência
+            # (P-frames dependem dos anteriores), mas só exibimos o último
             latest_frame = None
-            total_queue_size = (
-                self.video_queue.qsize() if hasattr(self.video_queue, "qsize") else 0
-            )
+            frames_decoded = 0
+            max_frames = 10  # Limita para não travar se fila acumular muito
 
-            max_frames_to_process = 15 if total_queue_size > 5 else 3
-
-            while (
-                not self.video_queue.empty()
-                and self.is_running
-                and frames_processed < max_frames_to_process
-            ):
+            while not self.video_queue.empty() and frames_decoded < max_frames:
                 frame_data = self.video_queue.get_nowait()
-                frames_processed += 1
+                frames_decoded += 1
 
                 if frame_data is None:
                     continue
@@ -369,17 +363,13 @@ class VideoDisplay:
                 else:
                     frame = frame_data
 
+                # Mantém sempre o frame mais recente decodificado com sucesso
                 if frame is not None:
                     latest_frame = frame
 
+            # Exibe apenas o frame mais recente
             if latest_frame is not None:
                 self.display_frame(latest_frame)
-
-                if frames_processed > 5:
-                    self._log(
-                        "DEBUG",
-                        f"Processados {frames_processed} frames (fila: {total_queue_size})",
-                    )
 
         except Exception as e:
             self._log("ERROR", f"Erro ao processar fila de vídeo: {e}")

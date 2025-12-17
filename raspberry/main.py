@@ -369,9 +369,6 @@ class F1CarCompleteSystem:
                     frame_data = self.camera_mgr.capture_frame()
                     if frame_data:
                         self.frames_processed += 1
-                        # Log de debug a cada 30 frames (~1s)
-                        if self.frames_processed % 30 == 1:
-                            debug(f"Frame capturado #{self.frames_processed}: {len(frame_data)} bytes", "CAMERA")
 
                 # Atualiza sensores
                 sensor_data = {}
@@ -451,14 +448,11 @@ class F1CarCompleteSystem:
                             rate_limit=5.0,
                         )
 
-                    # Log da transmissão a cada 120 loops (debug)
-                    if loop_count % 120 == 0:  # ~1s @ 120Hz
-                        sensor_count = len(sensor_data) if sensor_data else 0
-                        frame_size = len(frame_data) if frame_data else 0
-                        debug(
-                            f"TX: frame={frame_size}bytes, sensors={sensor_count} campos, frames_total={self.frames_processed}",
-                            "NET",
-                        )
+                    # Log da transmissão a cada 120 loops (debug) - desabilitado
+                    # if loop_count % 120 == 0:
+                    #     sensor_count = len(sensor_data) if sensor_data else 0
+                    #     frame_size = len(frame_data) if frame_data else 0
+                    #     debug(f"TX: frame={frame_size}bytes, sensors={sensor_count} campos", "NET")
 
                 # === CONTROLE MANUAL APENAS ===
 

@@ -139,21 +139,29 @@ class SensorDisplay:
             bool: True se dados são válidos
         """
         try:
-            # Campos obrigatórios
-            required_fields = [
+            # BMI160 é opcional - só valida se os dados estiverem presentes
+            bmi160_fields = [
                 "bmi160_accel_x",
                 "bmi160_accel_y",
                 "bmi160_accel_z",
                 "bmi160_gyro_x",
                 "bmi160_gyro_y",
                 "bmi160_gyro_z",
-                "timestamp",
             ]
 
-            for field in required_fields:
-                if field not in data:
-                    self._log("WARNING", f"Campo obrigatório ausente: {field}")
-                    return False
+            # Verifica se BMI160 está disponível
+            has_bmi160 = any(field in data for field in bmi160_fields)
+
+            # Se não tem BMI160, retorna True mas não processa (dados parciais OK)
+            if not has_bmi160:
+                # Log apenas uma vez a cada 30 segundos
+                if not hasattr(self, '_last_bmi160_warning'):
+                    self._last_bmi160_warning = 0
+                current_time = time.time()
+                if current_time - self._last_bmi160_warning > 30:
+                    self._log("INFO", "BMI160 não disponível - usando dados parciais")
+                    self._last_bmi160_warning = current_time
+                return True  # Aceita dados mesmo sem BMI160
 
             # Validação de ranges
             accel_range = 20.0  # ±20 m/s² (máximo razoável)
@@ -451,8 +459,7 @@ class SensorDisplay:
 
                 if self.process_sensor_data(sensor_data):
                     processed += 1
-                else:
-                    self._log("WARNING", "Falha ao processar dados dos sensores")
+                # Não loga falha - dados parciais são aceitos
 
             except Exception as e:
                 self._log("ERROR", f"Erro ao processar fila de sensores: {e}")
