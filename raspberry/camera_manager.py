@@ -49,6 +49,13 @@ class CircularBuffer(io.BufferedIOBase):
 
     def write(self, data):
         """Recebe dados do encoder"""
+        # Debug: log a cada 100 writes
+        if not hasattr(self, '_write_count'):
+            self._write_count = 0
+        self._write_count += 1
+        if self._write_count % 100 == 1:
+            print(f"[BUFFER] write #{self._write_count}: {len(data)} bytes, frames no buffer: {len(self.frames)}")
+
         with self.lock:
             # Detecta início de novo frame (NAL unit start code)
             if data[:4] == b'\x00\x00\x00\x01' or data[:3] == b'\x00\x00\x01':
