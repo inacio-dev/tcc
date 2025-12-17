@@ -1,0 +1,46 @@
+# ============================================================================
+# RASPBERRY PI REQUIREMENTS - F1 Remote Car Project
+# ============================================================================
+# Instale com: pip install -r requirements.txt
+#
+# PRE-REQUISITOS (Raspberry Pi OS):
+#   sudo apt-get update
+#   sudo apt-get install python3-libcamera python3-picamera2 python3-opencv
+#   sudo raspi-config  # Habilitar Camera e I2C
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# CAMERA
+# ----------------------------------------------------------------------------
+# picamera2 - usar versao do sistema (python3-picamera2)
+# Encoder H.264 de hardware incluido
+
+# ----------------------------------------------------------------------------
+# SERVOS E PWM (PCA9685)
+# ----------------------------------------------------------------------------
+# Driver PCA9685 para controle de servos
+adafruit-circuitpython-pca9685
+
+# Base CircuitPython para Raspberry Pi
+adafruit-blinka
+
+# Bibliotecas de servo
+adafruit-circuitpython-motor
+adafruit-circuitpython-servokit
+
+# ----------------------------------------------------------------------------
+# SENSORES I2C
+# ----------------------------------------------------------------------------
+# SMBus2 para comunicacao I2C direta (BMI160, ADS1115, INA219)
+smbus2
+
+# ----------------------------------------------------------------------------
+# NOTAS
+# ----------------------------------------------------------------------------
+# Os seguintes componentes usam smbus2 diretamente (sem bibliotecas Adafruit):
+# - BMI160 IMU (bmi160_manager.py)
+# - ADS1115 ADC (power_monitor_manager.py)
+# - INA219 Current Sensor (power_monitor_manager.py)
+#
+# Isso reduz dependencias e da controle total sobre os registradores I2C.
+# ============================================================================

@@ -1,0 +1,26 @@
+# ============================================================================
+# CLIENT REQUIREMENTS - F1 Remote Car Project
+# ============================================================================
+# Instale com: pip install -r requirements.txt
+#
+# PRE-REQUISITOS (Linux):
+#   sudo apt-get install python3-tk
+#
+# Arch Linux:
+#   sudo pacman -S tk
+# ============================================================================
+
+# OpenCV para processamento de video e exibicao
+opencv-python>=4.8.0
+
+# NumPy para operacoes com arrays
+numpy>=1.24.0
+
+# Pillow para processamento de imagem (Tkinter)
+Pillow>=10.0.0
+
+# PySerial para comunicacao serial com ESP32 (cockpit)
+pyserial>=3.5
+
+# PyAV para decodificacao H.264 (wrapper FFmpeg)
+av>=10.0.0

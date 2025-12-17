@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """
-video_display.py - Gerenciamento da Exibição de Vídeo (Tkinter apenas)
-Responsável por exibir frames de vídeo recebidos do Raspberry Pi na interface integrada
+video_display.py - Gerenciamento da Exibição de Vídeo (H.264 + Tkinter)
+Responsável por decodificar H.264 e exibir frames na interface integrada
 
 CARACTERÍSTICAS:
 ===============
-- Decodificação JPEG automática
+- Decodificação H.264 via PyAV (FFmpeg)
+- Buffer de NAL units para stream contínuo
 - Redimensionamento automático
 - Estatísticas de FPS em tempo real
 - Tratamento de erros robusto
@@ -20,9 +21,88 @@ from typing import Optional
 import tkinter as tk
 from PIL import Image, ImageTk
 
+# Tenta importar av (PyAV) para decodificação H.264
+try:
+    import av
+    H264_AVAILABLE = True
+except ImportError:
+    H264_AVAILABLE = False
+    print("⚠ PyAV não instalado. Execute: pip install av")
+    print("  Fallback para decodificação JPEG")
+
+
+class H264Decoder:
+    """Decodificador H.264 usando PyAV (FFmpeg)"""
+
+    def __init__(self):
+        self.codec = None
+        self.context = None
+        self.is_initialized = False
+        self.frames_decoded = 0
+        self.errors = 0
+
+    def initialize(self):
+        """Inicializa o decoder H.264"""
+        try:
+            if not H264_AVAILABLE:
+                return False
+
+            self.codec = av.CodecContext.create('h264', 'r')
+            self.codec.options = {
+                'flags': 'low_delay',
+                'flags2': 'fast',
+            }
+            self.is_initialized = True
+            return True
+
+        except Exception as e:
+            print(f"Erro ao inicializar decoder H.264: {e}")
+            self.is_initialized = False
+            return False
+
+    def decode(self, nal_data: bytes) -> Optional[np.ndarray]:
+        """
+        Decodifica NAL units H.264 para frame numpy
+
+        Args:
+            nal_data: Bytes contendo NAL units H.264
+
+        Returns:
+            np.ndarray em formato BGR (OpenCV) ou None
+        """
+        if not self.is_initialized or not nal_data:
+            return None
+
+        try:
+            # Cria packet com os dados H.264
+            packet = av.Packet(nal_data)
+
+            # Decodifica
+            frames = self.codec.decode(packet)
+
+            for frame in frames:
+                # Converte para numpy array (formato YUV → BGR)
+                img = frame.to_ndarray(format='bgr24')
+                self.frames_decoded += 1
+                return img
+
+            return None
+
+        except Exception as e:
+            self.errors += 1
+            if self.errors <= 5:
+                print(f"Erro decodificando H.264: {e}")
+            return None
+
+    def cleanup(self):
+        """Libera recursos do decoder"""
+        if self.codec:
+            self.codec.close()
+        self.is_initialized = False
+
 
 class VideoDisplay:
-    """Gerencia a exibição de vídeo do carrinho F1 (Tkinter apenas)"""
+    """Gerencia a exibição de vídeo do carrinho F1 (H.264 + Tkinter)"""
 
     def __init__(
         self,
@@ -41,6 +121,10 @@ class VideoDisplay:
         self.video_queue = video_queue
         self.log_queue = log_queue
         self.enable_video_enhancements = enable_video_enhancements
+
+        # Decoder H.264
+        self.h264_decoder = H264Decoder()
+        self.use_h264 = False
 
         # Estatísticas
         self.start_time = time.time()
@@ -67,19 +151,20 @@ class VideoDisplay:
         self.sharpening_enabled = enable_video_enhancements
         self.brightness_auto_adjust = enable_video_enhancements
 
+        # Inicializa decoder H.264
+        if H264_AVAILABLE:
+            if self.h264_decoder.initialize():
+                self.use_h264 = True
+                self._log("INFO", "Decoder H.264 (PyAV/FFmpeg) inicializado")
+            else:
+                self._log("WARN", "Fallback para JPEG - decoder H.264 falhou")
+        else:
+            self._log("WARN", "PyAV não disponível - usando JPEG")
+
         self._log(
             "INFO",
             f"VideoDisplay inicializado - Melhorias: {'Ativadas' if enable_video_enhancements else 'Desativadas'}",
         )
-
-        if enable_video_enhancements:
-            self._log(
-                "INFO", "🎨 Correção automática de cor: ATIVA (resolve tom azulado)"
-            )
-            self._log("INFO", "🔍 Sharpening inteligente: ATIVO (melhora nitidez)")
-            self._log(
-                "INFO", "💡 Ajuste automático de brilho: ATIVO (otimiza exposição)"
-            )
 
     def _log(self, level, message):
         """Envia mensagem para fila de log"""
@@ -103,38 +188,36 @@ class VideoDisplay:
             if not self.tkinter_label:
                 return
 
-            # Usar resolução original da câmera (sem redimensionamento forçado)
             height, width = frame.shape[:2]
-            # Mantém resolução original recebida da câmera para máxima qualidade
 
-            # Conversão BGR→RGB mais rápida
+            # Conversão BGR→RGB
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-            # Usar modo direto do PIL (mais rápido)
+            # PIL Image
             pil_image = Image.fromarray(rgb_frame, mode="RGB")
 
-            # PhotoImage direto sem cópia extra
+            # PhotoImage
             photo = ImageTk.PhotoImage(image=pil_image)
 
-            # Atualizar label (try/except para evitar travamentos)
+            # Atualizar label
             try:
                 self.tkinter_label.configure(image=photo)
-                self.tkinter_label.image = photo  # Manter referência
+                self.tkinter_label.image = photo
             except tk.TclError:
-                # Widget foi destruído, ignora
                 return
 
-            # Atualizar status se callback definido (assíncrono)
+            # Atualizar status
             if self.status_callback:
                 status = {
                     "connected": True,
-                    "resolution": f"{frame.shape[1]}x{frame.shape[0]}",
+                    "resolution": f"{width}x{height}",
                     "fps": self.current_fps,
+                    "codec": "H.264" if self.use_h264 else "JPEG",
                 }
                 try:
                     self.status_callback(status)
                 except:
-                    pass  # Ignora erros de callback
+                    pass
 
         except Exception as e:
             self._log("ERROR", f"Erro ao atualizar frame Tkinter: {e}")
@@ -143,50 +226,42 @@ class VideoDisplay:
         """Exibe mensagem de 'Sem Sinal' no Tkinter"""
         try:
             if self.tkinter_label:
-                # Atualizar texto do label para mostrar sem sinal
                 self.tkinter_label.configure(
                     image="",
-                    text="📡 Sem Sinal\n\nAguardando vídeo do Raspberry Pi...",
+                    text="Sem Sinal\n\nAguardando vídeo do Raspberry Pi...",
                     fg="red",
                     bg="#1a1a1a",
                     font=("Arial", 12),
                 )
                 self.tkinter_label.image = None
 
-            # Atualizar status
             if self.status_callback:
-                status = {"connected": False, "resolution": "N/A", "fps": 0}
+                status = {"connected": False, "resolution": "N/A", "fps": 0, "codec": "N/A"}
                 self.status_callback(status)
 
         except Exception as e:
             self._log("ERROR", f"Erro ao exibir 'sem sinal': {e}")
 
     def add_overlay_info(self, frame):
-        """Adiciona informações overlay no frame (otimizado)"""
+        """Adiciona informações overlay no frame"""
         try:
-            # Otimização: Adiciona overlay apenas a cada 5 frames para economizar CPU
             if self.frame_count % 5 != 0:
                 return frame
 
-            # Informações para exibir (mais simples)
-            fps_text = f"FPS: {self.current_fps:.1f}"
+            codec_text = "H.264" if self.use_h264 else "JPEG"
+            fps_text = f"{codec_text} | FPS: {self.current_fps:.1f}"
             resolution_text = f"{frame.shape[1]}x{frame.shape[0]}"
 
-            # Configurações otimizadas
             font = cv2.FONT_HERSHEY_SIMPLEX
-            font_scale = 0.5  # Menor para ser mais rápido
+            font_scale = 0.5
             color = (0, 255, 0)
-            thickness = 1  # Mais fino, mais rápido
+            thickness = 1
 
-            # Apenas informações essenciais
             cv2.putText(frame, fps_text, (10, 25), font, font_scale, color, thickness)
-            cv2.putText(
-                frame, resolution_text, (10, 50), font, font_scale, color, thickness
-            )
+            cv2.putText(frame, resolution_text, (10, 50), font, font_scale, color, thickness)
 
             return frame
         except:
-            # Ignora erros de overlay para não afetar performance
             return frame
 
     def display_frame(self, frame):
@@ -198,18 +273,13 @@ class VideoDisplay:
         """
         try:
             with self.frame_lock:
-                # Adiciona informações overlay
                 frame_with_overlay = self.add_overlay_info(frame.copy())
 
-                # Exibir no Tkinter
                 if self.tkinter_label:
                     self.update_tkinter_frame(frame_with_overlay)
 
-                # Armazena como último frame válido
                 self.last_frame = frame.copy()
                 self.last_frame_time = time.time()
-
-                # Atualiza estatísticas
                 self.update_statistics()
 
         except Exception as e:
@@ -220,27 +290,60 @@ class VideoDisplay:
         current_time = time.time()
         self.frame_count += 1
 
-        # Calcula FPS a cada segundo
         if current_time - self.last_fps_time >= 1.0:
             elapsed = current_time - self.last_fps_time
             self.current_fps = self.frame_count / elapsed if elapsed > 0 else 0
             self.frame_count = 0
             self.last_fps_time = current_time
 
+    def _is_h264_data(self, data: bytes) -> bool:
+        """Detecta se dados são H.264 (NAL units com start code)"""
+        if len(data) < 4:
+            return False
+        # H.264 Annex B start codes: 0x00000001 ou 0x000001
+        return (data[:4] == b'\x00\x00\x00\x01' or data[:3] == b'\x00\x00\x01')
+
+    def _decode_frame(self, frame_data: bytes) -> Optional[np.ndarray]:
+        """
+        Decodifica frame (H.264 ou JPEG automaticamente)
+
+        Args:
+            frame_data: Bytes do frame codificado
+
+        Returns:
+            np.ndarray em formato BGR ou None
+        """
+        if not frame_data:
+            return None
+
+        # Detecta formato automaticamente
+        if self._is_h264_data(frame_data):
+            # Decodifica H.264
+            if self.use_h264:
+                frame = self.h264_decoder.decode(frame_data)
+                if frame is not None:
+                    return frame
+
+            # Fallback: não pode decodificar H.264 sem PyAV
+            return None
+
+        else:
+            # Assume JPEG (fallback)
+            nparr = np.frombuffer(frame_data, dtype=np.uint8)
+            frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            return frame
+
     def process_video_queue(self):
-        """Processa frames da fila de vídeo (super otimizado para baixo delay)"""
+        """Processa frames da fila de vídeo (H.264 ou JPEG)"""
         try:
-            # OTIMIZAÇÃO AVANÇADA: Processa inteligentemente para mínimo delay
             frames_processed = 0
             latest_frame = None
             total_queue_size = (
                 self.video_queue.qsize() if hasattr(self.video_queue, "qsize") else 0
             )
 
-            # Se fila muito cheia (>5), descarta frames antigos agressivamente
             max_frames_to_process = 15 if total_queue_size > 5 else 3
 
-            # Drena a fila mantendo apenas o frame mais recente
             while (
                 not self.video_queue.empty()
                 and self.is_running
@@ -252,120 +355,82 @@ class VideoDisplay:
                 if frame_data is None:
                     continue
 
-                # OTIMIZAÇÃO: Decodificação JPEG mais eficiente
                 if isinstance(frame_data, bytes):
-                    # Usa numpy direto para velocidade máxima
-                    nparr = np.frombuffer(frame_data, dtype=np.uint8)
+                    frame = self._decode_frame(frame_data)
 
-                    # Decodifica JPEG - cv2.imdecode SEMPRE retorna BGR (padrão OpenCV)
-                    frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-
-                    # PROCESSAMENTO ADICIONAL NO CLIENTE (configurável):
+                    # Processamento adicional (se habilitado)
                     if frame is not None and self.enable_video_enhancements:
-                        # Aqui o cliente processa o que o Raspberry Pi não fez:
-
-                        # 1. Correção automática de cor (resolve tom azulado)
                         if self.color_correction_enabled:
                             frame = self._enhance_colors_if_needed(frame)
-
-                        # 2. Sharpening inteligente para melhor qualidade
                         if self.sharpening_enabled:
                             frame = self._apply_smart_sharpening(frame)
-
-                        # 3. Ajuste automático de brilho/contraste
                         if self.brightness_auto_adjust:
                             frame = self._auto_brightness_contrast(frame)
-
                 else:
                     frame = frame_data
 
                 if frame is not None:
                     latest_frame = frame
 
-            # Exibe apenas o frame mais recente
             if latest_frame is not None:
                 self.display_frame(latest_frame)
 
-                # Log inteligente sobre desempenho
                 if frames_processed > 5:
                     self._log(
                         "DEBUG",
-                        f"Processados {frames_processed} frames (fila: {total_queue_size}) - descartando {frames_processed-1} antigos",
-                    )
-                elif total_queue_size > 10:
-                    self._log(
-                        "WARN",
-                        f"Fila de vídeo crescendo: {total_queue_size} frames pendentes",
+                        f"Processados {frames_processed} frames (fila: {total_queue_size})",
                     )
 
         except Exception as e:
             self._log("ERROR", f"Erro ao processar fila de vídeo: {e}")
 
     def _enhance_colors_if_needed(self, frame):
-        """Correção automática de cores (cliente pode processar)"""
+        """Correção automática de cores"""
         try:
-            # Verifica se frame tem tom azulado excessivo (problema típico de câmeras)
             b, g, r = cv2.split(frame)
             blue_mean = np.mean(b)
-            green_mean = np.mean(g)
             red_mean = np.mean(r)
 
-            # Se azul está dominando muito (>15% mais que vermelho), corrige
             if blue_mean > red_mean * 1.15:
-                # Reduz canal azul levemente e aumenta vermelho
                 correction_factor = 0.9
                 enhanced_frame = frame.copy()
-                enhanced_frame[:, :, 0] = np.clip(
-                    b * correction_factor, 0, 255
-                )  # Reduz azul
-                enhanced_frame[:, :, 2] = np.clip(r * 1.1, 0, 255)  # Aumenta vermelho
+                enhanced_frame[:, :, 0] = np.clip(b * correction_factor, 0, 255)
+                enhanced_frame[:, :, 2] = np.clip(r * 1.1, 0, 255)
                 return enhanced_frame
 
             return frame
         except:
-            # Em caso de erro, retorna frame original
             return frame
 
     def _apply_smart_sharpening(self, frame):
-        """Aplica sharpening inteligente (cliente pode processar)"""
+        """Aplica sharpening inteligente"""
         try:
-            # Aplica sharpening leve apenas se necessário
-            # Só a cada 3 frames para economizar CPU
             if self.frame_count % 3 != 0:
                 return frame
 
-            # Kernel de sharpening suave
             kernel = np.array(
                 [[-0.1, -0.1, -0.1], [-0.1, 1.8, -0.1], [-0.1, -0.1, -0.1]]
             )
-
             sharpened = cv2.filter2D(frame, -1, kernel)
             return sharpened
         except:
             return frame
 
     def _auto_brightness_contrast(self, frame):
-        """Ajuste automático de brilho/contraste (cliente pode processar)"""
+        """Ajuste automático de brilho/contraste"""
         try:
-            # Só aplica a cada 5 frames para economizar CPU
             if self.frame_count % 5 != 0:
                 return frame
 
-            # Calcula estatísticas da imagem
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             mean_brightness = np.mean(gray)
 
-            # Se muito escuro ou muito claro, ajusta automaticamente
-            if mean_brightness < 80:  # Muito escuro
-                # Aumenta brilho
+            if mean_brightness < 80:
                 brightness = int((80 - mean_brightness) * 0.5)
-                brightened = cv2.convertScaleAbs(frame, alpha=1.0, beta=brightness)
-                return brightened
-            elif mean_brightness > 200:  # Muito claro
-                # Reduz brilho
+                return cv2.convertScaleAbs(frame, alpha=1.0, beta=brightness)
+            elif mean_brightness > 200:
                 brightness = -int((mean_brightness - 200) * 0.3)
-                darkened = cv2.convertScaleAbs(frame, alpha=1.0, beta=brightness)
-                return darkened
+                return cv2.convertScaleAbs(frame, alpha=1.0, beta=brightness)
 
             return frame
         except:
@@ -411,11 +476,13 @@ class VideoDisplay:
             "color_correction": self.color_correction_enabled,
             "sharpening": self.sharpening_enabled,
             "brightness_adjustment": self.brightness_auto_adjust,
+            "codec": "H.264" if self.use_h264 else "JPEG",
+            "h264_frames_decoded": self.h264_decoder.frames_decoded if self.use_h264 else 0,
         }
 
     def run_display(self):
-        """Loop principal de exibição de vídeo (modo Tkinter apenas)"""
-        self._log("INFO", "Iniciando display de vídeo em modo Tkinter...")
+        """Loop principal de exibição de vídeo"""
+        self._log("INFO", f"Iniciando display de vídeo (codec: {'H.264' if self.use_h264 else 'JPEG'})...")
 
         self.is_running = True
         no_signal_displayed = False
@@ -425,29 +492,23 @@ class VideoDisplay:
             while self.is_running:
                 current_time = time.time()
 
-                # Processa fila de vídeo se disponível
                 if self.video_queue and not self.video_queue.empty():
                     self.process_video_queue()
                     no_signal_displayed = False
                     last_frame_check = current_time
-
                 else:
-                    # Sem dados por mais de 2 segundos - mostra tela sem sinal
                     if (
                         current_time - last_frame_check > 2.0
                         and not no_signal_displayed
                     ):
                         self.display_no_signal()
                         no_signal_displayed = True
-
-                    # Se tem último frame e não passou muito tempo, continua mostrando
                     elif (
                         self.last_frame is not None
                         and current_time - self.last_frame_time < 5.0
                     ):
                         self.display_frame(self.last_frame)
 
-                # Sleep mais curto para menor delay
                 time.sleep(0.016)  # ~60 FPS máximo
 
         except KeyboardInterrupt:
@@ -458,22 +519,24 @@ class VideoDisplay:
             self.stop()
 
     def get_statistics(self):
-        """
-        Obtém estatísticas do display
-
-        Returns:
-            dict: Dicionário com estatísticas
-        """
+        """Obtém estatísticas do display"""
         runtime = time.time() - self.start_time
 
-        return {
+        stats = {
             "fps": self.current_fps,
             "total_frames": self.frame_count,
             "runtime_seconds": runtime,
             "avg_fps": self.frame_count / runtime if runtime > 0 else 0,
             "last_frame_time": self.last_frame_time,
             "is_running": self.is_running,
+            "codec": "H.264" if self.use_h264 else "JPEG",
         }
+
+        if self.use_h264:
+            stats["h264_frames_decoded"] = self.h264_decoder.frames_decoded
+            stats["h264_errors"] = self.h264_decoder.errors
+
+        return stats
 
     def stop(self):
         """Para o display de vídeo"""
@@ -481,14 +544,17 @@ class VideoDisplay:
 
         self.is_running = False
 
-        # Estatísticas finais
+        # Cleanup decoder H.264
+        if self.h264_decoder:
+            self.h264_decoder.cleanup()
+
         try:
             stats = self.get_statistics()
             self._log(
                 "INFO",
                 f"Estatísticas finais: {stats['total_frames']} frames, "
                 f"{stats['avg_fps']:.1f} FPS médio, "
-                f"{stats['runtime_seconds']:.1f}s de execução",
+                f"codec: {stats['codec']}",
             )
         except:
             pass

@@ -187,6 +187,15 @@ class ConsoleInterface:
             "temperature_f": tk.StringVar(value="--"),
             "temperature_k": tk.StringVar(value="--"),
             "thermal_status": tk.StringVar(value="NORMAL"),
+            # Monitoramento de Energia
+            "current_rpi": tk.StringVar(value="--"),
+            "current_servos": tk.StringVar(value="--"),
+            "current_motor": tk.StringVar(value="--"),
+            "voltage_rpi": tk.StringVar(value="--"),
+            "power_rpi": tk.StringVar(value="--"),
+            "power_servos": tk.StringVar(value="--"),
+            "power_motor": tk.StringVar(value="--"),
+            "power_total": tk.StringVar(value="--"),
             # Configurações
             "accel_range": tk.StringVar(value="±2g"),
             "gyro_range": tk.StringVar(value="±250°/s"),
@@ -519,6 +528,71 @@ class ConsoleInterface:
         tk.Label(
             temp_frame, text="°C", bg="#2c2c2c", fg="#cccccc", font=("Arial", 10)
         ).pack()
+
+        # Energia - Painel de monitoramento de potência
+        power_frame = tk.Frame(instruments_inner, bg="#2c2c2c", relief=tk.RAISED, bd=2)
+        power_frame.pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=5)
+
+        tk.Label(
+            power_frame,
+            text="⚡ ENERGIA",
+            bg="#2c2c2c",
+            fg="white",
+            font=("Arial", 10, "bold"),
+        ).pack(pady=2)
+
+        # Grid para dados de energia
+        power_grid = tk.Frame(power_frame, bg="#2c2c2c")
+        power_grid.pack(pady=2)
+
+        # Potência total (destaque)
+        tk.Label(
+            power_grid, text="Total:", bg="#2c2c2c", fg="#aaaaaa", font=("Arial", 9)
+        ).grid(row=0, column=0, sticky="e", padx=2)
+        self.power_total_display = tk.Label(
+            power_grid,
+            textvariable=self.sensor_vars["power_total"],
+            bg="#2c2c2c",
+            fg="#ffcc00",
+            font=("Arial", 12, "bold"),
+        )
+        self.power_total_display.grid(row=0, column=1, sticky="w", padx=2)
+
+        # Motor
+        tk.Label(
+            power_grid, text="Motor:", bg="#2c2c2c", fg="#aaaaaa", font=("Arial", 8)
+        ).grid(row=1, column=0, sticky="e", padx=2)
+        tk.Label(
+            power_grid,
+            textvariable=self.sensor_vars["power_motor"],
+            bg="#2c2c2c",
+            fg="#ff6666",
+            font=("Arial", 9),
+        ).grid(row=1, column=1, sticky="w", padx=2)
+
+        # Servos
+        tk.Label(
+            power_grid, text="Servos:", bg="#2c2c2c", fg="#aaaaaa", font=("Arial", 8)
+        ).grid(row=2, column=0, sticky="e", padx=2)
+        tk.Label(
+            power_grid,
+            textvariable=self.sensor_vars["power_servos"],
+            bg="#2c2c2c",
+            fg="#66ff66",
+            font=("Arial", 9),
+        ).grid(row=2, column=1, sticky="w", padx=2)
+
+        # RPi
+        tk.Label(
+            power_grid, text="RPi:", bg="#2c2c2c", fg="#aaaaaa", font=("Arial", 8)
+        ).grid(row=3, column=0, sticky="e", padx=2)
+        tk.Label(
+            power_grid,
+            textvariable=self.sensor_vars["power_rpi"],
+            bg="#2c2c2c",
+            fg="#6699ff",
+            font=("Arial", 9),
+        ).grid(row=3, column=1, sticky="w", padx=2)
 
     def create_bmi160_frame(self):
         """Cria frame com dados do BMI160"""
@@ -1551,6 +1625,15 @@ class ConsoleInterface:
             "temperature_f": "temperature_f",
             "temperature_k": "temperature_k",
             "thermal_status": "thermal_status",
+            # Monitoramento de Energia
+            "current_rpi": "current_rpi",
+            "current_servos": "current_servos",
+            "current_motor": "current_motor",
+            "voltage_rpi": "voltage_rpi",
+            "power_rpi": "power_rpi",
+            "power_servos": "power_servos",
+            "power_motor": "power_motor",
+            "power_total": "power_total",
             # Configurações
             "accel_range_g": "accel_range",
             "gyro_range_dps": "gyro_range",
@@ -1584,6 +1667,12 @@ class ConsoleInterface:
                     formatted_value = f"{value:+.3f}"  # Com sinal
                 elif var_name in ["temperature_c", "temperature_f", "temperature_k"]:
                     formatted_value = f"{value:.1f}"
+                elif var_name in ["current_rpi", "current_servos", "current_motor"]:
+                    formatted_value = f"{value:.2f}A"
+                elif var_name in ["voltage_rpi"]:
+                    formatted_value = f"{value:.2f}V"
+                elif var_name in ["power_rpi", "power_servos", "power_motor", "power_total"]:
+                    formatted_value = f"{value:.1f}W"
                 elif var_name in ["accel_range"]:
                     formatted_value = f"±{value}g"
                 elif var_name in ["gyro_range"]:

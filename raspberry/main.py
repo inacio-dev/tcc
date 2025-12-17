@@ -66,6 +66,7 @@ try:
     from network_manager import NetworkManager
     from steering_manager import SteeringManager, SteeringMode
     from temperature_manager import TemperatureManager
+    from power_monitor_manager import PowerMonitorManager
 except ImportError as e:
     print(f"❌ ERRO: Não foi possível importar módulos necessários: {e}")
     print("\nVerifique se todos os arquivos estão na mesma pasta:")
@@ -124,6 +125,7 @@ class F1CarCompleteSystem:
         self.steering_mgr: Optional[SteeringManager] = None
         self.network_mgr: Optional[NetworkManager] = None
         self.temperature_mgr: Optional[TemperatureManager] = None
+        self.power_mgr: Optional[PowerMonitorManager] = None
 
         # Controle de execução
         self.running = False
@@ -146,6 +148,7 @@ class F1CarCompleteSystem:
             "steering": "Offline",
             "network": "Offline",
             "temperature": "Offline",
+            "power": "Offline",
         }
 
         # Dados consolidados para exibição
@@ -200,7 +203,7 @@ class F1CarCompleteSystem:
         )
 
         success_count = 0
-        total_components = 7
+        total_components = 8
 
         # 1. Rede
         debug("Inicializando rede UDP...", "MAIN")
@@ -218,10 +221,10 @@ class F1CarCompleteSystem:
             error("Rede não inicializada", "MAIN")
             return False
 
-        # 2. Câmera
-        debug("Inicializando câmera...", "MAIN")
+        # 2. Câmera (H.264 hardware encoder)
+        debug("Inicializando câmera com H.264 hardware encoder...", "MAIN")
         self.camera_mgr = CameraManager(
-            resolution=(640, 480), frame_rate=self.camera_fps, jpeg_quality=20
+            resolution=(640, 480), frame_rate=self.camera_fps, bitrate=1500000
         )
         if self.camera_mgr.initialize():
             self.system_status["camera"] = "Online"
@@ -234,7 +237,6 @@ class F1CarCompleteSystem:
         debug("Inicializando sensor BMI160...", "MAIN")
         self.bmi160_mgr = BMI160Manager(
             sample_rate=self.sensor_rate,
-            buffer_size=50,
             accel_range=BMI160Manager.ACCEL_RANGE_2G,
             gyro_range=BMI160Manager.GYRO_RANGE_250,
         )
@@ -309,6 +311,19 @@ class F1CarCompleteSystem:
             debug("Sensor de temperatura inicializado", "MAIN")
         else:
             warn("Sensor de temperatura não inicializado", "MAIN")
+
+        # 8. Monitor de energia (ADS1115 + INA219)
+        debug("Inicializando monitor de energia...", "MAIN")
+        self.power_mgr = PowerMonitorManager(
+            sample_rate=10,  # 10Hz para energia
+            buffer_size=20,
+        )
+        if self.power_mgr.initialize():
+            self.system_status["power"] = "Online"
+            success_count += 1
+            info("✅ Monitor de energia inicializado (ADS1115 + INA219)", "MAIN")
+        else:
+            warn("Monitor de energia não inicializado", "MAIN")
 
         if success_count >= 2:  # Mínimo: rede + pelo menos 1 componente
             info(
@@ -397,6 +412,11 @@ class F1CarCompleteSystem:
                 ):
                     temperature_status = self.temperature_mgr.get_temperature_status()
 
+                power_status = {}
+                if self.power_mgr and self.system_status["power"] == "Online":
+                    if self.power_mgr.update():
+                        power_status = self.power_mgr.get_sensor_data()
+
                 # === CONSOLIDAÇÃO DE DADOS ===
 
                 # Consolida todos os dados em um pacote
@@ -406,6 +426,7 @@ class F1CarCompleteSystem:
                     **brake_status,  # Status dos freios
                     **steering_status,  # Status da direção
                     **temperature_status,  # Status da temperatura
+                    **power_status,  # Status de energia (correntes/tensões)
                     # Metadados do sistema
                     "system_status": self.system_status.copy(),
                     "frame_count": self.frames_processed,
@@ -509,27 +530,6 @@ class F1CarCompleteSystem:
         except Exception as e:
             debug(f"Erro ao exibir status de controles: {e}", "MAIN")
 
-    def _process_automatic_control(
-        self, sensor_data: Dict[str, Any], motor_status: Dict[str, Any]
-    ):
-        """
-        FUNÇÃO DESATIVADA - BMI160 é APENAS para telemetria
-
-        Esta função foi completamente desativada para evitar qualquer interferência
-        dos sensores BMI160 nos comandos de controle do veículo.
-
-        CONTROLE EXCLUSIVAMENTE MANUAL:
-        - Throttle: comandos via CONTROL:THROTTLE
-        - Brake: comandos via CONTROL:BRAKE
-        - Steering: comandos via CONTROL:STEERING
-        - Gears: comandos via CONTROL:GEAR_UP/GEAR_DOWN
-
-        BMI160 fornece APENAS dados de telemetria para o cliente.
-        """
-        # TODA LÓGICA DE CONTROLE AUTOMÁTICO REMOVIDA
-        # Sensores são usados APENAS para telemetria
-        pass
-
     def _display_system_stats(self):
         """Exibe estatísticas do sistema"""
         elapsed = time.time() - self.start_time
@@ -580,6 +580,7 @@ class F1CarCompleteSystem:
             ("steering", self.steering_mgr),
             ("motor", self.motor_mgr),
             ("brakes", self.brake_mgr),
+            ("power", self.power_mgr),
             ("temperature", self.temperature_mgr),
             ("sensors", self.bmi160_mgr),
             ("camera", self.camera_mgr),
@@ -652,6 +653,9 @@ class F1CarCompleteSystem:
 
         if self.temperature_mgr:
             stats["temperature_stats"] = self.temperature_mgr.get_temperature_status()
+
+        if self.power_mgr:
+            stats["power_stats"] = self.power_mgr.get_statistics()
 
         if self.network_mgr:
             stats["network_stats"] = self.network_mgr.get_transmission_stats()

@@ -30,7 +30,7 @@ F1-style remote-controlled car with complete telemetry system using Raspberry Pi
 
 ### System Components
 
-**Raspberry Pi Side (`codigo/raspberry/`):**
+**Raspberry Pi Side (`raspberry/`):**
 
 - `main.py`: Orchestrates all hardware
 - `camera_manager.py`: OV5647 camera + video encoding
@@ -39,6 +39,7 @@ F1-style remote-controlled car with complete telemetry system using Raspberry Pi
 - `brake_manager.py`: Dual servo brake (front/rear)
 - `steering_manager.py`: Direct servo steering (0°-180°)
 - `network_manager.py`: UDP transmission
+- `power_monitor_manager.py`: Energy monitoring (ADS1115 + INA219)
 
 **Client Side (`codigo/client/`):**
 
@@ -74,9 +75,17 @@ F1-style remote-controlled car with complete telemetry system using Raspberry Pi
 **Raspberry Pi 4 Pinout:**
 
 - Camera OV5647 → CSI slot
-- BMI160 (I2C) → GPIO2/3 (SDA/SCL)
-- PCA9685 PWM (I2C) → GPIO2/3 (shared with BMI160)
+- BMI160 (I2C) → GPIO2/3 (SDA/SCL), Address: 0x68
+- PCA9685 PWM (I2C) → GPIO2/3 (shared), Address: 0x40
+- ADS1115 ADC (I2C) → GPIO2/3 (shared), Address: 0x48
+- INA219 (I2C) → GPIO2/3 (shared), Address: 0x41 (A0=VCC, evita conflito com PCA9685)
 - Motor BTS7960: RPWM→GPIO18, LPWM→GPIO27, R_EN→GPIO22, L_EN→GPIO23
+
+**Power Monitoring (ADS1115 channels):**
+
+- A0: ACS758 50A → XL4015 current (Raspberry Pi)
+- A1: ACS758 50A → UBEC current (Servos)
+- A2: ACS758 100A → Motor DC 775 current
 
 **ESP32 DevKit V1 Pinout:**
 
@@ -294,6 +303,11 @@ Examples:
 
 ## Important Files
 
+**Documentation:**
+
+- `raspberry/MODULOS.md`: Especificações técnicas de todos os módulos de hardware
+- `raspberry/DIAGRAMA.drawio.pdf`: Diagrama elétrico completo do sistema
+
 **Client:**
 
 - `codigo/client/main.py`: Primary application
@@ -304,8 +318,9 @@ Examples:
 
 **Raspberry Pi:**
 
-- `codigo/raspberry/main.py`: Primary application
-- `codigo/raspberry/bmi160_manager.py`: IMU sensor manager
+- `raspberry/main.py`: Primary application
+- `raspberry/bmi160_manager.py`: IMU sensor manager
+- `raspberry/power_monitor_manager.py`: Energy monitoring (ADS1115 + INA219)
 
 **ESP32:**
 

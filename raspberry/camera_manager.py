@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """
-camera_manager.py - Gerenciamento da Câmera OV5647
-Responsável por capturar e codificar frames de vídeo
+camera_manager.py - Gerenciamento da Câmera OV5647 com H.264 Hardware Encoder
+
+Usa o encoder H.264 de hardware do Raspberry Pi 4 (VideoCore VI) para
+compressão eficiente de vídeo com baixa latência e mínimo uso de CPU.
 
 PINOUT CÂMERA OV5647:
 ===================
@@ -17,91 +19,152 @@ CONFIGURAÇÃO NECESSÁRIA:
 2. Interface Options -> Camera -> Enable
 3. Reboot
 4. Teste: libcamera-hello (comando de teste)
+
+FORMATO DE SAÍDA:
+================
+- H.264 Annex B (NAL units com start codes 0x00000001)
+- Profile: Baseline (decodificação rápida)
+- Keyframes a cada 30 frames (1 segundo @ 30 FPS)
+- Bitrate: 1.5 Mbps (ajustável)
 """
 
 import time
-import io
+import threading
+from collections import deque
 from picamera2 import Picamera2
+from picamera2.encoders import H264Encoder
+from picamera2.outputs import Output
+
+
+class StreamingOutput(Output):
+    """Output customizado para capturar frames H.264 em buffer circular"""
+
+    def __init__(self, buffer_size=5):
+        super().__init__()
+        self.frame_buffer = deque(maxlen=buffer_size)
+        self.lock = threading.Lock()
+        self.frame_count = 0
+        self.total_bytes = 0
+
+    def outputframe(self, frame, keyframe=True, timestamp=None):
+        """Recebe frame codificado do encoder H.264"""
+        with self.lock:
+            self.frame_buffer.append({
+                'data': bytes(frame),
+                'keyframe': keyframe,
+                'timestamp': timestamp or time.time(),
+                'size': len(frame)
+            })
+            self.frame_count += 1
+            self.total_bytes += len(frame)
+
+    def get_frame(self):
+        """Obtém o frame mais recente do buffer"""
+        with self.lock:
+            if self.frame_buffer:
+                return self.frame_buffer[-1]
+            return None
+
+    def get_all_frames(self):
+        """Obtém todos os frames do buffer e limpa"""
+        with self.lock:
+            frames = list(self.frame_buffer)
+            self.frame_buffer.clear()
+            return frames
 
 
 class CameraManager:
-    """Gerencia a captura de vídeo da câmera OV5647"""
+    """Gerencia a captura de vídeo da câmera OV5647 com H.264 hardware encoding"""
 
-    def __init__(self, resolution=(640, 480), frame_rate=30, jpeg_quality=20):
+    def __init__(self, resolution=(640, 480), frame_rate=30, bitrate=1500000):
         """
         Inicializa o gerenciador da câmera
 
         Args:
             resolution (tuple): Resolução do vídeo (largura, altura)
             frame_rate (int): Taxa de frames por segundo
-            jpeg_quality (int): Qualidade JPEG (1-100, menor = mais compressão)
+            bitrate (int): Bitrate do H.264 em bps (padrão: 1.5 Mbps)
         """
         self.resolution = resolution
         self.frame_rate = frame_rate
-        self.jpeg_quality = jpeg_quality
+        self.bitrate = bitrate
         self.camera = None
+        self.encoder = None
+        self.output = None
         self.is_initialized = False
+        self.is_recording = False
 
         # Estatísticas
         self.frames_captured = 0
         self.last_capture_time = time.time()
         self.last_frame_size = 0
+        self.start_time = None
 
     def initialize(self):
         """
-        Inicializa a câmera OV5647
+        Inicializa a câmera OV5647 com encoder H.264 de hardware
 
         Returns:
             bool: True se inicializada com sucesso, False caso contrário
         """
         try:
-            print("Inicializando câmera OV5647...")
+            print("Inicializando câmera OV5647 com H.264 hardware encoder...")
 
             # Cria instância da PiCamera2
             self.camera = Picamera2()
 
-            # Configuração otimizada para OV5647 - usando RGB888 nativo da câmera
-            config = self.camera.create_preview_configuration(
-                main={"size": self.resolution, "format": "RGB888"},  # RGB nativo (mais natural)
-                buffer_count=2,  # Reduzido para menor latência
+            # Configuração para encoding de vídeo H.264
+            config = self.camera.create_video_configuration(
+                main={"size": self.resolution, "format": "YUV420"},
+                buffer_count=4,
             )
 
             # Aplica configuração
             self.camera.configure(config)
 
-            # Tenta configurar limitação de duração de frame para controlar FPS
+            # Configura frame rate
             try:
                 frame_duration = 1000000 // self.frame_rate  # microssegundos
-                self.camera.set_controls(
-                    {"FrameDurationLimits": (frame_duration, frame_duration)}
-                )
-                print(f"✓ Frame rate configurado para {self.frame_rate} FPS")
+                self.camera.set_controls({
+                    "FrameDurationLimits": (frame_duration, frame_duration)
+                })
+                print(f"  Frame rate: {self.frame_rate} FPS")
             except Exception as e:
-                print(f"⚠ Aviso: Não foi possível configurar FrameDurationLimits: {e}")
-                print("Continuando com configuração padrão...")
+                print(f"⚠ Aviso: FrameDurationLimits não configurado: {e}")
 
-            # Inicia a câmera
+            # Cria encoder H.264 com configurações de baixa latência
+            self.encoder = H264Encoder(
+                bitrate=self.bitrate,
+                repeat=True,          # Repete SPS/PPS para resiliência
+                iperiod=30,           # Keyframe a cada 30 frames
+            )
+
+            # Cria output para capturar frames
+            self.output = StreamingOutput(buffer_size=5)
+
+            # Inicia câmera
             self.camera.start()
+            time.sleep(0.3)
 
-            # Aguarda estabilização
-            time.sleep(0.5)
+            # Inicia gravação com encoder H.264
+            self.camera.start_encoder(self.encoder, self.output)
+            self.is_recording = True
+            self.start_time = time.time()
 
             self.is_initialized = True
 
-            print("✓ Câmera OV5647 inicializada com sucesso")
-            print(f"  - Resolução: {self.resolution[0]}x{self.resolution[1]}")
-            print(f"  - Taxa de frames: {self.frame_rate} FPS")
-            print(f"  - Qualidade JPEG: {self.jpeg_quality}%")
+            print("✓ Câmera OV5647 inicializada com H.264 hardware encoder")
+            print(f"  Resolução: {self.resolution[0]}x{self.resolution[1]}")
+            print(f"  Bitrate: {self.bitrate / 1000000:.1f} Mbps")
+            print(f"  Encoder: H.264 (VideoCore VI hardware)")
 
             return True
 
         except Exception as e:
-            print(f"✗ Erro ao inicializar câmera OV5647: {e}")
+            print(f"✗ Erro ao inicializar câmera: {e}")
             print("\nVerifique:")
             print("1. Cabo da câmera conectado corretamente")
-            print(
-                "2. Câmera habilitada: sudo raspi-config -> Interface Options -> Camera"
-            )
+            print("2. Câmera habilitada: sudo raspi-config -> Interface Options -> Camera")
             print("3. Sistema reiniciado após habilitar")
 
             self.is_initialized = False
@@ -109,57 +172,52 @@ class CameraManager:
 
     def capture_frame(self):
         """
-        Captura um frame da câmera otimizado para mínimo processamento
+        Obtém o frame H.264 mais recente do buffer
 
         Returns:
-            bytes: Frame codificado em JPEG, ou None em caso de erro
+            bytes: Frame H.264 codificado (NAL units), ou None se não disponível
         """
-        if not self.is_initialized or self.camera is None:
-            print("⚠ Câmera não inicializada")
+        if not self.is_initialized or self.output is None:
             return None
 
         try:
-            # MÉTODO COMPATÍVEL: Usar capture_array() + codificação JPEG otimizada
-            # Compatible com diferentes versões do Picamera2
+            frame_info = self.output.get_frame()
 
-            # Captura frame como array numpy
-            frame = self.camera.capture_array()
-
-            # Usa biblioteca simplejpeg para codificação JPEG rápida
-            try:
-                import simplejpeg
-                # Codificação JPEG otimizada - Picamera2 RGB888 → JPEG
-                jpeg_data = simplejpeg.encode_jpeg(
-                    frame,
-                    quality=self.jpeg_quality,
-                    colorspace='RGB'  # Agora usando RGB888 nativo
-                )
-            except ImportError:
-                # Fallback para cv2 se simplejpeg não disponível
-                import cv2
-                # cv2 espera BGR, então converte RGB → BGR antes da codificação
-                bgr_frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-                success, encoded_data = cv2.imencode(
-                    '.jpg', bgr_frame,
-                    [cv2.IMWRITE_JPEG_QUALITY, self.jpeg_quality]
-                )
-                if success:
-                    jpeg_data = encoded_data.tobytes()
-                else:
-                    return None
-
-            if jpeg_data:
-                # Atualiza estatísticas (sem copiar frame - economia de memória)
+            if frame_info:
                 self.frames_captured += 1
                 self.last_capture_time = time.time()
-                self.last_frame_size = len(jpeg_data)
-                return jpeg_data
-            else:
-                print("⚠ Erro ao codificar frame JPEG")
-                return None
+                self.last_frame_size = frame_info['size']
+                return frame_info['data']
+
+            return None
 
         except Exception as e:
-            print(f"⚠ Erro ao capturar frame: {e}")
+            print(f"⚠ Erro ao obter frame: {e}")
+            return None
+
+    def get_frame_with_metadata(self):
+        """
+        Obtém frame H.264 com metadados
+
+        Returns:
+            dict: {'data': bytes, 'keyframe': bool, 'timestamp': float, 'size': int}
+        """
+        if not self.is_initialized or self.output is None:
+            return None
+
+        try:
+            frame_info = self.output.get_frame()
+
+            if frame_info:
+                self.frames_captured += 1
+                self.last_capture_time = time.time()
+                self.last_frame_size = frame_info['size']
+                return frame_info
+
+            return None
+
+        except Exception as e:
+            print(f"⚠ Erro ao obter frame: {e}")
             return None
 
     def get_frame_size_info(self, frame_data):
@@ -182,57 +240,66 @@ class CameraManager:
 
     def get_statistics(self):
         """
-        Obtém estatísticas da câmera
+        Obtém estatísticas da câmera e encoder
 
         Returns:
             dict: Estatísticas de captura
         """
-        return {
+        stats = {
             "frames_captured": self.frames_captured,
             "is_initialized": self.is_initialized,
+            "is_recording": self.is_recording,
             "resolution": self.resolution,
             "frame_rate": self.frame_rate,
-            "jpeg_quality": self.jpeg_quality,
+            "bitrate": self.bitrate,
+            "bitrate_mbps": self.bitrate / 1000000,
             "last_capture_time": self.last_capture_time,
             "last_frame_size": self.last_frame_size,
+            "encoder": "H.264 Hardware",
         }
 
-    def set_jpeg_quality(self, quality):
+        # Estatísticas do output
+        if self.output:
+            stats["encoder_frames"] = self.output.frame_count
+            stats["encoder_bytes"] = self.output.total_bytes
+
+            if self.start_time:
+                elapsed = time.time() - self.start_time
+                if elapsed > 0:
+                    stats["actual_bitrate"] = (self.output.total_bytes * 8) / elapsed
+                    stats["actual_fps"] = self.output.frame_count / elapsed
+
+        return stats
+
+    def set_bitrate(self, bitrate):
         """
-        Altera a qualidade JPEG dinamicamente
+        Altera o bitrate do encoder (requer reinicialização)
 
         Args:
-            quality (int): Nova qualidade (1-100)
+            bitrate (int): Novo bitrate em bps
         """
-        if 1 <= quality <= 100:
-            self.jpeg_quality = quality
-            print(f"Qualidade JPEG alterada para: {quality}%")
-        else:
-            print("⚠ Qualidade deve estar entre 1 e 100")
-
-    def set_frame_rate(self, frame_rate):
-        """
-        Altera a taxa de frames dinamicamente (requer reinicialização)
-
-        Args:
-            frame_rate (int): Nova taxa de frames
-        """
-        if frame_rate > 0:
-            self.frame_rate = frame_rate
-            print(f"Taxa de frames alterada para: {frame_rate} FPS")
+        if bitrate > 0:
+            self.bitrate = bitrate
+            print(f"Bitrate alterado para: {bitrate / 1000000:.1f} Mbps")
             print("⚠ Reinicialize a câmera para aplicar a mudança")
         else:
-            print("⚠ Taxa de frames deve ser maior que 0")
+            print("⚠ Bitrate deve ser maior que 0")
 
     def cleanup(self):
-        """Libera recursos da câmera"""
+        """Libera recursos da câmera e encoder"""
         try:
+            if self.is_recording and self.camera:
+                self.camera.stop_encoder()
+                self.is_recording = False
+
             if self.camera is not None:
                 self.camera.close()
                 print("✓ Câmera OV5647 finalizada")
 
             self.is_initialized = False
             self.camera = None
+            self.encoder = None
+            self.output = None
 
         except Exception as e:
             print(f"⚠ Erro ao finalizar câmera: {e}")
@@ -240,51 +307,3 @@ class CameraManager:
     def __del__(self):
         """Destrutor - garante limpeza dos recursos"""
         self.cleanup()
-
-
-# Exemplo de uso
-if __name__ == "__main__":
-    # Teste da classe CameraManager
-    print("=== TESTE DO CAMERA MANAGER ===")
-
-    # Cria instância
-    camera_mgr = CameraManager(resolution=(640, 480), frame_rate=30, jpeg_quality=20)
-
-    # Inicializa
-    if camera_mgr.initialize():
-        print("Capturando 10 frames de teste...")
-
-        start_time = time.time()
-
-        for i in range(10):
-            # Captura frame
-            frame_data = camera_mgr.capture_frame()
-
-            if frame_data:
-                # Mostra informações
-                info = camera_mgr.get_frame_size_info(frame_data)
-                print(f"Frame {i+1}: {info['size_kb']} KB")
-            else:
-                print(f"Frame {i+1}: Erro na captura")
-
-            # Aguarda um pouco
-            time.sleep(0.1)
-
-        end_time = time.time()
-
-        # Mostra estatísticas
-        stats = camera_mgr.get_statistics()
-        elapsed = end_time - start_time
-        actual_fps = stats["frames_captured"] / elapsed
-
-        print(f"\n=== ESTATÍSTICAS ===")
-        print(f"Frames capturados: {stats['frames_captured']}")
-        print(f"Tempo decorrido: {elapsed:.2f}s")
-        print(f"FPS real: {actual_fps:.2f}")
-
-        # Finaliza
-        camera_mgr.cleanup()
-
-    else:
-        print("✗ Falha ao inicializar câmera")
-        print("Verifique a conexão e configuração da câmera")

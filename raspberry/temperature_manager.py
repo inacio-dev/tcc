@@ -500,39 +500,3 @@ class TemperatureManager:
         self.stop_monitoring()
         self.is_initialized = False
         info("TemperatureManager desligado", "TEMP")
-
-
-if __name__ == "__main__":
-    # Test DS18B20 temperature sensor
-    print("=== DS18B20 Temperature Sensor Test ===")
-
-    temp_mgr = TemperatureManager(gpio_pin=25, sampling_rate=0.5)  # 0.5 Hz for testing
-
-    try:
-        if temp_mgr.initialize():
-            print("Sensor inicializado com sucesso!")
-            print("Monitorando temperatura por 30 segundos...")
-
-            # Monitor for 30 seconds
-            for i in range(30):
-                time.sleep(1)
-                status = temp_mgr.get_temperature_status()
-
-                print(f"[{i+1:2d}s] Temperatura: {status['temperature_c']:.2f}°C "
-                      f"({status['temperature_f']:.1f}°F) - Status: {status['thermal_status']}")
-
-            print("\nEstatísticas finais:")
-            status = temp_mgr.get_temperature_status()
-            print(f"  Mínima: {status['min_temperature_c']:.2f}°C")
-            print(f"  Máxima: {status['max_temperature_c']:.2f}°C")
-            print(f"  Média: {status['avg_temperature_c']:.2f}°C")
-            print(f"  Leituras: {status['reading_count']}")
-
-        else:
-            print("Falha na inicialização do sensor!")
-
-    except KeyboardInterrupt:
-        print("\nTeste interrompido pelo usuário")
-    finally:
-        temp_mgr.shutdown()
-        print("Teste concluído")
