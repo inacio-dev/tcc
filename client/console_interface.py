@@ -115,7 +115,7 @@ class ConsoleInterface:
         self.update_interval = 100  # ms
 
         # Auto-save periódico
-        self.auto_save_interval = 10000  # 10 segundos em ms
+        self.auto_save_interval = 20000  # 20 segundos em ms
         self.last_log_count = 0
         self.last_sensor_count = 0
 
