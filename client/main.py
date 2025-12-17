@@ -36,7 +36,7 @@ import time
 
 # Importa nossos módulos
 try:
-    from console_interface import ConsoleInterface
+    from console import ConsoleInterface
     from network_client import NetworkClient
     from sensor_display import SensorDisplay
     from serial_receiver_manager import SerialReceiverManager
@@ -46,9 +46,7 @@ except ImportError as e:
     print(f"❌ ERRO: Não foi possível importar módulos necessários: {e}")
     print("\nVerifique se os arquivos estão na mesma pasta:")
     print("  - network_client.py, video_display.py, sensor_display.py")
-    print(
-        "  - console_interface.py, serial_receiver_manager.py, simple_logger.py, main_client.py"
-    )
+    print("  - console/, serial_receiver_manager.py, simple_logger.py, main.py")
     sys.exit(1)
 
 # Filas para comunicação entre threads

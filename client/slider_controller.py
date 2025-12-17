@@ -64,7 +64,7 @@ class SliderController:
         self.lock = threading.Lock()
 
         # Configurações
-        self.send_rate = 20  # Comandos por segundo (50ms)
+        self.send_rate = 100  # Comandos por segundo (10ms)
         self.min_change_threshold = 1.0  # Mínimo 1% de mudança para enviar
 
         # Últimos valores enviados (para evitar spam)
