@@ -129,15 +129,17 @@ Fonte: [NVIDIA CUDA Compatibility](https://docs.nvidia.com/deploy/cuda-compatibi
 
 ## Filtros com Suporte GPU
 
-| Filtro | GPU (CuPy) | CPU (OpenCV) |
-|--------|------------|--------------|
-| Sharpen (Laplaciano) | ✅ | ✅ |
-| High-Boost | ✅ | ✅ |
-| Unsharp Mask | ❌ | ✅ |
-| CLAHE | ❌ | ✅ |
-| Bilateral | ❌ | ✅ |
-| Denoise | ❌ | ✅ |
-| Super-Res 2x | ❌ | ✅ |
+| Filtro | GPU (CuPy) | CPU (OpenCV) | Recomendado |
+|--------|------------|--------------|-------------|
+| Sharpen (Laplaciano) | ✅ | ✅ | |
+| High-Boost | ✅ | ✅ | |
+| Unsharp Mask | ❌ | ✅ | |
+| CLAHE | ❌ | ✅ | |
+| CLAHE + High-Boost | ✅* | ✅ | ⭐ |
+| Bilateral | ❌ | ✅ | |
+| Super-Res 2x | ❌ | ✅ | |
+
+*CLAHE + High-Boost: CLAHE roda na CPU, High-Boost usa GPU se disponível.
 
 ---
 

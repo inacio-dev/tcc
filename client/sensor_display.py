@@ -50,7 +50,7 @@ class SensorDisplay:
         # Dados atuais dos sensores
         self.current_data = {}
         self.last_update_time = 0
-        self.data_timeout = 2.0  # segundos
+        self.data_timeout = 5.0  # segundos (aumentado para tolerar perdas UDP)
 
         # Dados processados para interface
         self.display_data = {

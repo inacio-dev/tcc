@@ -93,7 +93,7 @@ class NetworkClient:
         self.raspberry_pi_ip = None
         self.is_connected_to_rpi = False
         self.last_packet_time = time.time()
-        self.connection_timeout = 5.0  # segundos
+        self.connection_timeout = 10.0  # segundos (aumentado para tolerar perdas UDP)
 
         # Estatísticas
         self.packets_received = 0

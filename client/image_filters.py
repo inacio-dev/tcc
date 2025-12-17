@@ -4,8 +4,9 @@ image_filters.py - Filtros de Processamento Digital de Imagens (PDI)
 
 Implementa máscaras e filtros para aprimoramento de qualidade de vídeo:
 - Aguçamento (Sharpening): Laplaciano, Unsharp Mask, High-boost
-- Suavização: Bilateral, Denoise
+- Suavização: Bilateral
 - Realce: CLAHE (Contrast Limited Adaptive Histogram Equalization)
+- Combinado: CLAHE + High-Boost (recomendado)
 - Super-resolução: Upscale com Lanczos
 
 Suporte a GPU NVIDIA via CuPy (opcional):
@@ -96,9 +97,9 @@ class ImageFilters:
             "name": "Bilateral",
             "description": "Suaviza ruído preservando bordas",
         },
-        "denoise": {
-            "name": "Denoise",
-            "description": "Remoção de ruído (Non-local Means)",
+        "clahe_boost": {
+            "name": "CLAHE + High-Boost",
+            "description": "Contraste adaptativo + aguçamento (recomendado)",
         },
         "super_res": {
             "name": "Super-Res 2x",
@@ -116,6 +117,8 @@ class ImageFilters:
         self.current_filter = "original"
         self.use_gpu = use_gpu and GPU_AVAILABLE
         self.clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        # CLAHE mais suave para combinação com High-Boost
+        self.clahe_light = cv2.createCLAHE(clipLimit=1.2, tileGridSize=(8, 8))
 
         # Cache para super-resolução (evita recriar toda vez)
         self._super_res_size = None
@@ -262,20 +265,28 @@ class ImageFilters:
         """
         return cv2.bilateralFilter(frame, d=9, sigmaColor=75, sigmaSpace=75)
 
-    def _apply_denoise(self, frame: np.ndarray) -> np.ndarray:
+    def _apply_clahe_boost(self, frame: np.ndarray) -> np.ndarray:
         """
-        Aplica remoção de ruído Non-Local Means
+        Aplica CLAHE seguido de High-Boost (filtro combinado)
 
-        Teoria: NLM busca patches similares em toda a imagem e
-        faz média ponderada pela similaridade. Muito eficaz para
-        ruído gaussiano, preserva texturas e bordas.
+        Teoria: CLAHE melhora o contraste local primeiro, blur leve
+        suaviza transições entre pixels (anti-aliasing), depois
+        High-Boost aguça as bordas sem evidenciar pixelização.
         """
-        # fastNlMeansDenoisingColored para imagens coloridas
-        # h=10: força do filtro (maior = mais suavização)
-        # hForColorComponents=10: força para canais de cor
-        # templateWindowSize=7: tamanho do patch
-        # searchWindowSize=21: área de busca
-        return cv2.fastNlMeansDenoisingColored(frame, None, 10, 10, 7, 21)
+        # Passo 1: CLAHE suave para contraste (clipLimit=1.2)
+        lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
+        l, a, b = cv2.split(lab)
+        l = self.clahe_light.apply(l)
+        lab = cv2.merge([l, a, b])
+        frame = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
+
+        # Passo 2: Blur leve para anti-aliasing (suaviza pixels)
+        frame = cv2.GaussianBlur(frame, (3, 3), 0.8)
+
+        # Passo 3: High-Boost para aguçamento
+        if self.use_gpu:
+            return self._gpu_convolve(frame, "high_boost")
+        return cv2.filter2D(frame, -1, self.KERNELS["high_boost"])
 
     def _apply_super_res(self, frame: np.ndarray) -> np.ndarray:
         """
