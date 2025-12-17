@@ -221,10 +221,10 @@ class F1CarCompleteSystem:
             error("Rede não inicializada", "MAIN")
             return False
 
-        # 2. Câmera (H.264 hardware encoder)
-        debug("Inicializando câmera com H.264 hardware encoder...", "MAIN")
+        # 2. Câmera (MJPEG encoder)
+        debug("Inicializando câmera com MJPEG encoder...", "MAIN")
         self.camera_mgr = CameraManager(
-            resolution=(640, 480), frame_rate=self.camera_fps, quality_preset="high"
+            resolution=(640, 480), frame_rate=self.camera_fps, quality=85
         )
         if self.camera_mgr.initialize():
             self.system_status["camera"] = "Online"

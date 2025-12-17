@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-video_display.py - Gerenciamento da Exibição de Vídeo (H.264 + Tkinter)
-Responsável por decodificar H.264 e exibir frames na interface integrada
+video_display.py - Gerenciamento da Exibição de Vídeo (MJPEG/H.264 + Tkinter)
+Responsável por decodificar vídeo e exibir frames na interface integrada
 
 CARACTERÍSTICAS:
 ===============
-- Decodificação H.264 via PyAV (FFmpeg)
-- Buffer de NAL units para stream contínuo
+- Decodificação MJPEG (cada frame é JPEG independente)
+- Fallback para H.264 via PyAV (FFmpeg)
 - Redimensionamento automático
 - Estatísticas de FPS em tempo real
 - Tratamento de erros robusto
@@ -148,15 +148,15 @@ class VideoDisplay:
         self.tkinter_label = None
         self.status_callback = None
 
-        # Inicializa decoder H.264
+        # Inicializa decoder H.264 como fallback (MJPEG é o padrão agora)
         if H264_AVAILABLE:
             if self.h264_decoder.initialize():
-                self.use_h264 = True
-                self._log("INFO", "Decoder H.264 (PyAV/FFmpeg) inicializado")
+                self.use_h264 = True  # Será alterado para False quando receber JPEG
+                self._log("INFO", "Decoder H.264 disponível como fallback")
             else:
-                self._log("WARN", "Fallback para JPEG - decoder H.264 falhou")
+                self._log("INFO", "Usando MJPEG (H.264 não disponível)")
         else:
-            self._log("WARN", "PyAV não disponível - usando JPEG")
+            self._log("INFO", "Usando MJPEG (PyAV não instalado)")
 
         self._log("INFO", "VideoDisplay inicializado")
 
@@ -215,7 +215,7 @@ class VideoDisplay:
                     "connected": True,
                     "resolution": f"{width}x{height}",
                     "fps": self.current_fps,
-                    "codec": "H.264" if self.use_h264 else "JPEG",
+                    "codec": "H.264" if self.use_h264 else "MJPEG",
                 }
                 try:
                     self.status_callback(status)
@@ -266,7 +266,7 @@ class VideoDisplay:
             if self.frame_count % 5 != 0:
                 return frame
 
-            codec_text = "H.264" if self.use_h264 else "JPEG"
+            codec_text = "H.264" if self.use_h264 else "MJPEG"
             fps_text = f"{codec_text} | FPS: {self.current_fps:.1f}"
             resolution_text = f"{frame.shape[1]}x{frame.shape[0]}"
 
@@ -314,6 +314,13 @@ class VideoDisplay:
             self.frame_count = 0
             self.last_fps_time = current_time
 
+    def _is_jpeg_data(self, data: bytes) -> bool:
+        """Detecta se dados são JPEG (SOI marker)"""
+        if len(data) < 2:
+            return False
+        # JPEG começa com SOI (Start of Image): 0xFFD8
+        return data[:2] == b'\xff\xd8'
+
     def _is_h264_data(self, data: bytes) -> bool:
         """Detecta se dados são H.264 (NAL units com start code)"""
         if len(data) < 4:
@@ -323,7 +330,7 @@ class VideoDisplay:
 
     def _decode_frame(self, frame_data: bytes) -> Optional[np.ndarray]:
         """
-        Decodifica frame (H.264 ou JPEG automaticamente)
+        Decodifica frame (JPEG ou H.264 automaticamente)
 
         Args:
             frame_data: Bytes do frame codificado
@@ -334,19 +341,25 @@ class VideoDisplay:
         if not frame_data:
             return None
 
-        # Detecta formato automaticamente
-        if self._is_h264_data(frame_data):
-            # Decodifica H.264
+        # Detecta formato automaticamente (JPEG primeiro, pois é o principal agora)
+        if self._is_jpeg_data(frame_data):
+            # Decodifica JPEG (mais eficiente e sem dependência entre frames)
+            nparr = np.frombuffer(frame_data, dtype=np.uint8)
+            frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            if frame is not None:
+                self.use_h264 = False  # Indica que está usando JPEG
+            return frame
+
+        elif self._is_h264_data(frame_data):
+            # Decodifica H.264 (fallback)
             if self.use_h264:
                 frame = self.h264_decoder.decode(frame_data)
                 if frame is not None:
                     return frame
-
-            # Fallback: não pode decodificar H.264 sem PyAV
             return None
 
         else:
-            # Assume JPEG (fallback)
+            # Tenta JPEG como fallback final
             nparr = np.frombuffer(frame_data, dtype=np.uint8)
             frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
             return frame
@@ -385,7 +398,7 @@ class VideoDisplay:
 
     def run_display(self):
         """Loop principal de exibição de vídeo"""
-        self._log("INFO", f"Iniciando display de vídeo (codec: {'H.264' if self.use_h264 else 'JPEG'})...")
+        self._log("INFO", f"Iniciando display de vídeo (codec: {'H.264' if self.use_h264 else 'MJPEG'})...")
 
         self.is_running = True
         no_signal_displayed = False
@@ -455,7 +468,7 @@ class VideoDisplay:
             "avg_fps": self.frame_count / runtime if runtime > 0 else 0,
             "last_frame_time": self.last_frame_time,
             "is_running": self.is_running,
-            "codec": "H.264" if self.use_h264 else "JPEG",
+            "codec": "H.264" if self.use_h264 else "MJPEG",
         }
 
         if self.use_h264:

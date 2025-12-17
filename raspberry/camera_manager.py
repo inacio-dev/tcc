@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-camera_manager.py - Gerenciamento da Câmera OV5647 com H.264 Hardware Encoder
+camera_manager.py - Gerenciamento da Câmera OV5647 com MJPEG Encoder
 
-Usa o encoder H.264 de hardware do Raspberry Pi 4 (VideoCore VI) para
-compressão eficiente de vídeo com baixa latência e mínimo uso de CPU.
+Usa encoder MJPEG para máxima fidelidade de imagem.
+Cada frame é uma imagem JPEG independente (sem dependência entre frames).
 
 PINOUT CÂMERA OV5647:
 ===================
@@ -22,10 +22,10 @@ CONFIGURAÇÃO NECESSÁRIA:
 
 FORMATO DE SAÍDA:
 ================
-- H.264 Annex B (NAL units com start codes 0x00000001)
-- Profile: Baseline (decodificação rápida)
-- Keyframes a cada 30 frames (1 segundo @ 30 FPS)
-- Bitrate: 1.5 Mbps (ajustável)
+- MJPEG (Motion JPEG)
+- Cada frame é JPEG independente
+- Qualidade: 85 (ajustável)
+- Sem dependência entre frames (perda de 1 frame não afeta os outros)
 """
 
 import io
@@ -33,12 +33,12 @@ import time
 import threading
 from collections import deque
 from picamera2 import Picamera2
-from picamera2.encoders import H264Encoder
+from picamera2.encoders import MJPEGEncoder
 from picamera2.outputs import FileOutput
 
 
 class CircularBuffer(io.BufferedIOBase):
-    """Buffer circular para streaming H.264"""
+    """Buffer circular para streaming MJPEG"""
 
     def __init__(self, max_frames=10):
         self.frames = deque(maxlen=max_frames)
@@ -48,21 +48,23 @@ class CircularBuffer(io.BufferedIOBase):
         self.total_bytes = 0
 
     def write(self, data):
-        """Recebe dados do encoder"""
+        """Recebe dados do encoder MJPEG"""
         with self.lock:
-            # Detecta início de novo frame (NAL unit start code)
-            if data[:4] == b'\x00\x00\x00\x01' or data[:3] == b'\x00\x00\x01':
-                # Salva frame anterior se existir
+            # JPEG começa com SOI (Start of Image): 0xFFD8
+            # JPEG termina com EOI (End of Image): 0xFFD9
+            if len(data) >= 2 and data[:2] == b'\xff\xd8':
+                # Novo frame JPEG iniciando - salva o anterior se existir
                 if self.current_frame.tell() > 0:
                     frame_data = self.current_frame.getvalue()
-                    self.frames.append({
-                        'data': frame_data,
-                        'timestamp': time.time(),
-                        'size': len(frame_data),
-                        'keyframe': self._is_keyframe(frame_data)
-                    })
-                    self.frame_count += 1
-                    self.total_bytes += len(frame_data)
+                    if self._is_valid_jpeg(frame_data):
+                        self.frames.append({
+                            'data': frame_data,
+                            'timestamp': time.time(),
+                            'size': len(frame_data),
+                            'keyframe': True  # MJPEG: todo frame é independente
+                        })
+                        self.frame_count += 1
+                        self.total_bytes += len(frame_data)
 
                 # Inicia novo frame
                 self.current_frame = io.BytesIO()
@@ -70,19 +72,14 @@ class CircularBuffer(io.BufferedIOBase):
             self.current_frame.write(data)
             return len(data)
 
-    def _is_keyframe(self, data):
-        """Detecta se é keyframe (IDR NAL unit)"""
-        if len(data) < 5:
+    def _is_valid_jpeg(self, data):
+        """Verifica se é um JPEG válido (tem SOI e EOI)"""
+        if len(data) < 4:
             return False
-        # NAL unit type está nos bits 0-4 do byte após start code
-        if data[:4] == b'\x00\x00\x00\x01':
-            nal_type = data[4] & 0x1F
-        elif data[:3] == b'\x00\x00\x01':
-            nal_type = data[3] & 0x1F
-        else:
-            return False
-        # IDR = 5, SPS = 7, PPS = 8
-        return nal_type in (5, 7, 8)
+        # Verifica SOI no início e EOI no final
+        has_soi = data[:2] == b'\xff\xd8'
+        has_eoi = data[-2:] == b'\xff\xd9'
+        return has_soi and has_eoi
 
     def get_frame(self):
         """Obtém o frame mais recente"""
@@ -106,22 +103,20 @@ class CircularBuffer(io.BufferedIOBase):
 
 
 class CameraManager:
-    """Gerencia a captura de vídeo da câmera OV5647 com H.264 hardware encoding"""
+    """Gerencia a captura de vídeo da câmera OV5647 com MJPEG encoding"""
 
-    def __init__(self, resolution=(640, 480), frame_rate=30, bitrate=2500000, quality_preset="high"):
+    def __init__(self, resolution=(640, 480), frame_rate=30, quality=85):
         """
         Inicializa o gerenciador da câmera
 
         Args:
             resolution (tuple): Resolução do vídeo (largura, altura)
             frame_rate (int): Taxa de frames por segundo
-            bitrate (int): Bitrate do H.264 em bps (padrão: 2.5 Mbps)
-            quality_preset (str): Preset de qualidade ('low', 'medium', 'high')
+            quality (int): Qualidade JPEG (1-100, padrão: 85)
         """
         self.resolution = resolution
         self.frame_rate = frame_rate
-        self.bitrate = bitrate
-        self.quality_preset = quality_preset
+        self.quality = max(1, min(100, quality))  # Clamp entre 1-100
         self.camera = None
         self.encoder = None
         self.buffer = None
@@ -137,13 +132,13 @@ class CameraManager:
 
     def initialize(self):
         """
-        Inicializa a câmera OV5647 com encoder H.264 de hardware
+        Inicializa a câmera OV5647 com encoder MJPEG
 
         Returns:
             bool: True se inicializada com sucesso, False caso contrário
         """
         try:
-            print("Inicializando câmera OV5647 com H.264 hardware encoder...")
+            print("Inicializando câmera OV5647 com MJPEG encoder...")
 
             # Verifica câmeras disponíveis ANTES de criar instância
             try:
@@ -162,7 +157,7 @@ class CameraManager:
             # Cria instância da PiCamera2 com índice explícito
             self.camera = Picamera2(camera_num=0)
 
-            # Configuração para encoding de vídeo H.264
+            # Configuração para encoding de vídeo MJPEG
             config = self.camera.create_video_configuration(
                 main={"size": self.resolution, "format": "XBGR8888"},
                 encode="main",  # IMPORTANTE: indica qual stream usar para o encoder
@@ -182,18 +177,8 @@ class CameraManager:
             except Exception as e:
                 print(f"⚠ Aviso: FrameDurationLimits não configurado: {e}")
 
-            # Configura qp baseado no preset de qualidade
-            qp_values = {"low": 35, "medium": 28, "high": 22}
-            qp = qp_values.get(self.quality_preset, 25)
-
-            # Cria encoder H.264 com configurações otimizadas para qualidade
-            self.encoder = H264Encoder(
-                bitrate=self.bitrate,
-                repeat=True,          # Repete SPS/PPS para resiliência
-                iperiod=15,           # Keyframe a cada 15 frames (~0.5s)
-                profile="high",       # Perfil 'high' para melhor qualidade/compressão
-                qp=qp,                # Quantization parameter (menor = melhor qualidade)
-            )
+            # Cria encoder MJPEG com qualidade configurável
+            self.encoder = MJPEGEncoder(q=self.quality)
 
             # Cria buffer circular
             self.buffer = CircularBuffer(max_frames=10)
@@ -205,18 +190,17 @@ class CameraManager:
             self.camera.start()
             time.sleep(0.5)
 
-            # Inicia gravação com encoder H.264
+            # Inicia gravação com encoder MJPEG
             self.camera.start_encoder(self.encoder, self.output)
             self.is_recording = True
             self.start_time = time.time()
 
             self.is_initialized = True
 
-            print("✓ Câmera OV5647 inicializada com H.264 hardware encoder")
+            print("✓ Câmera OV5647 inicializada com MJPEG encoder")
             print(f"  Resolução: {self.resolution[0]}x{self.resolution[1]}")
-            print(f"  Bitrate: {self.bitrate / 1000000:.1f} Mbps")
-            print(f"  Profile: high | QP: {qp} | Preset: {self.quality_preset}")
-            print(f"  Encoder: H.264 (VideoCore VI hardware)")
+            print(f"  Qualidade JPEG: {self.quality}%")
+            print(f"  Encoder: MJPEG (cada frame é JPEG independente)")
 
             return True
 
@@ -241,10 +225,10 @@ class CameraManager:
 
     def capture_frame(self):
         """
-        Obtém o frame H.264 mais recente do buffer
+        Obtém o frame JPEG mais recente do buffer
 
         Returns:
-            bytes: Frame H.264 codificado (NAL units), ou None se não disponível
+            bytes: Frame JPEG codificado, ou None se não disponível
         """
         if not self.is_initialized or self.buffer is None:
             return None
@@ -266,7 +250,7 @@ class CameraManager:
 
     def get_frame_with_metadata(self):
         """
-        Obtém frame H.264 com metadados
+        Obtém frame JPEG com metadados
 
         Returns:
             dict: {'data': bytes, 'keyframe': bool, 'timestamp': float, 'size': int}
@@ -320,11 +304,10 @@ class CameraManager:
             "is_recording": self.is_recording,
             "resolution": self.resolution,
             "frame_rate": self.frame_rate,
-            "bitrate": self.bitrate,
-            "bitrate_mbps": self.bitrate / 1000000,
+            "quality": self.quality,
             "last_capture_time": self.last_capture_time,
             "last_frame_size": self.last_frame_size,
-            "encoder": "H.264 Hardware",
+            "encoder": "MJPEG",
         }
 
         # Estatísticas do buffer
@@ -335,24 +318,24 @@ class CameraManager:
             if self.start_time:
                 elapsed = time.time() - self.start_time
                 if elapsed > 0:
-                    stats["actual_bitrate"] = (self.buffer.total_bytes * 8) / elapsed
+                    stats["bytes_per_second"] = self.buffer.total_bytes / elapsed
                     stats["actual_fps"] = self.buffer.frame_count / elapsed
 
         return stats
 
-    def set_bitrate(self, bitrate):
+    def set_quality(self, quality):
         """
-        Altera o bitrate do encoder (requer reinicialização)
+        Altera a qualidade JPEG do encoder (requer reinicialização)
 
         Args:
-            bitrate (int): Novo bitrate em bps
+            quality (int): Nova qualidade (1-100)
         """
-        if bitrate > 0:
-            self.bitrate = bitrate
-            print(f"Bitrate alterado para: {bitrate / 1000000:.1f} Mbps")
+        if 1 <= quality <= 100:
+            self.quality = quality
+            print(f"Qualidade JPEG alterada para: {quality}%")
             print("⚠ Reinicialize a câmera para aplicar a mudança")
         else:
-            print("⚠ Bitrate deve ser maior que 0")
+            print("⚠ Qualidade deve estar entre 1 e 100")
 
     def cleanup(self):
         """Libera recursos da câmera e encoder"""
