@@ -169,7 +169,8 @@ class CameraManager:
 
             # Configuração para encoding de vídeo H.264
             config = self.camera.create_video_configuration(
-                main={"size": self.resolution},
+                main={"size": self.resolution, "format": "XBGR8888"},
+                encode="main",  # IMPORTANTE: indica qual stream usar para o encoder
                 buffer_count=4,
             )
 
