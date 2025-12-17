@@ -326,8 +326,13 @@ class F1CarMultiThreadSystem:
         debug("Thread de câmera finalizada", "CAM")
 
     def _sensor_thread_loop(self):
-        """Thread dedicada para sensores BMI160 (100Hz)"""
-        debug("Thread de sensores iniciada", "BMI160")
+        """Thread dedicada para sensores BMI160 (100Hz)
+
+        Envia dados de duas formas:
+        1. Atualiza current_sensor_data (para thread TX incluir no pacote de vídeo)
+        2. Envia diretamente via send_fast_sensors() na porta 9997 (100Hz)
+        """
+        debug("Thread de sensores iniciada (100Hz direto)", "BMI160")
         interval = 1.0 / self.sensor_rate
 
         while self.running:
@@ -336,9 +341,13 @@ class F1CarMultiThreadSystem:
                     if self.bmi160_mgr.update():
                         sensor_data = self.bmi160_mgr.get_sensor_data()
 
-                        # Atualiza dados atuais
+                        # Atualiza dados atuais (para thread TX)
                         with self.current_data_lock:
                             self.current_sensor_data = sensor_data
+
+                        # Envia diretamente via porta de sensores rápidos (100Hz)
+                        if self.network_mgr and self.system_status["network"] == "Online":
+                            self.network_mgr.send_fast_sensors(sensor_data)
 
                         # Estatísticas
                         with self.stats_lock:

@@ -29,37 +29,65 @@ Loop Principal (120Hz):
 
 ---
 
-## Arquitetura Atual (Multi-Thread)
+## Arquitetura Atual (Multi-Thread + Dual Port)
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    F1 Car Multi-Thread                      │
-├─────────────────────────────────────────────────────────────┤
-│  Thread Câmera (30Hz)     ──┐                               │
-│  Thread Sensores (100Hz)  ──┼──► current_data (Lock) ──┐    │
-│  Thread Energia (10Hz)    ──┤                          │    │
-│  Thread Temperatura (1Hz) ──┘                          │    │
-│                                                        ▼    │
-│  Thread TX Rede (120Hz)  ◄── Consolida ◄── Lê dados ───┘    │
-│       │                                                     │
-│       └──► UDP ──► Cliente                                  │
-│                                                             │
-│  Thread RX Comandos (daemon) ◄── UDP ◄── Cliente            │
-└─────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────┐
+│                    F1 Car Multi-Thread                            │
+├───────────────────────────────────────────────────────────────────┤
+│  RASPBERRY PI                                                     │
+│  ────────────                                                     │
+│  Thread Câmera (30Hz)     ──► current_frame ──┐                   │
+│  Thread Sensores (100Hz)  ──┬► current_sensor ─┼──► TX Rede ──┐   │
+│                             └──────────────────┼──► UDP 9997 ─┼─┐ │
+│  Thread Energia (10Hz)    ──► current_power ───┤              │ │ │
+│  Thread Temperatura (1Hz) ──► current_temp ────┘              │ │ │
+│                                                               │ │ │
+│  Thread TX Rede (120Hz)  ◄── Consolida ◄── Lê dados ──────────┘ │ │
+│       │                                                         │ │
+│       └──► UDP 9999 (Vídeo + Dados consolidados) ───────────────┘ │
+│                                                                   │
+│  Thread RX Comandos (daemon) ◄── UDP 9998 ◄── Cliente             │
+└───────────────────────────────────────────────────────────────────┘
+
+┌───────────────────────────────────────────────────────────────────┐
+│  CLIENTE                                                          │
+│  ───────                                                          │
+│  Thread Principal      ◄── UDP 9999 ── Vídeo + Dados              │
+│  Thread Fast Sensors   ◄── UDP 9997 ── BMI160 (100Hz)             │
+│  Thread TX Comandos    ──► UDP 9998 ── Controles                  │
+└───────────────────────────────────────────────────────────────────┘
 ```
+
+### Portas UDP
+
+| Porta | Direção | Conteúdo | Taxa |
+|-------|---------|----------|------|
+| 9999 | RPi → Cliente | Vídeo H.264 + dados consolidados | ~30Hz |
+| 9997 | RPi → Cliente | Sensores BMI160 (accel/gyro) | 100Hz |
+| 9998 | Cliente → RPi | Comandos de controle | On-demand |
 
 ---
 
 ## Threads do Sistema
 
+### Raspberry Pi
+
 | Thread | Taxa | Função | Daemon |
 |--------|------|--------|--------|
 | `CameraThread` | 30Hz | Captura frames da OV5647 | Sim |
-| `SensorThread` | 100Hz | Lê BMI160 (accel/gyro) | Sim |
+| `SensorThread` | 100Hz | Lê BMI160 + envia UDP 9997 | Sim |
 | `PowerThread` | 10Hz | Lê ADS1115 + INA219 | Sim |
 | `TempThread` | 1Hz | Lê DS18B20 | Sim |
-| `NetworkTXThread` | 120Hz | Consolida e transmite UDP | Sim |
-| RX Comandos | - | Recebe comandos do cliente | Sim |
+| `NetworkTXThread` | 120Hz | Consolida e transmite UDP 9999 | Sim |
+| RX Comandos | - | Recebe comandos do cliente (9998) | Sim |
+
+### Cliente
+
+| Thread | Taxa | Função | Daemon |
+|--------|------|--------|--------|
+| Main Loop | ~30Hz | Recebe vídeo + dados (9999) | Não |
+| `FastSensorThread` | 100Hz | Recebe sensores BMI160 (9997) | Sim |
 
 ---
 
@@ -172,21 +200,31 @@ self.state_lock = threading.Lock()
 
 ## Fluxo de Dados
 
-### Aquisição → Transmissão
+### Raspberry Pi: Aquisição → Transmissão
 
 ```
-BMI160 ──► SensorThread ──► current_sensor_data ──┐
-OV5647 ──► CameraThread ──► current_frame ────────┼──► NetworkTXThread ──► UDP
-ADS1115 ─► PowerThread ──► current_power_data ────┤
-DS18B20 ─► TempThread ──► current_temp_data ──────┘
+BMI160 ──► SensorThread ──┬► current_sensor_data ──┐
+                          │                        │
+                          └──► send_fast_sensors() ──► UDP 9997 (100Hz)
+                                                   │
+OV5647 ──► CameraThread ──► current_frame ─────────┼──► NetworkTXThread ──► UDP 9999 (30Hz)
+ADS1115 ─► PowerThread ──► current_power_data ─────┤
+DS18B20 ─► TempThread ──► current_temp_data ───────┘
 ```
 
-### Recepção → Atuadores
+### Cliente: Recepção
 
 ```
-UDP ──► RX Comandos ──► command_callback ──┬──► motor_mgr.set_throttle()
-                                           ├──► brake_mgr.apply_brake()
-                                           └──► steering_mgr.set_steering_input()
+UDP 9999 ──► Main Loop ──────────► Vídeo + Dados consolidados
+UDP 9997 ──► FastSensorThread ──► Sensores BMI160 (100Hz)
+```
+
+### Comandos → Atuadores
+
+```
+Cliente ──► UDP 9998 ──► RX Comandos ──► command_callback ──┬──► motor_mgr.set_throttle()
+                                                            ├──► brake_mgr.apply_brake()
+                                                            └──► steering_mgr.set_steering_input()
 ```
 
 ---
@@ -196,10 +234,11 @@ UDP ──► RX Comandos ──► command_callback ──┬──► motor_mg
 | Aspecto | Antes | Depois |
 |---------|-------|--------|
 | Câmera | Bloqueava sensores | Independente |
-| Sensores BMI160 | ~60Hz real | 100Hz real |
-| Latência | Acumulada | Mínima |
+| Sensores BMI160 | ~30Hz (junto com vídeo) | 100Hz real (porta dedicada) |
+| Latência de sensores | ~33ms (espera frame) | ~10ms (envio direto) |
 | Falhas | Afetavam todo sistema | Isoladas |
 | Escalabilidade | Difícil | Fácil adicionar threads |
+| Force Feedback | Dados atrasados | Tempo real 100Hz |
 
 ---
 
@@ -277,19 +316,46 @@ def stop(self):
 
 ## Arquivos Relacionados
 
+### Raspberry Pi
+
 - `raspberry/main.py` - Orquestrador multi-thread
+- `raspberry/network_manager.py` - Rede UDP (3 portas: 9999, 9998, 9997)
 - `raspberry/motor_manager.py` - Controle do motor (thread-safe)
 - `raspberry/brake_manager.py` - Controle de freios (thread-safe)
 - `raspberry/steering_manager.py` - Controle de direção (thread-safe)
 - `raspberry/bmi160_manager.py` - Sensor IMU (thread-safe)
 - `raspberry/power_monitor_manager.py` - Monitor de energia (thread-safe)
-- `raspberry/camera_manager.py` - Câmera (já era thread-safe)
-- `raspberry/temperature_manager.py` - Temperatura (já era thread-safe)
-- `raspberry/network_manager.py` - Rede UDP (já era thread-safe)
+- `raspberry/camera_manager.py` - Câmera (thread-safe)
+- `raspberry/temperature_manager.py` - Temperatura (thread-safe)
+
+### Cliente
+
+- `client/network_client.py` - Cliente UDP multi-thread (2 portas: 9999, 9997)
+- `client/main.py` - Orquestrador principal
+- `client/sensor_display.py` - Processamento de sensores
+
+---
+
+## Formato dos Pacotes
+
+### Porta 9999 (Vídeo + Dados)
+
+```
+| 4 bytes    | 4 bytes     | N bytes    | M bytes      |
+| frame_size | sensor_size | frame_data | sensor_json  |
+```
+
+### Porta 9997 (Sensores Rápidos)
+
+```
+| 4 bytes     | N bytes      |
+| sensor_size | sensor_json  |
+```
 
 ---
 
 ## Data
 
-- **Implementação**: 2025-12-17
+- **Implementação inicial**: 2025-12-17
+- **Atualização (dual-port)**: 2025-12-17
 - **Status**: Produção
