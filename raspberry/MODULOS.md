@@ -144,13 +144,17 @@ Este arquivo contém as especificações técnicas de todos os módulos utilizad
 
 ---
 
-## Motor DC 775
+## Motor DC RC 775
 
 | Especificação | Valor |
 |---------------|-------|
 | Tipo | Alto torque |
 | Tensão | 12V a 18V |
-| RPM | 6000 - 10000 |
+| RPM | 6000 - 10000 (típico 9000 sob carga) |
+| Potência | ~300W |
+| Corrente | ~5A normal, 30A pico |
+
+**Nota**: Motor conecta ao diferencial. Ver `docs/CAIXA_REDUCAO.md` para análise de velocidades.
 
 ---
 

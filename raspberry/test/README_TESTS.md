@@ -25,7 +25,7 @@ python test/test_bmi160_direct.py
 Teste completo do sistema de motor e transmissão F1.
 
 **O que testa:**
-- Inicialização do motor RS550
+- Inicialização do motor RC 775
 - Sistema de transmissão 5-marchas
 - Zonas de eficiência F1
 - Controle PWM e aceleração

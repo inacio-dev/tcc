@@ -19,11 +19,11 @@ FUNCIONALIDADES:
 - Thread-safe e tolerante a falhas
 """
 
-import tkinter as tk
-import time
 import threading
-from typing import Optional, Callable
-from simple_logger import info, debug, warn, error
+import time
+import tkinter as tk
+
+from simple_logger import debug, error, info, warn
 
 
 class KeyboardController:
@@ -245,7 +245,7 @@ class KeyboardController:
             with self.lock:
                 self.active_commands.clear()
                 self.pressed_keys.clear()
-        except:
+        except Exception:
             pass
 
         # Aguarda thread de comando parar
@@ -262,7 +262,7 @@ class KeyboardController:
             if hasattr(self, "status_widgets"):
                 self.status_widgets.clear()
                 self.status_widgets = {}
-        except:
+        except Exception:
             pass
 
         # Limpa referências
@@ -270,12 +270,12 @@ class KeyboardController:
             self.network_client = None
             self.log_callback = None
             self.root = None
-        except:
+        except Exception:
             pass
 
         try:
             self._log("INFO", "Controlador de teclado parado")
-        except:
+        except Exception:
             pass
 
     def _command_loop(self):
@@ -309,7 +309,7 @@ class KeyboardController:
             # Usa after do tkinter para agendar reset
             try:
                 widget.after(200, reset_color)
-            except:
+            except Exception:
                 # Fallback se widget não está disponível
                 pass
 
@@ -383,4 +383,3 @@ class KeyboardController:
         instructions.pack(pady=5)
 
         return status_frame
-

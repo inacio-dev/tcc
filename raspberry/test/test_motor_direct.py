@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Teste direto do motor BTS7960 - similar ao teste do BMI160
-Testa configuração e controle PWM do motor RS550
+Testa configuração e controle PWM do motor RC 775
 """
 
 import time
@@ -29,7 +29,7 @@ R_EN_PIN = 22  # GPIO22 (Pin 15) - Enable Frente
 L_EN_PIN = 23  # GPIO23 (Pin 16) - Enable Ré
 PWM_FREQ = 2000  # 2kHz
 
-print(f"Configuração BTS7960:")
+print("Configuração BTS7960:")
 print(f"  RPWM (Frente): GPIO{RPWM_PIN}")
 print(f"  LPWM (Ré): GPIO{LPWM_PIN}")
 print(f"  R_EN: GPIO{R_EN_PIN}")
@@ -41,7 +41,7 @@ def cleanup_gpio():
     try:
         GPIO.cleanup()
         print("✓ GPIO limpo")
-    except:
+    except Exception:
         pass
 
 def test_motor():
@@ -95,7 +95,7 @@ def test_motor():
 
             # Para motor
             rpwm.ChangeDutyCycle(0)
-            print(f"     Motor parado")
+            print("     Motor parado")
             time.sleep(1)
 
         print("\n--- TESTE 4: PWM RÉ (LPWM) ---")
@@ -111,7 +111,7 @@ def test_motor():
 
             # Para motor
             lpwm.ChangeDutyCycle(0)
-            print(f"     Motor parado")
+            print("     Motor parado")
             time.sleep(1)
 
         print("\n--- TESTE 5: FREIO ELÉTRICO ---")
@@ -195,7 +195,7 @@ def interactive_test():
                         rpwm.ChangeDutyCycle(pwm)
                         lpwm.ChangeDutyCycle(0)
                         print(f"⬆️ Frente {pwm}%")
-                    except:
+                    except Exception:
                         print("❌ Formato: f [PWM] (ex: f 50)")
                 elif cmd.startswith('r '):
                     try:
@@ -204,7 +204,7 @@ def interactive_test():
                         rpwm.ChangeDutyCycle(0)
                         lpwm.ChangeDutyCycle(pwm)
                         print(f"⬇️ Ré {pwm}%")
-                    except:
+                    except Exception:
                         print("❌ Formato: r [PWM] (ex: r 30)")
                 else:
                     print("❌ Comando inválido")

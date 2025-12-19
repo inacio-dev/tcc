@@ -24,19 +24,20 @@ Date: 2025-09-13
 Hardware: Raspberry Pi 4 Model B (8GB RAM)
 """
 
-import os
-import time
 import glob
+import os
 import threading
-from typing import Dict, Any, Optional
+import time
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any, Dict, Optional
 
-from logger import info, warn, error, debug
+from logger import debug, error, info, warn
 
 
 class TemperatureUnit(Enum):
     """Temperature unit enumeration"""
+
     CELSIUS = "C"
     FAHRENHEIT = "F"
     KELVIN = "K"
@@ -45,6 +46,7 @@ class TemperatureUnit(Enum):
 @dataclass
 class TemperatureReading:
     """Temperature reading data structure"""
+
     temperature_c: float
     temperature_f: float
     temperature_k: float
@@ -70,17 +72,22 @@ class TemperatureManager:
     """
 
     # DS18B20 Constants
-    DS18B20_BASE_DIR = '/sys/bus/w1/devices/'
-    DS18B20_DEVICE_FOLDER = '28-*'  # DS18B20 device ID pattern
-    DS18B20_DEVICE_FILE = 'w1_slave'
+    DS18B20_BASE_DIR = "/sys/bus/w1/devices/"
+    DS18B20_DEVICE_FOLDER = "28-*"  # DS18B20 device ID pattern
+    DS18B20_DEVICE_FILE = "w1_slave"
 
     # Temperature thresholds (°C)
-    TEMP_WARNING_THRESHOLD = 65.0   # CPU temperature warning
+    TEMP_WARNING_THRESHOLD = 65.0  # CPU temperature warning
     TEMP_CRITICAL_THRESHOLD = 80.0  # CPU temperature critical
     TEMP_SHUTDOWN_THRESHOLD = 85.0  # Emergency shutdown temperature
 
-    def __init__(self, gpio_pin: int = 4, sampling_rate: float = 1.0,
-                 enable_history: bool = True, history_size: int = 100):
+    def __init__(
+        self,
+        gpio_pin: int = 4,
+        sampling_rate: float = 1.0,
+        enable_history: bool = True,
+        history_size: int = 100,
+    ):
         """
         Initialize Temperature Manager
 
@@ -112,8 +119,8 @@ class TemperatureManager:
 
         # Temperature history
         self.temperature_history = []
-        self.min_temperature = float('inf')
-        self.max_temperature = float('-inf')
+        self.min_temperature = float("inf")
+        self.max_temperature = float("-inf")
         self.avg_temperature = 0.0
 
         # Threading
@@ -124,7 +131,10 @@ class TemperatureManager:
         self.last_warning_time = 0.0
         self.warning_cooldown = 30.0  # 30 seconds between warnings
 
-        info(f"TemperatureManager inicializado - GPIO{self.gpio_pin} @ {self.sampling_rate}Hz", "TEMP")
+        info(
+            f"TemperatureManager inicializado - GPIO{self.gpio_pin} @ {self.sampling_rate}Hz",
+            "TEMP",
+        )
 
     def initialize(self) -> bool:
         """
@@ -152,7 +162,10 @@ class TemperatureManager:
                 return False
 
             self.is_initialized = True
-            info(f"Sensor DS18B20 inicializado com sucesso - ID: {self.sensor_id}", "TEMP")
+            info(
+                f"Sensor DS18B20 inicializado com sucesso - ID: {self.sensor_id}",
+                "TEMP",
+            )
 
             # Start temperature monitoring thread
             self.start_monitoring()
@@ -172,8 +185,8 @@ class TemperatureManager:
         """
         try:
             # Load required kernel modules
-            os.system('sudo modprobe w1-gpio')
-            os.system('sudo modprobe w1-therm')
+            os.system("sudo modprobe w1-gpio")
+            os.system("sudo modprobe w1-therm")
             time.sleep(2.0)  # Wait for modules to load
 
             # Check if w1 devices directory exists
@@ -197,7 +210,9 @@ class TemperatureManager:
         """
         try:
             # Search for DS18B20 devices (ID pattern: 28-xxxxxxxxxxxx)
-            device_folders = glob.glob(os.path.join(self.DS18B20_BASE_DIR, self.DS18B20_DEVICE_FOLDER))
+            device_folders = glob.glob(
+                os.path.join(self.DS18B20_BASE_DIR, self.DS18B20_DEVICE_FOLDER)
+            )
 
             if not device_folders:
                 warn("Nenhum sensor DS18B20 detectado no barramento 1-Wire", "TEMP")
@@ -205,12 +220,17 @@ class TemperatureManager:
 
             # Use first detected sensor
             device_folder = device_folders[0]
-            self.device_file_path = os.path.join(device_folder, self.DS18B20_DEVICE_FILE)
+            self.device_file_path = os.path.join(
+                device_folder, self.DS18B20_DEVICE_FILE
+            )
             self.sensor_id = os.path.basename(device_folder)
 
             # Verify device file exists
             if not os.path.exists(self.device_file_path):
-                error(f"Arquivo do dispositivo não encontrado: {self.device_file_path}", "TEMP")
+                error(
+                    f"Arquivo do dispositivo não encontrado: {self.device_file_path}",
+                    "TEMP",
+                )
                 return False
 
             self.sensor_detected = True
@@ -238,10 +258,16 @@ class TemperatureManager:
 
             # Check if temperature is within reasonable range (-55°C to +125°C)
             if -55.0 <= reading.temperature_c <= 125.0:
-                info(f"Sensor validado - Temperatura inicial: {reading.temperature_c:.1f}°C", "TEMP")
+                info(
+                    f"Sensor validado - Temperatura inicial: {reading.temperature_c:.1f}°C",
+                    "TEMP",
+                )
                 return True
             else:
-                error(f"Temperatura fora da faixa válida: {reading.temperature_c:.1f}°C", "TEMP")
+                error(
+                    f"Temperatura fora da faixa válida: {reading.temperature_c:.1f}°C",
+                    "TEMP",
+                )
                 return False
 
         except Exception as e:
@@ -260,24 +286,24 @@ class TemperatureManager:
                 return None
 
             # Read raw data from device file
-            with open(self.device_file_path, 'r') as f:
+            with open(self.device_file_path, "r") as f:
                 lines = f.readlines()
 
             # Validate CRC (first line should end with 'YES')
-            if len(lines) < 2 or 'YES' not in lines[0]:
+            if len(lines) < 2 or "YES" not in lines[0]:
                 debug("Falha na verificação CRC - tentando novamente", "TEMP")
                 return None
 
             # Extract temperature from second line
             temp_line = lines[1]
-            temp_start = temp_line.find('t=')
+            temp_start = temp_line.find("t=")
 
             if temp_start == -1:
                 debug("Formato de temperatura inválido", "TEMP")
                 return None
 
             # Parse temperature (in millidegrees Celsius)
-            temp_string = temp_line[temp_start + 2:]
+            temp_string = temp_line[temp_start + 2 :]
             temp_millidegrees = int(temp_string)
             temp_celsius = temp_millidegrees / 1000.0
 
@@ -292,7 +318,7 @@ class TemperatureManager:
                 temperature_k=temp_kelvin,
                 sensor_id=self.sensor_id,
                 timestamp=time.time(),
-                is_valid=True
+                is_valid=True,
             )
 
             return reading
@@ -307,7 +333,9 @@ class TemperatureManager:
             return
 
         self.is_running = True
-        self.temperature_thread = threading.Thread(target=self._monitoring_loop, daemon=True)
+        self.temperature_thread = threading.Thread(
+            target=self._monitoring_loop, daemon=True
+        )
         self.temperature_thread.start()
 
         info(f"Monitoramento de temperatura iniciado @ {self.sampling_rate}Hz", "TEMP")
@@ -369,7 +397,9 @@ class TemperatureManager:
             self.avg_temperature = temperature
         else:
             alpha = 0.1  # Smoothing factor
-            self.avg_temperature = (alpha * temperature) + ((1 - alpha) * self.avg_temperature)
+            self.avg_temperature = (alpha * temperature) + (
+                (1 - alpha) * self.avg_temperature
+            )
 
     def _add_to_history(self, reading: TemperatureReading):
         """Add reading to temperature history"""
@@ -388,7 +418,10 @@ class TemperatureManager:
             return
 
         if temperature >= self.TEMP_SHUTDOWN_THRESHOLD:
-            error(f"TEMPERATURA CRÍTICA: {temperature:.1f}°C - SHUTDOWN RECOMENDADO!", "TEMP")
+            error(
+                f"TEMPERATURA CRÍTICA: {temperature:.1f}°C - SHUTDOWN RECOMENDADO!",
+                "TEMP",
+            )
             self.last_warning_time = current_time
         elif temperature >= self.TEMP_CRITICAL_THRESHOLD:
             error(f"Temperatura crítica: {temperature:.1f}°C", "TEMP")
@@ -431,27 +464,39 @@ class TemperatureManager:
                 "sensor_id": self.sensor_id,
                 "gpio_pin": self.gpio_pin,
                 "sampling_rate": self.sampling_rate,
-
                 # Current readings
                 "temperature_c": round(self.current_temperature_c, 2),
                 "temperature_f": round(self.current_temperature_f, 2),
                 "temperature_k": round(self.current_temperature_k, 2),
                 "last_reading_time": self.last_reading_time,
                 "reading_count": self.reading_count,
-
                 # Statistics
-                "min_temperature_c": round(self.min_temperature, 2) if self.min_temperature != float('inf') else None,
-                "max_temperature_c": round(self.max_temperature, 2) if self.max_temperature != float('-inf') else None,
+                "min_temperature_c": (
+                    round(self.min_temperature, 2)
+                    if self.min_temperature != float("inf")
+                    else None
+                ),
+                "max_temperature_c": (
+                    round(self.max_temperature, 2)
+                    if self.max_temperature != float("-inf")
+                    else None
+                ),
                 "avg_temperature_c": round(self.avg_temperature, 2),
-
                 # Status indicators
                 "is_warning": self.current_temperature_c >= self.TEMP_WARNING_THRESHOLD,
-                "is_critical": self.current_temperature_c >= self.TEMP_CRITICAL_THRESHOLD,
+                "is_critical": self.current_temperature_c
+                >= self.TEMP_CRITICAL_THRESHOLD,
                 "thermal_status": self._get_thermal_status(),
-                "uptime": time.time() - (self.last_reading_time - (self.reading_count * self.sampling_interval))
-                    if self.reading_count > 0 else 0,
-
-                "last_update": time.time()
+                "uptime": (
+                    time.time()
+                    - (
+                        self.last_reading_time
+                        - (self.reading_count * self.sampling_interval)
+                    )
+                    if self.reading_count > 0
+                    else 0
+                ),
+                "last_update": time.time(),
             }
 
     def _get_thermal_status(self) -> str:
@@ -481,13 +526,17 @@ class TemperatureManager:
             if count is None:
                 return self.temperature_history.copy()
             else:
-                return self.temperature_history[-count:].copy() if self.temperature_history else []
+                return (
+                    self.temperature_history[-count:].copy()
+                    if self.temperature_history
+                    else []
+                )
 
     def reset_statistics(self):
         """Reset temperature statistics"""
         with self.thread_lock:
-            self.min_temperature = float('inf')
-            self.max_temperature = float('-inf')
+            self.min_temperature = float("inf")
+            self.max_temperature = float("-inf")
             self.avg_temperature = 0.0
             self.reading_count = 0
             self.temperature_history.clear()

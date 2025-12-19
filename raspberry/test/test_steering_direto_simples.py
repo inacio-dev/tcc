@@ -53,7 +53,7 @@ try:
         steering_servo.angle = angle
 
         print(f"   → Ângulo: {angle}°")
-        print(f"   → Aguardando movimento...")
+        print("   → Aguardando movimento...")
 
         time.sleep(2)  # Tempo para ver movimento
         input("   Pressione ENTER para próximo movimento...")
@@ -101,5 +101,5 @@ finally:
         steering_servo.angle = 90  # Centro
         pca.deinit()
         print("✓ Sistema finalizado (posição central)")
-    except:
+    except Exception:
         pass

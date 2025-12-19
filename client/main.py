@@ -40,7 +40,7 @@ try:
     from network_client import NetworkClient
     from sensor_display import SensorDisplay
     from serial_receiver_manager import SerialReceiverManager
-    from simple_logger import LogLevel, debug, error, info, init_logger
+    from simple_logger import debug, error, info
     from video_display import VideoDisplay
 except ImportError as e:
     print(f"❌ ERRO: Não foi possível importar módulos necessários: {e}")
@@ -316,7 +316,7 @@ class F1ClientApplication:
 
         try:
             debug("Parando F1 Client...", "CLIENT")
-        except:
+        except Exception:
             pass
 
         self.running = False
@@ -334,7 +334,7 @@ class F1ClientApplication:
         except Exception as e:
             try:
                 debug(f"Erro ao parar video: {e}", "CLIENT")
-            except:
+            except Exception:
                 pass
 
         try:
@@ -343,7 +343,7 @@ class F1ClientApplication:
         except Exception as e:
             try:
                 debug(f"Erro ao parar serial: {e}", "CLIENT")
-            except:
+            except Exception:
                 pass
 
         try:
@@ -359,7 +359,7 @@ class F1ClientApplication:
         except Exception as e:
             try:
                 debug(f"Erro ao parar console: {e}", "CLIENT")
-            except:
+            except Exception:
                 pass
 
         try:
@@ -368,7 +368,7 @@ class F1ClientApplication:
         except Exception as e:
             try:
                 debug(f"Erro ao parar network: {e}", "CLIENT")
-            except:
+            except Exception:
                 pass
 
         # Aguarda threads (timeout para evitar travamento)
@@ -398,7 +398,7 @@ class F1ClientApplication:
         except Exception as e:
             try:
                 debug(f"Erro ao aguardar threads: {e}", "CLIENT")
-            except:
+            except Exception:
                 pass
 
         # Força finalização de threads daemon restantes
@@ -443,7 +443,7 @@ class F1ClientApplication:
                                 f"Thread não finalizada: {thread.name} (daemon: {thread.daemon})",
                                 "CLIENT",
                             )
-        except:
+        except Exception:
             pass
 
         # Limpa referências e força garbage collection agressivo
@@ -474,21 +474,21 @@ class F1ClientApplication:
                     ):
                         try:
                             obj._tk = None
-                        except:
+                        except Exception:
                             pass
-            except:
+            except Exception:
                 pass
 
             # Múltiplas passadas de garbage collection
             for _ in range(3):
                 gc.collect()
 
-        except:
+        except Exception:
             pass
 
         try:
             debug("F1 Client parado", "CLIENT")
-        except:
+        except Exception:
             pass
 
         # Última tentativa: força o Python a esperar todas as threads
@@ -515,7 +515,7 @@ class F1ClientApplication:
                     if t != threading.current_thread():
                         debug(f"Thread final: {t.name} (daemon: {t.daemon})", "CLIENT")
 
-        except:
+        except Exception:
             pass
 
 
@@ -622,13 +622,14 @@ def main():
         # Garante que a aplicação pare corretamente
         try:
             app.stop()
-        except:
+        except Exception:
             pass
         print("\n👋 Obrigado por usar o F1 Client!")
 
         # Força saída limpa para evitar erro "Tcl_AsyncDelete" do Tkinter
         # Este erro ocorre quando objetos Tkinter são garbage-collected em threads secundárias
         import os
+
         os._exit(0)
 
 

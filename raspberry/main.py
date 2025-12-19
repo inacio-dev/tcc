@@ -178,7 +178,10 @@ class F1CarMultiThreadSystem:
     def initialize_all_components(self) -> bool:
         """Inicializa todos os componentes do sistema"""
         info("F1 CAR SYSTEM - Inicializando componentes (Multi-Thread)", "MAIN")
-        info(f"Porta: {self.target_port}, FPS: {self.camera_fps}, Sensores: {self.sensor_rate}Hz", "MAIN")
+        info(
+            f"Porta: {self.target_port}, FPS: {self.camera_fps}, Sensores: {self.sensor_rate}Hz",
+            "MAIN",
+        )
 
         success_count = 0
         total_components = 8
@@ -291,10 +294,15 @@ class F1CarMultiThreadSystem:
             warn("Monitor de energia não inicializado", "MAIN")
 
         if success_count >= 2:
-            info(f"SISTEMA PRONTO - {success_count}/{total_components} componentes", "MAIN")
+            info(
+                f"SISTEMA PRONTO - {success_count}/{total_components} componentes",
+                "MAIN",
+            )
             return True
         else:
-            error(f"FALHA - Apenas {success_count}/{total_components} componentes", "MAIN")
+            error(
+                f"FALHA - Apenas {success_count}/{total_components} componentes", "MAIN"
+            )
             return False
 
     # === THREADS DE AQUISIÇÃO ===
@@ -346,7 +354,10 @@ class F1CarMultiThreadSystem:
                             self.current_sensor_data = sensor_data
 
                         # Envia diretamente via porta de sensores rápidos (100Hz)
-                        if self.network_mgr and self.system_status["network"] == "Online":
+                        if (
+                            self.network_mgr
+                            and self.system_status["network"] == "Online"
+                        ):
                             self.network_mgr.send_fast_sensors(sensor_data)
 
                         # Estatísticas
@@ -390,7 +401,10 @@ class F1CarMultiThreadSystem:
 
         while self.running:
             try:
-                if self.temperature_mgr and self.system_status["temperature"] == "Online":
+                if (
+                    self.temperature_mgr
+                    and self.system_status["temperature"] == "Online"
+                ):
                     temp_data = self.temperature_mgr.get_temperature_status()
 
                     with self.current_data_lock:
@@ -677,11 +691,27 @@ Exemplos de uso:
     )
 
     parser.add_argument("--ip", type=str, default=None, help="IP do cliente (opcional)")
-    parser.add_argument("--port", type=int, default=9999, help="Porta UDP (default: 9999)")
-    parser.add_argument("--fps", type=int, default=30, help="FPS da câmera (default: 30)")
-    parser.add_argument("--sensor-rate", type=int, default=100, help="Taxa sensores Hz (default: 100)")
-    parser.add_argument("--brake-balance", type=float, default=60.0, help="Balanço freio %% (default: 60)")
-    parser.add_argument("--steering-mode", type=str, choices=["normal", "sport", "comfort", "parking"], default="sport")
+    parser.add_argument(
+        "--port", type=int, default=9999, help="Porta UDP (default: 9999)"
+    )
+    parser.add_argument(
+        "--fps", type=int, default=30, help="FPS da câmera (default: 30)"
+    )
+    parser.add_argument(
+        "--sensor-rate", type=int, default=100, help="Taxa sensores Hz (default: 100)"
+    )
+    parser.add_argument(
+        "--brake-balance",
+        type=float,
+        default=60.0,
+        help="Balanço freio %% (default: 60)",
+    )
+    parser.add_argument(
+        "--steering-mode",
+        type=str,
+        choices=["normal", "sport", "comfort", "parking"],
+        default="sport",
+    )
     parser.add_argument("--debug", action="store_true", help="Modo debug")
 
     return parser
@@ -723,6 +753,7 @@ def main():
     except Exception as e:
         error(f"Erro crítico: {e}", "MAIN")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
     finally:

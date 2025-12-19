@@ -24,8 +24,8 @@ REGISTRADORES IMPORTANTES (conforme datasheet):
 0x0C-0x11 - GYRO_DATA (6 bytes)
 """
 
-import time
 import threading
+import time
 
 
 class BMI160Manager:
@@ -227,7 +227,9 @@ class BMI160Manager:
         for attempt in range(3):
             try:
                 # I2C real
-                return self.i2c_bus.read_i2c_block_data(self.i2c_address, start_reg, num_bytes)
+                return self.i2c_bus.read_i2c_block_data(
+                    self.i2c_address, start_reg, num_bytes
+                )
 
             except OSError as e:
                 if e.errno == 5:  # Input/output error
@@ -240,19 +242,22 @@ class BMI160Manager:
                         try:
                             # Tenta reinicializar o barramento I2C
                             import smbus2
+
                             self.i2c_bus = smbus2.SMBus(1)
                             time.sleep(0.001)
-                        except:
+                        except Exception:
                             pass
                     else:
                         # Terceira tentativa falhou - reporta erro mas não trava o sistema
-                        if not hasattr(self, '_error_count'):
+                        if not hasattr(self, "_error_count"):
                             self._error_count = 0
                         self._error_count += 1
 
                         # Só mostra erro a cada 50 falhas para evitar spam
                         if self._error_count % 50 == 0:
-                            print(f"⚠ BMI160 I2C Error (erro #{self._error_count}): reg 0x{start_reg:02X}")
+                            print(
+                                f"⚠ BMI160 I2C Error (erro #{self._error_count}): reg 0x{start_reg:02X}"
+                            )
 
                         # Retorna dados zero para manter o sistema funcionando
                         return [0] * num_bytes
@@ -287,16 +292,20 @@ class BMI160Manager:
             try:
                 # Primeiro tenta smbus2
                 import smbus2
+
                 self.i2c_bus = smbus2.SMBus(1)  # I2C bus 1 no Raspberry Pi
                 print("✓ I2C inicializado com smbus2")
             except ImportError:
                 try:
                     # Fallback para smbus (sistema)
                     import smbus
+
                     self.i2c_bus = smbus.SMBus(1)
                     print("✓ I2C inicializado com smbus")
                 except ImportError:
-                    print("❌ Nem smbus2 nem smbus disponíveis - hardware I2C obrigatório")
+                    print(
+                        "❌ Nem smbus2 nem smbus disponíveis - hardware I2C obrigatório"
+                    )
                     return False
                 except Exception as e:
                     print(f"❌ Erro no smbus: {e} - hardware I2C obrigatório")
@@ -305,6 +314,7 @@ class BMI160Manager:
                 print(f"⚠ Erro no smbus2: {e} - tentando smbus...")
                 try:
                     import smbus
+
                     self.i2c_bus = smbus.SMBus(1)
                     print("✓ I2C inicializado com smbus")
                 except Exception as e2:
@@ -344,7 +354,9 @@ class BMI160Manager:
                 time.sleep(0.1)
 
             if chip_id_after_reset != self.CHIP_ID_BMI160:
-                print(f"❌ CHIP_ID após reset: 0x{chip_id_after_reset if chip_id_after_reset else 'None':02X}")
+                print(
+                    f"❌ CHIP_ID após reset: 0x{chip_id_after_reset if chip_id_after_reset else 'None':02X}"
+                )
                 # Sensor pode estar funcional mesmo sem confirmar reset
                 print("⚠ Continuando sem confirmação de reset...")
             else:
@@ -455,7 +467,7 @@ class BMI160Manager:
             accel_data = self._read_sensor_registers(self.REG_ACCEL_DATA, 6)
             if accel_data is None:
                 # Usa dados anteriores ou zeros se não houver
-                accel_data = getattr(self, '_last_accel_data', [0, 0, 0, 0, 0, 0])
+                accel_data = getattr(self, "_last_accel_data", [0, 0, 0, 0, 0, 0])
             else:
                 self._last_accel_data = accel_data
 
@@ -463,18 +475,20 @@ class BMI160Manager:
             gyro_data = self._read_sensor_registers(self.REG_GYRO_DATA, 6)
             if gyro_data is None:
                 # Usa dados anteriores ou zeros se não houver
-                gyro_data = getattr(self, '_last_gyro_data', [0, 0, 0, 0, 0, 0])
+                gyro_data = getattr(self, "_last_gyro_data", [0, 0, 0, 0, 0, 0])
             else:
                 self._last_gyro_data = gyro_data
 
             # Debug: mostrar dados raw lidos do I2C
-            if hasattr(self, '_debug_counter'):
+            if hasattr(self, "_debug_counter"):
                 self._debug_counter += 1
             else:
                 self._debug_counter = 1
 
             if self._debug_counter % 200 == 0:  # A cada ~1s
-                print(f"🔍 BMI160 RAW I2C: accel_data={accel_data}, gyro_data={gyro_data}")
+                print(
+                    f"🔍 BMI160 RAW I2C: accel_data={accel_data}, gyro_data={gyro_data}"
+                )
 
             # CONVERSÃO CONFORME DATASHEET:
             # Dados em complemento de 2, LSB primeiro
@@ -500,7 +514,9 @@ class BMI160Manager:
                     self.accel_z_raw * self.accel_scale - self.accel_z_offset
                 ) * 9.81
 
-                self.gyro_x = self.gyro_x_raw * self.gyro_scale - self.gyro_x_offset  # °/s
+                self.gyro_x = (
+                    self.gyro_x_raw * self.gyro_scale - self.gyro_x_offset
+                )  # °/s
                 self.gyro_y = self.gyro_y_raw * self.gyro_scale - self.gyro_y_offset
                 self.gyro_z = self.gyro_z_raw * self.gyro_scale - self.gyro_z_offset
 

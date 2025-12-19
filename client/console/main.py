@@ -24,38 +24,36 @@ DADOS EXIBIDOS:
 """
 
 import tkinter as tk
-from tkinter import ttk
 from datetime import datetime
-from typing import Optional
+from tkinter import ttk
 
-from simple_logger import error, debug, info
 from keyboard_controller import KeyboardController
+from simple_logger import debug, error
 from slider_controller import SliderController
+
+from .frames.bmi160 import create_bmi160_frame
 
 # Imports dos módulos locais
 from .frames.connection_status import create_connection_status_frame
-from .frames.instrument_panel import create_instrument_panel
-from .frames.bmi160 import create_bmi160_frame
-from .frames.force_feedback import create_force_feedback_frame
 from .frames.controls import create_controls_frame
-from .frames.video import create_video_frame
-from .frames.serial_port import create_serial_port_selector_frame
+from .frames.force_feedback import create_force_feedback_frame
+from .frames.instrument_panel import create_instrument_panel
 from .frames.log import create_log_frame
-
+from .frames.serial_port import create_serial_port_selector_frame
+from .frames.telemetry_plotter import F1TelemetryPlotter
+from .frames.video import create_video_frame
+from .logic.auto_save import AutoSaveManager
 from .logic.force_feedback_calc import ForceFeedbackCalculator
 from .logic.velocity_calc import VelocityCalculator
-from .logic.auto_save import AutoSaveManager
-from .telemetry_plotter import F1TelemetryPlotter, create_telemetry_frame
-
 from .utils.constants import (
+    AUTO_SAVE_INTERVAL,
+    BRAKE_BALANCE_DEFAULT,
+    FF_DAMPING_DEFAULT,
+    FF_FILTER_DEFAULT,
+    FF_FRICTION_DEFAULT,
+    FF_SENSITIVITY_DEFAULT,
     MAX_LOG_LINES,
     UPDATE_INTERVAL,
-    AUTO_SAVE_INTERVAL,
-    FF_DAMPING_DEFAULT,
-    FF_FRICTION_DEFAULT,
-    FF_FILTER_DEFAULT,
-    FF_SENSITIVITY_DEFAULT,
-    BRAKE_BALANCE_DEFAULT,
 )
 
 
@@ -390,8 +388,7 @@ class ConsoleInterface:
         """Cria frame com gráficos de telemetria F1"""
         try:
             self.telemetry_plotter = F1TelemetryPlotter(
-                max_points=500,
-                update_interval=100  # 10Hz de atualização dos gráficos
+                max_points=500, update_interval=100  # 10Hz de atualização dos gráficos
             )
             telemetry_frame = self.telemetry_plotter.create_frame(self.right_column)
             telemetry_frame.pack(fill=tk.X, padx=5, pady=5)
@@ -446,7 +443,9 @@ class ConsoleInterface:
                 if self.serial_ports_list and not self.serial_port_var.get():
                     self.serial_port_var.set(self.serial_ports_list[0])
 
-                self.log("INFO", f"Encontradas {len(self.serial_ports_list)} portas seriais")
+                self.log(
+                    "INFO", f"Encontradas {len(self.serial_ports_list)} portas seriais"
+                )
             else:
                 self.log("WARN", "Serial receiver não inicializado")
         except Exception as e:
@@ -636,9 +635,20 @@ class ConsoleInterface:
                 value = sensor_data[sensor_field]
 
                 # Formatação especial
-                if var_name in ["accel_x", "accel_y", "accel_z", "gyro_x", "gyro_y", "gyro_z"]:
+                if var_name in [
+                    "accel_x",
+                    "accel_y",
+                    "accel_z",
+                    "gyro_x",
+                    "gyro_y",
+                    "gyro_z",
+                ]:
                     formatted_value = f"{value:.3f}"
-                elif var_name in ["g_force_frontal", "g_force_lateral", "g_force_vertical"]:
+                elif var_name in [
+                    "g_force_frontal",
+                    "g_force_lateral",
+                    "g_force_vertical",
+                ]:
                     formatted_value = f"{value:+.3f}"
                 elif var_name in ["temperature_c", "temperature_f", "temperature_k"]:
                     formatted_value = f"{value:.1f}"
@@ -646,7 +656,12 @@ class ConsoleInterface:
                     formatted_value = f"{value:.2f}A"
                 elif var_name in ["voltage_rpi"]:
                     formatted_value = f"{value:.2f}V"
-                elif var_name in ["power_rpi", "power_servos", "power_motor", "power_total"]:
+                elif var_name in [
+                    "power_rpi",
+                    "power_servos",
+                    "power_motor",
+                    "power_total",
+                ]:
                     formatted_value = f"{value:.1f}W"
                 elif var_name in ["accel_range"]:
                     formatted_value = f"±{value}g"
@@ -683,7 +698,9 @@ class ConsoleInterface:
                 if thermal_status in ["CRITICAL", "CRITICAL_SHUTDOWN"]:
                     current_color = self.temp_display.cget("fg")
                     flash_color = "#ffffff" if current_color != "#ffffff" else color
-                    self.root.after(500, lambda: self.temp_display.config(fg=flash_color))
+                    self.root.after(
+                        500, lambda: self.temp_display.config(fg=flash_color)
+                    )
 
         except Exception as e:
             error(f"Erro ao atualizar cores de temperatura: {e}", "CONSOLE")
@@ -786,7 +803,9 @@ class ConsoleInterface:
             # Log inicial
             self.log("INFO", "Interface do console iniciada")
             self.log("INFO", "Aguardando dados do Raspberry Pi...")
-            self.log("INFO", "Controles: Use as setas ou WASD para controlar o carrinho")
+            self.log(
+                "INFO", "Controles: Use as setas ou WASD para controlar o carrinho"
+            )
 
             # Inicia loop principal do Tkinter
             self.root.mainloop()
@@ -816,10 +835,20 @@ class ConsoleInterface:
 
             # Lista de variáveis Tkinter
             tkinter_vars = [
-                "connection_var", "fps_var", "frame_size_var", "packets_var",
-                "data_var", "quality_var", "brake_balance_var", "rpm_var",
-                "gear_var", "throttle_var", "speed_var", "video_status_var",
-                "video_resolution_var", "autoscroll_var",
+                "connection_var",
+                "fps_var",
+                "frame_size_var",
+                "packets_var",
+                "data_var",
+                "quality_var",
+                "brake_balance_var",
+                "rpm_var",
+                "gear_var",
+                "throttle_var",
+                "speed_var",
+                "video_status_var",
+                "video_resolution_var",
+                "autoscroll_var",
             ]
 
             for var_name in tkinter_vars:
@@ -867,6 +896,7 @@ class ConsoleInterface:
             # Força garbage collection
             try:
                 import gc
+
                 gc.collect()
             except Exception:
                 pass
@@ -913,10 +943,14 @@ class ConsoleInterface:
         """Envia comando de brake balance para o Raspberry Pi"""
         try:
             if hasattr(self, "network_client") and self.network_client:
-                success = self.network_client.send_control_command("BRAKE_BALANCE", balance)
+                success = self.network_client.send_control_command(
+                    "BRAKE_BALANCE", balance
+                )
                 if success:
                     debug(f"Comando enviado: BRAKE_BALANCE:{balance}", "CONTROL")
-                    self.log("INFO", f"Balanço de freio alterado: {balance:.0f}% dianteiro")
+                    self.log(
+                        "INFO", f"Balanço de freio alterado: {balance:.0f}% dianteiro"
+                    )
                 else:
                     debug("Falha ao enviar comando brake_balance", "CONTROL")
             else:

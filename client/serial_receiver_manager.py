@@ -22,11 +22,12 @@ Conexão:
 @date 2025-10-09
 """
 
-import serial
-import serial.tools.list_ports
 import threading
 import time
-from typing import Optional, Callable
+from typing import Callable, Optional
+
+import serial
+import serial.tools.list_ports
 
 
 class SerialReceiverManager:
@@ -121,7 +122,11 @@ class SerialReceiverManager:
                 return port.device
 
             # Fallback: verifica descrição
-            if "CP210" in port.description or "CH340" in port.description or "FTDI" in port.description:
+            if (
+                "CP210" in port.description
+                or "CH340" in port.description
+                or "FTDI" in port.description
+            ):
                 self._log("INFO", f"Dispositivo tipo ESP32 encontrado em {port.device}")
                 return port.device
 
@@ -133,7 +138,7 @@ class SerialReceiverManager:
                 test_serial.close()
                 self._log("INFO", f"Porta serial encontrada em {common_port}")
                 return common_port
-            except:
+            except Exception:
                 continue
 
         self._log("WARN", "Não foi possível detectar porta ESP32 automaticamente")
@@ -154,7 +159,7 @@ class SerialReceiverManager:
             if self.serial_conn:
                 try:
                     self.serial_conn.close()
-                except:
+                except Exception:
                     pass
                 self.serial_conn = None
 
@@ -291,7 +296,11 @@ class SerialReceiverManager:
 
             else:
                 # Comando desconhecido ou mensagem do sistema
-                if not line.startswith("F1 Cockpit") and not line.startswith("ESP32") and not line.startswith("="):
+                if (
+                    not line.startswith("F1 Cockpit")
+                    and not line.startswith("ESP32")
+                    and not line.startswith("=")
+                ):
                     self._log("WARN", f"Comando desconhecido: {line}")
 
             self.commands_received += 1
@@ -363,11 +372,14 @@ class SerialReceiverManager:
         if self.serial_conn:
             try:
                 self.serial_conn.close()
-            except:
+            except Exception:
                 pass
             self.serial_conn = None
 
-        self._log("INFO", f"Receptor serial parado - {self.commands_received} comandos recebidos")
+        self._log(
+            "INFO",
+            f"Receptor serial parado - {self.commands_received} comandos recebidos",
+        )
 
     def get_statistics(self) -> dict:
         """

@@ -13,17 +13,19 @@ CARACTERÍSTICAS:
 - Integração completa com Tkinter
 """
 
+import threading
+import time
+import tkinter as tk
+from typing import Optional
+
 import cv2
 import numpy as np
-import time
-import threading
-from typing import Optional
-import tkinter as tk
 from PIL import Image, ImageTk
 
 # Tenta importar av (PyAV) para decodificação H.264
 try:
     import av
+
     H264_AVAILABLE = True
 except ImportError:
     H264_AVAILABLE = False
@@ -47,10 +49,10 @@ class H264Decoder:
             if not H264_AVAILABLE:
                 return False
 
-            self.codec = av.CodecContext.create('h264', 'r')
+            self.codec = av.CodecContext.create("h264", "r")
             self.codec.options = {
-                'flags': 'low_delay',
-                'flags2': 'fast',
+                "flags": "low_delay",
+                "flags2": "fast",
             }
             self.is_initialized = True
             return True
@@ -82,14 +84,14 @@ class H264Decoder:
 
             for frame in frames:
                 # Converte para numpy array (formato YUV → BGR)
-                img = frame.to_ndarray(format='bgr24')
+                img = frame.to_ndarray(format="bgr24")
 
                 # Valida dimensões (640x480 esperado)
                 if img.shape[0] < 100 or img.shape[1] < 100:
                     continue  # Frame inválido, pula
 
                 # Garante memória contígua para evitar distorção na exibição
-                if not img.flags['C_CONTIGUOUS']:
+                if not img.flags["C_CONTIGUOUS"]:
                     img = np.ascontiguousarray(img)
 
                 self.frames_decoded += 1
@@ -265,7 +267,12 @@ class VideoDisplay:
             self.tkinter_label.image = None
 
             if self.status_callback and self.is_running:
-                status = {"connected": False, "resolution": "N/A", "fps": 0, "codec": "N/A"}
+                status = {
+                    "connected": False,
+                    "resolution": "N/A",
+                    "fps": 0,
+                    "codec": "N/A",
+                }
                 try:
                     self.status_callback(status)
                 except Exception:
@@ -299,13 +306,23 @@ class VideoDisplay:
             thickness = 1
 
             cv2.putText(frame, fps_text, (10, 25), font, font_scale, color, thickness)
-            cv2.putText(frame, resolution_text, (10, 50), font, font_scale, color, thickness)
+            cv2.putText(
+                frame, resolution_text, (10, 50), font, font_scale, color, thickness
+            )
 
             if filter_text:
-                cv2.putText(frame, filter_text, (10, 75), font, font_scale, (255, 255, 0), thickness)
+                cv2.putText(
+                    frame,
+                    filter_text,
+                    (10, 75),
+                    font,
+                    font_scale,
+                    (255, 255, 0),
+                    thickness,
+                )
 
             return frame
-        except:
+        except Exception:
             return frame
 
     def display_frame(self, frame):
@@ -349,14 +366,14 @@ class VideoDisplay:
         if len(data) < 2:
             return False
         # JPEG começa com SOI (Start of Image): 0xFFD8
-        return data[:2] == b'\xff\xd8'
+        return data[:2] == b"\xff\xd8"
 
     def _is_h264_data(self, data: bytes) -> bool:
         """Detecta se dados são H.264 (NAL units com start code)"""
         if len(data) < 4:
             return False
         # H.264 Annex B start codes: 0x00000001 ou 0x000001
-        return (data[:4] == b'\x00\x00\x00\x01' or data[:3] == b'\x00\x00\x01')
+        return data[:4] == b"\x00\x00\x00\x01" or data[:3] == b"\x00\x00\x01"
 
     def _decode_frame(self, frame_data: bytes) -> Optional[np.ndarray]:
         """
@@ -428,7 +445,10 @@ class VideoDisplay:
 
     def run_display(self):
         """Loop principal de exibição de vídeo"""
-        self._log("INFO", f"Iniciando display de vídeo (codec: {'H.264' if self.use_h264 else 'MJPEG'})...")
+        self._log(
+            "INFO",
+            f"Iniciando display de vídeo (codec: {'H.264' if self.use_h264 else 'MJPEG'})...",
+        )
 
         self.is_running = True
         no_signal_displayed = False
@@ -464,7 +484,7 @@ class VideoDisplay:
                                     frame = extra_data
                                 if frame is not None:
                                     latest_frame = frame
-                        except:
+                        except Exception:
                             break
 
                     # Exibe o frame mais recente
@@ -473,7 +493,7 @@ class VideoDisplay:
                         last_frame_time = time.time()
                         no_signal_displayed = False
 
-                except:
+                except Exception:
                     # Timeout ou fila vazia - verifica se precisa mostrar "sem sinal"
                     current_time = time.time()
                     if current_time - last_frame_time > 2.0 and not no_signal_displayed:

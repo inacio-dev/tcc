@@ -17,21 +17,22 @@ Uso:
 Autor: F1 Car TCC Project
 """
 
-import os
-import sys
-import pickle
 import argparse
+import os
+import pickle
 import re
+import sys
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
-from dataclasses import dataclass
+from typing import Dict, Optional, Tuple
 
 # Adiciona diretório pai ao path para imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 try:
     import numpy as np
+
     NUMPY_AVAILABLE = True
 except ImportError:
     NUMPY_AVAILABLE = False
@@ -39,8 +40,8 @@ except ImportError:
 
 try:
     import matplotlib.pyplot as plt
-    import matplotlib.dates as mdates
     from matplotlib.gridspec import GridSpec
+
     MATPLOTLIB_AVAILABLE = True
 except ImportError:
     MATPLOTLIB_AVAILABLE = False
@@ -49,26 +50,27 @@ except ImportError:
 
 # Cores estilo F1
 COLORS = {
-    'speed': '#00D2BE',
-    'throttle': '#00FF00',
-    'brake': '#FF0000',
-    'g_lateral': '#FF8700',
-    'g_frontal': '#0090FF',
-    'accel_x': '#FF5555',
-    'accel_y': '#55FF55',
-    'accel_z': '#5555FF',
-    'gyro_x': '#FFAA00',
-    'gyro_y': '#00FFAA',
-    'gyro_z': '#AA00FF',
-    'background': '#1E1E1E',
-    'grid': '#3C3C3C',
-    'text': '#FFFFFF',
+    "speed": "#00D2BE",
+    "throttle": "#00FF00",
+    "brake": "#FF0000",
+    "g_lateral": "#FF8700",
+    "g_frontal": "#0090FF",
+    "accel_x": "#FF5555",
+    "accel_y": "#55FF55",
+    "accel_z": "#5555FF",
+    "gyro_x": "#FFAA00",
+    "gyro_y": "#00FFAA",
+    "gyro_z": "#AA00FF",
+    "background": "#1E1E1E",
+    "grid": "#3C3C3C",
+    "text": "#FFFFFF",
 }
 
 
 @dataclass
 class SessionStats:
     """Estatísticas de uma sessão"""
+
     duration_seconds: float = 0.0
     total_points: int = 0
 
@@ -115,7 +117,9 @@ class SessionAnalyzer:
         self.log_content: Optional[str] = None
         self.stats = SessionStats()
 
-    def find_latest_files(self) -> Tuple[Optional[Path], Optional[Path], Optional[Path]]:
+    def find_latest_files(
+        self,
+    ) -> Tuple[Optional[Path], Optional[Path], Optional[Path]]:
         """Encontra os arquivos mais recentes de cada tipo"""
         telemetry_files = sorted(self.data_dir.glob("telemetry_*.pkl"), reverse=True)
         sensor_files = sorted(self.data_dir.glob("sensors_*.pkl"), reverse=True)
@@ -124,10 +128,12 @@ class SessionAnalyzer:
         return (
             telemetry_files[0] if telemetry_files else None,
             sensor_files[0] if sensor_files else None,
-            log_files[0] if log_files else None
+            log_files[0] if log_files else None,
         )
 
-    def find_matching_files(self, timestamp: str) -> Tuple[Optional[Path], Optional[Path], Optional[Path]]:
+    def find_matching_files(
+        self, timestamp: str
+    ) -> Tuple[Optional[Path], Optional[Path], Optional[Path]]:
         """Encontra arquivos com o mesmo timestamp"""
         telemetry = self.data_dir / f"telemetry_{timestamp}.pkl"
         sensors = self.data_dir / f"sensors_{timestamp}.pkl"
@@ -136,7 +142,7 @@ class SessionAnalyzer:
         return (
             telemetry if telemetry.exists() else None,
             sensors if sensors.exists() else None,
-            logs if logs.exists() else None
+            logs if logs.exists() else None,
         )
 
     def load_telemetry(self, filepath: Path) -> bool:
@@ -145,7 +151,9 @@ class SessionAnalyzer:
             with open(filepath, "rb") as f:
                 self.telemetry_data = pickle.load(f)
             print(f"[OK] Telemetria carregada: {filepath.name}")
-            print(f"     Pontos: {self.telemetry_data.get('points_count', len(self.telemetry_data.get('time', [])))}")
+            print(
+                f"     Pontos: {self.telemetry_data.get('points_count', len(self.telemetry_data.get('time', [])))}"
+            )
             return True
         except Exception as e:
             print(f"[ERRO] Falha ao carregar telemetria: {e}")
@@ -171,7 +179,7 @@ class SessionAnalyzer:
         try:
             with open(filepath, "r", encoding="utf-8") as f:
                 self.log_content = f.read()
-            lines = self.log_content.count('\n')
+            lines = self.log_content.count("\n")
             print(f"[OK] Logs carregados: {filepath.name}")
             print(f"     Linhas: {lines}")
             return True
@@ -212,7 +220,12 @@ class SessionAnalyzer:
 
                 # Combina os dados
                 for key, values in data.items():
-                    if key in ["start_time", "max_points", "export_time", "points_count"]:
+                    if key in [
+                        "start_time",
+                        "max_points",
+                        "export_time",
+                        "points_count",
+                    ]:
                         continue  # Pula metadados
 
                     if isinstance(values, list):
@@ -230,7 +243,9 @@ class SessionAnalyzer:
         if combined_data:
             self.telemetry_data = combined_data
             self.telemetry_data["points_count"] = total_points
-            print(f"[OK] Total telemetria: {total_points} pontos de {len(telemetry_files)} arquivos")
+            print(
+                f"[OK] Total telemetria: {total_points} pontos de {len(telemetry_files)} arquivos"
+            )
 
         return len(telemetry_files)
 
@@ -268,7 +283,9 @@ class SessionAnalyzer:
 
         if combined_data:
             self.sensor_data = combined_data
-            print(f"[OK] Total sensores: {total_points} pontos de {len(sensor_files)} arquivos")
+            print(
+                f"[OK] Total sensores: {total_points} pontos de {len(sensor_files)} arquivos"
+            )
 
         return len(sensor_files)
 
@@ -290,9 +307,11 @@ class SessionAnalyzer:
                 with open(filepath, "r", encoding="utf-8") as f:
                     content = f.read()
 
-                lines = content.count('\n')
+                lines = content.count("\n")
                 total_lines += lines
-                combined_logs.append(f"\n{'='*60}\n# Arquivo: {filepath.name}\n{'='*60}\n")
+                combined_logs.append(
+                    f"\n{'='*60}\n# Arquivo: {filepath.name}\n{'='*60}\n"
+                )
                 combined_logs.append(content)
                 print(f"  [+] {filepath.name}: {lines} linhas")
 
@@ -327,12 +346,16 @@ class SessionAnalyzer:
             throttle = np.array(self.telemetry_data.get("throttle", []))
             if len(throttle) > 0:
                 self.stats.throttle_avg = float(np.mean(throttle))
-                self.stats.full_throttle_percent = float(np.sum(throttle >= 95) / len(throttle) * 100)
+                self.stats.full_throttle_percent = float(
+                    np.sum(throttle >= 95) / len(throttle) * 100
+                )
 
             brake = np.array(self.telemetry_data.get("brake", []))
             if len(brake) > 0:
                 self.stats.brake_avg = float(np.mean(brake))
-                self.stats.braking_percent = float(np.sum(brake > 10) / len(brake) * 100)
+                self.stats.braking_percent = float(
+                    np.sum(brake > 10) / len(brake) * 100
+                )
 
             g_lat = np.array(self.telemetry_data.get("g_lateral", []))
             if len(g_lat) > 0:
@@ -347,12 +370,21 @@ class SessionAnalyzer:
         # Estatísticas de sensores (suporta prefixo bmi160_ ou sem prefixo)
         if self.sensor_data:
             # Tenta com prefixo bmi160_ primeiro, depois sem
-            accel_x = np.array(self.sensor_data.get("bmi160_accel_x",
-                              self.sensor_data.get("accel_x", [])))
-            accel_y = np.array(self.sensor_data.get("bmi160_accel_y",
-                              self.sensor_data.get("accel_y", [])))
-            accel_z = np.array(self.sensor_data.get("bmi160_accel_z",
-                              self.sensor_data.get("accel_z", [])))
+            accel_x = np.array(
+                self.sensor_data.get(
+                    "bmi160_accel_x", self.sensor_data.get("accel_x", [])
+                )
+            )
+            accel_y = np.array(
+                self.sensor_data.get(
+                    "bmi160_accel_y", self.sensor_data.get("accel_y", [])
+                )
+            )
+            accel_z = np.array(
+                self.sensor_data.get(
+                    "bmi160_accel_z", self.sensor_data.get("accel_z", [])
+                )
+            )
 
             if len(accel_x) > 0:
                 self.stats.accel_x_max = float(np.max(np.abs(accel_x)))
@@ -361,8 +393,11 @@ class SessionAnalyzer:
             if len(accel_z) > 0:
                 self.stats.accel_z_max = float(np.max(np.abs(accel_z)))
 
-            gyro_z = np.array(self.sensor_data.get("bmi160_gyro_z",
-                             self.sensor_data.get("gyro_z", [])))
+            gyro_z = np.array(
+                self.sensor_data.get(
+                    "bmi160_gyro_z", self.sensor_data.get("gyro_z", [])
+                )
+            )
             if len(gyro_z) > 0:
                 self.stats.gyro_z_max = float(np.max(np.abs(gyro_z)))
 
@@ -390,25 +425,25 @@ class SessionAnalyzer:
         print(f"\n{'Duração:':<25} {self.stats.duration_seconds:.1f} segundos")
         print(f"{'Total de pontos:':<25} {self.stats.total_points}")
 
-        print(f"\n--- Velocidade ---")
+        print("\n--- Velocidade ---")
         print(f"{'  Máxima:':<25} {self.stats.speed_max:.1f} km/h")
         print(f"{'  Média:':<25} {self.stats.speed_avg:.1f} km/h")
         print(f"{'  Mínima:':<25} {self.stats.speed_min:.1f} km/h")
 
-        print(f"\n--- Pedais ---")
+        print("\n--- Pedais ---")
         print(f"{'  Acelerador médio:':<25} {self.stats.throttle_avg:.1f}%")
         print(f"{'  Tempo full throttle:':<25} {self.stats.full_throttle_percent:.1f}%")
         print(f"{'  Freio médio:':<25} {self.stats.brake_avg:.1f}%")
         print(f"{'  Tempo frenando:':<25} {self.stats.braking_percent:.1f}%")
 
-        print(f"\n--- Forças G ---")
+        print("\n--- Forças G ---")
         print(f"{'  G Lateral máx:':<25} {self.stats.g_lateral_max:.2f} G")
         print(f"{'  G Lateral mín:':<25} {self.stats.g_lateral_min:.2f} G")
         print(f"{'  G Frontal máx:':<25} {self.stats.g_frontal_max:.2f} G (aceleração)")
         print(f"{'  G Frontal mín:':<25} {self.stats.g_frontal_min:.2f} G (frenagem)")
 
         if self.sensor_data:
-            print(f"\n--- Sensores BMI160 ---")
+            print("\n--- Sensores BMI160 ---")
             print(f"{'  Accel X máx:':<25} {self.stats.accel_x_max:.2f} m/s²")
             print(f"{'  Accel Y máx:':<25} {self.stats.accel_y_max:.2f} m/s²")
             print(f"{'  Accel Z máx:':<25} {self.stats.accel_z_max:.2f} m/s²")
@@ -416,11 +451,19 @@ class SessionAnalyzer:
 
             # Power Monitor (se disponível)
             if self.stats.power_total_max > 0 or self.stats.current_motor_max > 0:
-                print(f"\n--- Power Monitor ---")
-                print(f"{'  Corrente Motor máx:':<25} {self.stats.current_motor_max:.2f} A")
-                print(f"{'  Corrente Motor média:':<25} {self.stats.current_motor_avg:.2f} A")
-                print(f"{'  Potência Total máx:':<25} {self.stats.power_total_max:.1f} W")
-                print(f"{'  Potência Total média:':<25} {self.stats.power_total_avg:.1f} W")
+                print("\n--- Power Monitor ---")
+                print(
+                    f"{'  Corrente Motor máx:':<25} {self.stats.current_motor_max:.2f} A"
+                )
+                print(
+                    f"{'  Corrente Motor média:':<25} {self.stats.current_motor_avg:.2f} A"
+                )
+                print(
+                    f"{'  Potência Total máx:':<25} {self.stats.power_total_max:.1f} W"
+                )
+                print(
+                    f"{'  Potência Total média:':<25} {self.stats.power_total_avg:.1f} W"
+                )
                 print(f"{'  Tensão RPi média:':<25} {self.stats.voltage_rpi_avg:.2f} V")
 
         print("\n" + "=" * 60)
@@ -441,84 +484,116 @@ class SessionAnalyzer:
             return
 
         # Configura estilo escuro
-        plt.style.use('dark_background')
+        plt.style.use("dark_background")
 
-        fig = plt.figure(figsize=(14, 10), facecolor=COLORS['background'])
-        fig.suptitle('Telemetria F1 Car - Análise de Sessão',
-                     color=COLORS['text'], fontsize=14, fontweight='bold')
+        fig = plt.figure(figsize=(14, 10), facecolor=COLORS["background"])
+        fig.suptitle(
+            "Telemetria F1 Car - Análise de Sessão",
+            color=COLORS["text"],
+            fontsize=14,
+            fontweight="bold",
+        )
 
         gs = GridSpec(4, 2, figure=fig, hspace=0.3, wspace=0.25)
 
         # 1. Velocidade
         ax1 = fig.add_subplot(gs[0, :])
-        ax1.set_facecolor(COLORS['background'])
+        ax1.set_facecolor(COLORS["background"])
         speed = self.telemetry_data.get("speed", [])
-        ax1.plot(time_data, speed, color=COLORS['speed'], linewidth=1.5)
-        ax1.fill_between(time_data, speed, alpha=0.3, color=COLORS['speed'])
-        ax1.set_ylabel('Velocidade (km/h)', color=COLORS['text'])
-        ax1.set_title('Trace de Velocidade', color=COLORS['text'], fontsize=10)
-        ax1.grid(True, color=COLORS['grid'], alpha=0.3)
+        ax1.plot(time_data, speed, color=COLORS["speed"], linewidth=1.5)
+        ax1.fill_between(time_data, speed, alpha=0.3, color=COLORS["speed"])
+        ax1.set_ylabel("Velocidade (km/h)", color=COLORS["text"])
+        ax1.set_title("Trace de Velocidade", color=COLORS["text"], fontsize=10)
+        ax1.grid(True, color=COLORS["grid"], alpha=0.3)
         ax1.set_xlim(min(time_data), max(time_data))
 
         # 2. Acelerador e Freio
         ax2 = fig.add_subplot(gs[1, :])
-        ax2.set_facecolor(COLORS['background'])
+        ax2.set_facecolor(COLORS["background"])
         throttle = self.telemetry_data.get("throttle", [])
         brake = self.telemetry_data.get("brake", [])
-        ax2.plot(time_data, throttle, color=COLORS['throttle'], linewidth=1.5, label='Acelerador')
-        ax2.plot(time_data, brake, color=COLORS['brake'], linewidth=1.5, label='Freio')
-        ax2.set_ylabel('Pedais (%)', color=COLORS['text'])
-        ax2.set_title('Acelerador e Freio', color=COLORS['text'], fontsize=10)
-        ax2.legend(loc='upper right', facecolor=COLORS['background'])
-        ax2.grid(True, color=COLORS['grid'], alpha=0.3)
+        ax2.plot(
+            time_data,
+            throttle,
+            color=COLORS["throttle"],
+            linewidth=1.5,
+            label="Acelerador",
+        )
+        ax2.plot(time_data, brake, color=COLORS["brake"], linewidth=1.5, label="Freio")
+        ax2.set_ylabel("Pedais (%)", color=COLORS["text"])
+        ax2.set_title("Acelerador e Freio", color=COLORS["text"], fontsize=10)
+        ax2.legend(loc="upper right", facecolor=COLORS["background"])
+        ax2.grid(True, color=COLORS["grid"], alpha=0.3)
         ax2.set_ylim(0, 105)
         ax2.set_xlim(min(time_data), max(time_data))
 
         # 3. Forças G
         ax3 = fig.add_subplot(gs[2, :])
-        ax3.set_facecolor(COLORS['background'])
+        ax3.set_facecolor(COLORS["background"])
         g_lat = self.telemetry_data.get("g_lateral", [])
         g_front = self.telemetry_data.get("g_frontal", [])
-        ax3.plot(time_data, g_lat, color=COLORS['g_lateral'], linewidth=1.5, label='G Lateral')
-        ax3.plot(time_data, g_front, color=COLORS['g_frontal'], linewidth=1.5, label='G Frontal')
-        ax3.axhline(y=0, color=COLORS['grid'], linestyle='--', alpha=0.5)
-        ax3.set_ylabel('Força G', color=COLORS['text'])
-        ax3.set_xlabel('Tempo (s)', color=COLORS['text'])
-        ax3.set_title('Forças G', color=COLORS['text'], fontsize=10)
-        ax3.legend(loc='upper right', facecolor=COLORS['background'])
-        ax3.grid(True, color=COLORS['grid'], alpha=0.3)
+        ax3.plot(
+            time_data,
+            g_lat,
+            color=COLORS["g_lateral"],
+            linewidth=1.5,
+            label="G Lateral",
+        )
+        ax3.plot(
+            time_data,
+            g_front,
+            color=COLORS["g_frontal"],
+            linewidth=1.5,
+            label="G Frontal",
+        )
+        ax3.axhline(y=0, color=COLORS["grid"], linestyle="--", alpha=0.5)
+        ax3.set_ylabel("Força G", color=COLORS["text"])
+        ax3.set_xlabel("Tempo (s)", color=COLORS["text"])
+        ax3.set_title("Forças G", color=COLORS["text"], fontsize=10)
+        ax3.legend(loc="upper right", facecolor=COLORS["background"])
+        ax3.grid(True, color=COLORS["grid"], alpha=0.3)
         ax3.set_xlim(min(time_data), max(time_data))
 
         # 4. Distribuição de velocidade (histograma)
         ax4 = fig.add_subplot(gs[3, 0])
-        ax4.set_facecolor(COLORS['background'])
+        ax4.set_facecolor(COLORS["background"])
         if NUMPY_AVAILABLE and speed:
-            ax4.hist(speed, bins=30, color=COLORS['speed'], alpha=0.7, edgecolor='white')
-        ax4.set_xlabel('Velocidade (km/h)', color=COLORS['text'])
-        ax4.set_ylabel('Frequência', color=COLORS['text'])
-        ax4.set_title('Distribuição de Velocidade', color=COLORS['text'], fontsize=10)
-        ax4.grid(True, color=COLORS['grid'], alpha=0.3)
+            ax4.hist(
+                speed, bins=30, color=COLORS["speed"], alpha=0.7, edgecolor="white"
+            )
+        ax4.set_xlabel("Velocidade (km/h)", color=COLORS["text"])
+        ax4.set_ylabel("Frequência", color=COLORS["text"])
+        ax4.set_title("Distribuição de Velocidade", color=COLORS["text"], fontsize=10)
+        ax4.grid(True, color=COLORS["grid"], alpha=0.3)
 
         # 5. G-G Diagram (scatter)
         ax5 = fig.add_subplot(gs[3, 1])
-        ax5.set_facecolor(COLORS['background'])
+        ax5.set_facecolor(COLORS["background"])
         if g_lat and g_front:
-            scatter = ax5.scatter(g_lat, g_front, c=time_data, cmap='plasma',
-                                 alpha=0.6, s=10, edgecolors='none')
-            plt.colorbar(scatter, ax=ax5, label='Tempo (s)')
-        ax5.axhline(y=0, color=COLORS['grid'], linestyle='--', alpha=0.5)
-        ax5.axvline(x=0, color=COLORS['grid'], linestyle='--', alpha=0.5)
-        ax5.set_xlabel('G Lateral', color=COLORS['text'])
-        ax5.set_ylabel('G Frontal', color=COLORS['text'])
-        ax5.set_title('Diagrama G-G', color=COLORS['text'], fontsize=10)
-        ax5.grid(True, color=COLORS['grid'], alpha=0.3)
-        ax5.set_aspect('equal', adjustable='box')
+            scatter = ax5.scatter(
+                g_lat,
+                g_front,
+                c=time_data,
+                cmap="plasma",
+                alpha=0.6,
+                s=10,
+                edgecolors="none",
+            )
+            plt.colorbar(scatter, ax=ax5, label="Tempo (s)")
+        ax5.axhline(y=0, color=COLORS["grid"], linestyle="--", alpha=0.5)
+        ax5.axvline(x=0, color=COLORS["grid"], linestyle="--", alpha=0.5)
+        ax5.set_xlabel("G Lateral", color=COLORS["text"])
+        ax5.set_ylabel("G Frontal", color=COLORS["text"])
+        ax5.set_title("Diagrama G-G", color=COLORS["text"], fontsize=10)
+        ax5.grid(True, color=COLORS["grid"], alpha=0.3)
+        ax5.set_aspect("equal", adjustable="box")
 
         plt.tight_layout()
 
         if save_path:
-            plt.savefig(save_path, dpi=150, facecolor=COLORS['background'],
-                       bbox_inches='tight')
+            plt.savefig(
+                save_path, dpi=150, facecolor=COLORS["background"], bbox_inches="tight"
+            )
             print(f"[OK] Gráfico salvo: {save_path}")
         else:
             plt.show()
@@ -544,69 +619,91 @@ class SessionAnalyzer:
         else:
             time_data = [t - timestamps[0] for t in timestamps]
 
-        plt.style.use('dark_background')
+        plt.style.use("dark_background")
 
-        fig, axes = plt.subplots(3, 2, figsize=(14, 10), facecolor=COLORS['background'])
-        fig.suptitle('Dados Brutos BMI160 - Análise de Sessão',
-                     color=COLORS['text'], fontsize=14, fontweight='bold')
+        fig, axes = plt.subplots(3, 2, figsize=(14, 10), facecolor=COLORS["background"])
+        fig.suptitle(
+            "Dados Brutos BMI160 - Análise de Sessão",
+            color=COLORS["text"],
+            fontsize=14,
+            fontweight="bold",
+        )
 
         # Acelerômetro X, Y, Z (suporta prefixo bmi160_)
-        accel_x = self.sensor_data.get("bmi160_accel_x", self.sensor_data.get("accel_x", []))
-        accel_y = self.sensor_data.get("bmi160_accel_y", self.sensor_data.get("accel_y", []))
-        accel_z = self.sensor_data.get("bmi160_accel_z", self.sensor_data.get("accel_z", []))
+        accel_x = self.sensor_data.get(
+            "bmi160_accel_x", self.sensor_data.get("accel_x", [])
+        )
+        accel_y = self.sensor_data.get(
+            "bmi160_accel_y", self.sensor_data.get("accel_y", [])
+        )
+        accel_z = self.sensor_data.get(
+            "bmi160_accel_z", self.sensor_data.get("accel_z", [])
+        )
 
         ax = axes[0, 0]
-        ax.set_facecolor(COLORS['background'])
+        ax.set_facecolor(COLORS["background"])
         if accel_x:
-            ax.plot(time_data, accel_x, color=COLORS['accel_x'], linewidth=0.8, label='X')
+            ax.plot(
+                time_data, accel_x, color=COLORS["accel_x"], linewidth=0.8, label="X"
+            )
         if accel_y:
-            ax.plot(time_data, accel_y, color=COLORS['accel_y'], linewidth=0.8, label='Y')
+            ax.plot(
+                time_data, accel_y, color=COLORS["accel_y"], linewidth=0.8, label="Y"
+            )
         if accel_z:
-            ax.plot(time_data, accel_z, color=COLORS['accel_z'], linewidth=0.8, label='Z')
-        ax.set_ylabel('Aceleração (m/s²)', color=COLORS['text'])
-        ax.set_title('Acelerômetro', color=COLORS['text'])
-        ax.legend(loc='upper right', facecolor=COLORS['background'])
-        ax.grid(True, color=COLORS['grid'], alpha=0.3)
+            ax.plot(
+                time_data, accel_z, color=COLORS["accel_z"], linewidth=0.8, label="Z"
+            )
+        ax.set_ylabel("Aceleração (m/s²)", color=COLORS["text"])
+        ax.set_title("Acelerômetro", color=COLORS["text"])
+        ax.legend(loc="upper right", facecolor=COLORS["background"])
+        ax.grid(True, color=COLORS["grid"], alpha=0.3)
 
         # Giroscópio X, Y, Z (suporta prefixo bmi160_)
-        gyro_x = self.sensor_data.get("bmi160_gyro_x", self.sensor_data.get("gyro_x", []))
-        gyro_y = self.sensor_data.get("bmi160_gyro_y", self.sensor_data.get("gyro_y", []))
-        gyro_z = self.sensor_data.get("bmi160_gyro_z", self.sensor_data.get("gyro_z", []))
+        gyro_x = self.sensor_data.get(
+            "bmi160_gyro_x", self.sensor_data.get("gyro_x", [])
+        )
+        gyro_y = self.sensor_data.get(
+            "bmi160_gyro_y", self.sensor_data.get("gyro_y", [])
+        )
+        gyro_z = self.sensor_data.get(
+            "bmi160_gyro_z", self.sensor_data.get("gyro_z", [])
+        )
 
         ax = axes[0, 1]
-        ax.set_facecolor(COLORS['background'])
+        ax.set_facecolor(COLORS["background"])
         if gyro_x:
-            ax.plot(time_data, gyro_x, color=COLORS['gyro_x'], linewidth=0.8, label='X')
+            ax.plot(time_data, gyro_x, color=COLORS["gyro_x"], linewidth=0.8, label="X")
         if gyro_y:
-            ax.plot(time_data, gyro_y, color=COLORS['gyro_y'], linewidth=0.8, label='Y')
+            ax.plot(time_data, gyro_y, color=COLORS["gyro_y"], linewidth=0.8, label="Y")
         if gyro_z:
-            ax.plot(time_data, gyro_z, color=COLORS['gyro_z'], linewidth=0.8, label='Z')
-        ax.set_ylabel('Velocidade Angular (°/s)', color=COLORS['text'])
-        ax.set_title('Giroscópio', color=COLORS['text'])
-        ax.legend(loc='upper right', facecolor=COLORS['background'])
-        ax.grid(True, color=COLORS['grid'], alpha=0.3)
+            ax.plot(time_data, gyro_z, color=COLORS["gyro_z"], linewidth=0.8, label="Z")
+        ax.set_ylabel("Velocidade Angular (°/s)", color=COLORS["text"])
+        ax.set_title("Giroscópio", color=COLORS["text"])
+        ax.legend(loc="upper right", facecolor=COLORS["background"])
+        ax.grid(True, color=COLORS["grid"], alpha=0.3)
 
         # G-Forces calculadas
         g_lat = self.sensor_data.get("g_force_lateral", [])
         g_front = self.sensor_data.get("g_force_frontal", [])
 
         ax = axes[1, 0]
-        ax.set_facecolor(COLORS['background'])
+        ax.set_facecolor(COLORS["background"])
         if g_lat:
-            ax.plot(time_data, g_lat, color=COLORS['g_lateral'], linewidth=0.8)
-        ax.axhline(y=0, color=COLORS['grid'], linestyle='--', alpha=0.5)
-        ax.set_ylabel('G Lateral', color=COLORS['text'])
-        ax.set_title('Força G Lateral (curvas)', color=COLORS['text'])
-        ax.grid(True, color=COLORS['grid'], alpha=0.3)
+            ax.plot(time_data, g_lat, color=COLORS["g_lateral"], linewidth=0.8)
+        ax.axhline(y=0, color=COLORS["grid"], linestyle="--", alpha=0.5)
+        ax.set_ylabel("G Lateral", color=COLORS["text"])
+        ax.set_title("Força G Lateral (curvas)", color=COLORS["text"])
+        ax.grid(True, color=COLORS["grid"], alpha=0.3)
 
         ax = axes[1, 1]
-        ax.set_facecolor(COLORS['background'])
+        ax.set_facecolor(COLORS["background"])
         if g_front:
-            ax.plot(time_data, g_front, color=COLORS['g_frontal'], linewidth=0.8)
-        ax.axhline(y=0, color=COLORS['grid'], linestyle='--', alpha=0.5)
-        ax.set_ylabel('G Frontal', color=COLORS['text'])
-        ax.set_title('Força G Frontal (acel/frenagem)', color=COLORS['text'])
-        ax.grid(True, color=COLORS['grid'], alpha=0.3)
+            ax.plot(time_data, g_front, color=COLORS["g_frontal"], linewidth=0.8)
+        ax.axhline(y=0, color=COLORS["grid"], linestyle="--", alpha=0.5)
+        ax.set_ylabel("G Frontal", color=COLORS["text"])
+        ax.set_title("Força G Frontal (acel/frenagem)", color=COLORS["text"])
+        ax.grid(True, color=COLORS["grid"], alpha=0.3)
 
         # Power Monitor - Correntes (se disponível)
         current_motor = self.sensor_data.get("current_motor", [])
@@ -614,33 +711,48 @@ class SessionAnalyzer:
         current_rpi = self.sensor_data.get("current_rpi", [])
 
         ax = axes[2, 0]
-        ax.set_facecolor(COLORS['background'])
+        ax.set_facecolor(COLORS["background"])
         if current_motor or current_servos or current_rpi:
             if current_motor:
-                ax.plot(time_data[:len(current_motor)], current_motor,
-                       color='#FF5555', linewidth=0.8, label='Motor')
+                ax.plot(
+                    time_data[: len(current_motor)],
+                    current_motor,
+                    color="#FF5555",
+                    linewidth=0.8,
+                    label="Motor",
+                )
             if current_servos:
-                ax.plot(time_data[:len(current_servos)], current_servos,
-                       color='#55FF55', linewidth=0.8, label='Servos')
+                ax.plot(
+                    time_data[: len(current_servos)],
+                    current_servos,
+                    color="#55FF55",
+                    linewidth=0.8,
+                    label="Servos",
+                )
             if current_rpi:
-                ax.plot(time_data[:len(current_rpi)], current_rpi,
-                       color='#5555FF', linewidth=0.8, label='RPi')
-            ax.set_ylabel('Corrente (A)', color=COLORS['text'])
-            ax.legend(loc='upper right', facecolor=COLORS['background'])
-            ax.set_title('Consumo de Corrente', color=COLORS['text'])
+                ax.plot(
+                    time_data[: len(current_rpi)],
+                    current_rpi,
+                    color="#5555FF",
+                    linewidth=0.8,
+                    label="RPi",
+                )
+            ax.set_ylabel("Corrente (A)", color=COLORS["text"])
+            ax.legend(loc="upper right", facecolor=COLORS["background"])
+            ax.set_title("Consumo de Corrente", color=COLORS["text"])
         else:
             # Fallback: Temperatura (se disponível)
             temp = self.sensor_data.get("temperature", [])
             if temp:
-                ax.plot(time_data, temp, color='#FF6B6B', linewidth=1)
-                ax.set_ylabel('Temperatura (°C)', color=COLORS['text'])
-            ax.set_title('Temperatura do Sensor', color=COLORS['text'])
-        ax.set_xlabel('Tempo (s)', color=COLORS['text'])
-        ax.grid(True, color=COLORS['grid'], alpha=0.3)
+                ax.plot(time_data, temp, color="#FF6B6B", linewidth=1)
+                ax.set_ylabel("Temperatura (°C)", color=COLORS["text"])
+            ax.set_title("Temperatura do Sensor", color=COLORS["text"])
+        ax.set_xlabel("Tempo (s)", color=COLORS["text"])
+        ax.grid(True, color=COLORS["grid"], alpha=0.3)
 
         # FFT do Gyro Z (análise de frequência)
         ax = axes[2, 1]
-        ax.set_facecolor(COLORS['background'])
+        ax.set_facecolor(COLORS["background"])
         if NUMPY_AVAILABLE and gyro_z and len(gyro_z) > 10:
             gyro_z_arr = np.array(gyro_z)
             # Calcula FFT
@@ -649,18 +761,23 @@ class SessionAnalyzer:
             freq = np.fft.rfftfreq(n, dt)
             fft_vals = np.abs(np.fft.rfft(gyro_z_arr - np.mean(gyro_z_arr)))
 
-            ax.plot(freq[:len(freq)//2], fft_vals[:len(freq)//2],
-                   color=COLORS['gyro_z'], linewidth=0.8)
-            ax.set_xlabel('Frequência (Hz)', color=COLORS['text'])
-            ax.set_ylabel('Amplitude', color=COLORS['text'])
-        ax.set_title('FFT Gyro Z (Análise de Vibração)', color=COLORS['text'])
-        ax.grid(True, color=COLORS['grid'], alpha=0.3)
+            ax.plot(
+                freq[: len(freq) // 2],
+                fft_vals[: len(freq) // 2],
+                color=COLORS["gyro_z"],
+                linewidth=0.8,
+            )
+            ax.set_xlabel("Frequência (Hz)", color=COLORS["text"])
+            ax.set_ylabel("Amplitude", color=COLORS["text"])
+        ax.set_title("FFT Gyro Z (Análise de Vibração)", color=COLORS["text"])
+        ax.grid(True, color=COLORS["grid"], alpha=0.3)
 
         plt.tight_layout()
 
         if save_path:
-            plt.savefig(save_path, dpi=150, facecolor=COLORS['background'],
-                       bbox_inches='tight')
+            plt.savefig(
+                save_path, dpi=150, facecolor=COLORS["background"], bbox_inches="tight"
+            )
             print(f"[OK] Gráfico salvo: {save_path}")
         else:
             plt.show()
@@ -671,7 +788,7 @@ class SessionAnalyzer:
             return {}
 
         analysis = {
-            "total_lines": self.log_content.count('\n'),
+            "total_lines": self.log_content.count("\n"),
             "errors": 0,
             "warnings": 0,
             "connections": 0,
@@ -679,10 +796,20 @@ class SessionAnalyzer:
         }
 
         # Conta ocorrências
-        analysis["errors"] = len(re.findall(r'\[ERROR\]|\[ERRO\]', self.log_content, re.IGNORECASE))
-        analysis["warnings"] = len(re.findall(r'\[WARN\]|\[WARNING\]', self.log_content, re.IGNORECASE))
-        analysis["connections"] = len(re.findall(r'CONNECT|conectado', self.log_content, re.IGNORECASE))
-        analysis["disconnections"] = len(re.findall(r'DISCONNECT|desconectado|perdida', self.log_content, re.IGNORECASE))
+        analysis["errors"] = len(
+            re.findall(r"\[ERROR\]|\[ERRO\]", self.log_content, re.IGNORECASE)
+        )
+        analysis["warnings"] = len(
+            re.findall(r"\[WARN\]|\[WARNING\]", self.log_content, re.IGNORECASE)
+        )
+        analysis["connections"] = len(
+            re.findall(r"CONNECT|conectado", self.log_content, re.IGNORECASE)
+        )
+        analysis["disconnections"] = len(
+            re.findall(
+                r"DISCONNECT|desconectado|perdida", self.log_content, re.IGNORECASE
+            )
+        )
 
         return analysis
 
@@ -899,21 +1026,26 @@ Exemplos:
   python analyze_session.py --timestamp 20241217_143000  # Timestamp específico
   python analyze_session.py --export report.html    # Exporta relatório HTML
   python analyze_session.py --save-plots            # Salva gráficos como PNG
-        """
+        """,
     )
 
-    parser.add_argument("--dir", "-d", default="exports/auto",
-                       help="Diretório com arquivos de dados")
-    parser.add_argument("--timestamp", "-t",
-                       help="Timestamp específico (YYYYMMDD_HHMMSS)")
-    parser.add_argument("--latest", "-l", action="store_true",
-                       help="Analisa apenas os arquivos mais recentes (não combina)")
-    parser.add_argument("--export", "-e",
-                       help="Exporta relatório HTML")
-    parser.add_argument("--save-plots", "-s", action="store_true",
-                       help="Salva gráficos como PNG")
-    parser.add_argument("--no-plots", action="store_true",
-                       help="Não exibe gráficos")
+    parser.add_argument(
+        "--dir", "-d", default="exports/auto", help="Diretório com arquivos de dados"
+    )
+    parser.add_argument(
+        "--timestamp", "-t", help="Timestamp específico (YYYYMMDD_HHMMSS)"
+    )
+    parser.add_argument(
+        "--latest",
+        "-l",
+        action="store_true",
+        help="Analisa apenas os arquivos mais recentes (não combina)",
+    )
+    parser.add_argument("--export", "-e", help="Exporta relatório HTML")
+    parser.add_argument(
+        "--save-plots", "-s", action="store_true", help="Salva gráficos como PNG"
+    )
+    parser.add_argument("--no-plots", action="store_true", help="Não exibe gráficos")
 
     args = parser.parse_args()
 
@@ -934,7 +1066,9 @@ Exemplos:
     if args.timestamp:
         # Timestamp específico
         print(f"Modo: Timestamp específico ({args.timestamp})")
-        telemetry_file, sensor_file, log_file = analyzer.find_matching_files(args.timestamp)
+        telemetry_file, sensor_file, log_file = analyzer.find_matching_files(
+            args.timestamp
+        )
 
         if not any([telemetry_file, sensor_file, log_file]):
             print("[ERRO] Nenhum arquivo encontrado!")

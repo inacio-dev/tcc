@@ -148,5 +148,5 @@ finally:
         rear_brake_servo.angle = 90   # Centro
         pca.deinit()
         print("✓ Sistema finalizado (freios na posição neutra)")
-    except:
+    except Exception:
         pass

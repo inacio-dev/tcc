@@ -20,8 +20,8 @@ Fluxo de Calibração:
 
 import json
 import os
-from typing import Dict, Optional, Callable
 from datetime import datetime
+from typing import Callable, Dict, Optional
 
 
 class CalibrationManager:
@@ -148,11 +148,17 @@ class CalibrationManager:
         # Valida dados de calibração
         if component in ["THROTTLE", "BRAKE"]:
             if self.raw_min is None or self.raw_max is None:
-                self._log("ERROR", "Dados de calibração incompletos! Mova o encoder pelo range completo.")
+                self._log(
+                    "ERROR",
+                    "Dados de calibração incompletos! Mova o encoder pelo range completo.",
+                )
                 return False
 
             if self.raw_min >= self.raw_max:
-                self._log("ERROR", f"Calibração inválida! Min ({self.raw_min}) >= Max ({self.raw_max})")
+                self._log(
+                    "ERROR",
+                    f"Calibração inválida! Min ({self.raw_min}) >= Max ({self.raw_max})",
+                )
                 return False
 
             # Salva calibração de acelerador/freio
@@ -166,16 +172,25 @@ class CalibrationManager:
                 command = f"CAL_SAVE:{component}:{self.raw_min}:{self.raw_max}"
                 self.serial_sender(command)
 
-            self._log("INFO", f"✅ Calibração salva: {component} = [{self.raw_min}, {self.raw_max}]")
+            self._log(
+                "INFO",
+                f"✅ Calibração salva: {component} = [{self.raw_min}, {self.raw_max}]",
+            )
 
         elif component == "STEERING":
             # Para direção, precisamos das posições esquerda, centro, direita
             if self.raw_min is None or self.raw_max is None:
-                self._log("ERROR", "Dados de calibração incompletos! Gire o volante completamente.")
+                self._log(
+                    "ERROR",
+                    "Dados de calibração incompletos! Gire o volante completamente.",
+                )
                 return False
 
             if self.raw_min >= self.raw_max:
-                self._log("ERROR", f"Calibração inválida! Esquerda ({self.raw_min}) >= Direita ({self.raw_max})")
+                self._log(
+                    "ERROR",
+                    f"Calibração inválida! Esquerda ({self.raw_min}) >= Direita ({self.raw_max})",
+                )
                 return False
 
             # Calcula centro como ponto médio entre esquerda e direita
@@ -190,10 +205,15 @@ class CalibrationManager:
 
             # Envia calibração ao ESP32
             if self.serial_sender:
-                command = f"CAL_SAVE:{component}:{self.raw_min}:{raw_center}:{self.raw_max}"
+                command = (
+                    f"CAL_SAVE:{component}:{self.raw_min}:{raw_center}:{self.raw_max}"
+                )
                 self.serial_sender(command)
 
-            self._log("INFO", f"✅ Calibração salva: {component} = [Esq:{self.raw_min}, Centro:{raw_center}, Dir:{self.raw_max}]")
+            self._log(
+                "INFO",
+                f"✅ Calibração salva: {component} = [Esq:{self.raw_min}, Centro:{raw_center}, Dir:{self.raw_max}]",
+            )
 
         # Salva em arquivo
         self.save_to_file()
@@ -225,23 +245,29 @@ class CalibrationManager:
             return ""
 
         if self.current_component == "THROTTLE":
-            return ("🎯 Calibração do Acelerador:\n"
-                    "1. SOLTE completamente o pedal (posição 0%)\n"
-                    "2. PRESSIONE totalmente o pedal (posição 100%)\n"
-                    "3. Clique em 'Salvar' quando terminar")
+            return (
+                "🎯 Calibração do Acelerador:\n"
+                "1. SOLTE completamente o pedal (posição 0%)\n"
+                "2. PRESSIONE totalmente o pedal (posição 100%)\n"
+                "3. Clique em 'Salvar' quando terminar"
+            )
 
         elif self.current_component == "BRAKE":
-            return ("🎯 Calibração do Freio:\n"
-                    "1. SOLTE completamente o pedal (posição 0%)\n"
-                    "2. PRESSIONE totalmente o pedal (posição 100%)\n"
-                    "3. Clique em 'Salvar' quando terminar")
+            return (
+                "🎯 Calibração do Freio:\n"
+                "1. SOLTE completamente o pedal (posição 0%)\n"
+                "2. PRESSIONE totalmente o pedal (posição 100%)\n"
+                "3. Clique em 'Salvar' quando terminar"
+            )
 
         elif self.current_component == "STEERING":
-            return ("🎯 Calibração da Direção:\n"
-                    "1. Gire TOTALMENTE para a ESQUERDA (-100%)\n"
-                    "2. Gire TOTALMENTE para a DIREITA (+100%)\n"
-                    "3. PARE NO CENTRO (o sistema calculará automaticamente)\n"
-                    "4. Clique em 'Salvar' quando terminar")
+            return (
+                "🎯 Calibração da Direção:\n"
+                "1. Gire TOTALMENTE para a ESQUERDA (-100%)\n"
+                "2. Gire TOTALMENTE para a DIREITA (+100%)\n"
+                "3. PARE NO CENTRO (o sistema calculará automaticamente)\n"
+                "4. Clique em 'Salvar' quando terminar"
+            )
 
         return ""
 
@@ -320,12 +346,16 @@ class CalibrationManager:
                 # Lado esquerdo: left_val até center_val mapeia para -100% a 0%
                 if center_val == left_val:
                     return 0
-                percent = int(((raw_value - center_val) / (center_val - left_val)) * 100)
+                percent = int(
+                    ((raw_value - center_val) / (center_val - left_val)) * 100
+                )
             else:
                 # Lado direito: center_val até right_val mapeia para 0% a +100%
                 if right_val == center_val:
                     return 0
-                percent = int(((raw_value - center_val) / (right_val - center_val)) * 100)
+                percent = int(
+                    ((raw_value - center_val) / (right_val - center_val)) * 100
+                )
 
             return max(-100, min(100, percent))
 
@@ -365,7 +395,10 @@ class CalibrationManager:
         """
         try:
             if not os.path.exists(self.config_file):
-                self._log("INFO", "Nenhum arquivo de calibração encontrado. Usando valores padrão.")
+                self._log(
+                    "INFO",
+                    "Nenhum arquivo de calibração encontrado. Usando valores padrão.",
+                )
                 return False
 
             with open(self.config_file, "r") as f:
@@ -374,10 +407,12 @@ class CalibrationManager:
             self.calibration_data = data.get("calibration_data", self.calibration_data)
             last_updated = data.get("last_updated", "unknown")
 
-            self._log("INFO", f"Calibração carregada de: {self.config_file} (atualizada em: {last_updated})")
+            self._log(
+                "INFO",
+                f"Calibração carregada de: {self.config_file} (atualizada em: {last_updated})",
+            )
             return True
 
         except Exception as e:
             self._log("ERROR", f"Erro ao carregar calibração: {e}")
             return False
-

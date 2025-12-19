@@ -23,9 +23,10 @@ Referências teóricas:
 - Máscaras de convolução para realce espacial
 """
 
+from typing import Dict, List, Optional
+
 import cv2
 import numpy as np
-from typing import Optional, Callable, Dict, List
 
 # Tenta importar CuPy para aceleração GPU
 GPU_AVAILABLE = False
@@ -34,9 +35,11 @@ cp_ndimage = None
 
 try:
     import cupy as cp
+
     # Testa se CUDA realmente funciona
     cp.cuda.runtime.getDeviceCount()
     from cupyx.scipy import ndimage as cp_ndimage
+
     GPU_AVAILABLE = True
     print("[FILTERS] GPU NVIDIA detectada - usando CuPy para aceleração")
 except ImportError:
@@ -51,7 +54,7 @@ except Exception as e:
 def _create_gaussian_kernel(size=5, sigma=1.0):
     """Cria kernel Gaussiano para GPU"""
     x = np.arange(size) - size // 2
-    kernel_1d = np.exp(-x**2 / (2 * sigma**2))
+    kernel_1d = np.exp(-(x**2) / (2 * sigma**2))
     kernel_2d = np.outer(kernel_1d, kernel_1d)
     return (kernel_2d / kernel_2d.sum()).astype(np.float32)
 
@@ -62,26 +65,17 @@ class ImageFilters:
     # Máscaras de convolução clássicas
     KERNELS = {
         # Laplaciano 3x3 - detecta bordas em todas as direções
-        "laplacian": np.array([
-            [0, -1, 0],
-            [-1, 5, -1],
-            [0, -1, 0]
-        ], dtype=np.float32),
-
+        "laplacian": np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]], dtype=np.float32),
         # Laplaciano 8-conectado (mais agressivo)
-        "laplacian_8": np.array([
-            [-1, -1, -1],
-            [-1, 9, -1],
-            [-1, -1, -1]
-        ], dtype=np.float32),
-
+        "laplacian_8": np.array(
+            [[-1, -1, -1], [-1, 9, -1], [-1, -1, -1]], dtype=np.float32
+        ),
         # High-boost (aguçamento com preservação de baixas frequências)
         # A > 1 para boost, A = 1 é unsharp mask
-        "high_boost": np.array([
-            [-1, -1, -1],
-            [-1, 10, -1],
-            [-1, -1, -1]
-        ], dtype=np.float32) / 2,
+        "high_boost": np.array(
+            [[-1, -1, -1], [-1, 10, -1], [-1, -1, -1]], dtype=np.float32
+        )
+        / 2,
     }
 
     # Definição dos filtros disponíveis
@@ -142,16 +136,13 @@ class ImageFilters:
         # Kernels para GPU (CuPy)
         if self.use_gpu:
             self._gpu_kernels = {
-                "laplacian": cp.array([
-                    [0, -1, 0],
-                    [-1, 5, -1],
-                    [0, -1, 0]
-                ], dtype=cp.float32),
-                "high_boost": cp.array([
-                    [-1, -1, -1],
-                    [-1, 10, -1],
-                    [-1, -1, -1]
-                ], dtype=cp.float32) / 2,
+                "laplacian": cp.array(
+                    [[0, -1, 0], [-1, 5, -1], [0, -1, 0]], dtype=cp.float32
+                ),
+                "high_boost": cp.array(
+                    [[-1, -1, -1], [-1, 10, -1], [-1, -1, -1]], dtype=cp.float32
+                )
+                / 2,
                 "gaussian": cp.array(_create_gaussian_kernel(7, 3.0), dtype=cp.float32),
             }
 
@@ -252,8 +243,16 @@ class ImageFilters:
         # Modo checkbox: aplica filtros ativos em ordem
         if self.active_filters:
             # Ordem de aplicação otimizada
-            order = ["brightness_up", "brightness_down", "bilateral", "clahe",
-                     "super_res", "sharpen", "unsharp", "high_boost"]
+            order = [
+                "brightness_up",
+                "brightness_down",
+                "bilateral",
+                "clahe",
+                "super_res",
+                "sharpen",
+                "unsharp",
+                "high_boost",
+            ]
 
             for filter_key in order:
                 if filter_key in self.active_filters:
@@ -331,13 +330,13 @@ class ImageFilters:
         """
         # Converte para LAB para aplicar CLAHE apenas na luminância
         lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
-        l, a, b = cv2.split(lab)
+        lum, a, b = cv2.split(lab)
 
         # Aplica CLAHE no canal L
-        l = self.clahe.apply(l)
+        lum = self.clahe.apply(lum)
 
         # Reconstrói a imagem
-        lab = cv2.merge([l, a, b])
+        lab = cv2.merge([lum, a, b])
         return cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
 
     def _apply_bilateral(self, frame: np.ndarray) -> np.ndarray:
@@ -409,10 +408,7 @@ class ImageFilters:
 
     def get_current_filter_info(self) -> Dict:
         """Retorna informações do filtro atual"""
-        info = {
-            "key": self.current_filter,
-            **self.FILTERS.get(self.current_filter, {})
-        }
+        info = {"key": self.current_filter, **self.FILTERS.get(self.current_filter, {})}
         if self.use_gpu:
             info["gpu"] = True
         return info
@@ -528,7 +524,9 @@ class ImageFilters:
         except Exception as e:
             print(f"[FILTER-GPU] SuperRes fallback CPU: {e}")
             h, w = frame.shape[:2]
-            upscaled = cv2.resize(frame, (w * 2, h * 2), interpolation=cv2.INTER_LANCZOS4)
+            upscaled = cv2.resize(
+                frame, (w * 2, h * 2), interpolation=cv2.INTER_LANCZOS4
+            )
             return cv2.resize(upscaled, (w, h), interpolation=cv2.INTER_AREA)
 
     def is_gpu_enabled(self) -> bool:

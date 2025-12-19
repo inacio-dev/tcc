@@ -23,9 +23,7 @@ def create_controls_frame(console):
     btn_frame.pack(fill=tk.X, padx=5, pady=2)
 
     # Status das configurações
-    ttk.Label(btn_frame, text="Config:", style="Dark.TLabel").pack(
-        side=tk.LEFT, padx=5
-    )
+    ttk.Label(btn_frame, text="Config:", style="Dark.TLabel").pack(side=tk.LEFT, padx=5)
     ttk.Label(
         btn_frame,
         textvariable=console.sensor_vars["accel_range"],

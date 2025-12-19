@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-motor_manager.py - Sistema de Motor DC e Transmissão com 8 Marchas
-Controla motor RS550 via ponte H BTS7960 (HW-039)
+motor_manager.py - Sistema de Motor DC e Transmissão com 5 Marchas
+Controla motor RC 775 via ponte H BTS7960 (HW-039)
 
 PINOUT PONTE H BTS7960 (HW-039):
 ================================
@@ -15,7 +15,7 @@ Ponte H HW-039 -> Raspberry Pi 4 (GPIO)
 - R_IS         -> Não conectar (current sense direita)
 - L_IS         -> Não conectar (current sense esquerda)
 
-Motor RS550 -> Ponte H BTS7960:
+Motor RC 775 -> Ponte H BTS7960:
 - Motor+ -> B+
 - Motor- -> B-
 
@@ -23,13 +23,13 @@ Alimentação Motor -> Ponte H:
 - V+ (12V) -> B+VCC (Positivo bateria)
 - V- (GND) -> B-VCC (Negativo bateria)
 
-CARACTERÍSTICAS RS550:
-=====================
-- Tensão: 12V nominal (9V-15V)
-- RPM: 19.550 @ 12V sem carga
-- Corrente: ~3A @ 12V carga normal, pico 15A
+CARACTERÍSTICAS RC 775:
+======================
+- Tensão: 12V nominal (12V-18V)
+- RPM: 6000-10000 @ 12V (típico 9000 sob carga)
+- Corrente: ~5A @ 12V carga normal, pico 30A
 - Torque: Alto torque de partida
-- Potência: ~200W
+- Potência: ~300W
 
 CARACTERÍSTICAS BTS7960:
 =======================
@@ -45,11 +45,10 @@ sudo raspi-config -> Interface Options -> SPI -> Enable
 sudo apt-get install python3-rpi.gpio
 """
 
-import time
-import math
 import threading
-from typing import Dict, Any
+import time
 from enum import Enum
+from typing import Any, Dict
 
 try:
     import RPi.GPIO as GPIO
@@ -69,7 +68,7 @@ class MotorDirection(Enum):
 
 
 class MotorManager:
-    """Gerencia motor DC RS550 com transmissão simulada de 4 marchas"""
+    """Gerencia motor DC RC 775 com transmissão simulada de 5 marchas"""
 
     # ================== CONFIGURAÇÕES FÍSICAS ==================
 
@@ -83,10 +82,10 @@ class MotorManager:
     PWM_FREQUENCY = 2000  # 2kHz - boa para motores DC
     PWM_MAX = 100  # Duty cycle máximo
 
-    # Características do motor RS550
-    MOTOR_MAX_RPM = 19550  # RPM máximo @ 12V
-    MOTOR_MIN_RPM = 800  # RPM mínimo estável
-    MOTOR_IDLE_RPM = 1200  # RPM marcha lenta
+    # Características do motor RC 775
+    MOTOR_MAX_RPM = 9000  # RPM máximo @ 12V sob carga (spec: 6000-10000)
+    MOTOR_MIN_RPM = 600  # RPM mínimo estável
+    MOTOR_IDLE_RPM = 800  # RPM marcha lenta
 
     # Sistema de transmissão (5 marchas)
     GEAR_RATIOS = {
@@ -96,7 +95,6 @@ class MotorManager:
         4: 0.9,  # 4ª marcha - velocidade alta
         5: 0.7,  # 5ª marcha - velocidade máxima (100% potência)
     }
-
 
     def __init__(
         self,
@@ -128,19 +126,22 @@ class MotorManager:
         self.current_pwm = 0.0  # PWM atual 0-100%
         self.target_pwm = 0.0  # PWM alvo 0-100%
 
-
         # Sistema de transmissão
         self.current_gear = 1  # Marcha atual (1-8)
         self.gear_ratio = self.GEAR_RATIOS[1]
         self.clutch_engaged = True  # Embreagem
         self.is_shifting = False  # Em processo de troca
         self.shift_time = 0.3  # Tempo de troca em segundos
-        self.last_throttle_percent = 0.0  # CORREÇÃO: Armazena último throttle para reaplicar após troca
+        self.last_throttle_percent = (
+            0.0  # CORREÇÃO: Armazena último throttle para reaplicar após troca
+        )
 
         # SISTEMA F1 DE ZONAS DE EFICIÊNCIA
         self.efficiency_zone = "IDEAL"  # IDEAL, SUBOPTIMAL, POOR
         self.zone_acceleration_rate = 1.0  # Multiplicador de aceleração baseado na zona
-        self.base_acceleration_time = 5.0  # Tempo base para atingir zona ideal (5s - mais lento)
+        self.base_acceleration_time = (
+            5.0  # Tempo base para atingir zona ideal (5s - mais lento)
+        )
         self.last_zone_check = time.time()
 
         # Motor não tem sensor de RPM - apenas controle PWM
@@ -175,7 +176,7 @@ class MotorManager:
             bool: True se inicializado com sucesso
         """
         print("Inicializando sistema de motor...")
-        print(f"Motor: RS550 12V via ponte H BTS7960")
+        print("Motor: RC 775 12V via ponte H BTS7960")
         print(
             f"RPWM (Frente): GPIO{self.rpwm_pin} (Pin {self._gpio_to_pin(self.rpwm_pin)})"
         )
@@ -184,7 +185,7 @@ class MotorManager:
         )
         print(f"R_EN: GPIO{self.r_en_pin} (Pin {self._gpio_to_pin(self.r_en_pin)})")
         print(f"L_EN: GPIO{self.l_en_pin} (Pin {self._gpio_to_pin(self.l_en_pin)})")
-        print(f"Transmissão: MANUAL - 5 marchas")
+        print("Transmissão: MANUAL - 5 marchas")
 
         if not GPIO_AVAILABLE:
             print("⚠ MODO SIMULAÇÃO - Motor não conectado")
@@ -232,8 +233,8 @@ class MotorManager:
             print("✓ Sistema de motor inicializado com sucesso")
             print(f"  - Frequência PWM: {self.PWM_FREQUENCY}Hz")
             print(f"  - Marcha inicial: {self.current_gear}ª")
-            print(f"  - Modo transmissão: manual")
-            print(f"  - Resposta instantânea: motor responde imediatamente")
+            print("  - Modo transmissão: manual")
+            print("  - Resposta instantânea: motor responde imediatamente")
 
             return True
 
@@ -283,7 +284,9 @@ class MotorManager:
 
     def _acceleration_loop(self):
         """Loop principal de controle de aceleração e RPM"""
-        print(f"🧵 Thread loop iniciado (should_stop={self.should_stop}, is_initialized={self.is_initialized})")
+        print(
+            f"🧵 Thread loop iniciado (should_stop={self.should_stop}, is_initialized={self.is_initialized})"
+        )
         while not self.should_stop and self.is_initialized:
             try:
                 current_time = time.time()
@@ -304,9 +307,6 @@ class MotorManager:
             except Exception as e:
                 print(f"⚠ Erro no controle do motor: {e}")
                 time.sleep(0.1)
-
-
-
 
     def _shift_gear(self, new_gear: int):
         """
@@ -338,7 +338,6 @@ class MotorManager:
             time.sleep(self.shift_time)
 
             # Troca marcha
-            old_gear = self.current_gear
             self.current_gear = new_gear
             self.gear_ratio = self.GEAR_RATIOS[new_gear]
 
@@ -372,7 +371,9 @@ class MotorManager:
         intelligent_pwm = self._calculate_intelligent_pwm(self.last_throttle_percent)
         self.target_pwm = intelligent_pwm
 
-        print(f"🔄 THROTTLE reaplicado: {self.last_throttle_percent}% → PWM: {intelligent_pwm:.1f}% (nova marcha: {self.current_gear}ª)")
+        print(
+            f"🔄 THROTTLE reaplicado: {self.last_throttle_percent}% → PWM: {intelligent_pwm:.1f}% (nova marcha: {self.current_gear}ª)"
+        )
 
         # Log removido daqui - será feito no main.py com todos os dados
 
@@ -442,7 +443,9 @@ class MotorManager:
                 min_motor_pwm = 15.0
                 if throttle_percent > 0 and throttle_percent < min_motor_pwm:
                     # Mapeia 1-100% para 15-100% (PWM útil)
-                    self.target_pwm = min_motor_pwm + (throttle_percent / 100.0) * (100.0 - min_motor_pwm)
+                    self.target_pwm = min_motor_pwm + (throttle_percent / 100.0) * (
+                        100.0 - min_motor_pwm
+                    )
                 else:
                     self.target_pwm = throttle_percent
             else:
@@ -455,7 +458,9 @@ class MotorManager:
             self.target_pwm = intelligent_pwm
 
         # Debug temporário para verificar comandos
-        print(f"🚗 THROTTLE: {throttle_percent}% → PWM target: {intelligent_pwm:.1f}% (marcha: {self.current_gear}ª)")
+        print(
+            f"🚗 THROTTLE: {throttle_percent}% → PWM target: {intelligent_pwm:.1f}% (marcha: {self.current_gear}ª)"
+        )
 
         # Log removido daqui - será feito no main.py com todos os dados
 
@@ -478,9 +483,9 @@ class MotorManager:
         """
         # Limitadores dinâmicos por marcha
         gear_limiters = {
-            1: 40,   # 1ª marcha: máximo 40% (30+10)
-            2: 60,   # 2ª marcha: máximo 60% (50+10)
-            3: 80,   # 3ª marcha: máximo 80% (70+10)
+            1: 40,  # 1ª marcha: máximo 40% (30+10)
+            2: 60,  # 2ª marcha: máximo 60% (50+10)
+            3: 80,  # 3ª marcha: máximo 80% (70+10)
             4: 100,  # 4ª marcha: máximo 100% (90+10, cap)
             5: 100,  # 5ª marcha: máximo 100% (sem limite)
         }
@@ -529,47 +534,56 @@ class MotorManager:
         if self.current_gear == 1:
             # 1ª MARCHA (limitador: 40%)
             if 0 <= current_pwm <= 20:
-                return "IDEAL", 1.0     # 0-20%: Alta eficiência
+                return "IDEAL", 1.0  # 0-20%: Alta eficiência
             elif 20 < current_pwm <= 30:
                 return "SUBOPTIMAL", 0.1  # 20-30%: Média eficiência (10x mais lento)
             else:  # 30-40%
-                return "POOR", 0.04     # 30-40%: Baixa eficiência (25x mais lento)
+                return "POOR", 0.04  # 30-40%: Baixa eficiência (25x mais lento)
 
         elif self.current_gear == 2:
             # 2ª MARCHA (limitador: 60%)
             if 20 <= current_pwm <= 40:
-                return "IDEAL", 1.0     # 20-40%: Alta eficiência
+                return "IDEAL", 1.0  # 20-40%: Alta eficiência
             elif (10 <= current_pwm < 20) or (40 < current_pwm <= 50):
-                return "SUBOPTIMAL", 0.1  # 10-20% e 40-50%: Média eficiência (10x mais lento)
+                return (
+                    "SUBOPTIMAL",
+                    0.1,
+                )  # 10-20% e 40-50%: Média eficiência (10x mais lento)
             else:  # 0-10% e 50-60%
-                return "POOR", 0.04     # Baixa eficiência (25x mais lento)
+                return "POOR", 0.04  # Baixa eficiência (25x mais lento)
 
         elif self.current_gear == 3:
             # 3ª MARCHA (limitador: 80%)
             if 40 <= current_pwm <= 60:
-                return "IDEAL", 1.0     # 40-60%: Alta eficiência
+                return "IDEAL", 1.0  # 40-60%: Alta eficiência
             elif (30 <= current_pwm < 40) or (60 < current_pwm <= 70):
-                return "SUBOPTIMAL", 0.1  # 30-40% e 60-70%: Média eficiência (10x mais lento)
+                return (
+                    "SUBOPTIMAL",
+                    0.1,
+                )  # 30-40% e 60-70%: Média eficiência (10x mais lento)
             else:  # 0-30% e 70-80%
-                return "POOR", 0.04     # Baixa eficiência (25x mais lento)
+                return "POOR", 0.04  # Baixa eficiência (25x mais lento)
 
         elif self.current_gear == 4:
             # 4ª MARCHA (limitador: 100%)
             if 60 <= current_pwm <= 80:
-                return "IDEAL", 1.0     # 60-80%: Alta eficiência
+                return "IDEAL", 1.0  # 60-80%: Alta eficiência
             elif (50 <= current_pwm < 60) or (80 < current_pwm <= 90):
-                return "SUBOPTIMAL", 0.1  # 50-60% e 80-90%: Média eficiência (10x mais lento)
+                return (
+                    "SUBOPTIMAL",
+                    0.1,
+                )  # 50-60% e 80-90%: Média eficiência (10x mais lento)
             else:  # 0-50% e 90-100%
-                return "POOR", 0.04     # Baixa eficiência (25x mais lento)
+                return "POOR", 0.04  # Baixa eficiência (25x mais lento)
 
         elif self.current_gear == 5:
             # 5ª MARCHA (limitador: 100% - sem limite real)
             if 80 <= current_pwm <= 100:
-                return "IDEAL", 1.0     # 80-100%: Alta eficiência
+                return "IDEAL", 1.0  # 80-100%: Alta eficiência
             elif 70 <= current_pwm < 80:
                 return "SUBOPTIMAL", 0.1  # 70-80%: Média eficiência (10x mais lento)
             else:  # 0-70%
-                return "POOR", 0.04     # Baixa eficiência (25x mais lento)
+                return "POOR", 0.04  # Baixa eficiência (25x mais lento)
 
         # Fallback para marchas não definidas
         return "POOR", 0.04
@@ -595,10 +609,10 @@ class MotorManager:
         """
         # Define zonas ideais por marcha
         ideal_zones = {
-            1: (0, 20),    # 1ª marcha: 0-20%
-            2: (20, 40),   # 2ª marcha: 20-40%
-            3: (40, 60),   # 3ª marcha: 40-60%
-            4: (60, 80),   # 4ª marcha: 60-80%
+            1: (0, 20),  # 1ª marcha: 0-20%
+            2: (20, 40),  # 2ª marcha: 20-40%
+            3: (40, 60),  # 3ª marcha: 40-60%
+            4: (60, 80),  # 4ª marcha: 60-80%
             5: (80, 100),  # 5ª marcha: 80-100%
         }
 
@@ -658,7 +672,9 @@ class MotorManager:
             return
 
         # Velocidade de aceleração baseada na zona
-        base_acceleration_per_frame = 50.0 / (self.base_acceleration_time * 50)  # %PWM por frame
+        base_acceleration_per_frame = 50.0 / (
+            self.base_acceleration_time * 50
+        )  # %PWM por frame
         zone_acceleration = base_acceleration_per_frame * rate_multiplier
 
         # Sistema diferenciado para aceleração vs desaceleração
@@ -689,9 +705,15 @@ class MotorManager:
                 if pwm_diff > 0:
                     rate_info = f"Rate: {rate_multiplier:.2f}x"
                 else:
-                    decel_mult = 2.0 if rate_multiplier >= 1.0 else (5.0 if rate_multiplier >= 0.1 else 10.0)
+                    decel_mult = (
+                        2.0
+                        if rate_multiplier >= 1.0
+                        else (5.0 if rate_multiplier >= 0.1 else 10.0)
+                    )
                     rate_info = f"Decel: {decel_mult:.1f}x mais rápido"
-                print(f"🏁 F1 Zone: {zone} | PWM: {self.current_pwm:.1f}%→{self.target_pwm:.1f}% | {action} | {rate_info}")
+                print(
+                    f"🏁 F1 Zone: {zone} | PWM: {self.current_pwm:.1f}%→{self.target_pwm:.1f}% | {action} | {rate_info}"
+                )
 
     def set_reverse(self, enable: bool = True):
         """
@@ -764,7 +786,6 @@ class MotorManager:
         self._shift_gear(new_gear)
         return True
 
-
     def get_motor_status(self) -> Dict[str, Any]:
         """
         Obtém status completo do motor
@@ -785,13 +806,19 @@ class MotorManager:
                 "clutch_engaged": self.clutch_engaged,
                 "is_shifting": self.is_shifting,
                 # === CONTA-GIROS ===
-                "rpm_display": round(self._calculate_efficiency_zone_percentage(self.current_pwm), 0),
+                "rpm_display": round(
+                    self._calculate_efficiency_zone_percentage(self.current_pwm), 0
+                ),
                 "max_rpm": self.MOTOR_MAX_RPM,
                 "idle_rpm": self.MOTOR_IDLE_RPM,
-                "rpm_percent": round(self._calculate_efficiency_zone_percentage(self.current_pwm), 1),
+                "rpm_percent": round(
+                    self._calculate_efficiency_zone_percentage(self.current_pwm), 1
+                ),
                 # === STATUS TÉCNICO ===
                 "is_initialized": self.is_initialized,
-                "motor_temperature": round(25 + (self.current_pwm * 0.6), 1),  # Simulado
+                "motor_temperature": round(
+                    25 + (self.current_pwm * 0.6), 1
+                ),  # Simulado
                 "motor_current": round(0.5 + (self.current_pwm * 0.1), 2),  # Simulado
                 # === HARDWARE ===
                 "rpwm_pin": self.rpwm_pin,
@@ -821,30 +848,32 @@ class MotorManager:
         if rate_multiplier >= 1.0:
             gear_efficiency = 100.0  # Zona IDEAL
         elif rate_multiplier >= 0.25:
-            gear_efficiency = 75.0   # Zona SUBOPTIMAL
+            gear_efficiency = 75.0  # Zona SUBOPTIMAL
         else:
-            gear_efficiency = 25.0   # Zona POOR
+            gear_efficiency = 25.0  # Zona POOR
 
         # Define faixas ideais para display
         gear_ideal_ranges = {
-            1: "0-20%",    # 1ª marcha
-            2: "20-40%",   # 2ª marcha
-            3: "40-60%",   # 3ª marcha
-            4: "60-80%",   # 4ª marcha
+            1: "0-20%",  # 1ª marcha
+            2: "20-40%",  # 2ª marcha
+            3: "40-60%",  # 3ª marcha
+            4: "60-80%",  # 4ª marcha
             5: "80-100%",  # 5ª marcha
         }
         ideal_range = gear_ideal_ranges.get(self.current_gear, "0-20%")
 
         # Zona de eficiência F1 por cor (baseada na zona atual)
         if zone == "IDEAL":
-            efficiency_zone = "GREEN"    # Zona ideal
+            efficiency_zone = "GREEN"  # Zona ideal
         elif zone == "SUBOPTIMAL":
-            efficiency_zone = "YELLOW"   # Zona subótima
+            efficiency_zone = "YELLOW"  # Zona subótima
         else:
-            efficiency_zone = "RED"      # Zona ruim
+            efficiency_zone = "RED"  # Zona ruim
 
         return {
-            "rpm": round(self._calculate_efficiency_zone_percentage(self.current_pwm), 0),
+            "rpm": round(
+                self._calculate_efficiency_zone_percentage(self.current_pwm), 0
+            ),
             "rpm_zone": efficiency_zone,  # Baseado na eficiência F1
             "gear": self.current_gear,
             "shift_light": gear_efficiency < 70,  # Luz acende se eficiência baixa

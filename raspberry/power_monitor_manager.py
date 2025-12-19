@@ -57,11 +57,11 @@ FILTROS DE SOFTWARE (este módulo):
 3. Filtro de Mediana (rejeita spikes/outliers)
 """
 
-import time
 import threading
-from typing import Dict, Any, Optional, List
+import time
 from collections import deque
 from statistics import median
+from typing import Any, Dict, Optional
 
 
 class PowerMonitorManager:
@@ -69,7 +69,7 @@ class PowerMonitorManager:
 
     # Endereços I2C
     ADS1115_ADDRESS = 0x48  # ADDR → GND
-    INA219_ADDRESS = 0x41   # A0=VCC para evitar conflito com PCA9685 (0x40)
+    INA219_ADDRESS = 0x41  # A0=VCC para evitar conflito com PCA9685 (0x40)
 
     # Registradores ADS1115
     ADS1115_REG_CONVERSION = 0x00
@@ -98,7 +98,7 @@ class PowerMonitorManager:
     INA219_CONFIG_32V_3A2 = 0x399F
 
     # Características dos sensores ACS758
-    ACS758_50A_SENSITIVITY = 0.040   # 40 mV/A
+    ACS758_50A_SENSITIVITY = 0.040  # 40 mV/A
     ACS758_100A_SENSITIVITY = 0.020  # 20 mV/A
     ACS758_VREF = 2.5  # VCC/2 @ 5V (tensão em 0A)
 
@@ -141,14 +141,14 @@ class PowerMonitorManager:
         self.ina219_available = False
 
         # Dados de corrente (ACS758 via ADS1115)
-        self.current_rpi = 0.0       # Corrente XL4015 → RPi (A)
-        self.current_servos = 0.0    # Corrente UBEC → Servos (A)
-        self.current_motor = 0.0     # Corrente Motor DC 775 (A)
+        self.current_rpi = 0.0  # Corrente XL4015 → RPi (A)
+        self.current_servos = 0.0  # Corrente UBEC → Servos (A)
+        self.current_motor = 0.0  # Corrente Motor DC 775 (A)
 
         # Dados de tensão/corrente (INA219)
-        self.voltage_rpi = 0.0       # Tensão entrada RPi (V)
-        self.current_rpi_ina = 0.0   # Corrente RPi via INA219 (A)
-        self.power_rpi = 0.0         # Potência RPi (W)
+        self.voltage_rpi = 0.0  # Tensão entrada RPi (V)
+        self.current_rpi_ina = 0.0  # Corrente RPi via INA219 (A)
+        self.power_rpi = 0.0  # Potência RPi (W)
 
         # Valores raw do ADS1115
         self.raw_rpi = 0
@@ -203,11 +203,13 @@ class PowerMonitorManager:
             # Tenta inicializar I2C
             try:
                 import smbus2
+
                 self.i2c_bus = smbus2.SMBus(1)
                 print("✓ I2C inicializado com smbus2")
             except ImportError:
                 try:
                     import smbus
+
                     self.i2c_bus = smbus.SMBus(1)
                     print("✓ I2C inicializado com smbus")
                 except ImportError:
@@ -225,8 +227,12 @@ class PowerMonitorManager:
             if self.ads1115_available or self.ina219_available:
                 self.is_initialized = True
                 print("✓ Monitoramento de energia inicializado!")
-                print(f"  - ADS1115 (correntes): {'Online' if self.ads1115_available else 'Offline'}")
-                print(f"  - INA219 (RPi 5V): {'Online' if self.ina219_available else 'Offline'}")
+                print(
+                    f"  - ADS1115 (correntes): {'Online' if self.ads1115_available else 'Offline'}"
+                )
+                print(
+                    f"  - INA219 (RPi 5V): {'Online' if self.ina219_available else 'Offline'}"
+                )
                 return True
             else:
                 print("❌ Nenhum sensor de energia disponível")
@@ -265,15 +271,13 @@ class PowerMonitorManager:
         try:
             # Escreve configuração
             self._write_ina219_register(
-                self.INA219_REG_CONFIG,
-                self.INA219_CONFIG_32V_3A2
+                self.INA219_REG_CONFIG, self.INA219_CONFIG_32V_3A2
             )
             time.sleep(0.01)
 
             # Escreve calibração
             self._write_ina219_register(
-                self.INA219_REG_CALIBRATION,
-                self.INA219_CALIBRATION
+                self.INA219_REG_CALIBRATION, self.INA219_CALIBRATION
             )
             time.sleep(0.01)
 
@@ -293,9 +297,7 @@ class PowerMonitorManager:
     def _read_ads1115_register(self, register: int) -> Optional[int]:
         """Lê registrador de 16 bits do ADS1115"""
         try:
-            data = self.i2c_bus.read_i2c_block_data(
-                self.ads1115_address, register, 2
-            )
+            data = self.i2c_bus.read_i2c_block_data(self.ads1115_address, register, 2)
             return (data[0] << 8) | data[1]
         except Exception:
             return None
@@ -357,9 +359,7 @@ class PowerMonitorManager:
         try:
             msb = (value >> 8) & 0xFF
             lsb = value & 0xFF
-            self.i2c_bus.write_i2c_block_data(
-                self.ina219_address, register, [msb, lsb]
-            )
+            self.i2c_bus.write_i2c_block_data(self.ina219_address, register, [msb, lsb])
             return True
         except Exception:
             return False
@@ -367,9 +367,7 @@ class PowerMonitorManager:
     def _read_ina219_register(self, register: int) -> Optional[int]:
         """Lê registrador de 16 bits do INA219"""
         try:
-            data = self.i2c_bus.read_i2c_block_data(
-                self.ina219_address, register, 2
-            )
+            data = self.i2c_bus.read_i2c_block_data(self.ina219_address, register, 2)
             return (data[0] << 8) | data[1]
         except Exception:
             return None
@@ -413,10 +411,7 @@ class PowerMonitorManager:
             return None
 
     def _convert_acs758_to_current(
-        self,
-        raw_value: int,
-        sensitivity: float,
-        offset: float = 0.0
+        self, raw_value: int, sensitivity: float, offset: float = 0.0
     ) -> float:
         """
         Converte valor raw do ADS1115 para corrente (A)
@@ -469,10 +464,7 @@ class PowerMonitorManager:
         return value
 
     def _filter_current(
-        self,
-        raw_current: float,
-        median_buffer: deque,
-        ema_prev: float
+        self, raw_current: float, median_buffer: deque, ema_prev: float
     ) -> tuple:
         """
         Aplica cadeia de filtros: Mediana → EMA
@@ -569,7 +561,9 @@ class PowerMonitorManager:
                 if voltage is not None:
                     # Aplica filtro EMA na tensão
                     self.ema_voltage = self._apply_ema_filter(voltage, self.ema_voltage)
-                    self.voltage_rpi = self.ema_voltage if self.ema_initialized else voltage
+                    self.voltage_rpi = (
+                        self.ema_voltage if self.ema_initialized else voltage
+                    )
                     self.buffer_voltage_rpi.append(self.voltage_rpi)
                     success = True
 
@@ -668,19 +662,23 @@ class PowerMonitorManager:
             # Calcula médias dos buffers
             avg_current_rpi = (
                 sum(self.buffer_current_rpi) / len(self.buffer_current_rpi)
-                if self.buffer_current_rpi else self.current_rpi
+                if self.buffer_current_rpi
+                else self.current_rpi
             )
             avg_current_servos = (
                 sum(self.buffer_current_servos) / len(self.buffer_current_servos)
-                if self.buffer_current_servos else self.current_servos
+                if self.buffer_current_servos
+                else self.current_servos
             )
             avg_current_motor = (
                 sum(self.buffer_current_motor) / len(self.buffer_current_motor)
-                if self.buffer_current_motor else self.current_motor
+                if self.buffer_current_motor
+                else self.current_motor
             )
             avg_voltage_rpi = (
                 sum(self.buffer_voltage_rpi) / len(self.buffer_voltage_rpi)
-                if self.buffer_voltage_rpi else self.voltage_rpi
+                if self.buffer_voltage_rpi
+                else self.voltage_rpi
             )
 
             # Calcula potências
@@ -693,34 +691,27 @@ class PowerMonitorManager:
                 "current_rpi": round(self.current_rpi, 3),
                 "current_servos": round(self.current_servos, 3),
                 "current_motor": round(self.current_motor, 3),
-
                 # Correntes médias (A)
                 "current_rpi_avg": round(avg_current_rpi, 3),
                 "current_servos_avg": round(avg_current_servos, 3),
                 "current_motor_avg": round(avg_current_motor, 3),
-
                 # Tensão RPi (V)
                 "voltage_rpi": round(self.voltage_rpi, 3),
                 "voltage_rpi_avg": round(avg_voltage_rpi, 3),
-
                 # INA219 direto
                 "current_rpi_ina219": round(self.current_rpi_ina, 3),
                 "power_rpi": round(self.power_rpi, 3),
-
                 # Potências calculadas (W)
                 "power_motor": round(power_motor, 2),
                 "power_servos": round(power_servos, 2),
                 "power_total": round(power_total, 2),
-
                 # Valores raw do ADC
                 "raw_rpi": self.raw_rpi,
                 "raw_servos": self.raw_servos,
                 "raw_motor": self.raw_motor,
-
                 # Status
                 "ads1115_available": self.ads1115_available,
                 "ina219_available": self.ina219_available,
-
                 # Metadados
                 "power_readings_count": self.readings_count,
                 "power_errors_count": self.errors_count,

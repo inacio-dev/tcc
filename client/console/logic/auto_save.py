@@ -47,9 +47,7 @@ class AutoSaveManager:
                 log_content = self.console.log_text.get("1.0", tk.END)
                 with open(log_filename, "w", encoding="utf-8") as f:
                     f.write("# F1 Client - Auto Export (Limite atingido)\n")
-                    f.write(
-                        f"# Data: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
-                    )
+                    f.write(f"# Data: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
                     f.write(f"# Linhas: {MAX_LOG_LINES}\n")
                     f.write("#" + "=" * 60 + "\n\n")
                     f.write(log_content)
@@ -67,7 +65,10 @@ class AutoSaveManager:
                     pass
 
             # 3. Exporta dados de telemetria (gráficos)
-            if hasattr(self.console, "telemetry_plotter") and self.console.telemetry_plotter:
+            if (
+                hasattr(self.console, "telemetry_plotter")
+                and self.console.telemetry_plotter
+            ):
                 telemetry_filename = os.path.join(
                     AUTO_EXPORT_DIR, f"telemetry_{timestamp}.pkl"
                 )
@@ -114,9 +115,14 @@ class AutoSaveManager:
 
             # Verifica se há novos dados de telemetria
             current_telemetry_count = 0
-            if hasattr(self.console, "telemetry_plotter") and self.console.telemetry_plotter:
+            if (
+                hasattr(self.console, "telemetry_plotter")
+                and self.console.telemetry_plotter
+            ):
                 try:
-                    current_telemetry_count = self.console.telemetry_plotter.get_data_count()
+                    current_telemetry_count = (
+                        self.console.telemetry_plotter.get_data_count()
+                    )
                 except Exception:
                     pass
 
@@ -163,7 +169,10 @@ class AutoSaveManager:
                         pass
 
                 # Salva sensores apenas se tiver quantidade mínima
-                if current_sensor_count >= MIN_SENSORS_FOR_SAVE and self.console.sensor_display:
+                if (
+                    current_sensor_count >= MIN_SENSORS_FOR_SAVE
+                    and self.console.sensor_display
+                ):
                     sensor_filename = os.path.join(
                         AUTO_EXPORT_DIR, f"sensors_{timestamp}.pkl"
                     )

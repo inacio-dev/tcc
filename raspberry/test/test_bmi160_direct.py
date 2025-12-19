@@ -46,7 +46,7 @@ def test_delay_optimization():
     if successful_delays:
         min_delay = min(successful_delays)
         max_delay = max(successful_delays)
-        print(f"\n=== RESULTADOS ===")
+        print("\n=== RESULTADOS ===")
         print(f"Delays que funcionaram: {successful_delays}")
         print(f"Delay mínimo: {min_delay}ms")
         print(f"Delay máximo: {max_delay}ms")
@@ -128,7 +128,7 @@ def test_bmi160_complete():
         chip_id = read_reg_safe(0x00)
         print(f"✓ CHIP_ID: 0x{chip_id:02X}")
         if chip_id != 0xD1:
-            print(f"⚠ CHIP_ID incorreto (esperado: 0xD1)")
+            print("⚠ CHIP_ID incorreto (esperado: 0xD1)")
             return False
     except Exception as e:
         print(f"❌ Erro ao ler CHIP_ID: {e}")
@@ -330,7 +330,7 @@ def test_bmi160_complete_optimized(delay_ms):
         chip_id = read_reg_safe(0x00)
         print(f"✓ CHIP_ID: 0x{chip_id:02X}")
         if chip_id != 0xD1:
-            print(f"⚠ CHIP_ID incorreto (esperado: 0xD1)")
+            print("⚠ CHIP_ID incorreto (esperado: 0xD1)")
             return False
     except Exception as e:
         print(f"❌ Erro ao ler CHIP_ID: {e}")

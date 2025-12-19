@@ -55,8 +55,8 @@ sudo apt-get install python3-pip
 sudo pip3 install adafruit-circuitpython-pca9685
 """
 
-import time
 import threading
+import time
 
 try:
     import board
@@ -131,8 +131,12 @@ class BrakeManager:
         self.response_time = max(0.05, response_time)  # Mínimo 50ms
 
         # Estado atual dos freios
-        self.front_brake_angle = self.BRAKE_MIN_ANGLE  # Ângulo atual do servo dianteiro (0° = solto)
-        self.rear_brake_angle = self.BRAKE_MIN_ANGLE  # Ângulo atual do servo traseiro (0° = solto)
+        self.front_brake_angle = (
+            self.BRAKE_MIN_ANGLE
+        )  # Ângulo atual do servo dianteiro (0° = solto)
+        self.rear_brake_angle = (
+            self.BRAKE_MIN_ANGLE
+        )  # Ângulo atual do servo traseiro (0° = solto)
         self.front_brake_force = 0.0  # Força atual 0-100%
         self.rear_brake_force = 0.0  # Força atual 0-100%
         self.total_brake_input = 0.0  # Input total 0-100%
@@ -144,13 +148,11 @@ class BrakeManager:
         self.front_servo = None
         self.rear_servo = None
 
-
         # Estatísticas
         self.brake_applications = 0
         self.total_brake_time = 0.0
         self.last_brake_time = 0.0
         self.start_time = time.time()
-
 
     def initialize(self) -> bool:
         """
@@ -196,11 +198,12 @@ class BrakeManager:
             # Posiciona servos na posição solta (freios liberados)
             self.front_servo.angle = self.BRAKE_MIN_ANGLE
             self.rear_servo.angle = self.BRAKE_MIN_ANGLE
-            print(f"✓ Servos posicionados na posição solta ({self.BRAKE_MIN_ANGLE}° = freios liberados)")
+            print(
+                f"✓ Servos posicionados na posição solta ({self.BRAKE_MIN_ANGLE}° = freios liberados)"
+            )
 
             # Aguarda servos se posicionarem
             time.sleep(0.5)
-
 
             self.is_initialized = True
 
@@ -227,7 +230,6 @@ class BrakeManager:
 
             self.is_initialized = False
             return False
-
 
     def set_brake_balance(self, balance: float):
         """
@@ -338,9 +340,11 @@ class BrakeManager:
             self.front_servo.angle = front_angle
             self.rear_servo.angle = rear_angle
 
-            print(f"🛑 Freio aplicado → Frontal: {front_angle:.1f}° | Traseiro: {rear_angle:.1f}°")
+            print(
+                f"🛑 Freio aplicado → Frontal: {front_angle:.1f}° | Traseiro: {rear_angle:.1f}°"
+            )
         else:
-            print(f"⚠️ Servos de freio não inicializados!")
+            print("⚠️ Servos de freio não inicializados!")
 
     def release_brakes(self):
         """Libera completamente os freios"""
@@ -378,7 +382,6 @@ class BrakeManager:
 
         except Exception as e:
             print(f"⚠ Erro durante teste: {e}")
-
 
     def get_brake_status(self) -> dict:
         """

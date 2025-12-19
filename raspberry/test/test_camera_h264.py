@@ -194,7 +194,6 @@ def test_camera():
         print("-" * 60)
 
         start_time = time.time()
-        last_frame_count = 0
 
         while time.time() - start_time < 5.0:
             time.sleep(0.1)
@@ -203,8 +202,6 @@ def test_camera():
             elapsed = time.time() - start_time
             if int(elapsed) > int(elapsed - 0.1):
                 stats = buffer.get_stats()
-                new_frames = stats['frame_count'] - last_frame_count
-                last_frame_count = stats['frame_count']
                 print(f"  [{elapsed:.0f}s] Frames: {stats['frame_count']}, Writes: {stats['write_count']}, Bytes: {stats['total_bytes']}")
 
         print("-" * 60)

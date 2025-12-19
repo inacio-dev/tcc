@@ -29,9 +29,10 @@ FORMATO DE SAÍDA:
 """
 
 import io
-import time
 import threading
+import time
 from collections import deque
+
 from picamera2 import Picamera2
 from picamera2.encoders import MJPEGEncoder
 from picamera2.outputs import FileOutput
@@ -52,17 +53,19 @@ class CircularBuffer(io.BufferedIOBase):
         with self.lock:
             # JPEG começa com SOI (Start of Image): 0xFFD8
             # JPEG termina com EOI (End of Image): 0xFFD9
-            if len(data) >= 2 and data[:2] == b'\xff\xd8':
+            if len(data) >= 2 and data[:2] == b"\xff\xd8":
                 # Novo frame JPEG iniciando - salva o anterior se existir
                 if self.current_frame.tell() > 0:
                     frame_data = self.current_frame.getvalue()
                     if self._is_valid_jpeg(frame_data):
-                        self.frames.append({
-                            'data': frame_data,
-                            'timestamp': time.time(),
-                            'size': len(frame_data),
-                            'keyframe': True  # MJPEG: todo frame é independente
-                        })
+                        self.frames.append(
+                            {
+                                "data": frame_data,
+                                "timestamp": time.time(),
+                                "size": len(frame_data),
+                                "keyframe": True,  # MJPEG: todo frame é independente
+                            }
+                        )
                         self.frame_count += 1
                         self.total_bytes += len(frame_data)
 
@@ -77,8 +80,8 @@ class CircularBuffer(io.BufferedIOBase):
         if len(data) < 4:
             return False
         # Verifica SOI no início e EOI no final
-        has_soi = data[:2] == b'\xff\xd8'
-        has_eoi = data[-2:] == b'\xff\xd9'
+        has_soi = data[:2] == b"\xff\xd8"
+        has_eoi = data[-2:] == b"\xff\xd9"
         return has_soi and has_eoi
 
     def get_frame(self):
@@ -168,9 +171,9 @@ class CameraManager:
             # Configura frame rate
             try:
                 frame_duration = 1000000 // self.frame_rate  # microssegundos
-                self.camera.set_controls({
-                    "FrameDurationLimits": (frame_duration, frame_duration)
-                })
+                self.camera.set_controls(
+                    {"FrameDurationLimits": (frame_duration, frame_duration)}
+                )
                 print(f"  Frame rate: {self.frame_rate} FPS")
             except Exception as e:
                 print(f"⚠ Aviso: FrameDurationLimits não configurado: {e}")
@@ -198,7 +201,7 @@ class CameraManager:
 
             print("✓ Câmera OV5647 inicializada com MJPEG encoder")
             print(f"  Resolução: {self.resolution[0]}x{self.resolution[1]}")
-            print(f"  Encoder: MJPEG (hardware, cada frame é JPEG independente)")
+            print("  Encoder: MJPEG (hardware, cada frame é JPEG independente)")
 
             return True
 
@@ -206,7 +209,9 @@ class CameraManager:
             print(f"✗ Erro ao detectar câmera: {e}")
             print("\nVerifique:")
             print("1. Cabo da câmera conectado corretamente")
-            print("2. Câmera habilitada: sudo raspi-config -> Interface Options -> Camera")
+            print(
+                "2. Câmera habilitada: sudo raspi-config -> Interface Options -> Camera"
+            )
             print("3. Sistema reiniciado após habilitar")
             print("4. Execute: libcamera-hello para testar")
 
@@ -216,6 +221,7 @@ class CameraManager:
         except Exception as e:
             print(f"✗ Erro ao inicializar câmera: {e}")
             import traceback
+
             traceback.print_exc()
 
             self.is_initialized = False
@@ -237,8 +243,8 @@ class CameraManager:
             if frame_info:
                 self.frames_captured += 1
                 self.last_capture_time = time.time()
-                self.last_frame_size = frame_info['size']
-                return frame_info['data']
+                self.last_frame_size = frame_info["size"]
+                return frame_info["data"]
 
             return None
 
@@ -262,7 +268,7 @@ class CameraManager:
             if frame_info:
                 self.frames_captured += 1
                 self.last_capture_time = time.time()
-                self.last_frame_size = frame_info['size']
+                self.last_frame_size = frame_info["size"]
                 return frame_info
 
             return None

@@ -24,11 +24,9 @@ CARACTERÍSTICAS:
 - Estatísticas em tempo real
 """
 
-import time
-import math
 import threading
-from collections import deque, defaultdict
-from typing import Dict, Any, Optional
+import time
+from collections import defaultdict, deque
 
 
 class SensorDisplay:
@@ -155,7 +153,7 @@ class SensorDisplay:
             # Se não tem BMI160, retorna True mas não processa (dados parciais OK)
             if not has_bmi160:
                 # Log apenas uma vez a cada 30 segundos
-                if not hasattr(self, '_last_bmi160_warning'):
+                if not hasattr(self, "_last_bmi160_warning"):
                     self._last_bmi160_warning = 0
                 current_time = time.time()
                 if current_time - self._last_bmi160_warning > 30:
@@ -577,4 +575,3 @@ class SensorDisplay:
         except Exception as e:
             print(f"[EXPORT] Erro pickle: {e}")
             return None
-

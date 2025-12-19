@@ -21,14 +21,15 @@ PORTAS UTILIZADAS:
 - 9998: Comandos de controle (PC -> RPi) [futuro]
 """
 
+import json
 import socket
 import struct
-import json
-import time
 import threading
+import time
+from typing import Any, Dict, Optional
+
 import numpy as np
-from typing import Optional, Dict, Any, Tuple
-from logger import info, debug, warn, error
+from logger import debug, error, info, warn
 
 
 class NetworkManager:
@@ -56,11 +57,11 @@ class NetworkManager:
         self.buffer_size = buffer_size
 
         # Sockets UDP
-        self.send_socket = None     # Para enviar dados (vídeo)
-        self.sensor_socket = None   # Para enviar sensores rápidos
+        self.send_socket = None  # Para enviar dados (vídeo)
+        self.sensor_socket = None  # Para enviar sensores rápidos
         self.receive_socket = None  # Para receber comandos
         self.is_initialized = False
-        
+
         # Clientes conectados (descoberta automática)
         self.connected_clients = {}  # {ip: {'port': port, 'last_seen': timestamp}}
         self.clients_lock = threading.Lock()
@@ -82,7 +83,7 @@ class NetworkManager:
         # Threading para recepção de comandos
         self.command_thread = None
         self.should_stop = False
-        
+
         # Callback para processar comandos recebidos
         self.command_callback = None
 
@@ -95,30 +96,41 @@ class NetworkManager:
         """
         try:
             info("Inicializando comunicação UDP bidirecional...", "NET")
-            debug(f"Porta dados: {self.data_port}, Sensores: {self.sensor_port}, Comandos: {self.command_port}", "NET")
+            debug(
+                f"Porta dados: {self.data_port}, Sensores: {self.sensor_port}, Comandos: {self.command_port}",
+                "NET",
+            )
 
             # Cria socket para envio de dados (vídeo + sensores lentos)
             self.send_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             self.send_socket.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 65536)
             self.send_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             try:
-                self.send_socket.setsockopt(socket.IPPROTO_IP, socket.IP_TOS, 0x10)  # IPTOS_LOWDELAY
+                self.send_socket.setsockopt(
+                    socket.IPPROTO_IP, socket.IP_TOS, 0x10
+                )  # IPTOS_LOWDELAY
             except (AttributeError, OSError):
                 pass
 
             # Cria socket para sensores rápidos (BMI160 @ 100Hz)
             self.sensor_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            self.sensor_socket.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 8192)  # Buffer pequeno para baixa latência
+            self.sensor_socket.setsockopt(
+                socket.SOL_SOCKET, socket.SO_SNDBUF, 8192
+            )  # Buffer pequeno para baixa latência
             self.sensor_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             try:
-                self.sensor_socket.setsockopt(socket.IPPROTO_IP, socket.IP_TOS, 0x10)  # IPTOS_LOWDELAY
+                self.sensor_socket.setsockopt(
+                    socket.IPPROTO_IP, socket.IP_TOS, 0x10
+                )  # IPTOS_LOWDELAY
             except (AttributeError, OSError):
                 pass
 
             # Cria socket para receber comandos
             self.receive_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            self.receive_socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, self.buffer_size)
-            self.receive_socket.bind(('', self.command_port))
+            self.receive_socket.setsockopt(
+                socket.SOL_SOCKET, socket.SO_RCVBUF, self.buffer_size
+            )
+            self.receive_socket.bind(("", self.command_port))
             self.receive_socket.settimeout(1.0)
 
             debug("Sockets criados com sucesso (dados + sensores + comandos)", "NET")
@@ -137,29 +149,31 @@ class NetworkManager:
 
             self.is_initialized = False
             return False
-            
+
     def _start_command_listener(self):
         """Inicia thread para escutar comandos dos clientes"""
         if self.command_thread is None or not self.command_thread.is_alive():
             self.should_stop = False
-            self.command_thread = threading.Thread(target=self._command_listener_loop, daemon=True)
+            self.command_thread = threading.Thread(
+                target=self._command_listener_loop, daemon=True
+            )
             self.command_thread.start()
             debug("Thread de escuta iniciada", "NET")
 
     def _command_listener_loop(self):
         """Loop principal para escutar comandos dos clientes"""
         debug("Iniciando escuta de comandos", "NET")
-        
+
         while not self.should_stop:
             try:
                 # Recebe dados de qualquer cliente
                 data, addr = self.receive_socket.recvfrom(self.buffer_size)
                 client_ip, client_port = addr
                 debug(f"Comando recebido de {client_ip}:{client_port}: {data}", "NET")
-                
+
                 # Processa o comando recebido
                 self._process_client_command(data, client_ip, client_port)
-                
+
             except socket.timeout:
                 # Timeout normal - continua o loop
                 continue
@@ -167,25 +181,25 @@ class NetworkManager:
                 if not self.should_stop:
                     warn(f"Erro ao receber comando: {e}", "NET", rate_limit=5.0)
                     time.sleep(0.1)
-        
+
         debug("Thread de escuta finalizada", "NET")
 
     def _process_client_command(self, data: bytes, client_ip: str, client_port: int):
         """
         Processa comando recebido de um cliente
-        
+
         Args:
             data: Dados recebidos
             client_ip: IP do cliente
-            client_port: Porta do cliente  
+            client_port: Porta do cliente
         """
         try:
             # Decodifica comando
-            command_str = data.decode('utf-8').strip()
+            command_str = data.decode("utf-8").strip()
             self.commands_received += 1
-            
+
             current_time = time.time()
-            
+
             # Processa diferentes tipos de comando
             if command_str.startswith("CONNECT"):
                 # CONNECT ou CONNECT:porta
@@ -193,35 +207,39 @@ class NetworkManager:
                     _, listen_port = command_str.split(":", 1)
                     self._handle_client_connect(client_ip, int(listen_port))
                 else:
-                    self._handle_client_connect(client_ip, self.data_port)  # Porta padrão
-                
+                    self._handle_client_connect(
+                        client_ip, self.data_port
+                    )  # Porta padrão
+
             elif command_str == "DISCONNECT":
                 self._handle_client_disconnect(client_ip)
-                
+
             elif command_str.startswith("PING"):
                 self._handle_client_ping(client_ip, client_port, command_str)
-                
+
             elif command_str.startswith("CONTROL:"):
                 # Comando de controle (motor, freio, direção)
                 self._handle_control_command(client_ip, command_str[8:])
-                
+
             else:
                 # Comando personalizado - repassa para callback se existir
                 if self.command_callback:
                     self.command_callback(client_ip, command_str)
-                    
+
             # Atualiza última vez que vimos este cliente
             with self.clients_lock:
                 if client_ip in self.connected_clients:
-                    self.connected_clients[client_ip]['last_seen'] = current_time
-                    
+                    self.connected_clients[client_ip]["last_seen"] = current_time
+
         except Exception as e:
-            warn(f"Erro ao processar comando de {client_ip}: {e}", "NET", rate_limit=5.0)
+            warn(
+                f"Erro ao processar comando de {client_ip}: {e}", "NET", rate_limit=5.0
+            )
 
     def _handle_client_connect(self, client_ip: str, listen_port: int):
         """
         Processa conexão de um novo cliente
-        
+
         Args:
             client_ip: IP do cliente
             listen_port: Porta onde o cliente está escutando dados
@@ -230,19 +248,23 @@ class NetworkManager:
             if client_ip not in self.connected_clients:
                 # Novo cliente
                 self.connected_clients[client_ip] = {
-                    'port': listen_port,  # Porta onde cliente escuta dados
-                    'last_seen': time.time()
+                    "port": listen_port,  # Porta onde cliente escuta dados
+                    "last_seen": time.time(),
                 }
                 info(f"Novo cliente conectado: {client_ip}", "NET")
-                debug(f"Total clientes conectados: {len(self.connected_clients)}", "NET")
-                debug(f"Lista de clientes: {list(self.connected_clients.keys())}", "NET")
-                
+                debug(
+                    f"Total clientes conectados: {len(self.connected_clients)}", "NET"
+                )
+                debug(
+                    f"Lista de clientes: {list(self.connected_clients.keys())}", "NET"
+                )
+
                 # Envia confirmação de conexão
                 self._send_to_client(client_ip, b"CONNECTED")
-                
+
             else:
                 # Cliente reconectando
-                self.connected_clients[client_ip]['last_seen'] = time.time()
+                self.connected_clients[client_ip]["last_seen"] = time.time()
                 debug(f"Cliente reconectado: {client_ip}", "NET")
                 self._send_to_client(client_ip, b"RECONNECTED")
 
@@ -256,25 +278,25 @@ class NetworkManager:
     def _handle_client_ping(self, client_ip: str, client_port: int, ping_data: str):
         """Responde ao ping do cliente"""
         # Extrai timestamp se enviado
-        parts = ping_data.split(':')
+        parts = ping_data.split(":")
         if len(parts) > 1:
             timestamp = parts[1]
-            pong_response = f"PONG:{timestamp}".encode('utf-8')
+            pong_response = f"PONG:{timestamp}".encode("utf-8")
         else:
             pong_response = b"PONG"
-            
+
         self._send_to_client(client_ip, pong_response)
 
     def _handle_control_command(self, client_ip: str, command: str):
         """Processa comando de controle do veículo"""
         debug(f"Comando de {client_ip}: {command}", "NET")
-        
+
         # Aqui você pode processar comandos como:
         # "THROTTLE:50" -> acelerar 50%
-        # "BRAKE:30" -> frear 30%  
+        # "BRAKE:30" -> frear 30%
         # "STEERING:-20" -> virar esquerda 20°
         # etc.
-        
+
         # Por enquanto só loga - implementação específica fica para depois
         if self.command_callback:
             self.command_callback(client_ip, f"CONTROL:{command}")
@@ -283,7 +305,7 @@ class NetworkManager:
         """Envia dados para um cliente específico"""
         with self.clients_lock:
             if client_ip in self.connected_clients:
-                client_port = self.connected_clients[client_ip]['port']
+                client_port = self.connected_clients[client_ip]["port"]
                 try:
                     self.send_socket.sendto(data, (client_ip, client_port))
                 except Exception as e:
@@ -304,13 +326,13 @@ class NetworkManager:
     def set_command_callback(self, callback):
         """Define callback para processar comandos personalizados"""
         self.command_callback = callback
-        
+
     def set_fixed_client(self, client_ip: str, client_port: int):
         """Define cliente fixo para modo direto (sem descoberta)"""
         with self.clients_lock:
             self.connected_clients[client_ip] = {
-                'port': client_port,
-                'last_seen': time.time()
+                "port": client_port,
+                "last_seen": time.time(),
             }
             info(f"Cliente fixo configurado: {client_ip}:{client_port}", "NET")
             debug(f"Total clientes: {len(self.connected_clients)}", "NET")
@@ -333,7 +355,9 @@ class NetworkManager:
             connect_cmd = f"SERVER_CONNECT:{self.data_port}"
 
             # Envia comando via UDP
-            self.send_socket.sendto(connect_cmd.encode('utf-8'), (client_ip, client_port))
+            self.send_socket.sendto(
+                connect_cmd.encode("utf-8"), (client_ip, client_port)
+            )
 
             debug(f"Comando CONNECT enviado para {client_ip}:{client_port}", "NET")
 
@@ -341,14 +365,16 @@ class NetworkManager:
             with self.clients_lock:
                 if client_ip not in self.connected_clients:
                     self.connected_clients[client_ip] = {
-                        'port': self.data_port,  # Porta para envio de dados
-                        'last_seen': time.time(),
-                        'auto_connect': True  # Marca como conexão automática
+                        "port": self.data_port,  # Porta para envio de dados
+                        "last_seen": time.time(),
+                        "auto_connect": True,  # Marca como conexão automática
                     }
-                    info(f"Cliente auto-adicionado: {client_ip}:{self.data_port}", "NET")
+                    info(
+                        f"Cliente auto-adicionado: {client_ip}:{self.data_port}", "NET"
+                    )
                 else:
                     # Atualiza timestamp de última conexão
-                    self.connected_clients[client_ip]['last_seen'] = time.time()
+                    self.connected_clients[client_ip]["last_seen"] = time.time()
                     debug(f"Cliente atualizado: {client_ip}", "NET")
 
         except Exception as e:
@@ -383,7 +409,7 @@ class NetworkManager:
             if hasattr(obj, "dtype"):
                 try:
                     return obj.item()  # Converte scalar numpy para Python nativo
-                except:
+                except Exception:
                     return str(obj)  # Fallback para string
             return obj
 
@@ -432,7 +458,7 @@ class NetworkManager:
 
                 # Debug adicional para identificar tipos problemáticos
                 if sensor_data:
-                    print(f"🔍 Debug - Tipos problemáticos nos dados:")
+                    print("🔍 Debug - Tipos problemáticos nos dados:")
                     for key, value in sensor_data.items():
                         if hasattr(value, "dtype") or type(value).__module__ == "numpy":
                             print(f"  {key}: {type(value)} = {value}")
@@ -459,12 +485,14 @@ class NetworkManager:
             return False
 
         success_count = 0
-        
+
         with self.clients_lock:
             for client_ip, client_info in self.connected_clients.items():
                 try:
                     # Envia pacote para cada cliente
-                    self.send_socket.sendto(packet_data, (client_ip, client_info['port']))
+                    self.send_socket.sendto(
+                        packet_data, (client_ip, client_info["port"])
+                    )
                     success_count += 1
                 except Exception as e:
                     warn(f"Erro ao enviar para {client_ip}: {e}", "NET", rate_limit=5.0)
@@ -523,7 +551,7 @@ class NetworkManager:
 
             # Serializa para JSON (pacote leve, ~200-500 bytes)
             sensor_json = json.dumps(cleaned_data, ensure_ascii=False)
-            sensor_bytes = sensor_json.encode('utf-8')
+            sensor_bytes = sensor_json.encode("utf-8")
 
             # Pacote simples: apenas 4 bytes de tamanho + dados
             # Formato: [4 bytes: tamanho] [N bytes: JSON]
@@ -537,7 +565,7 @@ class NetworkManager:
                         # Envia para porta de sensores (9997) do cliente
                         self.sensor_socket.sendto(packet, (client_ip, self.sensor_port))
                         success_count += 1
-                    except Exception as e:
+                    except Exception:
                         pass  # Silencioso para não afetar performance
 
             if success_count > 0:
@@ -547,7 +575,7 @@ class NetworkManager:
 
             return False
 
-        except Exception as e:
+        except Exception:
             # Silencioso para não afetar taxa de 100Hz
             return False
 
@@ -561,7 +589,7 @@ class NetworkManager:
         try:
             termination_packet = struct.pack("<I", 0) + struct.pack("<I", 0)
             return self.send_packet(termination_packet)
-        except:
+        except Exception:
             return False
 
     def get_transmission_stats(self) -> Dict[str, Any]:
@@ -587,12 +615,18 @@ class NetworkManager:
             "bytes_per_second": round(bytes_per_second, 2),
             "mbps": round(mbps, 3),
             "is_connected": self.has_connected_clients(),
-            "target": f"auto-discovery:{self.data_port}" if not hasattr(self, 'target_ip') else f"{self.target_ip}:{self.target_port}",
+            "target": (
+                f"auto-discovery:{self.data_port}"
+                if not hasattr(self, "target_ip")
+                else f"{self.target_ip}:{self.target_port}"
+            ),
             "last_send_time": self.last_send_time,
             # Estatísticas de sensores rápidos
             "sensor_packets_sent": self.sensor_packets_sent,
             "sensor_bytes_sent": self.sensor_bytes_sent,
-            "sensor_pps": round(self.sensor_packets_sent / elapsed, 2) if elapsed > 0 else 0,
+            "sensor_pps": (
+                round(self.sensor_packets_sent / elapsed, 2) if elapsed > 0 else 0
+            ),
         }
 
     def get_network_info(self) -> Dict[str, Any]:
@@ -696,7 +730,7 @@ class NetworkManager:
         """Libera recursos de rede"""
         try:
             info("Parando comunicação UDP...", "NET")
-            
+
             # Para thread de escuta de comandos
             self.should_stop = True
             if self.command_thread and self.command_thread.is_alive():
@@ -708,7 +742,7 @@ class NetworkManager:
                 with self.clients_lock:
                     for client_ip in list(self.connected_clients.keys()):
                         self._send_to_client(client_ip, b"SERVER_DISCONNECT")
-                        
+
             # Envia sinal de terminação
             if self.is_initialized:
                 self.send_termination_signal()

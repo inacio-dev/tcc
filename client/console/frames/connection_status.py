@@ -44,9 +44,9 @@ def create_connection_status_frame(console):
     ttk.Label(status_frame, text="Pacotes:", style="Dark.TLabel").grid(
         row=1, column=2, sticky=tk.W, padx=5, pady=2
     )
-    ttk.Label(
-        status_frame, textvariable=console.packets_var, style="Dark.TLabel"
-    ).grid(row=1, column=3, sticky=tk.W, padx=5, pady=2)
+    ttk.Label(status_frame, textvariable=console.packets_var, style="Dark.TLabel").grid(
+        row=1, column=3, sticky=tk.W, padx=5, pady=2
+    )
 
     # Linha 3: Dados e Qualidade
     ttk.Label(status_frame, text="Dados:", style="Dark.TLabel").grid(
@@ -59,6 +59,6 @@ def create_connection_status_frame(console):
     ttk.Label(status_frame, text="Qualidade:", style="Dark.TLabel").grid(
         row=2, column=2, sticky=tk.W, padx=5, pady=2
     )
-    ttk.Label(
-        status_frame, textvariable=console.quality_var, style="Dark.TLabel"
-    ).grid(row=2, column=3, sticky=tk.W, padx=5, pady=2)
+    ttk.Label(status_frame, textvariable=console.quality_var, style="Dark.TLabel").grid(
+        row=2, column=3, sticky=tk.W, padx=5, pady=2
+    )

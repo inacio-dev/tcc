@@ -5,13 +5,14 @@ Gerencia controles analógicos de acelerador, freio e direção via sliders
 Inclui sistema de calibração para encoders incrementais ESP32
 """
 
+import threading
+import time
 import tkinter as tk
 import tkinter.ttk as ttk
-import time
-import threading
-from typing import Optional, Callable
-from simple_logger import info, debug, warn, error
+from typing import Callable
+
 from calibration_manager import CalibrationManager
+from simple_logger import debug, error, info, warn
 
 
 class SliderController:
@@ -45,8 +46,7 @@ class SliderController:
 
         # Calibration manager
         self.calibration_manager = CalibrationManager(
-            serial_sender=self._send_serial_command,
-            log_callback=log_callback
+            serial_sender=self._send_serial_command, log_callback=log_callback
         )
 
         # Widgets de calibração
@@ -364,7 +364,9 @@ class SliderController:
         try:
             old_throttle = self.throttle_value
             self.throttle_value = float(value)
-            self.throttle_label.config(text=f"🚀 Acelerador: {self.throttle_value:.0f}%")
+            self.throttle_label.config(
+                text=f"🚀 Acelerador: {self.throttle_value:.0f}%"
+            )
 
             # CORREÇÃO: Envia comando em thread separada para não travar UI
             if self.network_client:
@@ -488,7 +490,7 @@ class SliderController:
             # Envia comandos de parada
             self._send_command("THROTTLE", 0.0)
             self._send_command("BRAKE", 0.0)
-        except:
+        except Exception:
             pass
 
         # Aguarda thread de envio parar
@@ -504,12 +506,12 @@ class SliderController:
         try:
             self.network_client = None
             self.log_callback = None
-        except:
+        except Exception:
             pass
 
         try:
             self._log("INFO", "Controlador de sliders parado")
-        except:
+        except Exception:
             pass
 
     def _send_loop(self):
@@ -610,7 +612,10 @@ class SliderController:
         if self.calibration_manager.is_calibrating:
             self._update_calibration_ui()
             # Agenda próxima atualização (50ms = 20Hz)
-            if hasattr(self, 'cal_status_label') and self.cal_status_label.winfo_exists():
+            if (
+                hasattr(self, "cal_status_label")
+                and self.cal_status_label.winfo_exists()
+            ):
                 self.cal_status_label.after(50, self._schedule_calibration_update)
 
     def _update_calibration_ui(self):
@@ -629,7 +634,9 @@ class SliderController:
 
             value_text = f"Valor bruto: {raw_current}"
             if raw_min is not None and raw_max is not None:
-                value_text += f"  [Min: {raw_min}, Max: {raw_max}, Range: {raw_max - raw_min}]"
+                value_text += (
+                    f"  [Min: {raw_min}, Max: {raw_max}, Range: {raw_max - raw_min}]"
+                )
 
             self.cal_raw_value_label.config(text=value_text)
 
@@ -646,5 +653,5 @@ class SliderController:
     def set_serial_sender(self, serial_sender: Callable[[str], bool]):
         """Define função para enviar comandos seriais"""
         self.serial_sender = serial_sender
-        if hasattr(self, 'calibration_manager'):
+        if hasattr(self, "calibration_manager"):
             self.calibration_manager.serial_sender = self._send_serial_command

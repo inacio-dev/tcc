@@ -175,7 +175,7 @@ def main():
     finally:
         # Estatísticas finais
         if temperatures:
-            print(f"\n📈 ESTATÍSTICAS FINAIS:")
+            print("\n📈 ESTATÍSTICAS FINAIS:")
             print(f"   Leituras válidas: {len(temperatures)}")
             print(f"   Temperatura mínima: {min(temperatures):.2f}°C")
             print(f"   Temperatura máxima: {max(temperatures):.2f}°C")

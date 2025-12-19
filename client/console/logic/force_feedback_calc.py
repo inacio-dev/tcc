@@ -95,7 +95,9 @@ class ForceFeedbackCalculator:
             yaw_direction_value = gyro_z
 
             total_direction_value = (
-                centering_direction_value + lateral_direction_value + yaw_direction_value
+                centering_direction_value
+                + lateral_direction_value
+                + yaw_direction_value
             )
 
             if total_direction_value > 5:

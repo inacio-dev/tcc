@@ -29,7 +29,7 @@ F1-style remote-controlled car with complete telemetry system using Raspberry Pi
 - `main.py`: Orchestrates all hardware
 - `camera_manager.py`: OV5647 camera + H.264 video encoding
 - `bmi160_manager.py`: IMU sensor (accel/gyro) data
-- `motor_manager.py`: RS550 motor + 5-speed transmission
+- `motor_manager.py`: RC 775 motor + 5-speed transmission
 - `brake_manager.py`: Dual servo brake (front/rear)
 - `steering_manager.py`: Direct servo steering (0°-180°)
 - `network_manager.py`: UDP transmission
@@ -62,7 +62,7 @@ F1-style remote-controlled car with complete telemetry system using Raspberry Pi
 
 **Current Setup:**
 
-- **Vehicle**: Raspberry Pi 4B (8GB), OV5647 camera, BMI160 IMU, RS550 motor, 3x MG996R servos
+- **Vehicle**: Raspberry Pi 4B (8GB), OV5647 camera, BMI160 IMU, RC 775 motor, 3x MG996R servos
 - **Cockpit**: ESP32 DevKit V1 (240MHz dual-core), 3x rotary encoders (600 PPR), 2x buttons, BTS7960 H-bridge
 - **Network**: mDNS (RPi: `f1car.local`, Client: `f1client.local`)
 - **Serial**: ESP32→Client via USB (115200 baud, 100Hz)
@@ -188,7 +188,7 @@ cd client && python3 main.py --port 9999
 
 ## Hardware Control
 
-- **Motor**: RS550 with 5-speed manual transmission, F1-style efficiency zones
+- **Motor**: RC 775 with 5-speed manual transmission, F1-style efficiency zones
 - **Servos**: PCA9685-based (Channel 0: front brake, 1: rear brake, 2: steering)
 - **Brake Balance**: Default 60% front / 40% rear
 - **BMI160**: 100Hz sampling, event detection (curves, braking, impacts)

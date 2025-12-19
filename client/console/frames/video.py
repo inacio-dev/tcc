@@ -8,6 +8,7 @@ from tkinter import ttk
 # Importação do módulo de filtros PDI
 try:
     from image_filters import ImageFilters, get_filters
+
     FILTERS_AVAILABLE = True
 except ImportError:
     FILTERS_AVAILABLE = False
@@ -106,7 +107,9 @@ def create_video_frame(console):
             width=8,
             command=lambda: _clear_all_filters(console),
         )
-        clear_btn.grid(row=(len(filter_keys) // 3) + 1, column=0, padx=5, pady=3, sticky="w")
+        clear_btn.grid(
+            row=(len(filter_keys) // 3) + 1, column=0, padx=5, pady=3, sticky="w"
+        )
 
         # Label para mostrar filtros ativos
         console.filter_desc_var = tk.StringVar(value="Nenhum filtro ativo")

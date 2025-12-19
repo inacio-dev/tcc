@@ -21,13 +21,11 @@ O cliente está preparado para receber TODOS os 37+ campos do BMI160:
 - Metadados (timestamp, contadores)
 """
 
+import json
 import socket
 import struct
-import json
-import time
 import threading
-import numpy as np
-from typing import Optional, Dict, Any
+import time
 
 
 class NetworkClient:
@@ -89,8 +87,8 @@ class NetworkClient:
 
         # Sockets UDP
         self.receive_socket = None  # Para receber dados (vídeo)
-        self.sensor_socket = None   # Para receber sensores rápidos (100Hz)
-        self.send_socket = None     # Para enviar comandos
+        self.sensor_socket = None  # Para receber sensores rápidos (100Hz)
+        self.send_socket = None  # Para enviar comandos
         self.is_running = False
 
         # Thread para sensores rápidos
@@ -147,8 +145,10 @@ class NetworkClient:
             bool: True se inicializado com sucesso
         """
         try:
-            self._log("INFO", f"Inicializando cliente UDP bidirecional (Multi-Thread)")
-            self._log("INFO", f"Vídeo: porta {self.port}, Sensores: porta {self.sensor_port}")
+            self._log("INFO", "Inicializando cliente UDP bidirecional (Multi-Thread)")
+            self._log(
+                "INFO", f"Vídeo: porta {self.port}, Sensores: porta {self.sensor_port}"
+            )
             self._log("INFO", f"Comandos: porta {self.command_port}")
 
             # Cria socket para receber dados (vídeo + sensores lentos)
@@ -161,15 +161,17 @@ class NetworkClient:
             # Cria socket para receber sensores rápidos (100Hz)
             self.sensor_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             self.sensor_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            self.sensor_socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 8192)  # Buffer pequeno
+            self.sensor_socket.setsockopt(
+                socket.SOL_SOCKET, socket.SO_RCVBUF, 8192
+            )  # Buffer pequeno
             self.sensor_socket.settimeout(0.1)  # Timeout curto para 100Hz
             self.sensor_socket.bind((self.host, self.sensor_port))
 
             # Cria socket para enviar comandos
             self.send_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-            self._log("INFO", f"Sockets UDP inicializados (vídeo + sensores rápidos)")
-            self._log("INFO", f"Aguardando dados do Raspberry Pi...")
+            self._log("INFO", "Sockets UDP inicializados (vídeo + sensores rápidos)")
+            self._log("INFO", "Aguardando dados do Raspberry Pi...")
 
             return True
 
@@ -202,7 +204,6 @@ class NetworkClient:
 
         except Exception as e:
             self._log("ERROR", f"Erro ao conectar ao Raspberry Pi {rpi_ip}: {e}")
-
 
     def send_command_to_rpi(self, command: str) -> bool:
         """
@@ -244,7 +245,6 @@ class NetworkClient:
         if success:
             self._log("INFO", f"✅ Comando enviado: {control_type}:{value}")
         return success
-
 
     def parse_packet(self, packet):
         """
@@ -345,7 +345,7 @@ class NetworkClient:
                 return None
 
             # Extrai e decodifica JSON
-            sensor_bytes = packet[4:4 + sensor_size]
+            sensor_bytes = packet[4 : 4 + sensor_size]
             sensor_json = sensor_bytes.decode("utf-8")
             return json.loads(sensor_json)
 
@@ -377,7 +377,7 @@ class NetworkClient:
 
             except socket.timeout:
                 continue
-            except Exception as e:
+            except Exception:
                 if self.is_running:
                     time.sleep(0.001)
 
@@ -454,9 +454,7 @@ class NetworkClient:
 
         # Inicia thread de sensores rápidos
         self.sensor_thread = threading.Thread(
-            target=self._fast_sensor_thread_loop,
-            name="FastSensorThread",
-            daemon=True
+            target=self._fast_sensor_thread_loop, name="FastSensorThread", daemon=True
         )
         self.sensor_thread.start()
         self._log("INFO", "Thread de sensores rápidos iniciada")
@@ -494,7 +492,7 @@ class NetworkClient:
                         if packet_str.startswith("SERVER_CONNECT"):
                             self._log(
                                 "INFO",
-                                f"🔄 Recebido comando de reconexão do Raspberry Pi",
+                                "🔄 Recebido comando de reconexão do Raspberry Pi",
                             )
                             # Marca como conectado/reconectado
                             self.raspberry_pi_ip = addr[0]
@@ -574,7 +572,9 @@ class NetworkClient:
                 round(self.bytes_received / elapsed, 2) if elapsed > 0 else 0
             ),
             "fps": round(self.frames_received / elapsed, 2) if elapsed > 0 else 0,
-            "sensor_hz": round(self.fast_sensor_packets / elapsed, 2) if elapsed > 0 else 0,
+            "sensor_hz": (
+                round(self.fast_sensor_packets / elapsed, 2) if elapsed > 0 else 0
+            ),
             "connected": self.connected_addr is not None,
             "connected_to": (
                 str(self.connected_addr) if self.connected_addr else "Nenhum"
@@ -595,31 +595,31 @@ class NetworkClient:
         if self.is_connected_to_rpi:
             try:
                 self.send_command_to_rpi("DISCONNECT")
-            except:
+            except Exception:
                 pass
 
         # Fecha sockets
         if self.receive_socket:
             try:
                 self.receive_socket.close()
-            except:
+            except Exception:
                 pass
 
         if self.sensor_socket:
             try:
                 self.sensor_socket.close()
-            except:
+            except Exception:
                 pass
 
         if self.send_socket:
             try:
                 self.send_socket.close()
-            except:
+            except Exception:
                 pass
 
         # Envia estatísticas finais
         stats = self.get_statistics()
-        self._log("INFO", f"Estatísticas finais:")
+        self._log("INFO", "Estatísticas finais:")
         self._log("INFO", f"  - Pacotes recebidos: {stats['packets_received']}")
         self._log("INFO", f"  - Frames de vídeo: {stats['frames_received']}")
         self._log("INFO", f"  - Sensores (vídeo): {stats['sensor_packets_received']}")

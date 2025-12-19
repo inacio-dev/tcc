@@ -46,8 +46,8 @@ sudo raspi-config -> Interface Options -> I2C -> Enable
 sudo pip3 install adafruit-circuitpython-pca9685
 """
 
-import time
 import threading
+import time
 from enum import Enum
 from typing import Any, Dict
 
@@ -94,9 +94,9 @@ class SteeringManager:
     PULSE_CENTER = 1.5  # 1.5ms = 90° (centro)
 
     # Limites mecânicos da direção (em graus) - RANGE LIMITADO 0° a 113.4°
-    STEERING_MIN_ANGLE = 0     # 0° = máximo à esquerda
-    STEERING_MAX_ANGLE = 113.4 # 113.4° = máximo à direita
-    STEERING_CENTER = 56.7     # 56.7° = posição central (meio do range 0-113.4°)
+    STEERING_MIN_ANGLE = 0  # 0° = máximo à esquerda
+    STEERING_MAX_ANGLE = 113.4  # 113.4° = máximo à direita
+    STEERING_CENTER = 56.7  # 56.7° = posição central (meio do range 0-113.4°)
 
     # Range de direção útil (LIMITADO 0°-113.4°)
     MAX_STEERING_LEFT = -56.7  # -56.7° (esquerda máxima: 56.7°-56.7°=0°)
@@ -130,7 +130,9 @@ class SteeringManager:
 
         # Configurações
         self.steering_sensitivity = max(0.5, min(2.0, steering_sensitivity))
-        self.max_steering_angle = max(10.0, min(56.7, max_steering_angle))  # Máximo 56.7° (range 0-113.4°)
+        self.max_steering_angle = max(
+            10.0, min(56.7, max_steering_angle)
+        )  # Máximo 56.7° (range 0-113.4°)
         self.steering_mode = steering_mode
         self.response_time = max(0.05, response_time)
 
@@ -154,7 +156,6 @@ class SteeringManager:
         self.max_angle_reached = 0.0
         self.start_time = time.time()
         self.last_movement_time = 0.0
-
 
     def initialize(self) -> bool:
         """
@@ -196,13 +197,14 @@ class SteeringManager:
             # Aguarda servo se posicionar
             time.sleep(0.5)
 
-
             self.is_initialized = True
 
             print("✅ Sistema de direção inicializado com sucesso!")
             print(f"  - Frequência PWM: {self.PWM_FREQUENCY}Hz")
             print(f"  - Posição inicial: {self.STEERING_CENTER}° (centro)")
-            print(f"  - Range: {self.STEERING_MIN_ANGLE}° a {self.STEERING_MAX_ANGLE}° (LIMITADO 0-113.4°)")
+            print(
+                f"  - Range: {self.STEERING_MIN_ANGLE}° a {self.STEERING_MAX_ANGLE}° (LIMITADO 0-113.4°)"
+            )
             print("  - Movimento: DIRETO (sem suavização)")
             print(f"  - Canal direção: {self.steering_channel}")
 
@@ -222,7 +224,6 @@ class SteeringManager:
 
             self.is_initialized = False
             return False
-
 
     def set_steering_input(self, steering_input: float):
         """
@@ -264,9 +265,11 @@ class SteeringManager:
                 # COMANDO DIRETO - igual ao test_steering_direto_simples.py
                 self.steering_servo.angle = final_angle
 
-                print(f"🎯 Target: {target_angle:.1f}° → Servo: {final_angle:.1f}° (input: {steering_input:.1f}%)")
+                print(
+                    f"🎯 Target: {target_angle:.1f}° → Servo: {final_angle:.1f}° (input: {steering_input:.1f}%)"
+                )
             else:
-                print(f"⚠️ Servo não inicializado!")
+                print("⚠️ Servo não inicializado!")
 
             print(
                 f"🎯 Target angle definido: {target_angle:.1f}° (input: {steering_input:.1f}%)"
@@ -281,9 +284,7 @@ class SteeringManager:
 
         # Debug para movimentos grandes
         if abs(steering_input) > 20:
-            print(
-                f"🔧 Direção: {steering_input:+.0f}% → {target_angle:+.1f}°"
-            )
+            print(f"🔧 Direção: {steering_input:+.0f}% → {target_angle:+.1f}°")
 
     # REMOVIDO: funções auxiliares não usadas - movimento direto
 
@@ -291,7 +292,6 @@ class SteeringManager:
         """Centraliza a direção"""
         self.set_steering_input(0.0)
         print("🔧 Direção centralizada")
-
 
     def _test_steering(self):
         """Executa teste rápido da direção - MOVIMENTO DIRETO"""
@@ -321,7 +321,6 @@ class SteeringManager:
 
         except Exception as e:
             print(f"⚠ Erro durante teste: {e}")
-
 
     def get_steering_status(self) -> Dict[str, Any]:
         """
