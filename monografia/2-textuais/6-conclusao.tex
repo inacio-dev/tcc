@@ -1,0 +1,27 @@
+\chapter{Conclusões e Trabalhos Futuros}
+\label{chap:conclusoes-e-trabalhos-futuros}
+
+Este trabalho apresentou o desenvolvimento de um simulador completo de Fórmula 1 com force feedback e comunicação UDP, visando controle a longas distâncias com desempenho em tempo real. O sistema integra um veículo controlado por Raspberry Pi 4 (8GB RAM) com câmera OV5647 e sensor BMI160, um cockpit baseado em ESP32 com encoders rotativos de alta resolução (600 PPR) para acelerador, freio e direção, e motor de force feedback controlado via ponte H BTS7960. A comunicação ocorre via mDNS (UDP) entre o veículo e o cliente, enquanto o cockpit comunica-se via USB serial a 115200 baud.
+
+A validação formal do sistema ainda será realizada em etapa posterior. Os testes de desenvolvimento indicam que a arquitetura proposta é viável e que a utilização de UDP simples combinada com ESP32 para o cockpit representa uma solução de baixo custo com potencial para alcançar os objetivos de latência e precisão estabelecidos.
+
+\section{Principais Expectativas de Resultados}
+\label{sec:principais-expectativas-de-resultados}
+
+Com base nos testes de desenvolvimento e na literatura analisada, espera-se que o sistema alcance performance competitiva com o estado da arte. As metas incluem FPS superior a 29 na transmissão de vídeo, latência inferior a 3ms na comunicação UDP, e precisão superior a 95\% na detecção de eventos hápticos. A qualidade de comunicação deverá apresentar packet loss inferior a 1\%, validando a escolha do UDP simples. O sistema de force feedback, baseado em algoritmos lineares diretos implementados no cliente e executados via motor DC 775 no cockpit ESP32, deverá demonstrar responsividade adequada para aplicações de teleoperação.
+
+\section{Limitações Identificadas}
+\label{sec:limitacoes-identificadas}
+
+As limitações identificadas relacionam-se principalmente à rede WiFi utilizada, cuja latência e alcance dependem da qualidade do roteador e do ambiente. A utilização em redes Mesh ou 5G tornaria o projeto viável para áreas maiores. Com relação ao force feedback, a força dos atuadores (motor DC 775) e a eficiência da bateria do carrinho são fatores limitantes. A interface gráfica atual em Python/Tkinter foi desenvolvida com foco funcional, representando oportunidade de melhoria futura.
+
+Os testes formais ainda serão realizados em ambiente controlado, seguindo o protocolo de validação descrito na metodologia. A escala do veículo (1:10) afeta a intensidade das forças detectadas pelo sensor BMI160, mas espera-se que seja suficiente para geração de force feedback representativo. A ausência de comparação direta com simuladores comerciais representa uma limitação a ser endereçada em trabalhos futuros.
+
+\section{Trabalhos Futuros}
+\label{sec:trabalhos-futuros}
+
+Para melhorias de curto prazo (3--6 meses), propõe-se o desenvolvimento de interface gráfica profissional utilizando Qt/GTK para melhor experiência do usuário, dashboard com telemetria em tempo real e configurações avançadas de calibração. A otimização de algoritmos incluirá a implementação de algoritmos meta-heurísticos como LHHO e TLBO, calibração automática adaptativa e machine learning para personalização do force feedback. As melhorias de hardware contemplam upgrade para Raspberry Pi 5 visando maior performance, câmera de resolução superior (1080p/60fps) e atuadores mais potentes para force feedback.
+
+Os desenvolvimentos de médio prazo (6--12 meses) incluem comunicação avançada através da implementação de UDP-RT ou QUIC, suporte a 5G para maior alcance e múltiplos clientes simultâneos. Sensores adicionais como sensores impressos 3D customizados, sensores de força nos pneus e telemetria de bateria avançada serão incorporados. A inteligência artificial será aplicada através de piloto automático básico, análise preditiva de telemetria e assistência de condução adaptativa.
+
+Para pesquisa de longo prazo (1--2 anos), a simulação de física avançada contemplará modelagem aerodinâmica realista, simulação de diferentes condições de pista e física de pneus e suspensão. A realidade virtual e aumentada será explorada através da integração com headsets VR, overlay de informações em AR e imersão completa 360°. As aplicações comerciais incluirão versão educacional para escolas, kit DIY para entusiastas e plataforma de competições online.

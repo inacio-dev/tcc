@@ -2,36 +2,71 @@
 %%   Atencao! A lista nao ordena automaticamente   %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{simbolos} \itemsep -1pt
+	% === Sensores IMU (BMI160) ===
+	\item[$ accel\_x $] Aceleração linear no eixo X (frontal) em m/s²
+	\item[$ accel\_y $] Aceleração linear no eixo Y (lateral) em m/s²
+	\item[$ accel\_z $] Aceleração linear no eixo Z (vertical) em m/s²
+	\item[$ gyro\_x $] Velocidade angular no eixo X (pitch) em °/s
+	\item[$ gyro\_y $] Velocidade angular no eixo Y (roll) em °/s
+	\item[$ gyro\_z $] Velocidade angular no eixo Z (yaw) em °/s
+
+	% === Forças G ===
 	\item[$ G_{frontal} $] Força G frontal calculada a partir da aceleração linear
 	\item[$ G_{lateral} $] Força G lateral calculada a partir da velocidade angular
-	\item[$ acelera\text{ç}\tilde{a}o_{linear\_X} $] Aceleração linear no eixo X em m/s²
-	\item[$ velocidade_{angular\_Z} $] Velocidade angular no eixo Z em °/s
-	\item[$ velocidade_{linear} $] Velocidade linear do carrinho em m/s
+
+	% === Force Feedback ===
+	\item[$ ff\_base $] Intensidade base do force feedback (0-100\%)
+	\item[$ ff\_ajustado $] Intensidade ajustada após aplicação de parâmetros
+	\item[$ componente\_lateral $] Componente lateral do force feedback (0-100\%)
+	\item[$ componente\_yaw $] Componente de rotação yaw (0-50\%)
+	\item[$ componente\_centragem $] Componente de centralização do volante (0-40\%)
+	\item[$ sensibilidade $] Parâmetro de sensibilidade do force feedback (0-1)
+	\item[$ friccao $] Parâmetro de fricção simulada (0-1)
+	\item[$ filtro $] Parâmetro de suavização EMA (0-1)
+	\item[$ damping $] Parâmetro de amortecimento (0-1)
+
+	% === PWM e Atuadores ===
 	\item[$ PWM_{saida} $] Valor PWM de saída para os atuadores (0-255)
 	\item[$ PWM_{centro} $] Valor PWM central neutro (127)
 	\item[$ PWM_{target} $] Valor PWM alvo desejado
 	\item[$ PWM_{atual} $] Valor PWM atual do atuador
-	\item[$ Ganho_{calibra\text{ç}\tilde{a}o} $] Ganho de calibração para conversão força G
-	\item[$ For\text{ç}a_G $] Força G resultante aplicada
-	\item[$ Taxa_{suaviza\text{ç}\tilde{a}o} $] Taxa de suavização de movimento (0-1)
-	\item[$ Amplitude $] Amplitude da vibração gerada
-	\item[$ Frequ\hat{e}ncia $] Frequência da vibração em Hz
-	\item[$ Tempo $] Tempo atual em segundos
-	\item[$ accel\_x $] Aceleração no eixo X do sensor BMI160
-	\item[$ accel\_y $] Aceleração no eixo Y do sensor BMI160
-	\item[$ accel\_z $] Aceleração no eixo Z do sensor BMI160
-	\item[$ gyro\_x $] Velocidade angular no eixo X em °/s
-	\item[$ gyro\_y $] Velocidade angular no eixo Y em °/s
-	\item[$ gyro\_z $] Velocidade angular no eixo Z em °/s
-	\item[$ fps $] Frames por segundo da câmera OV5647
-	\item[$ latencia $] Latência de comunicação UDP em ms
-	\item[$ buffer\_accel $] Buffer de dados do acelerômetro
-	\item[$ media\_lenta $] Média calculada para detecção de inclinação
-	\item[$ variacao\_rapida $] Variação rápida para detecção de vibração
+	\item[$ GANHO $] Ganho de calibração para conversão força G para PWM
+	\item[$ TAXA\_SUAVE $] Taxa de suavização de movimento (0-1)
+
+	% === Vibração ===
+	\item[$ amplitude $] Amplitude da vibração gerada
+	\item[$ FREQ\_VIB $] Frequência da vibração em Hz
+
+	% === Velocidade ===
+	\item[$ velocidade $] Velocidade linear do veículo em m/s
+	\item[$ dt $] Intervalo de tempo entre amostras (delta t)
+	\item[$ FATOR\_DECAIMENTO $] Fator de decaimento para cálculo de velocidade
+
+	% === Estatística ===
+	\item[$ t $] Estatística t de Student
+	\item[$ F $] Estatística F (ANOVA)
+	\item[$ p $] Valor p (significância estatística)
+	\item[$ r $] Coeficiente de correlação de Pearson
+	\item[$ R^2 $] Coeficiente de determinação
+	\item[$ \eta^2 $] Eta quadrado (tamanho do efeito ANOVA)
+	\item[$ \beta $] Coeficiente de regressão
+	\item[$ \alpha $] Coeficiente alfa de Cronbach / nível de significância
+	\item[$ N $] Tamanho da amostra
+
+	% === Encoders ===
+	\item[$ PPR $] Pulsos por revolução do encoder (600 PPR)
+
+	% === Física e Constantes ===
 	\item[$ g $] Aceleração da gravidade (9.81 m/s²)
 	\item[$ \pi $] Constante pi (3.14159...)
 	\item[$ \omega $] Frequência angular em rad/s
 	\item[$ \theta $] Ângulo de rotação em graus
 	\item[$ \Delta t $] Intervalo de tempo entre amostras
 	\item[$ f_s $] Frequência de amostragem em Hz
+
+	% === Comunicação ===
+	\item[$ fps $] Frames por segundo da câmera OV5647
+	\item[$ latencia $] Latência de comunicação UDP em ms
+	\item[$ jitter $] Variação da latência em ms
+	\item[$ throughput $] Taxa de transferência de dados em MB/min
 \end{simbolos}

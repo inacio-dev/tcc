@@ -1,0 +1,32 @@
+\chapter{Diagrama Elétrico do Raspberry Pi}
+\label{apendice:diagrama-rpi}
+
+Este apêndice apresenta o diagrama elétrico completo das conexões do Raspberry Pi 4 com os demais componentes do sistema: sensor BMI160, driver PCA9685, ADC ADS1115, sensor de corrente INA219, ponte H BTS7960 e demais periféricos. O diagrama está dividido em três partes para melhor visualização.
+
+\section*{Parte 1 - Alimentação e Monitoramento de Energia}
+
+Seção do diagrama mostrando a bateria LiPo 3S, regulador XL4015, sensores de corrente ACS758 (50A e 100A), ADC ADS1115 e ponte H BTS7960B.
+
+\begin{center}
+\includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figuras/diagrama-rpi-1}
+\end{center}
+
+\newpage
+
+\section*{Parte 2 - Raspberry Pi e Periféricos I2C}
+
+Seção do diagrama mostrando o Raspberry Pi 4, sensor IMU BMI160, sensor de corrente INA219, driver PWM PCA9685, sensor de temperatura DS18B20 e UBEC para alimentação dos servos.
+
+\begin{center}
+\includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figuras/diagrama-rpi-2}
+\end{center}
+
+\newpage
+
+\section*{Parte 3 - Atuadores e Servos}
+
+Seção do diagrama mostrando os servos MG996R (freio dianteiro, freio traseiro e direção), motor RC 775 e conexões de controle PWM.
+
+\begin{center}
+\includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figuras/diagrama-rpi-3}
+\end{center}

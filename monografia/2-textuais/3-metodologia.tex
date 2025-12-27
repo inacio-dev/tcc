@@ -5,7 +5,8 @@ Será realizado um desenvolvimento incremental e modular de um simulador complet
 
 O projeto seguirá uma arquitetura de três camadas: o carrinho com o elemento principal sendo o Raspberry Pi 4 terá o objetivo de receber mensagens de controle e enviar mensagens de vídeo e status de sensores; a comunicação entre o carrinho e o cliente será feita por protocolo UDP\@; e, por último, o PC (cliente) receberá as mensagens e encaminhará os comandos de status para o simulador, bem como encaminhará as mensagens de controle para o carrinho. A utilização dos sensores e integração de múltiplos sensores visa um bom resultado de feedback ao usuário, como no artigo de \citeonline{bobrovsky2023development}, que desenvolveram um módulo universal para conectar até 16 sensores em um carro elétrico Formula Student, reduzindo significativamente a complexidade da fiação e garantindo transmissão segura de dados através do protocolo CAN\@.
 
-\section{Especificações dos Componentes}\label{sec:especificacoes}
+\section{Especificações dos Componentes}
+\label{sec:especificacoes}
 
 A \autoref{tab:componentes} apresenta as especificações detalhadas dos componentes utilizados no sistema, definindo suas funções específicas na arquitetura do projeto.
 
@@ -17,17 +18,17 @@ A \autoref{tab:componentes} apresenta as especificações detalhadas dos compone
 		\toprule
 		Componente & Especificação & Função no Sistema \\
 		\midrule \midrule
-		Raspberry Pi 4 Model B & Broadcom BCM2711, Quad core Cortex-A72 64-bit @ 1.8GHz, 4GB RAM & Núcleo de controle e comunicação do carrinho, servidor UDP, processamento de vídeo e controle de sensores \\
+		Raspberry Pi 4 Model B & Broadcom BCM2711, Quad core Cortex-A72 64-bit @ 1.8GHz, 8GB RAM & Núcleo de controle e comunicação do carrinho, servidor UDP, processamento de vídeo e controle de sensores \\
 		\midrule
-		Arduino Mega 2560 R3 WiFi & ATmega2560 + ESP8266, 16MHz, 54 I/O digitais, 16 analógicas, 256KB Flash & Controle de atuadores de force feedback e comunicação serial com cliente PC \\
+		ESP32 DevKit V1 & Dual-core Xtensa LX6 @ 240MHz, 520KB SRAM, 4MB Flash, WiFi/Bluetooth & Controle de encoders do cockpit, force feedback via BTS7960 e comunicação serial USB com cliente PC \\
 		\midrule
 		Câmera OV5647 & 5MP, 2592×1944 pixels, vídeo 1080p/30fps, interface CSI & Captura de vídeo em tempo real para transmissão via UDP \\
 		\midrule
-		Sensor BMI160 & IMU 6 eixos, ±2g/±250°/s, 16 bits, I2C/SPI & Detecção de forças G, aceleração e velocidade angular para force feedback \\
+		Sensor BMI160 & IMU 6 eixos, ±4g/±500°/s, 16 bits, I2C, 100Hz sampling & Detecção de forças G, aceleração e velocidade angular para force feedback \\
 		\midrule
-		Motor DC RS550 & 12V, 19.550 RPM & Propulsão principal do carrinho \\
+		Motor RC 775 & 24V, 12.000 RPM, com transmissão manual de 5 marchas & Propulsão principal do carrinho com zonas de eficiência F1 \\
 		\midrule
-		Motor DC 775 & 24V, 12.000 RPM & Geração de force feedback no volante do cockpit \\
+		Motor DC 775 & 24V, 12.000 RPM, controlado por BTS7960 & Geração de force feedback no volante do cockpit via ESP32 \\
 		\midrule
 		Ponte H BTS7960 & 5.5--27Vdc, corrente contínua 40A, proteção térmica integrada & Controle bidirecional de velocidade dos motores DC \\
 		\midrule
@@ -40,6 +41,28 @@ A \autoref{tab:componentes} apresenta as especificações detalhadas dos compone
 		Atuadores Lineares DC & 12V, força 1000N, curso 250mm, velocidade 14mm/s & Simulação de movimentos da pista e força G no cockpit \\
 		\midrule
 		Rolamento Unidirecional CSK8PP & $8\times22\times9$mm, uma direção de rotação & Proteção contra travamento por torque reverso no eixo de velocidade \\
+		\midrule
+		Encoder LPD3806-600BM & 600 PPR, saída A/B quadratura, 5--24V & Leitura de posição de acelerador, freio e direção no cockpit (3 unidades) \\
+		\midrule
+		PCA9685 PWM Driver & 16 canais, 12 bits, I2C, endereço \texttt{0x40} & Controle de servos (freio dianteiro, traseiro e direção) \\
+		\midrule
+		ADS1115 ADC & 16 bits, 4 canais, I2C, endereço \texttt{0x48} & Monitoramento de corrente via sensores ACS758 \\
+		\midrule
+		INA219 & Sensor corrente/tensão, I2C, endereço \texttt{0x41} & Monitoramento de energia do Raspberry Pi \\
+		\midrule
+		Sensor DS18B20 & Digital 1-Wire, $-55$°C a $+125$°C, precisão $\pm0{,}5$°C & Monitoramento de temperatura do motor e eletrônica \\
+		\midrule
+		ACS758 100A & Sensor Hall, sensibilidade 20mV/A, largura de banda 120kHz & Medição de corrente do motor DC 775 via ADS1115 \\
+		\midrule
+		ACS758 50A & Sensor Hall, sensibilidade 40mV/A, largura de banda 120kHz & Medição de corrente do Raspberry Pi e servos via ADS1115 \\
+		\midrule
+		Regulador XL4015 & Step-down 8--36V para 1.25--32V, 5A, eficiência 96\% & Alimentação 5V do Raspberry Pi a partir da bateria \\
+		\midrule
+		UBEC 15A & 6--12S entrada, 5.25V saída, 15A contínuo, 30A pico & Alimentação dos servos MG996R \\
+		\midrule
+		Bateria LiPo 3S & Turnigy Graphene 6000mAh, 11.1V, 75C descarga & Fonte de energia principal do veículo \\
+		\midrule
+		Chassi FV01 & Escala 1:5 (modificada), impressão 3D em PLA, pneus de borracha & Estrutura do veículo com suspensão push rod e aerodinâmica funcional \\
 		\bottomrule
 	\end{tabular}%
 }{%
@@ -47,19 +70,37 @@ A \autoref{tab:componentes} apresenta as especificações detalhadas dos compone
 }
 \end{table}
 
-\section{Protocolo de Comunicação UDP}\label{sec:protocolo-udp}
+\subsection{Chassi e Estrutura do Veículo}
+\label{subsec:chassi-veiculo}
+
+O veículo utiliza o chassi FV01, um modelo de carro de Fórmula 1 projetado para impressão 3D por Velocity Projects\footnote{Modelo FV01 disponível em: \url{https://cults3d.com/en/3d-model/game/fv01-the-most-advanced-3d-printed-rc-racing-car-velocityprojects3d}. Créditos: VelocityProjects3D.}. O modelo original possui escala 1:7, porém foi modificado para escala 1:5 neste projeto para acomodar todos os componentes eletrônicos necessários. O modelo apresenta características avançadas que o tornam adequado para o projeto de teleoperação com feedback háptico:
+
+\begin{itemize}
+	\item \textbf{Suspensão push rod}: Sistema independente que reproduz fielmente o comportamento de suspensões de carros de F1 reais, permitindo detecção precisa de forças G pelo sensor BMI160;
+	\item \textbf{Aerodinâmica funcional}: Asas dianteira e traseira geram downforce em velocidades elevadas, contribuindo para estabilidade e realismo;
+	\item \textbf{Diferencial operacional}: Permite comportamento realista em curvas, essencial para geração de feedback háptico adequado;
+	\item \textbf{Modularidade}: Peças projetadas para fácil reparo e substituição, facilitando manutenção e modificações.
+\end{itemize}
+
+O chassi foi impresso em PLA utilizando impressora 3D, com pneus de borracha para melhor aderência e realismo. A modificação para escala 1:5 resultou em um veículo de maior porte comparado ao modelo original, proporcionando espaço interno adequado para acomodação do Raspberry Pi 4, sensores, drivers e demais componentes eletrônicos do sistema de teleoperação.
+
+\section{Protocolo de Comunicação UDP}
+\label{sec:protocolo-udp}
 
 O UDP é um protocolo que lida com o alto envio de mensagens, muito utilizado para envio de streams e em jogos de computador. A arquitetura atual necessita de baixa latência, pois uma latência muito alta irá atrapalhar o controle em tempo real do carrinho, passando por um alto delay de comandos e prejudicando a experiência do usuário. Por causa dessa baixa latência, também demonstrada no artigo de \citeonline{lu2023udp}, que demonstrou que UDP-RT melhorou a latência de inicialização em 62\% e o tempo total de comunicação em 22\% comparado ao TCP, é que justifico o uso desse protocolo.
 
-\subsection{Justificativa para UDP Simples}\label{subsec:justificativa-udp}
+\subsection{Justificativa para UDP Simples}
+\label{subsec:justificativa-udp}
 
 A escolha do UDP simples sobre protocolos mais avançados como UDP-RT \citeonline{lu2023udp} é justificada pela necessidade de simplicidade de implementação e recursos limitados do Raspberry Pi 4. Embora o UDP-RT ofereça melhorias de 62\% na latência de inicialização e 22\% no tempo total de comunicação, sua implementação aumentaria significativamente a complexidade do sistema. Conforme demonstrado nos resultados, a latência obtida de 1.94ms com UDP simples supera os targets típicos de 5ms, validando que esta abordagem é adequada para o projeto sem necessidade de complexidade adicional.
 
-\section{Algoritmos de Controle de Force Feedback}\label{sec:algoritmos-force-feedback}
+\section{Algoritmos de Controle de Force Feedback}
+\label{sec:algoritmos-force-feedback}
 
 Serão acumulados vários dados sobre os sensores para analisar todos os valores e assim descobrir os padrões para controle háptico dos atuadores; dessa forma, posso calibrar de forma mais parecida possível com o ambiente real. O giroscópio me permite calcular tanto a aceleração do carro para os impulsos de força G lateral e frontal quanto calcular a posição do assoalho com relação à suspensão e emitir as vibrações do carro, como segue de exemplo no artigo de \citeonline{dreger2024evaluation}, que investigaram diferentes designs de feedback para orientação em sistemas controlados por humanos, demonstrando que feedback em tempo real pode melhorar significativamente a precisão do operador sobre diferentes designs de feedback para orientação.
 
-\subsection{Justificativa para Abordagem Simplificada}\label{subsec:justificativa-algoritmos}
+\subsection{Justificativa para Abordagem Simplificada}
+\label{subsec:justificativa-algoritmos}
 
 Embora o estado da arte demonstre a superioridade de algoritmos meta-heurísticos como LHHO e TLBO \citeonline{ayinla2024optimal}, optou-se por implementação direta dos algoritmos de force feedback devido às limitações computacionais do Raspberry Pi 4 e à necessidade de resposta em tempo real inferior a 5ms. A complexidade adicional dos algoritmos de otimização seria implementada em versões futuras com hardware mais robusto.
 
@@ -73,7 +114,8 @@ G_{frontal} = \frac{acelera\text{ç}\tilde{a}o_{linear\_X}}{9.81}
 G_{lateral} = \frac{velocidade_{angular\_Z} \times velocidade_{linear}}{9.81}
 \end{equation}
 
-\subsection{Algoritmo de Cálculo das Forças G}\label{subsec:calculo-forcas-g}
+\subsection{Algoritmo de Cálculo das Forças G}
+\label{subsec:calculo-forcas-g}
 
 O algoritmo para cálculo das forças G considera os valores de aceleração linear e velocidade angular obtidos do sensor BMI160, aplicando normalização por G para obter valores em força gravitacional:
 
@@ -95,7 +137,8 @@ O algoritmo para cálculo das forças G considera os valores de aceleração lin
 	}
 \end{algorithm}
 
-\subsection{Detecção de Vibrações}\label{subsec:deteccao-vibracoes}
+\subsection{Detecção de Vibrações}
+\label{subsec:deteccao-vibracoes}
 
 Inclinações são movimentos lentos; vibrações são variações rápidas no sinal. Filtros temporais são utilizados onde médias de janelas pequenas capturam inclinações, e diferenças entre amostras capturam vibrações:
 
@@ -118,7 +161,8 @@ Inclinações são movimentos lentos; vibrações são variações rápidas no s
 	}
 \end{algorithm}
 
-\subsection{Controle dos Atuadores}\label{subsec:controle-atuadores}
+\subsection{Controle dos Atuadores}
+\label{subsec:controle-atuadores}
 
 O mapeamento linear multiplica força G por ganho e soma ao centro PWM (127) para posição neutra:
 
@@ -146,7 +190,8 @@ PWM_{saida} = PWM_{centro} + (For\text{ç}a_G \times Ganho_{calibra\text{ç}\til
 	}
 \end{algorithm}
 
-\subsection{Suavização de Movimento}\label{subsec:suavizacao-movimento}
+\subsection{Suavização de Movimento}
+\label{subsec:suavizacao-movimento}
 
 Para evitar movimentos bruscos, aplica-se transição gradual implementando resposta de primeira ordem para transições graduais:
 
@@ -168,7 +213,8 @@ PWM_{atual} = PWM_{atual} + (PWM_{target} - PWM_{atual}) \times Taxa_{suaviza\te
 	}
 \end{algorithm}
 
-\subsection{Geração de Vibrações}\label{subsec:geracao-vibracoes}
+\subsection{Geração de Vibrações}
+\label{subsec:geracao-vibracoes}
 
 Vibração senoidal modulada pela intensidade detectada gera vibrações realistas usando função seno com frequência típica de 25Hz:
 
@@ -194,7 +240,8 @@ Vibra\text{ç}\tilde{a}o = Amplitude \times \sin(2\pi \times Frequ\hat{e}ncia \t
 	}
 \end{algorithm}
 
-\subsection{Calibração Automática}\label{subsec:calibracao-automatica}
+\subsection{Calibração Automática}
+\label{subsec:calibracao-automatica}
 
 Ajuste automático dos ganhos baseado na atividade detectada. A calibração adaptativa monitora atividade média e ajusta ganhos automaticamente para manter resposta adequada:
 
@@ -217,11 +264,184 @@ Ajuste automático dos ganhos baseado na atividade detectada. A calibração ada
 	}
 \end{algorithm}
 
-\section{Implementação da Interface Gráfica}\label{sec:interface-grafica}
+\subsection{Algoritmo Completo de Force Feedback da Direção}
+\label{subsec:ff-direcao-completo}
+
+O sistema de force feedback da direção combina três componentes principais: força lateral (curvas), rotação yaw e mola de centralização. O algoritmo é executado no cliente PC e envia comandos para o motor DC 775 do cockpit via ESP32:
+
+\begin{algorithm}[h!]
+	\SetSpacedAlgorithm
+	\caption{\label{alg:ff-direcao}Cálculo do force feedback da direção}
+	\Entrada{g\_lateral, gyro\_z, angulo\_direcao, sensibilidade, friccao, filtro, damping}
+	\Saida{intensidade\_ff, direcao\_ff}
+	\Inicio{
+		// Componente 1: Força lateral (curvas) - máximo 100\%\;
+		componente\_lateral $\leftarrow$ minimo(abs(g\_lateral) $\times$ 50, 100)\;
+		// Componente 2: Rotação yaw - máximo 50\%\;
+		componente\_yaw $\leftarrow$ minimo(abs(gyro\_z) / 60.0 $\times$ 50, 50)\;
+		// Componente 3: Mola de centralização - máximo 40\%\;
+		razao\_angulo $\leftarrow$ abs(angulo\_direcao) / 100.0\;
+		componente\_centragem $\leftarrow$ razao\_angulo $\times$ 40\;
+		// Força base combinada (0-100\%)\;
+		ff\_base $\leftarrow$ minimo(componente\_lateral + componente\_yaw + componente\_centragem, 100)\;
+		// Aplica sensibilidade\;
+		ff\_ajustado $\leftarrow$ ff\_base $\times$ sensibilidade\;
+		// Aplica fricção baseada na rotação\;
+		forca\_friccao $\leftarrow$ minimo(abs(gyro\_z) / 100.0, 1.0) $\times$ friccao $\times$ 30\;
+		ff\_ajustado $\leftarrow$ minimo(ff\_ajustado + forca\_friccao, 100.0)\;
+		// Aplica filtro (suavização exponencial)\;
+		ff\_ajustado $\leftarrow$ ff\_ajustado $\times$ (1.0 - filtro) + ff\_filtrado\_anterior $\times$ filtro\;
+		// Aplica damping (média móvel)\;
+		intensidade\_ff $\leftarrow$ ff\_ajustado $\times$ (1.0 - damping) + ff\_anterior $\times$ damping\;
+		// Determina direção do force feedback\;
+		valor\_direcao $\leftarrow$ (-angulo\_direcao) + (g\_lateral $\times$ 10) + gyro\_z\;
+		\Se{valor\_direcao > 5}{direcao\_ff $\leftarrow$ "DIREITA"\;}
+		\SenaoSe{valor\_direcao < -5}{direcao\_ff $\leftarrow$ "ESQUERDA"\;}
+		\Senao{direcao\_ff $\leftarrow$ "NEUTRO"\;}
+	}
+\end{algorithm}
+
+\subsection{Cálculo de Velocidade por Integração}
+\label{subsec:calculo-velocidade}
+
+A velocidade do veículo é estimada através da integração numérica da aceleração medida pelo sensor BMI160. Um fator de decaimento é aplicado para simular atrito e resistência do ar:
+
+\begin{equation}
+\label{eq:velocidade-integracao}
+v(t) = v(t-1) + a \times \Delta t
+\end{equation}
+
+\begin{equation}
+\label{eq:velocidade-decaimento}
+v_{final} = v(t) \times fator_{decaimento}
+\end{equation}
+
+\begin{algorithm}[h!]
+	\SetSpacedAlgorithm
+	\caption{\label{alg:calcular-velocidade}Cálculo de velocidade por integração}
+	\Entrada{accel\_x, accel\_y, tempo\_atual}
+	\Saida{velocidade\_total\_kmh}
+	\Inicio{
+		LIMIAR\_ACCEL $\leftarrow$ 0.1\;
+		FATOR\_DECAIMENTO $\leftarrow$ 0.995\;
+		LIMIAR\_VELOCIDADE $\leftarrow$ 0.01\;
+		// Calcula delta time\;
+		dt $\leftarrow$ tempo\_atual - tempo\_anterior\;
+		tempo\_anterior $\leftarrow$ tempo\_atual\;
+		// Filtra ruído da aceleração\;
+		\Se{abs(accel\_x) < LIMIAR\_ACCEL}{accel\_x $\leftarrow$ 0\;}
+		\Se{abs(accel\_y) < LIMIAR\_ACCEL}{accel\_y $\leftarrow$ 0\;}
+		// Integração: v = v0 + a $\times$ dt\;
+		velocidade\_x $\leftarrow$ velocidade\_x + accel\_x $\times$ dt\;
+		velocidade\_y $\leftarrow$ velocidade\_y + accel\_y $\times$ dt\;
+		// Aplica decaimento (simula atrito)\;
+		velocidade\_x $\leftarrow$ velocidade\_x $\times$ FATOR\_DECAIMENTO\;
+		velocidade\_y $\leftarrow$ velocidade\_y $\times$ FATOR\_DECAIMENTO\;
+		// Zera velocidades muito pequenas\;
+		\Se{abs(velocidade\_x) < LIMIAR\_VELOCIDADE}{velocidade\_x $\leftarrow$ 0\;}
+		\Se{abs(velocidade\_y) < LIMIAR\_VELOCIDADE}{velocidade\_y $\leftarrow$ 0\;}
+		// Calcula magnitude e converte para km/h\;
+		velocidade\_ms $\leftarrow$ raiz(velocidade\_x$^2$ + velocidade\_y$^2$)\;
+		velocidade\_total\_kmh $\leftarrow$ velocidade\_ms $\times$ 3.6\;
+	}
+\end{algorithm}
+
+\subsection{Sistema de Gráficos de Telemetria em Tempo Real}
+\label{subsec:graficos-telemetria}
+
+O sistema de telemetria exibe gráficos estilo Fórmula 1 em tempo real utilizando a biblioteca Matplotlib integrada ao Tkinter. Os dados são armazenados em buffers circulares (\textit{deque}) com capacidade máxima de 500 pontos, representando aproximadamente 50 segundos de histórico a 10Hz:
+
+\begin{algorithm}[h!]
+	\SetSpacedAlgorithm
+	\caption{\label{alg:atualizar-telemetria}Atualização dos gráficos de telemetria}
+	\Entrada{dados\_sensores}
+	\Saida{graficos\_atualizados}
+	\Inicio{
+		MAX\_PONTOS $\leftarrow$ 500\;
+		JANELA\_TEMPO $\leftarrow$ 30\;
+		// Calcula tempo relativo desde o início\;
+		tempo\_atual $\leftarrow$ tempo\_sistema() - tempo\_inicio\;
+		// Adiciona dados aos buffers circulares\;
+		buffer\_tempo.adicionar(tempo\_atual)\;
+		buffer\_velocidade.adicionar(dados\_sensores["velocidade"])\;
+		buffer\_acelerador.adicionar(dados\_sensores["acelerador"])\;
+		buffer\_freio.adicionar(dados\_sensores["freio"])\;
+		buffer\_g\_lateral.adicionar(dados\_sensores["g\_lateral"])\;
+		buffer\_g\_frontal.adicionar(dados\_sensores["g\_frontal"])\;
+		// Ajusta janela de visualização (últimos 30 segundos)\;
+		x\_min $\leftarrow$ maximo(0, tempo\_atual - JANELA\_TEMPO)\;
+		x\_max $\leftarrow$ tempo\_atual + 1\;
+		// Atualiza linhas dos gráficos\;
+		linha\_velocidade.atualizar(buffer\_tempo, buffer\_velocidade)\;
+		linha\_acelerador.atualizar(buffer\_tempo, buffer\_acelerador)\;
+		linha\_freio.atualizar(buffer\_tempo, buffer\_freio)\;
+		linha\_g\_lateral.atualizar(buffer\_tempo, buffer\_g\_lateral)\;
+		linha\_g\_frontal.atualizar(buffer\_tempo, buffer\_g\_frontal)\;
+		// Redesenha canvas\;
+		canvas.redesenhar()\;
+	}
+\end{algorithm}
+
+\subsection{Sistema de Auto-Save e Exportação de Dados}
+\label{subsec:auto-save}
+
+O sistema implementa salvamento automático periódico a cada 20 segundos, exportando logs, dados de sensores e telemetria em formato Pickle (binário Python), que oferece performance 5--10x superior ao CSV para serialização de estruturas de dados complexas:
+
+\begin{algorithm}[h!]
+	\SetSpacedAlgorithm
+	\caption{\label{alg:auto-save}Auto-save periódico de dados}
+	\Entrada{console, intervalo\_ms}
+	\Saida{arquivos\_salvos}
+	\Inicio{
+		MIN\_LOGS $\leftarrow$ 10\;
+		MIN\_SENSORES $\leftarrow$ 100\;
+		MIN\_TELEMETRIA $\leftarrow$ 50\;
+		DIRETORIO $\leftarrow$ "exports/auto/"\;
+		// Verifica se há dados novos suficientes\;
+		qtd\_logs $\leftarrow$ contar\_linhas(console.log\_text)\;
+		qtd\_sensores $\leftarrow$ tamanho(sensor\_display.historico)\;
+		qtd\_telemetria $\leftarrow$ tamanho(telemetria.buffer\_tempo)\;
+		// Só salva se atingir mínimo E houver dados novos\;
+		\Se{(qtd\_logs $\geq$ MIN\_LOGS) OU (qtd\_sensores $\geq$ MIN\_SENSORES) OU (qtd\_telemetria $\geq$ MIN\_TELEMETRIA)}{
+			timestamp $\leftarrow$ formato\_data("YYYYMMDD\_HHMMSS")\;
+			// Salva logs em texto\;
+			\Se{qtd\_logs $\geq$ MIN\_LOGS}{
+				salvar\_arquivo(DIRETORIO + "logs\_" + timestamp + ".txt", console.log\_text)\;
+			}
+			// Salva sensores em Pickle (binário)\;
+			\Se{qtd\_sensores $\geq$ MIN\_SENSORES}{
+				pickle.salvar(DIRETORIO + "sensors\_" + timestamp + ".pkl", sensor\_display.historico)\;
+			}
+			// Salva telemetria em Pickle\;
+			\Se{qtd\_telemetria $\geq$ MIN\_TELEMETRIA}{
+				pickle.salvar(DIRETORIO + "telemetry\_" + timestamp + ".pkl", telemetria.dados)\;
+			}
+			// Limpa buffers após salvar\;
+			console.log\_text.limpar()\;
+			sensor\_display.resetar()\;
+			telemetria.resetar()\;
+		}
+		// Reagenda próximo auto-save\;
+		agendar(intervalo\_ms, auto\_save)\;
+	}
+\end{algorithm}
+
+A estrutura dos arquivos Pickle exportados permite fácil leitura posterior para análise:
+
+\begin{verbatim}
+import pickle
+with open("sensors_20241216_143000.pkl", "rb") as f:
+    dados = pickle.load(f)
+# dados contém dicionário com listas de cada sensor
+\end{verbatim}
+
+\section{Implementação da Interface Gráfica}
+\label{sec:interface-grafica}
 
 O Python foi escolhido devido à facilidade de criação de software e à possibilidade de usar o tkinter para a interface, permitindo uma futura aplicação para outros sistemas operacionais, caso necessário. A visualização de vídeo será feita utilizando as próprias bibliotecas do Python nativas e exibida em tempo real de acordo com os frames recebidos pelo carrinho. Podemos utilizar um meio parecido ao do artigo de \citeonline{shendge2023development}, que desenvolveram streaming de vídeo ao vivo utilizando Raspberry Pi com câmera USB, obtendo latência de 1--3 segundos na transmissão com taxa de 10 quadros por segundo na resolução de $640\times480$, demonstrando a viabilidade técnica do streaming em tempo real com essa plataforma para streaming de vídeo em tempo real com Raspberry Pi.
 
-\subsection{Especificação dos Dados Transmitidos}\label{subsec:dados-transmitidos}
+\subsection{Especificação dos Dados Transmitidos}
+\label{subsec:dados-transmitidos}
 
 A \autoref{tab:dados-transmitidos} apresenta os tipos de dados, direção de transmissão, frequência e formato utilizados na comunicação entre os componentes do sistema.
 
@@ -233,15 +453,17 @@ A \autoref{tab:dados-transmitidos} apresenta os tipos de dados, direção de tra
 		\toprule
 		Tipo de Dado & Direção & Frequência de transmissão & Formato \\
 		\midrule \midrule
-		Comandos de controle (direção, velocidade, freio) & PC $\rightarrow$ Carrinho & 1000 Hz (1ms) & JSON \\
+		Comandos de controle (direção, velocidade, freio) & PC $\rightarrow$ Carrinho & 100 Hz (10ms) & UDP texto \\
 		\midrule
 		Stream de vídeo da câmera OV5647 & Carrinho $\rightarrow$ PC & 30 FPS & H.264 comprimido via UDP \\
 		\midrule
-		Dados do sensor BMI160 (accel\_x, accel\_y, accel\_z) & Carrinho $\rightarrow$ PC & 1000 Hz (1ms) & JSON \\
+		Dados do sensor BMI160 (accel/gyro) & Carrinho $\rightarrow$ PC & 100 Hz (10ms) & UDP JSON \\
 		\midrule
-		Dados do sensor BMI160 (gyro\_x, gyro\_y, gyro\_z) & Carrinho $\rightarrow$ PC & 1000 Hz (1ms) & JSON \\
+		Posição encoders (acelerador, freio, direção) & ESP32 $\rightarrow$ PC & 100 Hz (10ms) & Serial USB 115200 baud \\
 		\midrule
-		Posição do volante e pedais & Arduino $\rightarrow$ PC & 1000 Hz (1ms) & Serial \\
+		Comandos de marcha (GEAR\_UP/DOWN) & ESP32 $\rightarrow$ PC & Evento & Serial USB \\
+		\midrule
+		Force feedback (direção, intensidade) & PC $\rightarrow$ ESP32 & 100 Hz (10ms) & Serial USB \\
 		\bottomrule
 	\end{tabular}%
 }{%
@@ -249,17 +471,20 @@ A \autoref{tab:dados-transmitidos} apresenta os tipos de dados, direção de tra
 }
 \end{table}
 
-\section{Métricas de Validação}\label{sec:metricas-validacao}
+\section{Métricas de Validação}
+\label{sec:metricas-validacao}
 
 O sistema será validado através das seguintes métricas específicas para garantir o atendimento aos requisitos funcionais e de performance: latência média, jitter, packet loss, throughput de dados, FPS médio, estabilidade de transmissão, resolução efetiva, precisão de detecção de eventos, tempo de resposta PWM, realismo subjetivo, utilização CPU/RAM, temperatura operacional, estabilidade geral, precisão de calibração, drift térmico e taxa de amostragem efetiva.
 
-\subsection{Análise de Poder Estatístico}\label{subsec:poder-estatistico}
+\subsection{Análise de Poder Estatístico}
+\label{subsec:poder-estatistico}
 
 Para garantir a robustez estatística dos resultados obtidos, foi realizada análise de poder estatístico baseada na metodologia proposta por Cohen (1988). O cálculo do tamanho da amostra necessário considerou os seguintes parâmetros: n = 90.000 pontos de telemetria coletados durante 15 minutos de operação contínua, superando significativamente o mínimo requerido de 384 amostras para população infinita com 95\% de confiança e margem de erro de 5\%, poder estatístico (1-$ \beta $) = 0.80, garantindo 80\% de probabilidade de detectar diferenças significativas quando elas realmente existem, conforme recomendado para pesquisas em engenharia, nível de significância $ \alpha $ = 0.05, estabelecendo 5\% de probabilidade de erro tipo I (rejeitar hipótese nula verdadeira), e effect size d = 0.5 (tamanho do efeito médio) para comparações entre sistema proposto e benchmarks do estado da arte, permitindo detectar melhorias práticas significativas.
 
 A análise demonstra que o tamanho da amostra coletada (n = 90.000) proporciona poder estatístico superior a 99\% para detectar diferenças com effect size $ \geq $ 0.2, validando estatisticamente as comparações realizadas com o estado da arte apresentadas nos resultados.
 
-\section{Etapas de Desenvolvimento}\label{sec:etapas-desenvolvimento}
+\section{Etapas de Desenvolvimento}
+\label{sec:etapas-desenvolvimento}
 
 As etapas de desenvolvimento seguem respectivamente:
 
@@ -274,15 +499,18 @@ As etapas de desenvolvimento seguem respectivamente:
 	\item Teste completo entre o carrinho e o cockpit.
 \end{alineascomnumero}
 
-\section{Controle de Motores}\label{sec:controle-motores}
+\section{Controle de Motores}
+\label{sec:controle-motores}
 
 Os motores serão controlados pela ponte H, que permite adaptar o RPM deles de acordo com um conta-giros de um carro de corrida, possibilitando fazer a troca de marchas de acordo com um cálculo próprio para simular um carro real. A performance de controladores DC se tornou viável, assim como trata o artigo de \citeonline{manuel2023control}, que analisaram o desempenho de diferentes algoritmos meta-heurísticos no ajuste de controladores PID para controle de velocidade de motores DC, mostrando que o TLBO apresentou a maior velocidade de convergência e que controladores de lógica fuzzy superaram os PIDs otimizados em termos de qualidade de resposta.
 
-\section{Armazenamento de Logs e Validação}\label{sec:logs-validacao}
+\section{Armazenamento de Logs e Validação}
+\label{sec:logs-validacao}
 
 Serão armazenados logs no PC (cliente) para validação das telemetrias entre corridas e assim analisar como na Fórmula 1 atual, usando bibliotecas do Python próprias para isso. Esses logs também serão úteis para analisar os sensores e assim melhorar a adaptabilidade do simulador para situações cada vez mais reais de corridas.
 
-\section{Limitações e Considerações de Alcance}\label{sec:limitacoes-alcance}
+\section{Limitações e Considerações de Alcance}
+\label{sec:limitacoes-alcance}
 
 O alcance da rede WiFi é limitado ao range do roteador; porém, o uso de redes mesh torna possível a criação do projeto em escala 1:8 devido ao tamanho de pistas de corridas reais que não passarão de 600 metros de distância. Assim, um local aberto possibilita a criação de simuladores em tempo real, e também o uso de conexão 5G possibilita a melhoria de maior redução de latência.
 
@@ -298,23 +526,27 @@ O alcance da rede WiFi é limitado ao range do roteador; porém, o uso de redes 
 %     }
 % \end{figure}
 
-\section{Reprodutibilidade e Transparência Experimental}\label{sec:reprodutibilidade-transparencia}
+\section{Reprodutibilidade e Transparência Experimental}
+\label{sec:reprodutibilidade-transparencia}
 
 A garantia de reprodutibilidade científica constitui um pilar fundamental para a validação e evolução do conhecimento em engenharia de sistemas embarcados. Seguindo as diretrizes estabelecidas por \citeonline{graf2024monitoring} para avaliação de desempenho de sistemas wireless, este trabalho adota protocolos rigorosos de documentação e disponibilização de recursos para permitir a replicação completa dos experimentos realizados.
 
-\subsection{Disponibilização de Código Fonte e Datasets}\label{subsec:codigo-datasets}
+\subsection{Disponibilização de Código Fonte e Datasets}
+\label{subsec:codigo-datasets}
 
-Todo o código fonte desenvolvido para este projeto será disponibilizado publicamente sob licença MIT, incluindo os scripts de controle do Raspberry Pi 4, algoritmos de force feedback implementados no Arduino Mega, interface gráfica em Python/Tkinter e rotinas de análise estatística dos dados coletados. Conforme demonstrado por \citeonline{bobrovsky2023development}, a transparência no desenvolvimento de sistemas embarcados facilita a reprodução e melhoria contínua das soluções propostas.
+Todo o código fonte desenvolvido para este projeto será disponibilizado publicamente sob licença MIT, incluindo os scripts de controle do Raspberry Pi 4, firmware do ESP32 para leitura de encoders e controle de force feedback, interface gráfica em Python/Tkinter e rotinas de análise estatística dos dados coletados. Conforme demonstrado por \citeonline{bobrovsky2023development}, a transparência no desenvolvimento de sistemas embarcados facilita a reprodução e melhoria contínua das soluções propostas.
 
 Os datasets coletados durante as sessões experimentais, totalizando mais de 90.000 pontos de telemetria e 26.925 frames de vídeo, serão disponibilizados em formato estruturado JSON e CSV, acompanhados de metadados descritivos. Cada arquivo de dataset incluirá timestamps precisos em formato ISO 8601, identificadores únicos de sessão, condições experimentais documentadas e checksums MD5 para verificação de integridade. A estrutura de dados segue o padrão FAIR (Findable, Accessible, Interoperable, Reusable), garantindo máxima reutilização pelos pesquisadores.
 
-\subsection{Protocolo Detalhado de Replicação}\label{subsec:protocolo-replicacao}
+\subsection{Protocolo Detalhado de Replicação}
+\label{subsec:protocolo-replicacao}
 
 O protocolo de replicação experimental documentado contempla todos os aspectos críticos para reprodução fidedigna dos resultados obtidos. As especificações de hardware incluem números de modelo exatos, versões de firmware e configurações específicas de cada componente utilizado no sistema. Para o Raspberry Pi 4, documenta-se a versão do Raspberry Pi OS (Bullseye 64-bit), kernel utilizado (5.15.84-v8+) e configurações específicas do arquivo config.txt para otimização da câmera OV5647.
 
 As configurações de rede wireless seguem padrões reproduzíveis, especificando canal WiFi (2.4GHz canal 6), potência de transmissão (20dBm), tipo de roteador utilizado (TP-Link Archer C6) e posicionamento físico dos equipamentos. As condições ambientais durante os experimentos são registradas detalhadamente, incluindo temperatura ambiente (22±2°C), umidade relativa (45±5\%), interferências eletromagnéticas medidas e layout físico do ambiente de teste.
 
-\subsection{Documentação de Configurações Ambientais}\label{subsec:configuracoes-ambientais}
+\subsection{Documentação de Configurações Ambientais}
+\label{subsec:configuracoes-ambientais}
 
 As configurações ambientais experimentais são registradas sistematicamente para garantir reprodutibilidade das condições de teste. O ambiente de rede é caracterizado através de medições de potência de sinal WiFi utilizando ferramentas como iwconfig e wavemon, documentando valores de RSSI (Received Signal Strength Indicator) em múltiplos pontos do ambiente experimental.
 

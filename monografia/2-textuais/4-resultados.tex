@@ -1,31 +1,34 @@
 \chapter{Resultados}
 \label{chap:resultados}
 
-Foi efetuada uma sessão de 15 minutos com coleta contínua de dados, realizando o armazenamento contínuo de logs em tempo real. Foram coletados mais de 90.000 pontos para telemetrias e referências, além de mais de 26.925 frames de vídeo. Este capítulo apresenta os resultados obtidos organizados em quatro seções principais: performance geral e comparações com o estado da arte, análise da comunicação UDP, validação dos algoritmos de force feedback e sensores, e performance do sistema e usabilidade.
+Este capítulo apresenta a estrutura de validação planejada para o sistema desenvolvido. Os testes formais ainda serão realizados, portanto os valores apresentados nas tabelas representam as metas esperadas com base nos testes preliminares de desenvolvimento e na literatura analisada. As seções estão organizadas em quatro partes principais: performance geral e comparações com o estado da arte, análise da comunicação UDP, validação dos algoritmos de force feedback e sensores, e performance do sistema e usabilidade.
 
-\section{Performance Geral e Comparação com Estado da Arte}\label{sec:performance-geral}
+\textbf{Nota:} Os valores numéricos apresentados neste capítulo são estimativas baseadas em testes de desenvolvimento e benchmarks da literatura. A validação formal com coleta sistemática de dados será realizada em etapa posterior.
 
-De acordo com a \autoref{tab:especificacoes-realizadas}, pode-se verificar que os objetivos foram amplamente atingidos e obteve-se uma eficácia superior a 99\% na maioria dos componentes do projeto, validando as métricas de validação especificadas na metodologia.
+\section{Performance Geral e Comparação com Estado da Arte}
+\label{sec:performance-geral}
+
+A \autoref{tab:especificacoes-realizadas} apresenta as especificações técnicas planejadas e as metas de eficácia esperadas para cada componente do projeto. Os valores de eficácia serão atualizados após a realização dos testes formais.
 
 \begin{table}[!ht]
 \captionsetup{width=16cm}
-\Caption{\label{tab:especificacoes-realizadas} Especificações técnicas realizadas versus planejadas}
+\Caption{\label{tab:especificacoes-realizadas} Especificações técnicas planejadas versus metas esperadas}
 \IBGEtab{}{%
   \begin{tabular}{p{3.5cm}p{4cm}p{4cm}p{2.5cm}}
       \toprule
-      Componente & Especificado & Realizado & Eficácia (\%) \\
+      Componente & Especificado & Meta Esperada & Eficácia (\%) \\
       \midrule \midrule
-      Raspberry Pi 4 & Quad-core 1.8GHz & Quad-core 1.8GHz & 100.0 \\
+      Raspberry Pi 4 (8GB) & Quad-core 1.8GHz & Quad-core 1.8GHz & A validar \\
       \midrule
-      Câmera OV5647 & $640\times480$ @ 30fps & $640\times480$ @ 29.9fps & 99.7 \\
+      Câmera OV5647 & $640\times480$ @ 30fps & $\geq$29 fps & A validar \\
       \midrule
-      Sensor BMI160 & ±2g, ±250°/s & ±2g, ±250°/s & 100.0 \\
+      Sensor BMI160 & ±4g, ±500°/s, 100Hz & ±4g, ±500°/s, 100Hz & A validar \\
       \midrule
-      UDP Latência & $<$5ms & 1.94ms ± 0.41ms & 157.7 \\
+      ESP32 Encoders & 100Hz, 600 PPR & 100Hz, 600 PPR & A validar \\
       \midrule
-      Qualidade JPEG & 20\% & 20\% & 100.0 \\
+      UDP Latência & $<$5ms & $<$3ms & A validar \\
       \midrule
-      Taxa Telemetria & 100Hz & 99.8Hz & 99.8 \\
+      Taxa Telemetria & 100Hz & $\geq$99Hz & A validar \\
       \bottomrule
   \end{tabular}%
 }{%
@@ -46,7 +49,8 @@ De acordo com a \autoref{tab:especificacoes-realizadas}, pode-se verificar que o
 
 % A \autoref{fig:benchmark_comparison} apresenta a comparação de performance do sistema desenvolvido com o estado da arte atual. Conforme demonstrado, obteve-se um FPS 3x maior que no artigo de \citeonline{shendge2023development}, além de uma latência 2.6x melhor que targets típicos (1.94ms vs 5ms) e uma resolução 4x maior (640x480 vs 320x240). Como foi visto anteriormente em \citeonline{shendge2023development}, foram obtidos apenas 10 FPS com uma latência de 1-3 segundos, o que demonstra uma excelente evolução positiva dos objetivos alcançados no projeto.
 
-\subsection{Análise Estatística dos Benchmarks}\label{subsec:analise-estatistica-benchmarks}
+\subsection{Análise Estatística dos Benchmarks}
+\label{subsec:analise-estatistica-benchmarks}
 
 Para validar estatisticamente as melhorias alcançadas, foram realizados testes t de Student comparando nosso sistema com os benchmarks da literatura. Os resultados apresentados na \autoref{tab:testes-t-benchmarks} demonstram significância estatística (p $<$ 0.05) para todas as métricas analisadas, com intervalos de confiança de 95\%.
 
@@ -99,9 +103,12 @@ Os dados precisos dessas comparações estão apresentados na \autoref{tab:compa
 }
 \end{table}
 
-\section{Análise da Comunicação UDP}\label{sec:comunicacao-udp}
+\section{Análise da Comunicação UDP}
+\label{sec:comunicacao-udp}
 
-% TODO: Adicionar figura communication_metrics
+% TODO: Gerar com dados reais do network_client.py
+% Código para gerar: Coletar timestamps de pacotes recebidos e calcular deltas
+% Dados disponíveis: latência por pacote, packet loss, throughput
 % \begin{figure}[!ht]
 % \captionsetup{width=16cm}
 % \Caption{\label{fig:communication_metrics} Análise de comunicação UDP - qualidade da rede}
@@ -112,7 +119,53 @@ Os dados precisos dessas comparações estão apresentados na \autoref{tab:compa
 % }
 % \end{figure}
 
-% A \autoref{fig:communication_metrics} apresenta a análise detalhada da qualidade da comunicação UDP implementada. De acordo com os resultados obtidos, pôde-se verificar uma excelente qualidade de rede, com uma taxa de transferência de dados satisfatória para o objetivo de comunicação em tempo real. Uma latência média de 2.44ms com distribuição concentrada (mediana 2.29ms), packet loss inferior a 0.4\% (muito abaixo do threshold de 1\%), e throughput estável de 46MB/min. Estes resultados validam a escolha do UDP simples conforme justificado na metodologia, demonstrando que a complexidade adicional do UDP-RT não seria necessária.
+% TODO: Histograma de latência UDP
+% Código: plt.hist(latencias, bins=50); plt.xlabel('Latência (ms)'); plt.ylabel('Frequência')
+% \begin{figure}[!ht]
+% \captionsetup{width=16cm}
+% \Caption{\label{fig:latency_histogram} Distribuição de latência UDP - histograma}
+% \UFCfig{}{
+%   \includegraphics[width=12cm]{figuras/latency_histogram}
+% }{
+%   \Fonte{elaborado pelo autor.}
+% }
+% \end{figure}
+
+% TODO: Gráfico de throughput ao longo do tempo
+% Código: plt.plot(tempo, throughput_mb_min); plt.xlabel('Tempo (s)'); plt.ylabel('Throughput (MB/min)')
+% \begin{figure}[!ht]
+% \captionsetup{width=16cm}
+% \Caption{\label{fig:throughput_time} Throughput UDP ao longo da sessão de testes}
+% \UFCfig{}{
+%   \includegraphics[width=14cm]{figuras/throughput_time}
+% }{
+%   \Fonte{elaborado pelo autor.}
+% }
+% \end{figure}
+
+% TODO: Gerar análise da câmera OV5647 (camera_manager.py)
+% Dados: FPS real, tamanho dos frames H.264, latência de codificação
+% \begin{figure}[!ht]
+% \captionsetup{width=16cm}
+% \Caption{\label{fig:camera_fps} FPS da câmera OV5647 ao longo da sessão}
+% \UFCfig{}{
+%   \includegraphics[width=14cm]{figuras/camera_fps}
+% }{
+%   \Fonte{elaborado pelo autor.}
+% }
+% \end{figure}
+
+% TODO: Análise de tamanho dos frames H.264
+% Código: plt.hist(frame_sizes_kb, bins=50); plt.xlabel('Tamanho (KB)'); plt.ylabel('Frequência')
+% \begin{figure}[!ht]
+% \captionsetup{width=16cm}
+% \Caption{\label{fig:h264_frame_sizes} Distribuição de tamanhos dos frames H.264}
+% \UFCfig{}{
+%   \includegraphics[width=12cm]{figuras/h264_frame_sizes}
+% }{
+%   \Fonte{elaborado pelo autor.}
+% }
+% \end{figure}
 
 Na \autoref{tab:analise-comunicacao-udp} obtêm-se métricas mais detalhadas, o que justifica nossa escolha de acordo com a metodologia, onde escolhemos o UDP como protocolo principal versus UDP-RT.
 
@@ -144,7 +197,8 @@ Na \autoref{tab:analise-comunicacao-udp} obtêm-se métricas mais detalhadas, o 
 }
 \end{table}
 
-\subsection{Robustez e Confiabilidade da Comunicação}\label{subsec:robustez-comunicacao}
+\subsection{Robustez e Confiabilidade da Comunicação}
+\label{subsec:robustez-comunicacao}
 
 A \autoref{tab:testes-stress} apresenta os resultados dos testes de stress, mostrando degradação controlada sob condições adversas. Destaca-se que mesmo com interferência WiFi, o sistema manteve mais de 28 FPS e latência inferior a 3.5ms.
 
@@ -172,7 +226,8 @@ A \autoref{tab:testes-stress} apresenta os resultados dos testes de stress, most
 }
 \end{table}
 
-\subsection{Análise ANOVA das Condições Adversas}\label{subsec:anova-condicoes}
+\subsection{Análise ANOVA das Condições Adversas}
+\label{subsec:anova-condicoes}
 
 Para validar estatisticamente o impacto das diferentes condições adversas na performance do sistema, foi conduzida uma análise de variância (ANOVA) one-way. A \autoref{tab:anova-stress} apresenta os resultados da análise, demonstrando diferenças significativas entre as condições testadas (F = 23.67, p $<$ 0.001).
 
@@ -201,15 +256,56 @@ Para validar estatisticamente o impacto das diferentes condições adversas na p
 }
 \end{table}
 
-\section{Validação dos Algoritmos de Force Feedback e Sensores}\label{sec:validacao-algoritmos}
+\section{Validação dos Algoritmos de Force Feedback e Sensores}
+\label{sec:validacao-algoritmos}
 
-% TODO: Adicionar figura force_feedback_analysis
-% A \autoref{fig:force_feedback_analysis} demonstra a detecção eficaz de eventos de condução implementada pelo sistema. O mapa de calor apresentado mostra a concentração de eventos em momentos específicos da sessão, evidenciando uma distribuição adequada das forças G calculadas e a detecção correta de 11.000 eventos de aceleração ao longo dos 15 minutos de teste. Estes resultados validam os algoritmos de force feedback descritos na metodologia, demonstrando que o sistema consegue identificar precisamente manobras como curvas, acelerações e frenagens, confirmando a eficácia da abordagem simplificada em comparação aos algoritmos meta-heurísticos.
+% TODO: Gerar com dados do force_feedback_calc.py
+% Dados disponíveis em sensor_data: steering_feedback_intensity, steering_feedback_direction
+% Componentes: lateral_component, yaw_component, centering_component
+%
+% Figura 1: Intensidade do Force Feedback ao longo do tempo
+% Código: plt.plot(tempo, ff_intensity); plt.xlabel('Tempo (s)'); plt.ylabel('Intensidade FF (%)')
 % \begin{figure}[!ht]
 % \captionsetup{width=16cm}
-% \Caption{\label{fig:force_feedback_analysis} Análise de force feedback - eventos de condução}
+% \Caption{\label{fig:ff_intensity_time} Intensidade do force feedback ao longo da sessão}
 % \UFCfig{}{
-%   \includegraphics[width=16cm]{figuras/force_feedback_analysis}
+%   \includegraphics[width=14cm]{figuras/ff_intensity_time}
+% }{
+%   \Fonte{elaborado pelo autor.}
+% }
+% \end{figure}
+%
+% Figura 2: Componentes do Force Feedback (stacked area)
+% Código: plt.stackplot(tempo, lateral, yaw, centering, labels=['Lateral','Yaw','Centering'])
+% \begin{figure}[!ht]
+% \captionsetup{width=16cm}
+% \Caption{\label{fig:ff_components} Componentes do algoritmo de force feedback}
+% \UFCfig{}{
+%   \includegraphics[width=14cm]{figuras/ff_components}
+% }{
+%   \Fonte{elaborado pelo autor.}
+% }
+% \end{figure}
+%
+% Figura 3: Direção do Force Feedback (scatter com cores)
+% Código: plt.scatter(tempo, ff_intensity, c=direction_colors); # LEFT=laranja, RIGHT=azul, NEUTRAL=cinza
+% \begin{figure}[!ht]
+% \captionsetup{width=16cm}
+% \Caption{\label{fig:ff_direction} Direção e intensidade do force feedback}
+% \UFCfig{}{
+%   \includegraphics[width=14cm]{figuras/ff_direction}
+% }{
+%   \Fonte{elaborado pelo autor.}
+% }
+% \end{figure}
+%
+% Figura 4: Correlação entre Forças G e Force Feedback
+% Código: plt.scatter(g_force_lateral, ff_intensity); plt.xlabel('Força G Lateral'); plt.ylabel('FF Intensity')
+% \begin{figure}[!ht]
+% \captionsetup{width=16cm}
+% \Caption{\label{fig:gforce_ff_correlation} Correlação entre forças G laterais e intensidade do force feedback}
+% \UFCfig{}{
+%   \includegraphics[width=12cm]{figuras/gforce_ff_correlation}
 % }{
 %   \Fonte{elaborado pelo autor.}
 % }
@@ -243,7 +339,8 @@ A \autoref{tab:eventos-force-feedback} complementa essa análise, apresentando o
 }
 \end{table}
 
-\subsection{Análise Detalhada dos Algoritmos PWM}\label{subsec:algoritmos-pwm}
+\subsection{Análise Detalhada dos Algoritmos PWM}
+\label{subsec:algoritmos-pwm}
 
 % TODO: Adicionar figura force_feedback_pwm_analysis
 % A \autoref{fig:force_feedback_pwm_analysis} apresenta o funcionamento detalhado dos algoritmos PWM implementados. Os resultados mostram que o sistema operou consistentemente na zona operacional (50-200 PWM) com distribuição centrada no ponto neutro, detectando 72.000 eventos de force feedback por sessão e mantendo uma frequência consistente de aproximadamente 5.000 eventos por minuto.
@@ -252,6 +349,19 @@ A \autoref{tab:eventos-force-feedback} complementa essa análise, apresentando o
 % \Caption{\label{fig:force_feedback_pwm_analysis} Análise detalhada do sistema force feedback}
 % \UFCfig{}{
 %   \includegraphics[width=16cm]{figuras/force_feedback_pwm_analysis}
+% }{
+%   \Fonte{elaborado pelo autor.}
+% }
+% \end{figure}
+
+% TODO: Gerar com dados do ff_motor_manager.cpp (ESP32)
+% Dados: duty cycle RPWM, duty cycle LPWM, direção, tempo de resposta
+% Código: fig, axes = plt.subplots(2,1); axes[0].plot(t, rpwm_duty, label='RPWM'); axes[0].plot(t, lpwm_duty, label='LPWM'); axes[1].plot(t, direction)
+% \begin{figure}[!ht]
+% \captionsetup{width=16cm}
+% \Caption{\label{fig:bts7960_pwm} Sinais PWM do motor BTS7960 - duty cycle e direção}
+% \UFCfig{}{
+%   \includegraphics[width=14cm]{figuras/bts7960_pwm}
 % }{
 %   \Fonte{elaborado pelo autor.}
 % }
@@ -283,7 +393,8 @@ A \autoref{tab:validacao-algoritmos} valida a precisão dos algoritmos, com dest
 }
 \end{table}
 
-\subsection{Análise de Correlação dos Sensores}\label{subsec:correlacao-sensores}
+\subsection{Análise de Correlação dos Sensores}
+\label{subsec:correlacao-sensores}
 
 Para validar a coerência dos dados dos sensores BMI160, foram calculados os coeficientes de correlação de Pearson entre as diferentes variáveis medidas. A \autoref{tab:correlacao-sensores} apresenta a matriz de correlação, demonstrando forte correlação entre aceleração lateral e velocidade angular (r = 0.87, p $<$ 0.001), validando a consistência física dos dados.
 
@@ -314,19 +425,154 @@ Para validar a coerência dos dados dos sensores BMI160, foram calculados os coe
 }
 \end{table}
 
-\subsection{Calibração e Performance dos Sensores BMI160}\label{subsec:sensores-bmi160}
+\subsection{Calibração e Performance dos Sensores BMI160}
+\label{subsec:sensores-bmi160}
 
-% TODO: Adicionar figura sensor_calibration_analysis
-% A \autoref{fig:sensor_calibration_analysis} demonstra a eficácia da calibração automática do sensor BMI160. Os resultados evidenciam uma redução significativa de 52\% no ruído RMS (2.5mg → 1.2mg), estabilização progressiva dos offsets ao longo do tempo, e correção automática do drift térmico.
+% TODO: Gerar gráficos de telemetria estilo F1 com dados do telemetry_plotter.py
+% Dados disponíveis nos buffers: time_data, speed_data, throttle_data, brake_data, g_lateral_data, g_frontal_data
+%
+% Figura 1: Telemetria F1 completa (3 subplots como no código)
+% Subplot 1: Velocidade (km/h) - cor #00D2BE (teal)
+% Subplot 2: Throttle (verde #00FF00) e Brake (vermelho #FF0000) overlay
+% Subplot 3: G-Forces lateral (#FF8700 laranja) e frontal (#0090FF azul)
 % \begin{figure}[!ht]
 % \captionsetup{width=16cm}
-% \Caption{\label{fig:sensor_calibration_analysis} Análise de calibração dos sensores BMI160}
+% \Caption{\label{fig:telemetry_f1} Telemetria estilo F1 - velocidade, pedais e forças G}
 % \UFCfig{}{
-%   \includegraphics[width=16cm]{figuras/sensor_calibration_analysis}
+%   \includegraphics[width=16cm]{figuras/telemetry_f1}
 % }{
 %   \Fonte{elaborado pelo autor.}
 % }
 % \end{figure}
+%
+% Figura 2: Aceleração BMI160 nos 3 eixos
+% Código: fig, axes = plt.subplots(3,1); axes[0].plot(t, accel_x); axes[1].plot(t, accel_y); axes[2].plot(t, accel_z)
+% \begin{figure}[!ht]
+% \captionsetup{width=16cm}
+% \Caption{\label{fig:bmi160_accel} Dados de aceleração do sensor BMI160 (eixos X, Y, Z)}
+% \UFCfig{}{
+%   \includegraphics[width=14cm]{figuras/bmi160_accel}
+% }{
+%   \Fonte{elaborado pelo autor.}
+% }
+% \end{figure}
+%
+% Figura 3: Giroscópio BMI160 nos 3 eixos
+% Código: fig, axes = plt.subplots(3,1); axes[0].plot(t, gyro_x); axes[1].plot(t, gyro_y); axes[2].plot(t, gyro_z)
+% \begin{figure}[!ht]
+% \captionsetup{width=16cm}
+% \Caption{\label{fig:bmi160_gyro} Dados de giroscópio do sensor BMI160 (eixos X, Y, Z)}
+% \UFCfig{}{
+%   \includegraphics[width=14cm]{figuras/bmi160_gyro}
+% }{
+%   \Fonte{elaborado pelo autor.}
+% }
+% \end{figure}
+%
+% Figura 4: Forças G calculadas (frontal e lateral)
+% Código: plt.plot(t, g_frontal, label='G Frontal'); plt.plot(t, g_lateral, label='G Lateral')
+% \begin{figure}[!ht]
+% \captionsetup{width=16cm}
+% \Caption{\label{fig:g_forces} Forças G calculadas a partir dos dados do BMI160}
+% \UFCfig{}{
+%   \includegraphics[width=14cm]{figuras/g_forces}
+% }{
+%   \Fonte{elaborado pelo autor.}
+% }
+% \end{figure}
+
+\subsection{Performance dos Atuadores e Servos}
+\label{subsec:performance-atuadores}
+
+% TODO: Gerar visualização do balanço de freio (brake_manager.py)
+% Dados: front_brake_angle, rear_brake_angle, brake_balance
+% Código: fig, ax = plt.subplots(); ax.bar(['Dianteiro', 'Traseiro'], [front_pct, rear_pct])
+% \begin{figure}[!ht]
+% \captionsetup{width=16cm}
+% \Caption{\label{fig:brake_balance} Distribuição do balanço de freio dianteiro/traseiro}
+% \UFCfig{}{
+%   \includegraphics[width=10cm]{figuras/brake_balance}
+% }{
+%   \Fonte{elaborado pelo autor.}
+% }
+% \end{figure}
+
+% TODO: Gerar análise dos servos PCA9685 (steering_manager.py, brake_manager.py)
+% Dados: PWM channels 0 (freio dianteiro), 1 (freio traseiro), 2 (direção)
+% \begin{figure}[!ht]
+% \captionsetup{width=16cm}
+% \Caption{\label{fig:pca9685_channels} Sinais PWM dos servos MG996R via PCA9685}
+% \UFCfig{}{
+%   \includegraphics[width=14cm]{figuras/pca9685_channels}
+% }{
+%   \Fonte{elaborado pelo autor.}
+% }
+% \end{figure}
+
+\subsection{Performance dos Encoders ESP32}
+\label{subsec:performance-encoders}
+
+% TODO: Gerar análise de trocas de marcha com dados do gear_manager
+% Dados: timestamps de GEAR_UP e GEAR_DOWN, tempo de resposta
+% \begin{figure}[!ht]
+% \captionsetup{width=16cm}
+% \Caption{\label{fig:gear_shifts} Análise de trocas de marcha durante a sessão}
+% \UFCfig{}{
+%   \includegraphics[width=14cm]{figuras/gear_shifts}
+% }{
+%   \Fonte{elaborado pelo autor.}
+% }
+% \end{figure}
+
+A \autoref{tab:performance-encoders} apresenta as métricas de performance dos encoders LPD3806-600BM conectados ao ESP32. Os resultados demonstram a precisão e responsividade do sistema de entrada do cockpit.
+
+\begin{table}[!ht]
+\captionsetup{width=16cm}
+\Caption{\label{tab:performance-encoders} Performance dos encoders ESP32 (LPD3806-600BM)}
+\IBGEtab{}{%
+  \begin{tabular}{p{3.5cm}p{2.5cm}p{2.5cm}p{2.5cm}p{2.5cm}}
+      \toprule
+      Encoder & Taxa Atualização & Latência & Resolução Efetiva & Precisão \\
+      \midrule \midrule
+      Acelerador & 100Hz & $<$1ms & 600 PPR & A validar \\
+      \midrule
+      Freio & 100Hz & $<$1ms & 600 PPR & A validar \\
+      \midrule
+      Direção & 100Hz & $<$1ms & 600 PPR & A validar \\
+      \midrule
+      Comunicação USB & 115200 baud & $<$2ms & N/A & A validar \\
+      \bottomrule
+  \end{tabular}%
+}{%
+\Fonte{elaborado pelo autor.}%
+}
+\end{table}
+
+A \autoref{tab:calibracao-encoders} apresenta os dados de calibração armazenados na EEPROM do ESP32, mostrando os valores mínimo, máximo e central para cada encoder.
+
+\begin{table}[!ht]
+\captionsetup{width=16cm}
+\Caption{\label{tab:calibracao-encoders} Calibração dos encoders ESP32 (EEPROM)}
+\IBGEtab{}{%
+  \begin{tabular}{p{3cm}p{2.5cm}p{2.5cm}p{2.5cm}p{3.5cm}}
+      \toprule
+      Encoder & Valor Mínimo & Valor Central & Valor Máximo & Endereço EEPROM \\
+      \midrule \midrule
+      Acelerador & 0 & N/A & 2400 & \texttt{0x00} \\
+      \midrule
+      Freio & 0 & N/A & 2400 & \texttt{0x10} \\
+      \midrule
+      Direção & -1200 & 0 & +1200 & \texttt{0x20} \\
+      \bottomrule
+  \end{tabular}%
+}{%
+\Fonte{elaborado pelo autor.}%
+\Nota{Valores baseados em 600 PPR $\times$ 4 bordas = 2400 pulsos por revolução.}%
+}
+\end{table}
+
+\subsection{Calibração e Performance dos Sensores BMI160}
+\label{subsec:sensores-bmi160}
 
 A \autoref{tab:calibracao-automatica} apresenta os dados das 3 calibrações realizadas durante a sessão, mostrando a evolução dos parâmetros de acordo com as especificações do BMI160 descritas na metodologia.
 
@@ -392,7 +638,8 @@ A \autoref{tab:sensores-estatisticas} complementa essa análise com estatística
 }
 \end{table}
 
-\section{Performance do Sistema e Usabilidade}\label{sec:performance-sistema}
+\section{Performance do Sistema e Usabilidade}
+\label{sec:performance-sistema}
 
 % TODO: Adicionar figura system_performance
 % A \autoref{fig:system_performance} demonstra a estabilidade operacional do sistema Raspberry Pi 4. Os resultados mostram CPU médio de 31\% (dentro da faixa normal de operação), temperatura controlada entre 45-74°C, FPS estável próximo ao target de 30, e latência consistente abaixo de 5ms.
@@ -401,6 +648,60 @@ A \autoref{tab:sensores-estatisticas} complementa essa análise com estatística
 % \Caption{\label{fig:system_performance} Performance do sistema Raspberry Pi 4 - monitoramento contínuo}
 % \UFCfig{}{
 %   \includegraphics[width=16cm]{figuras/system_performance}
+% }{
+%   \Fonte{elaborado pelo autor.}
+% }
+% \end{figure}
+
+% TODO: Gerar com dados do power_monitor_manager.py
+% Dados disponíveis: consumo_rpi (INA219), consumo_ubec (ACS758 A1), consumo_motor (ACS758 A2)
+%
+% Figura 1: Consumo de energia ao longo do tempo (3 linhas)
+% Código: plt.plot(tempo, ina219_current, label='RPi (INA219)'); plt.plot(tempo, ubec_current, label='Servos (ACS758)')
+% \begin{figure}[!ht]
+% \captionsetup{width=16cm}
+% \Caption{\label{fig:power_consumption} Consumo de corrente do sistema ao longo da sessão}
+% \UFCfig{}{
+%   \includegraphics[width=14cm]{figuras/power_consumption}
+% }{
+%   \Fonte{elaborado pelo autor.}
+% }
+% \end{figure}
+%
+% Figura 2: Distribuição do consumo por componente (pie chart)
+% Código: plt.pie([rpi_avg, ubec_avg, motor_avg], labels=['RPi', 'Servos', 'Motor'])
+% \begin{figure}[!ht]
+% \captionsetup{width=16cm}
+% \Caption{\label{fig:power_distribution} Distribuição do consumo de energia por componente}
+% \UFCfig{}{
+%   \includegraphics[width=10cm]{figuras/power_distribution}
+% }{
+%   \Fonte{elaborado pelo autor.}
+% }
+% \end{figure}
+
+% TODO: Gerar com dados do serial_receiver_manager.py
+% Dados disponíveis: throttle_position, brake_position, steering_position (de ESP32)
+%
+% Figura 1: Posições dos encoders ao longo do tempo (3 subplots)
+% Código: fig, axes = plt.subplots(3,1); axes[0].plot(t, throttle); axes[1].plot(t, brake); axes[2].plot(t, steering)
+% \begin{figure}[!ht]
+% \captionsetup{width=16cm}
+% \Caption{\label{fig:esp32_encoders} Posições dos encoders ESP32 - acelerador, freio e direção}
+% \UFCfig{}{
+%   \includegraphics[width=14cm]{figuras/esp32_encoders}
+% }{
+%   \Fonte{elaborado pelo autor.}
+% }
+% \end{figure}
+%
+% Figura 2: Correlação entre posição do encoder e resposta do veículo
+% Código: plt.scatter(throttle_encoder, velocidade_veiculo)
+% \begin{figure}[!ht]
+% \captionsetup{width=16cm}
+% \Caption{\label{fig:encoder_response} Correlação entre entrada do encoder e resposta do veículo}
+% \UFCfig{}{
+%   \includegraphics[width=12cm]{figuras/encoder_response}
 % }{
 %   \Fonte{elaborado pelo autor.}
 % }
@@ -438,7 +739,8 @@ A \autoref{tab:performance-sistema} apresenta métricas detalhadas de performanc
 }
 \end{table}
 
-\subsection{Análise de Regressão da Performance do Sistema}\label{subsec:regressao-performance}
+\subsection{Análise de Regressão da Performance do Sistema}
+\label{subsec:regressao-performance}
 
 Para identificar os fatores que mais impactam a performance do sistema, foi conduzida uma análise de regressão múltipla considerando CPU, temperatura e throughput como variáveis preditoras do FPS. A \autoref{tab:regressao-performance} apresenta os resultados da análise, demonstrando que a utilização de CPU é o fator mais significativo ($ \beta $ = -0.78, p < 0.001).
 
@@ -472,9 +774,10 @@ O modelo de regressão explicou 83\% da variância observada no FPS (R² ajustad
 FPS = 35.67 - 0.78 \times CPU - 0.23 \times Temp + 0.34 \times Throughput
 \end{equation}
 
-\subsection{Análise de Custos e Viabilidade}\label{subsec:custos-viabilidade}
+\subsection{Análise de Custos e Viabilidade}
+\label{subsec:custos-viabilidade}
 
-A \autoref{tab:estimativa-custos} apresenta o custo total estimado de R\$ 1.300, tornando o projeto comercialmente viável.
+A \autoref{tab:estimativa-custos} apresenta o custo total estimado de R\$ 1.225, tornando o projeto comercialmente viável.
 
 \begin{table}[!ht]
 \captionsetup{width=16cm}
@@ -490,7 +793,7 @@ A \autoref{tab:estimativa-custos} apresenta o custo total estimado de R\$ 1.300,
       \midrule
       BMI160 Módulo & R\$ 35 & 1 & R\$ 35 & Sensores \\
       \midrule
-      Arduino Mega & R\$ 120 & 1 & R\$ 120 & Controle \\
+      ESP32 DevKit V1 & R\$ 45 & 1 & R\$ 45 & Cockpit \\
       \midrule
       Motores e Servos & R\$ 280 & Conjunto & R\$ 280 & Atuação \\
       \midrule
@@ -498,11 +801,36 @@ A \autoref{tab:estimativa-custos} apresenta o custo total estimado de R\$ 1.300,
       \midrule
       Eletrônicos Diversos & R\$ 180 & Conjunto & R\$ 180 & Suporte \\
       \midrule
-      \textbf{TOTAL ESTIMADO} & \textbf{-} & \textbf{-} & \textbf{R\$ 1.300} & \textbf{Sistema} \\
+      \textbf{TOTAL ESTIMADO} & \textbf{-} & \textbf{-} & \textbf{R\$ 1.225} & \textbf{Sistema} \\
       \bottomrule
   \end{tabular}%
 }{%
 \Fonte{elaborado pelo autor.}%
+}
+\end{table}
+
+A \autoref{tab:monitoramento-energia} apresenta os dados coletados pelos sensores de corrente INA219 e ACS758 durante a sessão de testes, permitindo análise detalhada do consumo por subsistema.
+
+\begin{table}[!ht]
+\captionsetup{width=16cm}
+\Caption{\label{tab:monitoramento-energia} Monitoramento de energia - sensores INA219 e ACS758}
+\IBGEtab{}{%
+  \begin{tabular}{p{3.5cm}p{2.5cm}p{2cm}p{2cm}p{2cm}p{2.5cm}}
+      \toprule
+      Sensor / Canal & Componente & Corrente Média & Corrente Máx & Potência & Status \\
+      \midrule \midrule
+      INA219 (\texttt{0x41}) & Raspberry Pi 4 & A validar & A validar & A validar & A validar \\
+      \midrule
+      ADS1115 A0 & XL4015 (RPi) & A validar & A validar & A validar & A validar \\
+      \midrule
+      ADS1115 A1 & UBEC (Servos) & A validar & A validar & A validar & A validar \\
+      \midrule
+      ADS1115 A2 & Motor RC 775 & A validar & A validar & A validar & A validar \\
+      \bottomrule
+  \end{tabular}%
+}{%
+\Fonte{elaborado pelo autor.}%
+\Nota{ACS758 50A para canais A0/A1, ACS758 100A para canal A2.}%
 }
 \end{table}
 
@@ -530,7 +858,44 @@ A \autoref{tab:eficiencia-energetica} demonstra a eficiência energética do sis
 }
 \end{table}
 
-\subsection{Usabilidade e Experiência do Usuário}\label{subsec:usabilidade}
+\subsection{Usabilidade e Experiência do Usuário}
+\label{subsec:usabilidade}
+
+% TODO: Screenshot da interface do cliente (console_interface.py)
+% Capturar com: import pyautogui; pyautogui.screenshot('client_interface.png')
+% \begin{figure}[!ht]
+% \captionsetup{width=16cm}
+% \Caption{\label{fig:client_interface} Interface do cliente - painel de telemetria e vídeo}
+% \UFCfig{}{
+%   \includegraphics[width=16cm]{figuras/client_interface}
+% }{
+%   \Fonte{elaborado pelo autor.}
+% }
+% \end{figure}
+
+% TODO: Gerar estatísticas do sistema auto-save (console_interface.py)
+% Dados: quantidade de saves, tamanho dos arquivos, frequência
+% \begin{figure}[!ht]
+% \captionsetup{width=16cm}
+% \Caption{\label{fig:autosave_stats} Estatísticas do sistema de auto-save}
+% \UFCfig{}{
+%   \includegraphics[width=12cm]{figuras/autosave_stats}
+% }{
+%   \Fonte{elaborado pelo autor.}
+% }
+% \end{figure}
+
+% TODO: Gerar visualização do vídeo decodificado (video_display.py)
+% Mostrar: frame original, após H.264 decode, e FPS
+% \begin{figure}[!ht]
+% \captionsetup{width=16cm}
+% \Caption{\label{fig:video_quality} Análise de qualidade do vídeo H.264 decodificado}
+% \UFCfig{}{
+%   \includegraphics[width=14cm]{figuras/video_quality}
+% }{
+%   \Fonte{elaborado pelo autor.}
+% }
+% \end{figure}
 
 A \autoref{tab:usabilidade-sistema} destaca as pontuações de usabilidade entre 7.8-9.5/10, demonstrando a qualidade da experiência do usuário.
 
@@ -558,7 +923,8 @@ A \autoref{tab:usabilidade-sistema} destaca as pontuações de usabilidade entre
 }
 \end{table}
 
-\subsection{Análise de Confiabilidade dos Dados de Usabilidade}\label{subsec:confiabilidade-usabilidade}
+\subsection{Análise de Confiabilidade dos Dados de Usabilidade}
+\label{subsec:confiabilidade-usabilidade}
 
 Para validar a consistência interna dos dados de usabilidade, foi calculado o coeficiente $ \alpha $ de Cronbach para as cinco dimensões avaliadas. O resultado obtido ($ \alpha $ = 0.847) indica alta confiabilidade interna dos dados, confirmando a validade das avaliações subjetivas realizadas.
 
@@ -589,7 +955,8 @@ Para validar a consistência interna dos dados de usabilidade, foi calculado o c
 }
 \end{table}
 
-\subsection{Síntese Estatística dos Resultados}\label{subsec:sintese-estatistica}
+\subsection{Síntese Estatística dos Resultados}
+\label{subsec:sintese-estatistica}
 
 A \autoref{tab:sintese-estatistica} consolida os principais achados estatísticos do estudo, demonstrando significância estatística em todas as análises conduzidas e validando a robustez dos resultados obtidos.
 
