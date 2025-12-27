@@ -31,6 +31,30 @@ HARDWARE CONECTADO:
 • Motor BTS7960 R_EN   -> GPIO22 (Pin 15)
 • Motor BTS7960 L_EN   -> GPIO23 (Pin 16)
 
+ALIMENTAÇÃO DO RASPBERRY PI (XL4015 5A + USB Breakout):
+======================================================
+Bateria LiPo 3S (11.1V) → XL4015 5A → USB Breakout → Raspberry Pi USB-C
+
+XL4015 5A (Regulador Step-Down):
+  - IN+   → Positivo da bateria (11.1V)
+  - IN-   → GND da bateria
+  - OUT+  → VBUS do USB Breakout (ajustar para 5.1V)
+  - OUT-  → GND do USB Breakout
+
+USB Breakout (Pinos: VBUS, GND, CC1, CC2, D+, D-):
+  - VBUS  → OUT+ do XL4015 (5.1V)
+  - GND   → OUT- do XL4015 (GND comum)
+  - CC1   → Resistor 5.1kΩ → GND (identifica como fonte de energia)
+  - CC2   → Resistor 5.1kΩ → GND (identifica como fonte de energia)
+  - D+    → Não conectado (apenas alimentação)
+  - D-    → Não conectado (apenas alimentação)
+
+Notas:
+  - Ajustar XL4015 para 5.1V (usar multímetro no potenciômetro)
+  - Resistores 5.1kΩ nos CC1/CC2 são OBRIGATÓRIOS para USB-C
+  - Raspberry Pi 4 requer mínimo 3A (XL4015 suporta até 5A)
+  - GND do XL4015 passa pelo ACS758 50A antes do GND geral
+
 EXECUÇÃO:
 =========
 python3 main.py                    # Descoberta automática (recomendado)

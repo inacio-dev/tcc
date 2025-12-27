@@ -296,6 +296,7 @@ Examples:
 
 - `raspberry/MODULOS.md`: Technical specifications of all hardware modules
 - `raspberry/DIAGRAMA.drawio.pdf`: Complete electrical diagram
+- `datasheets/`: Component datasheets (BTS7960, etc.) for detailed technical reference
 
 **Client:**
 

@@ -13,16 +13,122 @@ ADS1115 (ADC 16-bit I2C):
 - Canal A0: ACS758 50A  → Corrente XL4015 (Raspberry Pi)
 - Canal A1: ACS758 50A  → Corrente UBEC (Servos PCA9685)
 - Canal A2: ACS758 100A → Corrente Motor DC 775
-- Canal A3: Livre (pode ser usado para tensão bateria com divisor)
+- Canal A3: Divisor de tensão → Tensão da bateria (11.1V 3S LiPo)
+
+PINOUT ADS1115 (Pinos: VDD, GND, SCL, SDA, ADDR, ALRT, A0, A1, A2, A3):
+=====================================================================
+Módulo breakout ADS1115 (16-bit ADC) → Raspberry Pi 4
+
+Pinos do Módulo:
+  - VDD   → 3.3V do Raspberry Pi (Pin 1) [Alimentação 2.0V-5.5V]
+  - GND   → GND do Raspberry Pi (Pin 6)
+  - SCL   → GPIO3 (Pin 5) do Raspberry Pi [I2C Clock]
+  - SDA   → GPIO2 (Pin 3) do Raspberry Pi [I2C Data]
+  - ADDR  → GND (endereço 0x48) [Seleção de endereço I2C]
+  - ALRT  → Não conectado (NC) [Alert/Ready - opcional]
+  - A0    → Saída OU1 do ACS758 #1 (50A) via filtro RC [Corrente RPi]
+  - A1    → Saída OU1 do ACS758 #2 (50A) via filtro RC [Corrente Servos]
+  - A2    → Saída OU1 do ACS758 #3 (100A) via filtro RC [Corrente Motor]
+  - A3    → Divisor de tensão da bateria [Tensão Bateria]
+
+Endereços I2C disponíveis (via pino ADDR):
+  - ADDR → GND: 0x48 (usado neste projeto)
+  - ADDR → VDD: 0x49
+  - ADDR → SDA: 0x4A
+  - ADDR → SCL: 0x4B
+
+Características do chip (Texas Instruments ADS1115):
+  - Resolução: 16 bits (signed)
+  - Taxa de amostragem: 8 a 860 SPS (programável)
+  - PGA integrado: ±6.144V, ±4.096V, ±2.048V, ±1.024V, ±0.512V, ±0.256V
+  - Consumo: 150µA (modo contínuo), 0.5µA (power-down)
+  - Referência de tensão interna
+
+Diagrama de conexão:
+    Raspberry Pi 4           ADS1115 Módulo
+    ─────────────           ──────────────
+    3.3V (Pin 1)  ─────────  VDD
+    GND (Pin 6)   ─────────  GND
+    GPIO3 (Pin 5) ─────────  SCL
+    GPIO2 (Pin 3) ─────────  SDA
+    GND           ─────────  ADDR
+                             ALRT (NC)
+    ACS758 #1 OUT ─── RC ──  A0
+    ACS758 #2 OUT ─── RC ──  A1
+    ACS758 #3 OUT ─── RC ──  A2
+    Divisor Bat.  ─────────  A3
+
+DIVISOR DE TENSÃO BATERIA (Canal A3):
+=====================================
+Circuito:
+    Bateria (+) ─── R1 (10kΩ) ───┬─── ADS1115 A3
+                                 │
+                            R2 (10kΩ)
+                                 │
+                                GND
+
+Cálculos:
+- Razão do divisor: R2 / (R1 + R2) = 10k / 20k = 0.5 (1:2)
+- Tensão máxima bateria (4.2V × 3S): 12.6V
+- Tensão no ADC: 12.6V × 0.5 = 6.3V (dentro do range ±6.144V)
+- Tensão mínima bateria (3.0V × 3S): 9.0V
+- Tensão no ADC: 9.0V × 0.5 = 4.5V
+- Corrente pelo divisor: 12.6V / 20kΩ = 0.63mA (desprezível)
+- Para obter tensão real: V_bateria = V_adc × 2
 
 INA219 (I2C):
 - Endereço I2C: 0x41 (A0=VCC para evitar conflito com PCA9685)
 - Mede tensão (0-26V) e corrente (±3.2A) na entrada 5V do Raspberry Pi
 
+PINOUT INA219 (Pinos: VIN-, VIN+, VCC, GND, SCL, SDA):
+======================================================
+Medição de tensão e corrente do Raspberry Pi (após XL4015):
+
+    XL4015 OUT+ ─── VIN+ ───┬─── VIN- ─── USB Breakout VBUS (→ RPi)
+                            │
+                      [Shunt 0.1Ω]
+                       (interno)
+
+  - VIN+  → Saída OUT+ do XL4015 (5.1V, lado fonte)
+  - VIN-  → Entrada VBUS do USB Breakout (lado carga, vai para RPi)
+  - VCC   → 3.3V do Raspberry Pi (alimentação do sensor)
+  - GND   → GND comum do sistema
+  - SCL   → GPIO3 (Pin 5) do Raspberry Pi [I2C Clock]
+  - SDA   → GPIO2 (Pin 3) do Raspberry Pi [I2C Data]
+
+Nota: O INA219 mede corrente pelo shunt interno entre VIN+ e VIN-.
+      A corrente flui: XL4015 → VIN+ → VIN- → USB Breakout → RPi
+
 PINOUT RASPBERRY PI 4:
 =====================
 - SDA → GPIO2 (Pin 3)  [Compartilhado com BMI160, PCA9685]
 - SCL → GPIO3 (Pin 5)  [Compartilhado com BMI160, PCA9685]
+
+MAPA DE ENDEREÇOS I2C DO PROJETO (Verificado - Sem Conflitos):
+==============================================================
+| Dispositivo      | Endereço | Configuração    | Função                |
+|------------------|----------|-----------------|------------------------|
+| PCA9685 (PWM)    | 0x40     | Padrão          | Controle de servos     |
+| INA219 (Corrente)| 0x41     | A0=VCC          | Medição corrente RPi   |
+| ADS1115 (ADC)    | 0x48     | ADDR→GND        | Leitura ACS758/bateria |
+| BMI160 (IMU)     | 0x68     | SAO/SDO→GND     | Acelerômetro/giroscópio|
+
+Nota: O INA219 usa A0=VCC (0x41) para evitar conflito com o PCA9685 (0x40).
+      Todos os dispositivos compartilham o mesmo barramento I2C (GPIO2/GPIO3).
+
+Comando para verificar dispositivos I2C conectados:
+    sudo i2cdetect -y 1
+
+Saída esperada:
+         0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
+    00:          -- -- -- -- -- -- -- -- -- -- -- -- --
+    10: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+    20: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+    30: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+    40: 40 41 -- -- -- -- -- -- 48 -- -- -- -- -- -- --
+    50: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+    60: -- -- -- -- -- -- -- -- 68 -- -- -- -- -- -- --
+    70: -- -- -- -- -- -- -- --
 
 CARACTERÍSTICAS DOS SENSORES ACS758:
 ===================================
@@ -36,19 +142,48 @@ CARACTERÍSTICAS DOS SENSORES ACS758:
   - Vref (zero current): VCC/2 = 2.5V @ 5V
   - Faixa: ±100A
 
+PINOUT ACS758 (Pinos: -dl, +dl, VCC, GND, OU1, OU2):
+===================================================
+ACS758 #1 (50A) - Corrente XL4015 → Raspberry Pi:
+  - -dl  → Saída GND do XL4015 (lado fonte)
+  - +dl  → Entrada GND do Raspberry Pi (lado carga)
+  - VCC  → 5V do XL4015 5A
+  - GND  → GND comum do sistema
+  - OU1  → ADS1115 Canal A0 (com filtro RC)
+  - OU2  → Não conectado (NC)
+
+ACS758 #2 (50A) - Corrente UBEC → Servos PCA9685:
+  - -dl  → Saída GND do UBEC (lado fonte)
+  - +dl  → Entrada GND do PCA9685/Servos (lado carga)
+  - VCC  → 5V do XL4015 5A
+  - GND  → GND comum do sistema
+  - OU1  → ADS1115 Canal A1 (com filtro RC)
+  - OU2  → Não conectado (NC)
+
+ACS758 #3 (100A) - Corrente Motor DC 775:
+  - -dl  → GND da bateria / ESC (lado fonte)
+  - +dl  → GND do Motor DC 775 (lado carga)
+  - VCC  → 5V do XL4015 5A
+  - GND  → GND comum do sistema
+  - OU1  → ADS1115 Canal A2 (com filtro RC)
+  - OU2  → Não conectado (NC)
+
+Nota: A corrente é medida pelo fio GND (lado low-side) para evitar
+      problemas com tensões altas no lado positivo da bateria.
+
 FILTRO RC RECOMENDADO (hardware):
 =================================
 Para cada ACS758, adicionar filtro passa-baixa:
 
-    ACS758 OUT ──┬── 1kΩ ──┬── ADS1115 (Ax)
-                 │         │
-                GND      100nF
-                           │
-                          GND
+    ACS758 OUT ─── 1kΩ ───┬─── ADS1115 (Ax)
+                          │
+                       100nF
+                          │
+                         GND
 
 - Resistor: 1kΩ (limita corrente + filtro)
 - Capacitor: 100nF (filtra ruído PWM)
-- Frequência de corte: ~1.6 kHz
+- Frequência de corte: fc = 1/(2π×R×C) = 1/(2π×1000×0.0000001) ≈ 1.6 kHz
 
 FILTROS DE SOFTWARE (este módulo):
 ==================================
@@ -105,6 +240,13 @@ class PowerMonitorManager:
     # Fator de escala ADS1115 (±4.096V, 16-bit signed)
     ADS1115_SCALE = 4.096 / 32768.0  # V/LSB
 
+    # Divisor de tensão bateria (Canal A3)
+    # Divisor 1:2 com R1=10kΩ, R2=10kΩ → V_bateria = V_adc × 2
+    BATTERY_DIVIDER_RATIO = 2.0  # Multiplicador para obter tensão real
+    BATTERY_VOLTAGE_MIN = 9.0    # 3S LiPo mínimo (3.0V × 3)
+    BATTERY_VOLTAGE_MAX = 12.6   # 3S LiPo máximo (4.2V × 3)
+    BATTERY_VOLTAGE_NOMINAL = 11.1  # 3S LiPo nominal (3.7V × 3)
+
     # Calibração INA219 (shunt 0.1Ω, max 3.2A)
     INA219_CALIBRATION = 4096
     INA219_CURRENT_LSB = 0.0001  # 0.1mA/bit
@@ -150,16 +292,22 @@ class PowerMonitorManager:
         self.current_rpi_ina = 0.0  # Corrente RPi via INA219 (A)
         self.power_rpi = 0.0  # Potência RPi (W)
 
+        # Dados de tensão da bateria (Divisor de tensão via ADS1115 A3)
+        self.voltage_battery = 0.0  # Tensão da bateria (V)
+        self.battery_percentage = 0.0  # Porcentagem de carga (0-100%)
+
         # Valores raw do ADS1115
         self.raw_rpi = 0
         self.raw_servos = 0
         self.raw_motor = 0
+        self.raw_battery = 0
 
         # Buffers para média móvel
         self.buffer_current_rpi = deque(maxlen=buffer_size)
         self.buffer_current_servos = deque(maxlen=buffer_size)
         self.buffer_current_motor = deque(maxlen=buffer_size)
         self.buffer_voltage_rpi = deque(maxlen=buffer_size)
+        self.buffer_voltage_battery = deque(maxlen=buffer_size)
 
         # Estatísticas
         self.readings_count = 0
@@ -180,6 +328,7 @@ class PowerMonitorManager:
         self.ema_servos = 0.0
         self.ema_motor = 0.0
         self.ema_voltage = 0.0
+        self.ema_battery = 0.0
         self.ema_initialized = False
 
         # Buffer para filtro de mediana (rejeita spikes)
@@ -545,6 +694,29 @@ class PowerMonitorManager:
                     self.buffer_current_motor.append(filtered)
                     success = True
 
+                # Canal 3: Divisor de tensão - Tensão Bateria
+                raw = self._read_ads1115_channel(3)
+                if raw is not None:
+                    self.raw_battery = raw
+                    # Converte raw para tensão no ADC
+                    voltage_adc = raw * self.ADS1115_SCALE
+                    # Aplica razão do divisor para obter tensão real da bateria
+                    voltage_battery = voltage_adc * self.BATTERY_DIVIDER_RATIO
+                    # Aplica filtro EMA
+                    self.ema_battery = self._apply_ema_filter(
+                        voltage_battery, self.ema_battery
+                    )
+                    self.voltage_battery = (
+                        self.ema_battery if self.ema_initialized else voltage_battery
+                    )
+                    self.buffer_voltage_battery.append(self.voltage_battery)
+                    # Calcula porcentagem de carga (linear entre min e max)
+                    voltage_range = self.BATTERY_VOLTAGE_MAX - self.BATTERY_VOLTAGE_MIN
+                    self.battery_percentage = max(0.0, min(100.0,
+                        (self.voltage_battery - self.BATTERY_VOLTAGE_MIN) / voltage_range * 100.0
+                    ))
+                    success = True
+
                 # Marca EMA como inicializado após primeira leitura
                 if not self.ema_initialized and success:
                     self.ema_initialized = True
@@ -680,9 +852,15 @@ class PowerMonitorManager:
                 if self.buffer_voltage_rpi
                 else self.voltage_rpi
             )
+            avg_voltage_battery = (
+                sum(self.buffer_voltage_battery) / len(self.buffer_voltage_battery)
+                if self.buffer_voltage_battery
+                else self.voltage_battery
+            )
 
-            # Calcula potências
-            power_motor = abs(self.current_motor) * 11.1  # Bateria 11.1V
+            # Calcula potências (usa tensão real da bateria se disponível)
+            battery_v = self.voltage_battery if self.voltage_battery > 0 else 11.1
+            power_motor = abs(self.current_motor) * battery_v
             power_servos = abs(self.current_servos) * 5.25  # UBEC 5.25V
             power_total = power_motor + power_servos + self.power_rpi
 
@@ -698,6 +876,10 @@ class PowerMonitorManager:
                 # Tensão RPi (V)
                 "voltage_rpi": round(self.voltage_rpi, 3),
                 "voltage_rpi_avg": round(avg_voltage_rpi, 3),
+                # Tensão Bateria (V)
+                "voltage_battery": round(self.voltage_battery, 2),
+                "voltage_battery_avg": round(avg_voltage_battery, 2),
+                "battery_percentage": round(self.battery_percentage, 1),
                 # INA219 direto
                 "current_rpi_ina219": round(self.current_rpi_ina, 3),
                 "power_rpi": round(self.power_rpi, 3),
@@ -709,6 +891,7 @@ class PowerMonitorManager:
                 "raw_rpi": self.raw_rpi,
                 "raw_servos": self.raw_servos,
                 "raw_motor": self.raw_motor,
+                "raw_battery": self.raw_battery,
                 # Status
                 "ads1115_available": self.ads1115_available,
                 "ina219_available": self.ina219_available,
@@ -750,6 +933,7 @@ class PowerMonitorManager:
                 "current_servos": len(self.buffer_current_servos),
                 "current_motor": len(self.buffer_current_motor),
                 "voltage_rpi": len(self.buffer_voltage_rpi),
+                "voltage_battery": len(self.buffer_voltage_battery),
             },
         }
 

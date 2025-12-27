@@ -5,21 +5,67 @@ Controla freios dianteiros e traseiros com servo MG996R via PCA9685
 
 PINOUT PCA9685 + SERVOS MG996R:
 ===============================
-PCA9685 -> Raspberry Pi 4 (I2C)
-- VCC    -> Pin 2 (5V) ou fonte externa 6V
-- GND    -> Pin 6 (GND)
-- SCL    -> Pin 5 (GPIO3/SCL)
-- SDA    -> Pin 3 (GPIO2/SDA)
+Pinos do módulo PCA9685: GND ; OE ; SCL ; SDA ; VCC ; V+
+
+PCA9685 -> Raspberry Pi 4 (I2C) [COMPARTILHADO COM DIREÇÃO]
+  - GND    -> Pin 6 (GND)                [Terra comum]
+  - OE     -> Pin 6 (GND)                [Output Enable - LOW = habilitado]
+  - SCL    -> Pin 5 (GPIO3/SCL)          [I2C Clock]
+  - SDA    -> Pin 3 (GPIO2/SDA)          [I2C Data]
+  - VCC    -> Pin 1 (3.3V)               [Alimentação lógica do chip]
+  - V+     -> UBEC OUT+ (5.25V)          [Alimentação dos servos]
+
+Diagrama de conexão PCA9685:
+                    PCA9685
+                  ┌─────────┐
+    GND (Pin 6) ──┤ GND     │
+    GND (Pin 6) ──┤ OE      │  ← LOW = saídas habilitadas
+    GPIO3 (Pin 5)─┤ SCL     │
+    GPIO2 (Pin 3)─┤ SDA     │
+    3.3V (Pin 1) ─┤ VCC     │
+    UBEC OUT+  ───┤ V+      │  ← 5.25V para servos
+                  └─────────┘
 
 Servo Freio Dianteiro -> PCA9685
-- VCC (Vermelho)  -> V+ (fonte externa 6V recomendada)
-- GND (Marrom)    -> GND
-- Signal (Laranja)-> Canal 0 do PCA9685
+  - VCC (Vermelho)  -> V+ do PCA9685 (alimentado pelo UBEC)
+  - GND (Marrom)    -> GND
+  - Signal (Laranja)-> Canal 0 do PCA9685
 
 Servo Freio Traseiro -> PCA9685
-- VCC (Vermelho)  -> V+ (fonte externa 6V recomendada)
-- GND (Marrom)    -> GND
-- Signal (Laranja)-> Canal 1 do PCA9685
+  - VCC (Vermelho)  -> V+ do PCA9685 (alimentado pelo UBEC)
+  - GND (Marrom)    -> GND
+  - Signal (Laranja)-> Canal 1 do PCA9685
+
+ALIMENTAÇÃO DOS SERVOS - UBEC 15A:
+==================================
+O UBEC alimenta TODOS os servos (direção + freios) via V+ do PCA9685.
+
+UBEC 15A (Pinos: IN+ ; IN- ; OUT+ ; OUT-)
+  - IN+   -> Bateria 3S (+) via XT90     [9V-12.6V da bateria]
+  - IN-   -> Bateria 3S (-) via XT90     [GND bateria]
+  - OUT+  -> V+ do PCA9685               [5.25V para servos]
+  - OUT-  -> GND comum do sistema        [Terra]
+
+Diagrama de alimentação:
+    Bateria 3S (11.1V)
+         │
+    ┌────┴────┐
+    │  UBEC   │
+    │  15A    │
+    └────┬────┘
+         │ 5.25V
+    ┌────┴────┐
+    │ PCA9685 │──── Servo Freio Frontal (Canal 0) ← ESTE ARQUIVO
+    │   V+    │──── Servo Freio Traseiro (Canal 1) ← ESTE ARQUIVO
+    └─────────┘──── Servo Direção (Canal 2)
+
+CARACTERÍSTICAS UBEC 15A:
+=========================
+  - Tensão de Entrada: 6-12S (23V a 45V) [Usando 3S: 9V-12.6V]
+  - Tensão de Saída: 5.25V ±0.5V
+  - Corrente Contínua: 15A (suficiente para 3 servos ~4.5A)
+  - Corrente de Pico: 30A (10 segundos)
+  - Dimensões: 55 x 28 x 5 mm
 
 MAPEAMENTO DE PINOS OCUPADOS NO PROJETO:
 ========================================

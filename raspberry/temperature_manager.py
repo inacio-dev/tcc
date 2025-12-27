@@ -5,23 +5,62 @@ Temperature Manager - DS18B20 Digital Temperature Sensor Control
 Manages DS18B20 temperature sensor for F1 remote-controlled car system.
 Provides real-time temperature monitoring for system thermal management.
 
-Hardware Configuration:
-- DS18B20 Temperature Sensor (1-Wire protocol)
-- Connection: GPIO4 (Pin 7) - liberado pelo uso do PCA9685
-- Power: 3.3V (Pin 1) or 5V (Pin 2)
-- Ground: GND (Pin 6, 9, 14, 20, 25, 30, 34, or 39)
+PINOUT DS18B20 -> RASPBERRY PI 4:
+=================================
+DS18B20 (TO-92 package) -> Raspberry Pi 4 (GPIO)
+  - Pino 1 (GND)   -> Pin 6  (GND)
+  - Pino 2 (DQ)    -> Pin 7  (GPIO4) + Resistor pull-up 4.7kΩ para 3.3V
+  - Pino 3 (VDD)   -> Pin 1  (3.3V)
 
-DS18B20 Pin Configuration:
-- Pin 1 (GND): Connect to Raspberry Pi GND
-- Pin 2 (DQ): Connect to GPIO4 (Pin 7) with 4.7kΩ pull-up resistor to 3.3V
-- Pin 3 (VDD): Connect to 3.3V or 5V (parasitic power mode can use GND)
+Circuito com Pull-up:
+    3.3V (Pin 1) ─── 4.7kΩ ───┬─── GPIO4 (Pin 7)
+                              │
+                          DS18B20 DQ
+                              │
+                             GND
 
-GPIO Pin Assignment:
-- GPIO4 (Pin 7): DS18B20 Data (1-Wire) - padrão do sistema
+CARACTERÍSTICAS DS18B20:
+========================
+- Tensão: 3V a 5.5V DC
+- Faixa de medição: -55°C a +125°C (recomendado até 100°C)
+- Precisão: ±0.5°C (-10°C a +85°C)
+- Resolução: 9 ou 12 bits (configurável)
+- Tempo de conversão: < 750ms (12 bits)
+- Protocolo: 1-Wire (Dallas/Maxim)
+- Endereçamento: Cada sensor tem ID único de 64 bits
 
-Author: F1 Car Development Team
-Date: 2025-09-13
-Hardware: Raspberry Pi 4 Model B (8GB RAM)
+MAPEAMENTO DE PINOS OCUPADOS:
+=============================
+- GPIO4 (Pin 7) -> DS18B20 Data (1-Wire) - OCUPADO
+
+PINOS UTILIZADOS POR OUTROS COMPONENTES:
+=========================================
+- GPIO2 (Pin 3)  -> I2C SDA (BMI160, PCA9685, ADS1115, INA219)
+- GPIO3 (Pin 5)  -> I2C SCL (BMI160, PCA9685, ADS1115, INA219)
+- GPIO18 (Pin 12) -> Motor BTS7960 RPWM
+- GPIO27 (Pin 13) -> Motor BTS7960 LPWM
+- GPIO22 (Pin 15) -> Motor BTS7960 R_EN
+- GPIO23 (Pin 16) -> Motor BTS7960 L_EN
+- Slot CSI        -> Câmera OV5647
+
+CONFIGURAÇÃO NECESSÁRIA:
+========================
+1. Habilitar 1-Wire no Raspberry Pi:
+   sudo raspi-config -> Interface Options -> 1-Wire -> Enable
+
+2. Adicionar ao /boot/config.txt (já feito pelo raspi-config):
+   dtoverlay=w1-gpio,gpiopin=4
+
+3. Carregar módulos do kernel (automático após reboot):
+   sudo modprobe w1-gpio
+   sudo modprobe w1-therm
+
+4. Verificar se sensor foi detectado:
+   ls /sys/bus/w1/devices/
+   # Deve aparecer algo como: 28-xxxxxxxxxxxx
+
+5. Ler temperatura manualmente (teste):
+   cat /sys/bus/w1/devices/28-*/w1_slave
 """
 
 import glob

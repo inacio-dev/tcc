@@ -94,14 +94,21 @@ Este arquivo contém as especificações técnicas de todos os módulos utilizad
 
 | Especificação | Valor |
 |---------------|-------|
-| Tensão de Entrada | 4V a 38V DC |
-| Tensão de Saída | 1.25V a 36V DC |
+| Chip | XL4015E1 |
+| Tensão de Entrada | 8V a 36V DC |
+| Tensão de Saída | 1.25V a 32V DC (ajustável) |
 | Corrente de Saída | Máx 5A (recomendado 4.5A) |
 | Potência de Saída | Até 75W |
 | Eficiência | Até 96% |
-| Frequência | 180 KHz |
+| Frequência | 180 KHz (fixa) |
+| Drop Out Mínimo | 0.3V (VIN - VOUT) |
+| Proteção Térmica | 160°C (desliga automaticamente) |
+| Proteção Sobrecorrente | 8A (cycle-by-cycle limiting) |
+| Subtensão Lockout | 6V (desliga abaixo) |
+| Corrente Quiescente | 20mA (típico) |
 | Voltímetro | 4-40V (erro ±0.1V) |
 | Dimensões | 66 x 39 x 18 mm |
+| Datasheet | `datasheets/XL4015 5A.pdf` |
 
 ---
 
@@ -111,6 +118,37 @@ Este arquivo contém as especificações técnicas de todos os módulos utilizad
 |---------------|-------|
 | Pinos Disponíveis | VBUS, GND, CC1, CC2, D+, D- |
 | Conectores | 6 pinos (passo 0.1") |
+
+---
+
+## Divisor de Tensão para Bateria
+
+| Especificação | Valor |
+|---------------|-------|
+| Função | Medir tensão da bateria via ADS1115 A3 |
+| R1 (superior) | 10kΩ ±1% |
+| R2 (inferior) | 10kΩ ±1% |
+| Razão do Divisor | 1:2 (V_adc = V_bat × 0.5) |
+| Tensão Máxima Bateria | 12.6V (3S LiPo carregada) |
+| Tensão no ADC (máx) | 6.3V (dentro do range ±6.144V) |
+| Tensão Mínima Bateria | 9.0V (3S LiPo descarregada) |
+| Tensão no ADC (mín) | 4.5V |
+| Corrente pelo Divisor | 0.63mA @ 12.6V (desprezível) |
+| Potência Dissipada | 7.9mW (desprezível) |
+
+**Circuito:**
+```
+Bateria (+) ─── R1 (10kΩ) ───┬─── ADS1115 A3
+                             │
+                        R2 (10kΩ)
+                             │
+                            GND
+```
+
+**Cálculo de Tensão Real:**
+```
+V_bateria = V_adc × 2
+```
 
 ---
 
@@ -180,16 +218,26 @@ Este arquivo contém as especificações técnicas de todos os módulos utilizad
 
 ---
 
-## Ponte H BTS7960B
+## Ponte H BTS7960 (BTN7960B)
 
 | Especificação | Valor |
 |---------------|-------|
-| CI | BTS7960B |
-| Tensão de Alimentação | 5V a 45V DC |
-| Corrente Máxima | 43A (contínua) |
-| Corrente de Pico | 60A |
+| CI | 2x BTN7960B (Half-Bridge) |
+| Tensão Motor | 5.5V a 27V DC (nominal 8-18V) |
+| Tensão Lógica | 5V (compatível 3.3V) |
+| Corrente Contínua | 43A @ TC<85°C, 40A @ TC<125°C |
+| Corrente Pulsada | 90A (10ms single pulse) |
+| Corrente PWM | 55-60A (1-20kHz, DC=50%) |
+| Frequência PWM | até 25kHz (recomendado 1-10kHz) |
+| RON Total | typ. 16mΩ @ 25°C, max 30.5mΩ @ 150°C |
+| Proteção Térmica | 175°C (typ), com latch |
+| Proteção Sobrecorrente | 47A typ (low side), 62A typ (high side) |
+| Proteção Subtensão | 4.0-5.5V |
+| Proteção Sobretensão | 28-30V |
+| Corrente Quiescente | 7µA typ @ 25°C |
 | Dimensões | 50 x 50 x 42 mm (com dissipador) |
 | Peso | 67g |
+| Datasheet | `datasheets/Ponte H BTS7960.pdf` |
 
 ---
 
@@ -208,6 +256,28 @@ Este arquivo contém as especificações técnicas de todos os módulos utilizad
 | Resistor Shunt | 0.1Ω (1% precisão) |
 | Offset Máximo | 100 µV |
 | Dimensões | 22.3 x 25.2 mm |
+
+**Pinout (VIN-, VIN+, VCC, GND, SCL, SDA):**
+
+| Pino | Conexão |
+|------|---------|
+| VIN+ | Saída OUT+ do XL4015 (5.1V, lado fonte) |
+| VIN- | Entrada VBUS do USB Breakout (lado carga, vai para RPi) |
+| VCC | 3.3V do Raspberry Pi (alimentação do sensor) |
+| GND | GND comum do sistema |
+| SCL | GPIO3 (Pin 5) do Raspberry Pi |
+| SDA | GPIO2 (Pin 3) do Raspberry Pi |
+
+**Circuito de Medição:**
+```
+XL4015 OUT+ ─── VIN+ ───┬─── VIN- ─── USB Breakout VBUS (→ RPi)
+                        │
+                  [Shunt 0.1Ω]
+                   (interno)
+```
+
+**Nota:** O INA219 mede corrente pelo shunt interno entre VIN+ e VIN-.
+A corrente flui: XL4015 → VIN+ → VIN- → USB Breakout → RPi
 
 ---
 

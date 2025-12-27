@@ -3,25 +3,70 @@
 bmi160_manager.py - Gerenciamento do Sensor BMI160 CORRIGIDO
 Agora está de acordo com o datasheet oficial
 
-PINOUT BMI160 (GY-BMI160):
-==========================
+PINOUT BMI160 (GY-BMI160) -> RASPBERRY PI 4:
+============================================
+Pinos do módulo: VIN ; 3V3 ; GND ; SCL ; SDA ; CS ; SAO
+
 BMI160 Module -> Raspberry Pi 4 (GPIO)
-- VCC/VDD  -> Pin 1  (3.3V) ou Pin 2 (5V)    [Verifique datasheet do seu módulo]
-- GND      -> Pin 6  (GND) ou qualquer GND
-- SCL      -> Pin 5  (GPIO3/SCL1)             [I2C Clock]
-- SDA      -> Pin 3  (GPIO2/SDA1)             [I2C Data]
-- SAO/SDO  -> GND (0x68) ou VCC (0x69)        [Seleção de endereço]
+  - VIN      -> (não conectado)                [Entrada 5V - não usar]
+  - 3V3      -> Pin 1  (3.3V)                  [Alimentação 3.3V]
+  - GND      -> Pin 6  (GND)                   [Terra comum]
+  - SCL      -> Pin 5  (GPIO3/SCL1)            [I2C Clock]
+  - SDA      -> Pin 3  (GPIO2/SDA1)            [I2C Data]
+  - CS       -> Pin 1  (3.3V)                  [Chip Select - HIGH para I2C]
+  - SAO      -> Pin 6  (GND)                   [Endereço 0x68]
+
+Diagrama de conexão:
+                  GY-BMI160
+                 ┌─────────┐
+    (NC)    VIN ─┤         │
+    3.3V    3V3 ─┤         │
+    GND     GND ─┤         │
+    GPIO3   SCL ─┤         │
+    GPIO2   SDA ─┤         │
+    3.3V     CS ─┤         │  ← HIGH = modo I2C
+    GND     SAO ─┤         │  ← GND = endereço 0x68
+                 └─────────┘
+
+ENDEREÇO I2C UTILIZADO NESTE PROJETO:
+=====================================
+  ┌─────────────────────────────────────────────────────────┐
+  │  ENDEREÇO: 0x68  (SAO/SDO conectado ao GND)            │
+  └─────────────────────────────────────────────────────────┘
+
+  Configuração do pino SAO/SDO:
+    - SAO/SDO → GND  = Endereço 0x68 (PADRÃO DESTE PROJETO)
+    - SAO/SDO → VCC  = Endereço 0x69 (alternativo)
+
+  Verificar detecção I2C:
+    $ sudo i2cdetect -y 1
+    Esperado: 0x68 aparece na saída
+
+MAPA DE ENDEREÇOS I2C DO PROJETO (sem conflitos):
+=================================================
+  - 0x40 : PCA9685 (PWM Driver - servos)
+  - 0x41 : INA219 (Sensor de corrente RPi) - A0=VCC
+  - 0x48 : ADS1115 (ADC - sensores de corrente)
+  - 0x68 : BMI160 (IMU - este sensor) ← ENDEREÇO ATUAL
+
+CARACTERÍSTICAS BMI160 (Datasheet Bosch):
+=========================================
+  - Acelerômetro: ±2g, ±4g, ±8g, ±16g (16-bit)
+  - Giroscópio: ±125, ±250, ±500, ±1000, ±2000 °/s (16-bit)
+  - ODR: 25Hz a 1600Hz
+  - Chip ID: 0xD1
+  - Tensão: 1.71V a 3.6V (módulo aceita 3.3V ou 5V)
 
 REGISTRADORES IMPORTANTES (conforme datasheet):
-==============================================
-0x00 - CHIP_ID (deve retornar 0xD1)
-0x40 - ACC_CONF (configuração acelerômetro)
-0x41 - ACC_RANGE (range acelerômetro)
-0x42 - GYR_CONF (configuração giroscópio)
-0x43 - GYR_RANGE (range giroscópio)
-0x7E - CMD (comandos de controle)
-0x12-0x17 - ACCEL_DATA (6 bytes)
-0x0C-0x11 - GYRO_DATA (6 bytes)
+===============================================
+  0x00 - CHIP_ID (deve retornar 0xD1)
+  0x40 - ACC_CONF (configuração acelerômetro)
+  0x41 - ACC_RANGE (range acelerômetro)
+  0x42 - GYR_CONF (configuração giroscópio)
+  0x43 - GYR_RANGE (range giroscópio)
+  0x7E - CMD (comandos de controle)
+  0x12-0x17 - ACCEL_DATA (6 bytes: X_LSB, X_MSB, Y_LSB, Y_MSB, Z_LSB, Z_MSB)
+  0x0C-0x11 - GYRO_DATA (6 bytes: X_LSB, X_MSB, Y_LSB, Y_MSB, Z_LSB, Z_MSB)
 """
 
 import threading
@@ -114,11 +159,11 @@ class BMI160Manager:
             gyro_range (int): Range do giroscópio (usar constantes GYRO_RANGE_*)
             i2c_address (int): Endereço I2C do sensor
         """
-        # Valores padrão conforme datasheet
+        # Valores padrão recomendados para veículos (melhor dinâmica)
         self.accel_range = (
-            accel_range if accel_range is not None else self.ACCEL_RANGE_2G
+            accel_range if accel_range is not None else self.ACCEL_RANGE_4G
         )
-        self.gyro_range = gyro_range if gyro_range is not None else self.GYRO_RANGE_250
+        self.gyro_range = gyro_range if gyro_range is not None else self.GYRO_RANGE_500
         self.i2c_address = (
             i2c_address if i2c_address is not None else self.I2C_ADDRESS_LOW
         )
@@ -386,7 +431,7 @@ class BMI160Manager:
             if not self._write_register(self.REG_CMD, self.CMD_GYR_SET_PMU_MODE):
                 print("❌ Falha ao ativar giroscópio")
                 return False
-            time.sleep(0.060)  # Startup time do giroscópio (55ms + margem)
+            time.sleep(0.080)  # Startup time do giroscópio (80ms conforme datasheet)
 
             # 8. Configurar giroscópio (DEPOIS de ativar)
             print("Configurando range do giroscópio...")

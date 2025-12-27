@@ -5,23 +5,25 @@ Controla motor RC 775 via ponte H BTS7960 (HW-039)
 
 PINOUT PONTE H BTS7960 (HW-039):
 ================================
-Ponte H HW-039 -> Raspberry Pi 4 (GPIO)
-- VCC          -> Pin 2 (5V) - Alimentação lógica
-- GND          -> Pin 6 (GND) - Terra comum
-- RPWM         -> Pin 12 (GPIO18) - PWM direção direita
-- LPWM         -> Pin 13 (GPIO27) - PWM direção esquerda
-- R_EN         -> Pin 15 (GPIO22) - Enable direita (HIGH)
-- L_EN         -> Pin 16 (GPIO23) - Enable esquerda (HIGH)
-- R_IS         -> Não conectar (current sense direita)
-- L_IS         -> Não conectar (current sense esquerda)
+Pinos do módulo: VCC, GND, R_IS, L_IS, R_EN, L_EN, RPWM, LPWM, B-, B+, M+, M-
 
-Motor RC 775 -> Ponte H BTS7960:
-- Motor+ -> B+
-- Motor- -> B-
+Ponte H BTS7960 → Raspberry Pi 4 (GPIO):
+  - VCC   → 5V do XL4015 5A (alimentação lógica)
+  - GND   → GND comum do sistema
+  - R_IS  → Não conectado (current sense direita - opcional)
+  - L_IS  → Não conectado (cu   rrent sense esquerda - opcional)
+  - R_EN  → GPIO22 (Pin 15) - Enable direita (manter HIGH)
+  - L_EN  → GPIO23 (Pin 16) - Enable esquerda (manter HIGH)
+  - RPWM  → GPIO18 (Pin 12) - PWM direção frente
+  - LPWM  → GPIO27 (Pin 13) - PWM direção ré
 
-Alimentação Motor -> Ponte H:
-- V+ (12V) -> B+VCC (Positivo bateria)
-- V- (GND) -> B-VCC (Negativo bateria)
+Ponte H BTS7960 → Bateria 12V:
+  - B+    → Positivo da bateria 12V (entrada de potência)
+  - B-    → GND da bateria (passa pelo ACS758 100A antes do GND geral)
+
+Ponte H BTS7960 → Motor RC 775:
+  - M+    → Terminal positivo do motor
+  - M-    → Terminal negativo do motor
 
 CARACTERÍSTICAS RC 775:
 ======================
@@ -31,12 +33,16 @@ CARACTERÍSTICAS RC 775:
 - Torque: Alto torque de partida
 - Potência: ~300W
 
-CARACTERÍSTICAS BTS7960:
-=======================
-- Tensão: 5.5V-27V (motor), 5V (lógica)
-- Corrente: 40A contínua, 60A pico
+CARACTERÍSTICAS BTS7960 (BTN7960B):
+===================================
+- Tensão motor: 5.5V-27V (nominal 8-18V)
+- Tensão lógica: 5V (compatível 3.3V)
+- Corrente contínua: 43A @ TC<85°C, 40A @ TC<125°C
+- Corrente pulsada: 90A (10ms single pulse)
+- Corrente PWM: 55-60A (1-20kHz, DC=50%)
 - Frequência PWM: até 25kHz (recomendado 1-10kHz)
-- Proteção térmica e sobrecorrente integrada
+- RON total: typ. 16mΩ @ 25°C, max 30.5mΩ @ 150°C
+- Proteções: térmica (175°C), sobrecorrente (47A typ), sub/sobretensão
 - Controle independente para frente/ré
 
 CONFIGURAÇÃO NECESSÁRIA:

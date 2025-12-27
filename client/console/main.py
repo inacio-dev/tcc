@@ -216,6 +216,8 @@ class ConsoleInterface:
             "current_servos": tk.StringVar(value="--"),
             "current_motor": tk.StringVar(value="--"),
             "voltage_rpi": tk.StringVar(value="--"),
+            "voltage_battery": tk.StringVar(value="--"),
+            "battery_percentage": tk.StringVar(value="--"),
             "power_rpi": tk.StringVar(value="--"),
             "power_servos": tk.StringVar(value="--"),
             "power_motor": tk.StringVar(value="--"),
@@ -615,6 +617,8 @@ class ConsoleInterface:
             "current_servos": "current_servos",
             "current_motor": "current_motor",
             "voltage_rpi": "voltage_rpi",
+            "voltage_battery": "voltage_battery",
+            "battery_percentage": "battery_percentage",
             "power_rpi": "power_rpi",
             "power_servos": "power_servos",
             "power_motor": "power_motor",
@@ -654,8 +658,10 @@ class ConsoleInterface:
                     formatted_value = f"{value:.1f}"
                 elif var_name in ["current_rpi", "current_servos", "current_motor"]:
                     formatted_value = f"{value:.2f}A"
-                elif var_name in ["voltage_rpi"]:
+                elif var_name in ["voltage_rpi", "voltage_battery"]:
                     formatted_value = f"{value:.2f}V"
+                elif var_name in ["battery_percentage"]:
+                    formatted_value = f"{value:.0f}%"
                 elif var_name in [
                     "power_rpi",
                     "power_servos",
@@ -676,8 +682,45 @@ class ConsoleInterface:
 
                 self.sensor_vars[var_name].set(formatted_value)
 
-        # Atualiza cores de temperatura
+        # Atualiza cores de temperatura e bateria
         self._update_temperature_colors(sensor_data)
+        self._update_battery_colors(sensor_data)
+
+    def _update_battery_colors(self, sensor_data):
+        """Atualiza as cores do display de bateria baseado na porcentagem de carga"""
+        try:
+            if hasattr(self, "battery_voltage_display") and hasattr(
+                self, "battery_pct_display"
+            ):
+                battery_pct = sensor_data.get("battery_percentage", 100)
+
+                # Cores baseadas na porcentagem
+                # >50% = verde, 25-50% = amarelo, <25% = vermelho
+                if battery_pct > 50:
+                    color = "#00ff00"  # Verde
+                elif battery_pct > 25:
+                    color = "#ffaa00"  # Amarelo/Laranja
+                elif battery_pct > 10:
+                    color = "#ff4444"  # Vermelho
+                else:
+                    color = "#ff0000"  # Vermelho intenso (crítico)
+
+                self.battery_voltage_display.config(fg=color)
+                self.battery_pct_display.config(fg=color)
+
+                # Pisca em vermelho se bateria crítica (<10%)
+                if battery_pct <= 10:
+                    current_color = self.battery_voltage_display.cget("fg")
+                    flash_color = "#ffffff" if current_color != "#ffffff" else color
+                    self.root.after(
+                        500, lambda: self.battery_voltage_display.config(fg=flash_color)
+                    )
+                    self.root.after(
+                        500, lambda: self.battery_pct_display.config(fg=flash_color)
+                    )
+
+        except Exception as e:
+            error(f"Erro ao atualizar cores de bateria: {e}", "CONSOLE")
 
     def _update_temperature_colors(self, sensor_data):
         """Atualiza as cores do display de temperatura baseado no status térmico"""

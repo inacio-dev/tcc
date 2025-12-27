@@ -7,17 +7,27 @@
  *
  * Hardware: Driver Motor Ponte H Dupla BTS7960 43A
  *
- * Pinagem (ESP32 → BTS7960):
- * - GPIO 16 (D16) → RPWM (PWM direita - rotação horária)
- * - GPIO 17 (D17) → LPWM (PWM esquerda - rotação anti-horária)
- * - GPIO 18 (D18) → R_EN (Habilitação direita - HIGH para ativar)
- * - GPIO 19 (D19) → L_EN (Habilitação esquerda - HIGH para ativar)
- * - GND → GND (terra comum)
+ * PINOUT PONTE H BTS7960:
+ * =======================
+ * Pinos do módulo: VCC, GND, R_IS, L_IS, R_EN, L_EN, RPWM, LPWM, B-, B+, M+, M-
  *
- * Alimentação BTS7960:
- * - VCC (lógica 5V) → 5V do ESP32 ou alimentação externa
- * - B+ / B- → Terminais do motor
- * - Vcc motor → Fonte de alimentação do motor (6V-27V, dependendo das especificações do motor)
+ * Ponte H BTS7960 → ESP32 DevKit V1:
+ *   - VCC   → 5V do ESP32 (alimentação lógica)
+ *   - GND   → GND do ESP32 (terra comum)
+ *   - R_IS  → Não conectado (current sense direita - opcional)
+ *   - L_IS  → Não conectado (current sense esquerda - opcional)
+ *   - R_EN  → GPIO 18 - Enable direita (manter HIGH)
+ *   - L_EN  → GPIO 19 - Enable esquerda (manter HIGH)
+ *   - RPWM  → GPIO 16 - PWM rotação horária (direita)
+ *   - LPWM  → GPIO 17 - PWM rotação anti-horária (esquerda)
+ *
+ * Ponte H BTS7960 → Fonte de Alimentação Motor:
+ *   - B+    → Positivo da fonte (6V-27V dependendo do motor)
+ *   - B-    → GND da fonte
+ *
+ * Ponte H BTS7960 → Motor Force Feedback:
+ *   - M+    → Terminal positivo do motor
+ *   - M-    → Terminal negativo do motor
  *
  * @author F1 RC Car Project
  * @date 2025-10-14

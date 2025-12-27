@@ -131,6 +131,44 @@ def create_instrument_panel(console):
         temp_frame, text="°C", bg="#2c2c2c", fg="#cccccc", font=("Arial", 10)
     ).pack()
 
+    # Bateria - Painel de tensão da bateria
+    battery_frame = tk.Frame(instruments_inner, bg="#2c2c2c", relief=tk.RAISED, bd=2)
+    battery_frame.pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=5)
+
+    tk.Label(
+        battery_frame,
+        text="BATERIA",
+        bg="#2c2c2c",
+        fg="white",
+        font=("Arial", 10, "bold"),
+    ).pack(pady=2)
+
+    # Tensão da bateria em fonte grande
+    console.battery_voltage_display = tk.Label(
+        battery_frame,
+        textvariable=console.sensor_vars["voltage_battery"],
+        bg="#2c2c2c",
+        fg="#00ff00",
+        font=("Digital-7", 20, "bold"),
+    )
+    console.battery_voltage_display.pack(pady=2)
+
+    # Porcentagem
+    battery_pct_frame = tk.Frame(battery_frame, bg="#2c2c2c")
+    battery_pct_frame.pack(pady=2)
+
+    tk.Label(
+        battery_pct_frame, text="Carga:", bg="#2c2c2c", fg="#aaaaaa", font=("Arial", 9)
+    ).pack(side=tk.LEFT)
+    console.battery_pct_display = tk.Label(
+        battery_pct_frame,
+        textvariable=console.sensor_vars["battery_percentage"],
+        bg="#2c2c2c",
+        fg="#00ff88",
+        font=("Arial", 12, "bold"),
+    )
+    console.battery_pct_display.pack(side=tk.LEFT, padx=5)
+
     # Energia - Painel de monitoramento de potência
     power_frame = tk.Frame(instruments_inner, bg="#2c2c2c", relief=tk.RAISED, bd=2)
     power_frame.pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=5)
