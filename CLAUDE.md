@@ -7,7 +7,7 @@
 ║                                                                               ║
 ║   Este arquivo NÃO DEVE EXCEDER 40.000 CARACTERES (40k chars)               ║
 ║                                                                               ║
-║   Tamanho Atual: ~32k chars                                                  ║
+║   Tamanho Atual: ~13k chars                                                  ║
 ║   Limite Máximo: 40k chars                                                   ║
 ║   Impacto se exceder: Performance degradada do Claude Code                   ║
 ║                                                                               ║
@@ -297,6 +297,22 @@ Examples:
 - `raspberry/MODULOS.md`: Technical specifications of all hardware modules
 - `raspberry/DIAGRAMA.drawio.pdf`: Complete electrical diagram
 - `datasheets/`: Component datasheets (BTS7960, etc.) for detailed technical reference
+
+**Monografia (`monografia/`):**
+
+- Template LaTeX UFCTeX (abnTeX2) para trabalhos acadêmicos da UFC
+- `documento.tex`: Arquivo principal que inclui todos os capítulos
+- `lib/preambulo.tex`: Configurações de pacotes e formatação
+- `lib/ufctex.sty`: Customizações do template
+- `2-textuais/`: Capítulos da monografia:
+  - `1-introducao.tex`: Introdução, justificativa e objetivos
+  - `2-fundamentacao-teorica.tex`: Revisão de literatura (54 artigos)
+  - `3-metodologia.tex`: Arquitetura, algoritmos e especificações
+  - `4-resultados.tex`: Métricas, benchmarks e análise estatística
+  - `4.5-discussao.tex`: Interpretação teórica e implicações
+  - `5-conclusao.tex`: Conclusões e trabalhos futuros
+- Compilação: `make compile` (requer texlive + abntex2)
+- Verificação: `chktex documento.tex` (warnings suprimidos em `.chktexrc`)
 
 **Client:**
 

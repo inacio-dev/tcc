@@ -1,0 +1,4 @@
+## Configuração do ChkTeX - suprimir warnings estilísticos
+
+# Suprimir warnings específicos
+CmdLine { -n1 -n8 -n12 -n13 -n18 -n24 -n36 }

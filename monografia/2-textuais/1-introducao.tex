@@ -1,0 +1,35 @@
+\chapter{Introdução}\label{chap:introducao}
+
+Os sistemas de controle remoto têm se tornado fundamentais para operações em ambientes onde a presença humana é impraticável ou perigosa. Segundo \citeonline{shaik2025design}, o desenvolvimento de soluções de controle remoto tem crescido significativamente nos últimos anos, impulsionado por aplicações em mineração subterrânea, exploração espacial e operações militares.
+
+Com relação à latência, depende-se muito da rede em que está sendo usado o projeto, pois ela irá definir a distância e a velocidade de transmissão. Além disso, em casos onde não se usa a rede interna, deverá ser levada em conta também a eficiência do servidor em que se encontra a aplicação. Conforme demonstrado por \citeonline{shendge2023development}, que obtiveram latência de 1--3 segundos, e \citeonline{dreger2024evaluation}, que evidenciaram a importância do feedback para melhorar a precisão operacional. Os custos são relativamente baixos devido ao uso de sensores de baixo custo, mas em casos extremos em que seja necessário melhorar o desempenho e a captação de dados, será necessário usar sensores industriais e outras formas de aprimorar a eficiência, aumentando assim o custo. Os desafios de transformar os dados de feedback dos sensores em retornos hápticos ao usuário advêm da experimentação e testes para tentar evidenciar situações o mais semelhantes possível com a vida real.
+
+Existe um constante avanço em hardware de Raspberry Pi e também em velocidade de rede e protocolos. Atualmente já existe o Raspberry Pi 5, conforme utilizado por \citeonline{shaik2025design}, e velocidades que chegam até 6G ou 7G em desenvolvimento. \citeonline{bobrovsky2023development} demonstraram a viabilidade da integração de múltiplos sensores em sistemas embarcados, podendo assim chegar a uma crescente melhoria do cenário para experimentos desse tipo.
+
+Entretanto, ainda existe uma lacuna significativa na disponibilidade de soluções de baixo custo que integrem force feedback eficaz com comunicação de baixa latência. As soluções comerciais existentes são frequentemente caras e complexas, limitando sua aplicação a contextos industriais de grande porte. Conforme evidenciado por \citeonline{an2025enabling} e \citeonline{lu2023udp}, protocolos otimizados podem alcançar latências extremamente baixas, mas sua implementação prática em sistemas de custo reduzido permanece um desafio. Estabelece-se, portanto, a necessidade de desenvolvimento de sistemas que equilibrem performance, custo e simplicidade de implementação.
+
+\section{Justificativa}\label{sec:justificativa}
+
+Este trabalho se justifica pela crescente demanda por soluções de teleoperação eficientes e economicamente viáveis. Conforme demonstrado por \citeonline{dreger2024evaluation}, sistemas de controle remoto com feedback háptico melhoram significativamente a precisão operacional, além de possibilitar controle de diferentes distâncias com uma precisão semelhante ao comando em tempo real.
+
+A utilização de hardware de baixo custo (Raspberry Pi, Arduino, sensores MEMS) permite o desenvolvimento de soluções avançadas com orçamento reduzido, democratizando o acesso a tecnologias de teleoperação antes restritas a aplicações militares ou industriais de grande porte.
+
+Além disso, a combinação de protocolo UDP simples com algoritmos diretos de force feedback representa uma abordagem simples e dinâmica que pode servir como referência para desenvolvimentos futuros na área, servindo como ponto de partida.
+
+\section{Objetivos}\label{sec:objetivos}
+
+O objetivo geral deste trabalho é desenvolver um sistema completo de controle remoto de veículos com interface háptica, utilizando protocolo UDP para comunicação de baixa latência, integrando carrinho controlado via Raspberry Pi 4, cockpit com force feedback via Arduino Mega, e interface gráfica para visualização em tempo real.
+
+\subsection{Hipótese de Pesquisa}\label{subsec:hipotese-pesquisa}
+
+Sistemas de teleoperação baseados em UDP simples com algoritmos diretos de force feedback podem superar protocolos complexos (UDP-RT) em aplicações de baixo custo, mantendo latência inferior a 5ms e precisão superior a 95\% na detecção de eventos hápticos, validando que a simplicidade de implementação não compromete a performance operacional em cenários de recursos limitados.
+
+Para alcançar este objetivo geral, foram estabelecidos os seguintes objetivos específicos: projetar e implementar um carrinho controlável remotamente baseado em Raspberry Pi 4, integrando câmera OV5647, sensores BMI160 e sistema de controle de motores DC; desenvolver algoritmos de force feedback em tempo real para simulação de forças G, vibrações e feedback tátil baseados em dados de sensores inerciais; implementar comunicação UDP otimizada para baixa latência (< 5ms) entre carrinho e estação de controle; construir cockpit físico com atuadores lineares, sistema de direção e pedais com feedback háptico controlado via Arduino Mega; criar interface gráfica em Python/Tkinter para visualização de vídeo em tempo real e telemetria de sensores; e validar o sistema através de métricas de performance, latência, qualidade de vídeo e experiência do usuário.
+
+\section{Contribuições}\label{sec:contribuicoes}
+
+Este trabalho oferece as seguintes contribuições principais: arquitetura de sistema de três camadas otimizada para baixa latência; algoritmos simplificados, mas eficazes, para geração de feedback háptico em tempo real; demonstração prática de que UDP simples pode superar protocolos mais complexos em cenários específicos; implementação de referência com código aberto e documentação completa; e métricas detalhadas de performance para benchmarking futuro.
+
+\section{Organização do Trabalho}\label{sec:organizacao}
+
+Este trabalho está organizado em seis capítulos. O Capítulo 2 apresenta a fundamentação teórica, abordando interfaces hápticas, protocolos de comunicação, sistemas embarcados e controle de motores DC, baseada na análise de 54 artigos científicos. O Capítulo 3 descreve a metodologia de desenvolvimento incremental e modular, especificações de componentes, algoritmos de force feedback e métricas de validação. O Capítulo 4 apresenta os resultados obtidos, incluindo análise de performance, validação dos algoritmos e comparação com o estado da arte. O Capítulo 5 discute os resultados à luz da fundamentação teórica, suas implicações práticas e científicas. Por fim, o Capítulo 6 apresenta as conclusões, limitações identificadas e propostas para trabalhos futuros.
