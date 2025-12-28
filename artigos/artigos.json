@@ -1,0 +1,95 @@
+[
+  {
+    "_comentario": "ESTE É UM EXEMPLO - NÃO PREENCHER, APENAS REFERÊNCIA",
+    "numero": 0,
+    "nome_arquivo": "nome_do_arquivo.pdf",
+
+    "_comentario_identificacao": "Informações bibliográficas do artigo - NOMES DOS AUTORES DEVEM ESTAR COMPLETOS conforme aparecem no PDF",
+    "autores": "Nome Completo; Nome Completo 2 (separados por ponto e vírgula)",
+    "ano": 2024,
+    "titulo": "Título completo do artigo",
+    "subtitulo": "Subtítulo se houver",
+    "journal": "Nome do periódico/conferência",
+    "publisher": "Editora (Elsevier, IEEE, Springer, etc.)",
+
+    "_comentario_conteudo": "Análise do conteúdo científico",
+    "objetivo": "Objetivo principal do artigo - o que os autores buscam resolver/propor",
+    "metodologia": "Métodos, algoritmos, arquiteturas e abordagens utilizadas",
+    "analise_estatistica": "Métricas, testes estatísticos, tamanho de amostra, distribuições",
+    "resultados": "Principais resultados quantitativos e qualitativos",
+    "contribuicoes": "Contribuições originais do trabalho",
+    "limitacoes": "Limitações identificadas pelos autores ou observadas",
+
+    "_comentario_classificacao": "Classificação e categorização",
+    "topico": "Palavras-chave principais (ex: Edge Computing, IoT, Machine Learning)",
+    "area_aplicacao": "Domínios de aplicação (ex: Robótica, Veículos Autônomos, Indústria 4.0)",
+
+    "_comentario_recursos": "Recursos práticos e reprodutibilidade",
+    "tipo_dados": "Tipo de dados utilizados (sensores, imagens, telemetria, etc.)",
+    "dataset": "Dataset utilizado (nome ou 'Próprio')",
+    "frameworks": "Ferramentas, bibliotecas, hardware utilizado",
+    "link_codigo": "Link para código fonte se disponível, ou 'Não disponível'"
+  },
+  {
+    "numero": 1,
+    "nome_arquivo": "A latency sensitive and agile IIoT architecture with optimized edge node selection and task scheduling.pdf",
+
+    "autores": "Mona Kumari; Maheswari Prasad Singh; Amit Kumar Singh",
+    "ano": 2025,
+    "titulo": "A latency sensitive and agile IIoT architecture with optimized edge node selection and task scheduling",
+    "subtitulo": "",
+    "journal": "Digital Communications and Networks",
+    "publisher": "Elsevier",
+
+    "objetivo": "Propor uma nova arquitetura IIoT baseada em edge computing para monitoramento e controle sensível a delay em indústrias de manufatura, garantindo disponibilidade de edge nodes e distribuição uniforme de carga de execução de tarefas entre múltiplos nós de computação de borda.",
+
+    "metodologia": "Arquitetura edge-cloud computing de três camadas: Device Layer (DN - Device Nodes com sensores IoT), Edge Layer (DC - Device Coordinators, EN - Edge Nodes, RL - Resource Logger) e Cloud Layer. Proposto algoritmo RLRTT-ESA (Resource Logger Round Trip Time-Based Edge Node Selection Algorithm) que utiliza Locality Sensitive Hashing (LSH) para seleção de nós vizinhos aproximados e protocolo CoAP (CON/ACK) para medir RTT e decidir alocação de tarefas.",
+
+    "analise_estatistica": "Chegada de tarefas modelada por distribuição de Poisson. Simulação com 100-150 DN, 20-25 DC, 10-20 EN. Tarefas de 2-5 MB com 100k-400k instruções. Métricas: tempo de execução (ms), delay de comunicação e enfileiramento (ms), tempo médio de resposta, carga de trabalho média nos ENs. Comparação com algoritmos ATS-FOA e RBEC/PENB.",
+
+    "resultados": "Redução de 88.28% no delay de comunicação comparado à abordagem cloud tradicional. Redução de 12.32% comparado aos métodos ATS-FOA e RBEC/PENB. Melhoria de 47.25% no tempo total de resposta da aplicação. RLRTT-ESA demonstrou menor variabilidade e melhor escalabilidade conforme número de tarefas aumenta.",
+
+    "contribuicoes": "1) Arquitetura IIoT edge-cloud com múltiplos dispositivos industriais móveis e estáticos, Device Coordinators, Edge Nodes heterogêneos e Resource Logger centralizado. 2) Algoritmo de task scheduling (RLRTT-ESA) para gerenciar congestionamento e distribuir uniformemente a carga de execução entre ENs usando RTT e disponibilidade de recursos.",
+
+    "limitacoes": "Não há número fixo de hiperplanos para dividir o espaço d-dimensional em LSH. Abordagem depende de condições ambientais específicas. Escalabilidade limitada em instalações de grande escala. Não considera segurança e privacidade dos dados.",
+
+    "topico": "Edge Computing, IIoT, Task Scheduling, Load Balancing",
+    "area_aplicacao": "Industrial IoT, Manufatura Inteligente, Indústria 4.0, Sistemas de Monitoramento e Controle",
+
+    "tipo_dados": "Dados de sensores IoT industriais, métricas de latência, telemetria de dispositivos",
+    "dataset": "Próprio (simulação)",
+    "frameworks": "Thingworx simulator, CoAP protocol, Raspberry Pi 4, Node MCU, BLE/Zigbee/RFID",
+    "link_codigo": "Não disponível"
+  },
+  {
+    "numero": 2,
+    "nome_arquivo": "A multipath redundancy communication framework for enhancing 5G mobile communication quality.pdf",
+
+    "autores": "Koki Ito; Jin Nakazato; Romain Fontugne; Manabu Tsukada; Esaki Hiroshi",
+    "ano": 2025,
+    "titulo": "A multipath redundancy communication framework for enhancing 5G mobile communication quality",
+    "subtitulo": "",
+    "journal": "Computer Communications",
+    "publisher": "Elsevier",
+
+    "objetivo": "Propor um framework de comunicação redundante multipath para melhorar a qualidade de streaming de mídia em tempo real em redes 5G, particularmente para aplicações baseadas em UDP como WebRTC, resolvendo o problema de handover durante movimento em redes móveis.",
+
+    "metodologia": "Framework composto por Mobile Router (MRT) em ambiente móvel instável e Central Router (CRT) em datacenter estável. Utiliza encapsulamento GENEVE (Generic Network Virtualization Encapsulation) na camada IP para tunelamento. Replicação de pacotes no lado transmissor com números de sequência no header GENEVE. Buffer com heap ordenado por número de sequência no receptor para reordenação de pacotes. Implementação em Go (golang) com biblioteca gopacket. Experimentos reais com veículo em ambiente urbano (Shinjuku e Shibuya, Tóquio) usando duas redes móveis (MNOs) e streaming WebRTC P2P.",
+
+    "analise_estatistica": "Experimentos em Shinjuku (15 min, 2.9km, 170.445 pacotes) e Shibuya (40 min, 10.6km, 692.708 pacotes). Veículo a 0-60 km/h. Métricas: taxa de perda de pacotes, bitrate WebRTC via getStats() API, RTT. Tempos máximos de buffer testados: 10ms, 100ms, 300ms, 500ms, 1000ms. Comparação entre MNO#1, MNO#2 e proposta com/sem buffering.",
+
+    "resultados": "Shinjuku: perda de pacotes reduzida de 2.078% (MNO#1) e 14.938% (MNO#2) para 0.002%. Shibuya: perda reduzida de 4.094% (MNO#1) e 3.980% (MNO#2) para 0.002%. Bitrate significativamente maior com framework proposto vs método convencional sem buffering. 75% dos valores de RTT abaixo de 85ms (vs 50ms para único MNO). Overhead one-way estimado em ~19ms. Buffer de 300ms+ elimina maioria dos timeouts.",
+
+    "contribuicoes": "1) Framework para comunicação redundante multipath usando tunelamento GENEVE na camada IP, aplicável a aplicações existentes sem modificação. 2) Mecanismo de buffering para resolver inconsistências de ordem de pacotes causadas por comunicação redundante. 3) Avaliação em ambiente real usando múltiplas redes móveis em cenário veicular urbano.",
+
+    "limitacoes": "Overhead do sistema de ~40ms (round-trip). Delays de processamento no buffer do kernel. Ausência de plano de controle dinâmico para troca de endereços de endpoints do túnel GENEVE. Reduz eficiência de utilização de frequência (dobro do consumo de bandwidth). Tempo máximo de buffer ótimo necessita investigação adicional.",
+
+    "topico": "5G, Multipath Communication, UDP Streaming, WebRTC, Mobile Networks, Handover, Packet Replication",
+    "area_aplicacao": "Veículos Conectados Autônomos (CAV), Streaming em Tempo Real, Sistemas de Controle Remoto, V2X, AR/VR/MR, Robótica Remota, UAVs",
+
+    "tipo_dados": "Tráfego de rede, estatísticas de pacotes, métricas WebRTC, medições de latência RTT",
+    "dataset": "Próprio (experimentos reais em ambiente urbano)",
+    "frameworks": "Go (golang), gopacket, WebRTC, GENEVE, Docker, nginx, Vite.js, Ayame signaling server, Chrome, VP9, Opus",
+    "link_codigo": "Não disponível"
+  }
+]
