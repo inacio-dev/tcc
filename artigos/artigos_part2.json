@@ -1,0 +1,408 @@
+[
+  {
+    "_comentario": "ESTE É UM EXEMPLO - NÃO PREENCHER, APENAS REFERÊNCIA",
+    "_arquivo_parte": "PARTE 2 - Contém artigos 16 a 27. Artigos 1 a 15 estão em artigos_part1.json, artigos 28+ estão em artigos_part3.json",
+    "numero": 0,
+    "nome_arquivo": "nome_do_arquivo.pdf",
+
+    "_comentario_artigos_grandes": "Para artigos muito grandes (>10 páginas ou erro 413 na API): 1) Dividir PDF em partes menores (ex: _parte01.pdf, _parte02.pdf); 2) Ler de 3 em 3 partes para não sobrecarregar contexto; 3) Criar arquivo artigoN_resumo.md com resumo detalhado de cada parte; 4) Após processar todas as partes, adicionar entrada resumida aqui no JSON. Exemplo: artigo 9 foi dividido em 8 partes e resumido em artigo9_resumo.md",
+
+    "_comentario_identificacao": "Informações bibliográficas do artigo - NOMES DOS AUTORES DEVEM ESTAR COMPLETOS conforme aparecem no PDF",
+    "autores": "Nome Completo; Nome Completo 2 (separados por ponto e vírgula)",
+    "ano": 2024,
+    "titulo": "Título completo do artigo",
+    "subtitulo": "Subtítulo se houver",
+    "journal": "Nome do periódico/conferência",
+    "publisher": "Editora (Elsevier, IEEE, Springer, etc.)",
+
+    "_comentario_conteudo": "Análise do conteúdo científico",
+    "objetivo": "Objetivo principal do artigo - o que os autores buscam resolver/propor",
+    "metodologia": "Métodos, algoritmos, arquiteturas e abordagens utilizadas",
+    "analise_estatistica": "Métricas, testes estatísticos, tamanho de amostra, distribuições",
+    "resultados": "Principais resultados quantitativos e qualitativos",
+    "contribuicoes": "Contribuições originais do trabalho",
+    "limitacoes": "Limitações identificadas pelos autores ou observadas",
+
+    "_comentario_classificacao": "Classificação e categorização",
+    "topico": "Palavras-chave principais (ex: Edge Computing, IoT, Machine Learning)",
+    "area_aplicacao": "Domínios de aplicação (ex: Robótica, Veículos Autônomos, Indústria 4.0)",
+
+    "_comentario_recursos": "Recursos práticos e reprodutibilidade",
+    "tipo_dados": "Tipo de dados utilizados (sensores, imagens, telemetria, etc.)",
+    "dataset": "Dataset utilizado (nome ou 'Próprio')",
+    "frameworks": "Ferramentas, bibliotecas, hardware utilizado",
+    "link_codigo": "Link para código fonte se disponível, ou 'Não disponível'"
+  },
+  {
+    "numero": 16,
+    "nome_arquivo": "Design and calibration of 3D printed soft deformation sensors for soft actuator control.pdf",
+
+    "autores": "Qinglei Ji; Jakob Jansson; Mikael Sjöberg; Xi Vincent Wang; Lihui Wang; Lei Feng",
+    "ano": 2023,
+    "titulo": "Design and calibration of 3D printed soft deformation sensors for soft actuator control",
+    "subtitulo": "",
+    "journal": "Mechatronics",
+    "publisher": "Elsevier",
+
+    "objetivo": "Desenvolver sensores macios impressos em 3D utilizando material TPU condutivo comercialmente disponível que podem ser impressos diretamente em atuadores macios para fornecer feedback de forma para controle em malha fechada, com interferência mínima no desempenho do atuador, superando limitações de sensores comerciais que são muito rígidos ou requerem materiais especializados difíceis de reproduzir.",
+
+    "metodologia": "Impressão 3D multi-material FDM usando impressora TL-D3 Pro Dual Extruder com dois materiais: corpo do atuador em NinjaFlex TPU (dureza Shore 85A, módulo de tração 12 MPa, alongamento até 660%) e sensor em EEL TPU condutivo (mistura de TPU + negro de fumo, efeito piezorresistivo, alongamento até 355%). Atuador tipo fole (143.4 mm comprimento, 21.4 mm altura) com estrutura assimétrica para flexão unidirecional. Perfis de sensores em forma de onda senoidal testados com parâmetros variáveis: número de ondas Nw ∈ {12, 18, 24}, espessura t ∈ {0.6, 0.9, 1.2 mm}. Três índices de desempenho avaliados: Histerese H, Erro de linearidade L, Deriva D. Modelo linear para relação resistência-deformação com padronização de dados. Circuito ponte de Wheatstone para medição de resistência. Controlador PI com realimentação de saída projetado por alocação de polos. Identificação de modelo usando dados de resposta ao degrau (função de transferência de segunda ordem). Comparação com sensor Flex comercial (SparkFun Flex Sensor 4.5\").",
+
+    "analise_estatistica": "100 ciclos de deformação para caracterização do sensor. 27 conjuntos de dados (9 perfis de forma × 3 sensores cada). Padronização de dados de resistência e ângulo (média=0, desvio padrão=1). Ajuste de modelo linear com avaliação de r² ajustado para 4 modelos (linear, linear+interação, quadrático, quadrático+interação). Ordens de modelo 1-4 comparadas; segunda ordem selecionada (r²=95.2%). Relação ângulo estático vs pressão: α∞ = 38P (r²=94.7%). Desempenho do controle: feedback do sensor (4% overshoot, 1.5s tempo de subida, 2.6% erro estático) vs feedback de imagem (1% overshoot, 1.1s tempo de subida, 0.5% erro estático). Pesos de importância para seleção ótima: wH=0.4, wL=0.3, wD=0.3.",
+
+    "resultados": "Configuração ótima do sensor: t* = 0.6 mm, Nw* = 12. Parâmetros do sensor calibrado: p = -0.9148, σα = 38°, σR = 3.2 kΩ, ᾱ = 61°, R̄ = 67 kΩ. Sensor impresso tem menos influência no desempenho do atuador vs sensor Flex comercial: ganho estático 37.7 vs 35.4, tempo de subida 0.45s vs 0.46s. Erro de estimação de forma <5% para pressões de 0.8-2.0 bar. Erro de estimação geral sempre <10%. Erro de ângulo entre feedback do sensor e imagem sempre <5%. Modelo de segunda ordem Gp(z) = (0.9935z + 9.32)/(z² - 0.9013z + 0.1697) com Ts=0.05s. Gripper com 3 atuadores controlados individualmente demonstrou tarefas de agarrar esponja molhada sem vazamento e desenhar com pincel.",
+
+    "contribuicoes": "1) Sensor macio impresso em 3D usando TPU condutivo comercialmente disponível (EEL) que pode ser impresso diretamente sobre atuadores macios sem processos de fabricação complexos. 2) Caracterização sistemática do desempenho do sensor (histerese, erro de linearidade, deriva) em função dos parâmetros de forma (número de ondas, espessura). 3) Metodologia de seleção de forma ótima do sensor usando índices de desempenho ponderados. 4) Controle de forma em malha fechada com controlador PI por alocação de polos alcançando <5% de erro estático. 5) Demonstração de interferência mínima no desempenho do atuador comparado com sensor Flex comercial, com maior precisão de estimação e menor desvio padrão na faixa de deformação calibrada.",
+
+    "limitacoes": "Modelo linear para relação resistência-deformação (modelo não-linear poderia melhorar a precisão). Deriva do sensor ao longo de múltiplos ciclos de deformação afeta precisão de longo prazo. Precisão de estimação diminui para ângulos distantes da média de calibração (40° e 80° têm erros maiores que 60°). Validação limitada a um único tipo de atuador (tipo fole). Desempenho de controle ligeiramente inferior ao feedback de imagem devido a erros de medição do sensor. Impressão do atuador sem sensor leva cerca de 13 horas. Ângulo central residual de 30° após ciclos de deformação não é recuperável.",
+
+    "topico": "3D Printing, Soft Sensors, Soft Actuators, Closed-loop Control, Conductive TPU, Piezoresistive Sensors, FDM, Strain Sensors, Shape Feedback, PI Controller, Pole Placement, Multi-material Printing",
+    "area_aplicacao": "Robótica Macia, Grippers, Robótica Médica, Manipulação de Produtos, Transporte de Objetos, Automação Industrial, Próteses, Dispositivos Biomédicos",
+
+    "tipo_dados": "Dados experimentais (medições de resistência, ângulos de deformação, desempenho de controle, resposta ao degrau)",
+    "dataset": "Próprio (experimentos com atuadores e sensores impressos em 3D)",
+    "frameworks": "TL-D3 Pro FDM 3D Printer (dual extruder), NinjaFlex TPU filament, EEL conductive TPU filament, Arduino Mega 2560, MATLAB Simulink, Festo VEAB-L-26-D9-Q4-V1-1R1 pressure regulator, Festo SPAU-P6R-W-Q4D-L-PNLK-PNVBA-M12U pressure sensor, Logitech c270 webcam, Wheatstone bridge circuit, SparkFun Flex Sensor 4.5\" (comparison), Loctite EA 3430 Epoxy, PTFE tubes (4mm OD)",
+    "link_codigo": "Dados disponíveis mediante solicitação (materiais suplementares em https://doi.org/10.1016/j.mechatronics.2023.102980)"
+  },
+  {
+    "numero": 17,
+    "nome_arquivo": "Design and implementation of electric vehicle with autonomous motion and steering control system using single board computer and sensors.pdf",
+
+    "autores": "Zuber Basha Shaik; Samineni Peddakrishna",
+    "ano": 2025,
+    "titulo": "Design and implementation of electric vehicle with autonomous motion and steering control system using single board computer and sensors",
+    "subtitulo": "",
+    "journal": "Results in Engineering",
+    "publisher": "Elsevier",
+
+    "objetivo": "Apresentar o design, integração e implementação de um sistema de controle de veículo elétrico (EV) que opera em modos manual e autônomo, demonstrando a transformação de um EV convencional em um veículo autônomo dual-mode para ambientes controlados como campus universitários, utilizando sensores, atuadores e single-board computer (Raspberry Pi 5) como controlador mestre.",
+
+    "metodologia": "Sistema dual-mode: modo manual (controle via chave de ignição, acelerador, freio, direção) e modo autônomo (AV-ECU gerencia EV-ECU como unidade subordinada). Componentes de hardware: Raspberry Pi 5 SoC como controlador mestre; controlador BLDC 60V/2000W; motor BLDC 60V/2000W; bateria LiFePO4 60V/50Ah com BMS (capacidade 3000Wh); sensor LIDAR-Lite v3HP para detecção de obstáculos (até 40m, precisão ±2.5cm, comunicação I2C); encoder rotativo para medição de ângulo de direção; 2 sensores de proximidade para proteção de direção; módulo de relés de 8 canais. Controle de velocidade via sinais PWM ajustando potência ao motor (0-40 km/h). Controle de direção via motor worm gear (24V DC, 1/4 HP, 7.8A, 100 RPM) com driver MD25HV H-Bridge (7-58V, até 25A). Sistema de engrenagens: driven gear (38 dentes) e driving gear (15 dentes), gear ratio 1:2.53. Razão direção-roda 1:22.5 (80° rotação de roda para 1800° rotação do volante). Bateria separada 26.7V/15mAh LiFePO4 para motor de direção. Limiar de segurança de 35° para ângulo de direção. Testes em ambiente de campus controlado.",
+
+    "analise_estatistica": "Validação experimental em ambiente real de campus (sem análise estatística formal). Métricas de desempenho comparativas com trabalhos relacionados (Tabela 1). Gráficos PWM vs VARPP (voltagem no pino PWM do Raspberry Pi), VAECUSP (voltagem no velocímetro ECU), SPEED (velocidade). Relações lineares: VARPP de 0V (0% PWM) a 2.8V (100% PWM); VAECUSP de 0V (30% PWM) a 24.5V (100% PWM); velocidade de 0 km/h (35% PWM) a 40 km/h (100% PWM). Gráficos PWM vs VARPP, VAMDO (voltagem no motor driver output), STRPS (deslocamento de dentes), DGRPS (rotações do driving gear por segundo). Cálculos de razões de engrenagem e ângulo de rotação da roda por segundo (WRAPS).",
+
+    "resultados": "Sensor LIDAR detecta objetos com precisão até 40m (±2.5cm). Ajuste dinâmico de velocidade baseado na proximidade do objeto: >15m: 8 km/h (45% PWM); 10-15m: 5 km/h (40% PWM); 5-10m: 2 km/h (35% PWM); <5m: parada completa (0% PWM) com sinalização (luzes traseiras e buzina). Direção precisa com razão 1:22.5 e limiar de segurança de 35°. Mecanismos de segurança: switch de parada de emergência, relés de proteção baseados em sensores de proximidade (desligam motor de direção e ignição se ângulo >35° ou proximidade detectada). Soft left/right (20% PWM): 0.84°/s rotação de roda para manutenção de trajetória reta. Turn left/right para ultrapassagem (40% PWM): 2.53°/s rotação de roda, 12.65° acumulados em 5 segundos. Melhoria de 15-20% na autonomia devido à frenagem regenerativa. Custo total dos componentes adicionais: ~INR 1,85,000 (EV-ECU: 1,15,000; AV-ECU Raspberry Pi 5: 15,000; outros componentes: 55,000).",
+
+    "contribuicoes": "1) Sistema de controle dual-mode (manual e autônomo) com integração EV-ECU e AV-ECU para conversão de EV convencional em veículo autônomo. 2) Controle de velocidade adaptativo baseado em LIDAR com ajuste dinâmico via PWM. 3) Mecanismo de direção específico com motor worm gear e sistema de engrenagens (gear ratio 1:2.53, steering ratio 1:22.5). 4) Múltiplos mecanismos de segurança: switch de emergência, proteção de direção via sensores de proximidade, limiar de ângulo de 35°. 5) Implementação custo-efetiva comparada a soluções comerciais de veículos autônomos. 6) Validação prática em ambiente de campus real demonstrando operação em condições de tráfego de direção única em estrada reta.",
+
+    "limitacoes": "Sistema em fase de protótipo, destinado apenas para fins de pesquisa e desenvolvimento. Testes limitados a ambiente de campus controlado com condições de estrada reta e tráfego de direção única. Verificação em condições de tráfego bidirecional e direção reversa ainda necessária. Sem integração de sensores avançados de fusão, algoritmos de detecção de objetos por aprendizado de máquina, ou comunicação V2V/V2I. Modelo linearizado e simplificado. Não considera condições climáticas adversas, diferentes tipos de superfície ou outros participantes do tráfego. Trabalhos futuros incluem integração de sensores adicionais, algoritmos avançados de detecção de objetos, protocolos de comunicação V2V e V2I, e técnicas de machine learning.",
+
+    "topico": "Electric Vehicle, Autonomous Vehicle, Single Board Computer, Raspberry Pi, LIDAR, PWM Control, Steering Control, Motion Control, Electronic Control Unit, Embedded Systems, BLDC Motor, Worm Gear Motor, Rotary Encoder, Proximity Sensor, Dual-mode Operation",
+    "area_aplicacao": "Veículos Elétricos Autônomos, Transporte de Campus, Mobilidade Inteligente, Robótica Móvel, Sistemas Embarcados Automotivos, Conversão de Veículos Convencionais para Autônomos",
+
+    "tipo_dados": "Dados experimentais (leituras de sensores, medições de PWM/voltagem/velocidade, validação de desempenho em ambiente real)",
+    "dataset": "Próprio (testes em ambiente de campus controlado)",
+    "frameworks": "Raspberry Pi 5 (SoC), Python, GPIO Control, I2C Communication, LIDAR-Lite v3HP (Garmin), controlador BLDC L5 60V/2000W, motor driver MD25HV H-Bridge, bateria LiFePO4 60V/50Ah com BMS, encoder rotativo, sensores de proximidade, módulo de relés 8 canais, motor worm gear 24V DC 100RPM",
+    "link_codigo": "Não disponível (protótipo para P&D, financiado pelo programa RGEMS da VIT-AP University - Project ID: RGEMS2021010)"
+  },
+  {
+    "numero": 18,
+    "nome_arquivo": "Development of a Universal Module for Connecting Sensors to the CAN-bus.pdf",
+
+    "autores": "A. V. Bobrovsky; A. E. Drobchenko; A. V. Zotov; D. A. Gorokhova; E. D. Chizhatkina",
+    "ano": 2023,
+    "titulo": "Development of a Universal Module for Connecting Sensors to the CAN-bus for the Formula Student Electric Car",
+    "subtitulo": "",
+    "journal": "Transportation Research Procedia",
+    "publisher": "Elsevier",
+
+    "objetivo": "Desenvolver um módulo universal para conectar sensores ao barramento CAN em um carro elétrico Formula Student, reduzindo o número de fios de sinal que percorrem todo o veículo de múltiplos fios individuais para apenas dois fios (CAN-H e CAN-L), além de proteger a transmissão de dados contra interferências eletromagnéticas induzidas pelos motores trifásicos.",
+
+    "metodologia": "Desenvolvimento de dispositivo especial com PCB customizada contendo: microcontrolador Teensy 4.0 (ARM Cortex M7 @ 600 MHz, 1984 KB flash, 1024 KB RAM, ADC de 12 bits, suporte nativo CAN FD e 2.0); sistema operacional FreeRTOS para garantir confiabilidade em sinais críticos (sensores de acelerador, sensor de posição do volante, paddle shifter de regeneração); transceiver CAN TJA1051 (5V, custo <$1); conversor DC/DC step-down 12V para 5V; divisores de tensão resistivos para compatibilizar níveis de sinal de sensores de diferentes fabricantes com o limite de 3.3V do Teensy. Software Percepio Tracealyzer para debug e visualização do sistema (switching entre tasks, estados de variáveis). Algoritmo: verificar buffer → polling de sensores → formação de mensagem → envio ao buffer para transmissão automática na rede.",
+
+    "analise_estatistica": "Não apresenta análise estatística formal. Especificações técnicas do sistema: 3 mensagens CAN com IDs estendidos (0x17F81140A, 0x17F81140B, 0x17F81140C); formato das mensagens - ID A: 4 bytes (Digital10-4, Analog22, Analog21, Analog20), ID B: 4 bytes (Analog19, Analog18, Analog17, Analog16), ID C: 3 bytes (Analog15, Analog14, temperatura CPU). Capacidade: até 16 sensores conectáveis. Distância de transmissão: até 40 metros. Padrão físico: CAN J1939/11.",
+
+    "resultados": "Redução do número de fios de sinal de múltiplos cabos individuais para apenas 2 fios (barramento CAN) percorrendo todo o veículo. Suporte para até 16 sensores projetados para qualquer tensão constante. Transmissão confiável de dados a distâncias de até 40 metros com proteção contra perda de informação. Eliminação de interferências eletromagnéticas dos motores trifásicos cuja frequência varia com a rotação do motor. Dispositivo compacto fabricado com PCB customizada instalada em caixa protetora.",
+
+    "contribuicoes": "1) Módulo universal que permite conectar sensores de diversos tipos e fabricantes ao barramento CAN, diferente de soluções comerciais limitadas a tipos específicos (ex: CSS Electronics CANmod.temp apenas para termopares, CANmod.gps apenas para GPS/IMU). 2) Redução significativa da complexidade da fiação elétrica do veículo (de múltiplos fios de sinal para apenas 2). 3) Proteção contra interferências eletromagnéticas dos motores trifásicos via protocolo CAN. 4) Uso de FreeRTOS para garantir confiabilidade em sinais críticos de segurança (acelerador, direção, regeneração). 5) Flexibilidade para sensores com diferentes níveis de tensão via divisores de tensão configuráveis.",
+
+    "limitacoes": "Utiliza módulos na PCB ao invés de componentes SMD diretamente, resultando em tamanho maior que o ideal. Trabalho futuro prevê redução de tamanho eliminando módulos e posicionando componentes eletrônicos diretamente na placa. Validação limitada ao contexto de Formula Student. Não apresenta dados quantitativos de desempenho (latência, taxa de erro, consumo de energia).",
+
+    "topico": "CAN-bus, Formula Student, Electric Vehicle, Sensor Integration, Microcontroller, FreeRTOS, Embedded Systems, Wire Reduction, Automotive Electronics, Real-time Operating System",
+    "area_aplicacao": "Formula Student, Carros de Corrida Elétricos, Eletrônica Automotiva, Redes de Sensores Veiculares, Sistemas Embarcados, Telemetria Veicular",
+
+    "tipo_dados": "Dados de sensores analógicos e digitais (acelerador, posição do volante, paddle shifter, temperatura CPU)",
+    "dataset": "Próprio (implementação em carro Formula Student da Togliatti Racing Team)",
+    "frameworks": "Teensy 4.0 (ARM Cortex M7 600MHz), FreeRTOS, TJA1051 CAN transceiver, DC/DC 12V/5V converter, Percepio Tracealyzer, EasyEDA (design PCB), CAN 2.0/CAN FD, CAN J1939/11 physical layer standard",
+    "link_codigo": "Não disponível"
+  },
+  {
+    "numero": 19,
+    "nome_arquivo": "Development of an unmanned aerial vehicle for remote live.pdf",
+
+    "autores": "Akshata Shendge; Rajendra Singh; Kashif I.B.H. Ansari; Kishita Pakhrani",
+    "ano": 2023,
+    "titulo": "Development of an unmanned aerial vehicle for remote live streaming on web dashboard",
+    "subtitulo": "",
+    "journal": "Materials Today: Proceedings",
+    "publisher": "Elsevier",
+
+    "objetivo": "Projetar e implementar um Veículo Aéreo Não Tripulado (UAV) com capacidades de vigilância que transmite vídeo ao vivo para um web dashboard acessível em qualquer dispositivo conectado à mesma rede, proporcionando uma solução de vigilância remota mais rápida e confiável para espaços grandes onde patrulha a pé é ineficiente (ex: canteiros de obra de 40.000 pés quadrados onde um guarda precisaria andar 21 milhas/dia).",
+
+    "metodologia": "Drone customizado construído em chassi Holybro S500. Hardware: motores 2216 KV880; ESC BLHeli S 20A; bateria LiPo 4S 14.8V 5200mAh; hélices 1045; controlador de voo Pixhawk PX4; computador companion Raspberry Pi 4; câmera USB 20MP 30fps; conversor buck DC-DC 3A ajustável (16.8V para 5V). Software: Ubuntu 18.04; ROS Melodic; simulador Gazebo 8 com plugin PX4 SITL; QGroundControl para planejamento de missões e controle; Python. Pacotes ROS: web_video_server (modificado para melhor desempenho), usb_cam (interface com câmera USB), cv_camera e opencv_apps para visão computacional. MAVROS para comunicação com autopiloto. Algoritmo PX4-Avoidance local planner para desvio de obstáculos visualizado em RViz. Ajuste PID customizado para voo estável. Duas metodologias: simulações no Gazebo e testes experimentais em ambiente aberto.",
+
+    "analise_estatistica": "Métricas de desempenho do streaming: resolução 640×480 pixels; latência de 1 a 3 segundos; taxa de quadros de 10 fps. Testes de voo em diferentes alturas (30m, 20m, 15m, 10m) demonstraram que altura abaixo de 10m é ótima para visibilidade clara e aplicações de visão computacional. Análise de logs de voo confirma estabilidade adequada para streaming de vídeo suave. Custo total estimado: Rs. 70.000 (~USD 840) incluindo contingências e peças de reposição.",
+
+    "resultados": "Stream de vídeo ao vivo do drone disponível em web dashboard acessível via HTTP em rede local. Latência de 1-3 segundos com 10 fps na resolução 640×480. Estabilidade de voo adequada para streaming suave confirmada por logs de voo. Detecção de faces implementada como demonstração de aplicação de visão computacional (círculo rosa indica face detectada no dashboard). Altura ótima de voo abaixo de 10m para aplicações de CV. Planejamento de missão autônoma via QGroundControl com waypoints. Algoritmo local planner testado em simulação para desvio de obstáculos usando visão estéreo (mapa de disparidade).",
+
+    "contribuicoes": "1) Sistema UAV completo para monitoramento remoto de grandes espaços com web dashboard para visualização de stream em rede local. 2) Modificação do pacote ROS web_video_server para melhorar desempenho do streaming (redução de latência na resolução 640×480). 3) Ajuste PID customizado do kit de desenvolvimento para voo estável e streaming suave. 4) Integração de visão computacional (OpenCV) para detecção de faces como caso de uso de segurança. 5) Documentação completa de hardware e software para replicação do sistema.",
+
+    "limitacoes": "Alta latência no feed de vídeo (1-3 segundos) limitando aplicações em tempo real crítico. Alcance limitado do voo do drone. Dashboard web acessível apenas em rede local (dispositivos na mesma rede). Sem medidas de segurança implementadas (qualquer dispositivo na rede local pode acessar o servidor de vídeo). Trabalho futuro inclui integração com serviços de nuvem (AWS), banco de dados para armazenamento de vídeo e imagens, e acesso global ao stream.",
+
+    "topico": "UAV, Drone, ROS, Computer Vision, OpenCV, Live Streaming, Web Dashboard, Surveillance, Raspberry Pi, Pixhawk PX4, Gazebo Simulator, MAVROS, Quadcopter, Video Streaming, Face Detection",
+    "area_aplicacao": "Vigilância e Segurança, Monitoramento de Grandes Espaços, Canteiros de Obra, Armazéns, Agricultura, Inspeção Remota, Robótica Aérea",
+
+    "tipo_dados": "Dados de streaming de vídeo (640×480, 10 fps), logs de voo, dados de simulação (Gazebo), imagens com inferência de visão computacional",
+    "dataset": "Próprio (testes em ambiente aberto e simulações)",
+    "frameworks": "ROS Melodic, Ubuntu 18.04, Gazebo 8, PX4 SITL, QGroundControl, Python, OpenCV, MAVROS, web_video_server, usb_cam, cv_camera, opencv_apps, Pixhawk PX4, Raspberry Pi 4, Holybro S500 chassis, LiPo 4S 14.8V 5200mAh",
+    "link_codigo": "Dados disponíveis mediante solicitação"
+  },
+  {
+    "numero": 20,
+    "nome_arquivo": "Development of surveillance robot based on face recognition using Raspberry-PI and IOT.pdf",
+
+    "autores": "Houda Meddeb; Zouhaira Abdellaoui; Firas Houaidi",
+    "ano": 2023,
+    "titulo": "Development of surveillance robot based on face recognition using Raspberry-PI and IOT",
+    "subtitulo": "",
+    "journal": "Microprocessors and Microsystems",
+    "publisher": "Elsevier",
+
+    "objetivo": "Desenvolver um protótipo de robô móvel de vigilância de baixo custo baseado em Raspberry Pi 4 que utiliza tecnologia IoT e reconhecimento facial para verificar a presença de intrusos em áreas industriais, distinguindo entre funcionários autorizados e pessoas desconhecidas através de algoritmos Haar Cascade Classifier (detecção) e LBPH (reconhecimento), enviando alertas e emails via IoT quando intrusos são detectados.",
+
+    "metodologia": "Robô móvel (HD-Guard) com: Raspberry Pi 4 Model B (1.5 GHz, 8GB RAM); 4 motores DC 12V com driver L298N Dual H-Bridge; sensor PIR para detecção de movimento (alcance ~7m); câmera USB para streaming de vídeo ao vivo e captura de imagens; bateria 12V para motores e power bank para RPi. Software em Python com OpenCV para processamento de imagens. Detecção facial: Haar Cascade Classifier (algoritmo Viola-Jones com features edge/line/center-surround, integral images e AdaBoost). Reconhecimento facial: algoritmo LBPH (Local Binary Pattern Histogram) com parâmetros Radius, Neighbors, Grid X, Grid Y - codifica imagem em células 3×3, compara pixels vizinhos com pixel central, gera histogramas por região e concatena em histograma final, usa distância Euclidiana para comparação. Interface web desenvolvida em HTML/Flask com RTP para streaming de vídeo, permitindo controle remoto do robô via WiFi (área de comandos para movimento e área de display para vídeo ao vivo). Sistema de alertas via IoT: notificações push (Pushbullet) e emails com foto do intruso.",
+
+    "analise_estatistica": "Avaliação com banco de dados de 30 imagens faciais. Métricas: FP (False Positive), TN (True Negative), FN (False Negative), TP (True Positive), FNIR (False Negative Identification Rate = FN/(FN+TP)), TPIR (True Positive Identification Rate = TP/(TP+FP)), Accuracy = (TP+TN)/(TP+TN+FP+FN). Testes com 5, 10, 15 e 20 faces detectadas. Limiar de distance rate: >0.6 indica face desconhecida. Comparação com outros algoritmos: Eigenface (77.9%), Fisherface (85.2%), SVM (90.6%), CNN (93.3%).",
+
+    "resultados": "FNIR variando de 0 a 0.06; TPIR variando de 0.85 a 1.0; Acurácia de 90-100% (93.33% com 15 sujeitos, comparável ao CNN). Distance rate para faces conhecidas: ~0.35-0.45; para faces desconhecidas: >0.6. Custo total do robô HD-Guard: €327 (Raspberry Pi 4 + SD 32GB: €160, sensor PIR: €6, 4 motores DC + rodas: €48, câmera USB: €18, driver L298N: €7, 2 baterias recarregáveis: €60, power bank: €25, fios: €3). Sistema envia notificações em tempo real quando intruso é detectado com foto anexada. Interface web funcional para controle remoto (Forward, Backward, Left, Right).",
+
+    "contribuicoes": "1) Protótipo de robô de vigilância de baixo custo (€327) baseado em Raspberry Pi 4 Model B com interface web para controle remoto via WiFi. 2) Integração de reconhecimento facial com IoT para alertas em tempo real (notificações e emails com foto). 3) Uso eficiente de Haar Cascade e LBPH adequados para sistemas embarcados com baixa complexidade computacional. 4) Streaming de vídeo ao vivo de alta qualidade via RTP/Flask dependendo da resolução da câmera e velocidade da internet. 5) Avaliação sistemática de desempenho demonstrando acurácia de 93.33% comparável a CNN. 6) Design mecânico completo (HD-Guard) com dimensões especificadas (13.5×23 cm base).",
+
+    "limitacoes": "Robô não é autônomo (requer controle manual via interface web). Sem sistema de evitação de obstáculos. Não reconhece placas de veículos. Validação limitada a banco de 30 imagens. Desempenho depende da resolução da câmera e velocidade da internet. Sistema não se move continuamente para evitar problemas de alimentação. Trabalho futuro: navegação autônoma com escolha de trajetória ótima e algoritmos mais eficientes para reconhecimento de placas de veículos.",
+
+    "topico": "Surveillance Robot, Face Recognition, IoT, Raspberry Pi, Haar Cascade Classifier, LBPH Algorithm, Computer Vision, OpenCV, Mobile Robot, Web Interface, Flask, RTP, Motion Detection, PIR Sensor, Real-time Alerts, Biometrics",
+    "area_aplicacao": "Vigilância e Segurança, Monitoramento Industrial, Automação Residencial, Aplicações Militares, Detecção de Intrusos, Smart Cities, Robótica de Serviço",
+
+    "tipo_dados": "Imagens faciais (banco de 30 imagens), streaming de vídeo ao vivo, dados de sensores (PIR motion detection), notificações e alertas",
+    "dataset": "Próprio (banco de 30 imagens faciais para treinamento e teste)",
+    "frameworks": "Raspberry Pi 4 Model B (1.5 GHz, 8GB RAM), Python, OpenCV, Flask, HTML, VNC (Virtual Network Computing), RTP (Real-time Transfer Protocol), L298N Dual H-Bridge Motor Driver, PIR Sensor (HC-SR501), USB Camera, Pushbullet (notifications), SMTP (email alerts), Fritzing (circuit design), Haar Cascade Classifier, LBPH (Local Binary Pattern Histogram), AdaBoost",
+    "link_codigo": "Não disponível"
+  },
+  {
+    "numero": 21,
+    "nome_arquivo": "Dynamic analysis and chaos control in heat-affected non-smooth brushless DC motors with load torque through genetic algorithms.pdf",
+
+    "autores": "Steve Tchassem Nkengne; Buris Peggy Ndemanou; André Chéagé Chamgoué; Dianorré Tokoue Ngatcha; Hilaire Bertrand Fotsin; Sifeu Takougang Kingni",
+    "ano": 2025,
+    "titulo": "Dynamic analysis and chaos control in heat-affected non-smooth brushless DC motors with load torque through genetic algorithms",
+    "subtitulo": "",
+    "journal": "Nonlinear Science",
+    "publisher": "Elsevier",
+
+    "objetivo": "Estudar a dinâmica, validação por microcontrolador e aniquilação do caos utilizando algoritmos genéticos (GAs) para otimização de parâmetros em motor brushless DC com entreferro não-liso afetado pelo calor (HNBDCM) com torque de carga, explorando os efeitos combinados de temperatura e torque de carga no desempenho do motor BLDC.",
+
+    "metodologia": "Modelo matemático adimensional com 3 equações diferenciais (correntes no eixo d-q: iq, id e velocidade angular ω). Parâmetros do sistema: temperatura θ (°C) da resistência do enrolamento do estator, razão δ dos indutores do estator (Ld/Lq), diferença η dos indutores, torque de carga adimensional Tl, e parâmetros adimensionais α=0.00393, γ=1/3, ρ=60, σ=4.55. Análise de estabilidade via critério de Routh-Hurwitz identificando estados estacionários estáveis/instáveis. Integração numérica por Runge-Kutta 4ª ordem (RK4) com passo h=0.001. Cálculo de expoentes de Lyapunov para detecção de caos (λmax>0: caos, λmax<0: periódico). Implementação em microcontrolador Arduino Mega 2560 com rede de resistores R-2R (DAC) e osciloscópio analógico com capacitores de filtragem. Controle de caos via Algoritmos Genéticos (GAs): população inicial aleatória, função fitness = Σ|Xi-Si| (soma dos erros ao estado estacionário), operações de seleção (tournament/roulette wheel), crossover e mutação, iteração até convergência.",
+
+    "analise_estatistica": "Diagramas de bifurcação vs temperatura θ (20-130°C), torque de carga Tl (0-0.2), e parâmetro δ (0-0.07). Análise do maior expoente de Lyapunov (LLE) em planos (θ,Tl). Três estados estacionários calculados analiticamente: S1=(5.53×10⁻³, 7.72×10⁻⁶, 3.31×10⁻⁵), S2=(0.784, 59.84, 1.81), S3=(-0.782, 59.85, -1.82). Bifurcação de Hopf identificada em δ=0.00075 (η=0.1) e δ=0.0005 (η=0.26). Bacias de atração no plano (iq(0), id(0)). Antimonotonicidade demonstrada via bolhas de período-2, período-4, período-8, período-16 e bolhas caóticas. Temperatura ambiente máxima para motores DC: 85-100°C; temperatura máxima do enrolamento: 100-125°C.",
+
+    "resultados": "Três estados estacionários com regiões estáveis e instáveis identificados. Bifurcação de Hopf, atratores coexistentes, antimonotonicidade, características de bolhas caóticas e cinco formas diferentes de características caóticas encontradas. Oscilações periódicas (período-2, 4, 8, 16) e caos documentados. Resultados do microcontrolador confirmaram simulações numéricas com boa correlação qualitativa. GAs otimizaram parâmetros com sucesso para aniquilar o caos: para S2 (Tl=1.8853, δ=0.2089, η=0.1303); para S3 (Tl=3.4715, δ=0.0847, η=-0.0723). Função objetivo converge em ~100 iterações. Sistema dissipativo: ∇V = -[σ + γ(1+δ)(1+αθ)] < 0. Técnicas de resfriamento podem reduzir temperatura do motor em até 15%.",
+
+    "contribuicoes": "1) Análise abrangente da dinâmica de HNBDCMLT incluindo efeitos térmicos e de torque de carga combinados. 2) Análise de estabilidade analítica com três estados estacionários e critérios de Routh-Hurwitz. 3) Identificação de fenômenos não-lineares ricos (caos, bifurcações de Hopf, coexistência de atratores, antimonotonicidade, bolhas caóticas). 4) Validação experimental via microcontrolador Arduino Mega 2560 com DAC R-2R. 5) Controle e aniquilação de caos via otimização de parâmetros por Algoritmos Genéticos sem necessidade de conhecimento de derivação/integração do sistema. 6) Potencial para aplicações industriais: eficiência energética, controle preciso em robótica e manufatura, gestão térmica melhorada.",
+
+    "limitacoes": "Modelo limitado a faixas específicas de parâmetros. Implementação em microcontrolador apenas qualitativa (sem métricas quantitativas de precisão). Análise de erro da função objetivo do GA não detalhada. Validação limitada a condições de laboratório. Trabalho futuro: representações 3D das variações paramétricas e combinações adicionais de parâmetros para valores aceitáveis da função objetivo.",
+
+    "topico": "Brushless DC Motor, Chaos Control, Genetic Algorithms, Nonlinear Dynamics, Heat Effects, Load Torque, Hopf Bifurcation, Lyapunov Exponents, Antimonotonicity, Coexisting Attractors, Chaotic Bubbles, Microcontroller Implementation, Parameter Optimization, Runge-Kutta, Stability Analysis",
+    "area_aplicacao": "Motores Elétricos, Automação Industrial, Robótica, Veículos Elétricos, Sistemas de Controle, Propulsão Marítima, Tração Elétrica, Equipamentos de Laboratório, Manufatura, Gestão de Energia",
+
+    "tipo_dados": "Dados de simulação numérica (bifurcação, expoentes de Lyapunov, retratos de fase), dados experimentais de microcontrolador (formas de onda de osciloscópio)",
+    "dataset": "Próprio (simulações numéricas e implementação em microcontrolador)",
+    "frameworks": "Arduino Mega 2560 (ATmega2560), R-2R Resistor Ladder DAC, Analog Oscilloscope, MATLAB/Numerical Computing, Runge-Kutta 4th Order (RK4), Genetic Algorithms (GAs), Proteus (circuit simulation)",
+    "link_codigo": "Não disponível"
+  },
+  {
+    "numero": 22,
+    "nome_arquivo": "Enabling low-latency digital twins for large-scale UAV networks using MQTT-based communication framework.pdf",
+
+    "autores": "Dohyun An; Hyeontae Joo; Hwangnam Kim",
+    "ano": 2025,
+    "titulo": "Enabling low-latency digital twins for large-scale UAV networks using MQTT-based communication framework",
+    "subtitulo": "",
+    "journal": "ICT Express",
+    "publisher": "Elsevier",
+
+    "objetivo": "Propor um novo framework de comunicação baseado em MQTT centralizado (CMQC - Centralized MQTT-based Communication) especificamente projetado para melhorar a transmissão de dados em tempo real em redes de UAV de grande escala, demonstrando desempenho superior em comparação com métodos tradicionais como MQTT, comunicação baseada em socket TCP e CoAP para habilitação de digital twins de baixa latência.",
+
+    "metodologia": "Arquitetura CMQC com Collective Publisher que agrega dados de status de múltiplos UAVs e publica periodicamente no broker MQTT centralizado. Simulador Webots R2023a para operação dos UAVs com emulador de rede gerenciado por ONOS (Open Network Operating System) como plataforma SDN. Relação 1:1 entre UAVs simulados e emulados, com UAVs atuando como clientes MQTT publicando atualizações de status para servidor CPS. Digital twin mantido no servidor CPS refletindo estado em tempo real. Topologia de rede partial-mesh para comunicação descentralizada. QoS nível 2 do MQTT para entrega garantida (exatamente uma vez). Mecanismo customizado de tratamento de erros via tópicos MQTT específicos. Métricas avaliadas: intervalo de tempo inter-processo I(t)=t_{i+1}-t_i, tempo total de conclusão Tc, jitter J(t), e Age of Information (AoI) Δ(t)=t-u(t). Distância de Fréchet para avaliar similaridade entre trajetória do digital twin e UAV físico. Latências modeladas com distribuição gamma f_T(t;k,θ).",
+
+    "analise_estatistica": "Validação da distribuição de latência via teste Kolmogorov-Smirnov (K-S): distribuição gamma melhor ajuste (estatística K-S=0.072, p-valor=0.136) vs exponencial, log-normal e Weibull. CMQC: intervalo inter-processo média 2.09s (σ=0.130s), tempo de conclusão 0.0007s, jitter 0.126s, AoI médio 1.120. MQTT: intervalo 3.02s (σ=1.77s), conclusão 0.87s (timeout 270s), jitter 0.205s, AoI 2.153. Socket: intervalo 2.31s (σ=0.46s), conclusão 0.0553s, jitter 0.434s, AoI 1.452. CoAP: intervalo 2.09s (σ=0.83s), conclusão 3.96s (timeout 35s), jitter 1.718s, AoI 1.364. Similaridade via distância de Fréchet: 0.26% entre trajetória corrigida do twin e ground truth. Teste de robustez: sistema estável com taxa de erro de pacotes <20% (similaridade <5%), instável com 30% de erro (similaridade 8.43%).",
+
+    "resultados": "CMQC superou consistentemente todos os protocolos em todas as métricas. Tempo de conclusão 1243x mais rápido que MQTT (0.0007s vs 0.87s) e 79x mais rápido que Socket (0.0553s). Jitter 39% menor que MQTT e 71% menor que Socket. AoI 48% menor que MQTT, 23% menor que Socket, 18% menor que CoAP. CMQC e Socket muito estáveis na similaridade de trajetória, MQTT instável em algumas seções, CoAP instável em todas as seções. Sistema manteve estabilidade com taxas de erro de pacotes até 20%. Framework escalável sem degradação de performance devido ao design assíncrono do MQTT.",
+
+    "contribuicoes": "1) Framework CMQC com Collective Publisher para agregação eficiente de dados de múltiplos UAVs minimizando latência de transmissão. 2) Uso de QoS nível 2 do MQTT para entrega garantida em ambientes de rede instáveis. 3) Mecanismo customizado de tratamento de erros via tópicos MQTT, superando limitação de apenas 5 mensagens de erro do MQTT padrão. 4) Avaliação abrangente comparando CMQC com MQTT, TCP Socket e CoAP em múltiplas métricas. 5) Uso inovador da distância de Fréchet para validar similaridade entre digital twin e sistema físico. 6) Demonstração de escalabilidade e baixa latência para digital twins em redes UAV de grande escala.",
+
+    "limitacoes": "Validação limitada a ambiente de simulação (Webots + emulador ONOS). Testes com número limitado de UAVs. CoAP testado com menos UAVs devido a restrições do servidor. Sistema instável com taxa de erro de pacotes acima de 20%. MQTT padrão suporta apenas 5 mensagens de erro predefinidas. Trabalho futuro: otimização para redes ainda maiores, cenários mais complexos, melhoria de robustez em condições de rede desafiadoras.",
+
+    "topico": "Digital Twin, UAV Networks, MQTT, Low Latency, Age of Information (AoI), Real-time Communication, IoT Protocols, SDN, CoAP, Socket Communication, Fréchet Distance, QoS, Publish-Subscribe, Large-scale Networks",
+    "area_aplicacao": "Redes de UAV, Digital Twins, Sistemas Cyber-Físicos (CPS), Internet das Coisas (IoT), Aplicações Militares, Monitoramento em Tempo Real, Automação Industrial, Logística com Drones",
+
+    "tipo_dados": "Dados de simulação (posições de UAV, latências de comunicação, timestamps), métricas de performance de rede (jitter, AoI, tempo de conclusão)",
+    "dataset": "Próprio (simulações em Webots R2023a com emulador ONOS)",
+    "frameworks": "Webots R2023a (UAV simulator), ONOS SDN Platform (network emulator), Mosquitto 2.0.18 (MQTT broker), Python (MQTT client), Windows PC (Intel Core i5-14600KF, 32GB RAM, NVIDIA RTX 4060 Ti), Linux laptop (AMD Ryzen 7 7730U), MQTT protocol (QoS level 2), CoAP over UDP, TCP Socket, JSON data format",
+    "link_codigo": "Não disponível"
+  },
+  {
+    "numero": 23,
+    "nome_arquivo": "Enhancing real-time intrusion detection system for in-vehicle networks by employins novel.pdf",
+
+    "autores": "Wael Aljabri; Md. Abdul Hamid; Rayan Mosli",
+    "ano": 2025,
+    "titulo": "Enhancing real-time intrusion detection system for in-vehicle networks by employing novel feature engineering techniques and lightweight modeling",
+    "subtitulo": "",
+    "journal": "Ad Hoc Networks",
+    "publisher": "Elsevier",
+
+    "objetivo": "Propor um framework de IDS (Intrusion Detection System) para redes intra-veiculares CAN que introduz duas features distintas (data entropy e anomaly score) integradas a um modelo de deep learning leve, especificamente projetado para ambientes com recursos limitados, visando melhorar significativamente a precisão de detecção e eficiência operacional com baixa latência de inferência.",
+
+    "metodologia": "Framework IDS com engenharia de features novel: (1) Data Entropy - entropia calculada dinamicamente via sliding window conforme novos dados chegam, medindo imprevisibilidade no payload H(X)=-Σp(x)log₂p(x); (2) Anomaly Score - combinando desvios de data entropy e time interval entropy (AnomalyScore=0.5×D_interval+0.5×D_data). Técnicas de média móvel comparadas: Sliding Window MA (janela fixa de N valores recentes), Cumulative Moving Average (CMA), e Exponential Smoothing (S_t=αx_t+(1-α)S_{t-1}). Modelo DMLP (Deep MLP) leve: camada de entrada, 2 camadas ocultas (8 e 4 unidades com ReLU), camada de saída (softmax para classificação multi-classe). Otimizador Adam com learning rate 0.001. Validação da importância das features via SHAP (SHapley Additive exPlanations). Treinamento em Intel Core i7-8750H (2.20 GHz), 32GB RAM, NVIDIA GTX 1050 4GB. Inferência testada em Raspberry Pi 3 Model B (1.2 GHz ARM Cortex-A53, 1GB LPDDR2).",
+
+    "analise_estatistica": "Dois datasets públicos: Dataset A (car-hacking, 17.5M mensagens, amostra 295k) com ataques DoS, fuzzy e spoofing (drive gear, RPM); Dataset B (Car Hacking Challenge 2020, 1.27M mensagens Hyundai Avante CN7, amostra 93k) com 4 spoofing + 1 fuzzing. Split 80/20 treino/teste. Análise de tamanho de janela: 5 (acc 0.9925), 10 (acc 0.9946 - ótimo), 20 (acc 0.9937), 30 (acc 0.9918). Métricas: Accuracy, F1-score, Detection Rate (Recall), FPR. Comparação sliding window vs CMA vs exponential smoothing vs baseline (sem FE). SHAP para análise de importância de features mostrando Anomaly Score como mais importante no Dataset A e Data Entropy no Dataset B.",
+
+    "resultados": "Dataset A: Accuracy 0.9995, F1-score 0.9995, Detection Rate 0.9995, FPR 0.0001. Dataset B: Accuracy 0.9946, F1-score 0.9945, Detection Rate 0.9944, FPR 0.0027. Latência de inferência: apenas 0.17 ms (vs MLIDS 275ms, LSTM 147ms, NovelADS 128.7ms, MLP 38ms, DCNN 0.43ms). Tempo de treinamento: 113.52s. Features engineering melhora significativamente vs baseline: Dataset A sem FE (acc 0.9703) vs com sliding window (acc 0.9995); Dataset B sem FE (acc 0.9436) vs com sliding window (acc 0.9946). Sliding window superior a CMA e exponential smoothing para detecção em tempo real.",
+
+    "contribuicoes": "1) Duas features dinâmicas novel para detecção de ciberataques em redes CAN: data entropy (imprevisibilidade no payload) e anomaly score (desvios combinados de entropia de dados e intervalos de tempo). 2) Modelo DMLP leve adequado para ambientes com recursos limitados (ex: ECUs automotivas, Raspberry Pi). 3) Sistema de detecção em tempo real com latência de apenas 0.17 ms, superando todos os IDSs baseados em ML/DL existentes. 4) Validação via SHAP demonstrando importância das features propostas. 5) Avaliação em dois datasets públicos bem conhecidos com classificação multi-classe.",
+
+    "limitacoes": "Amostras dos datasets (295k e 93k) em vez dos datasets completos (17.5M e 1.27M mensagens). Fuzzy attacks apresentaram maior taxa de erro de classificação em ambos datasets. Avaliação limitada a Raspberry Pi 3 (não testado em ECUs reais de veículos). Modelo não testado contra ataques adversariais ou novos tipos de ataques. Trabalho futuro: implementação em sistema real com cálculos ajustados on-the-fly conforme novo tráfego é recebido.",
+
+    "topico": "Intrusion Detection System, Controller Area Network (CAN), In-vehicle Networks, Cybersecurity, Deep Learning, Feature Engineering, Entropy, Anomaly Detection, Sliding Window, SHAP, Autonomous Vehicles, Real-time Detection, Lightweight Model, MLP",
+    "area_aplicacao": "Segurança Veicular, Veículos Autônomos, Redes Intra-veiculares, Cibersegurança Automotiva, Sistemas de Transporte Inteligente (ITS), Detecção de Intrusão em Tempo Real",
+
+    "tipo_dados": "Dados de tráfego CAN bus (Arbitration ID, DLC, Data fields, Timestamps), ataques simulados (DoS, Fuzzy, Spoofing)",
+    "dataset": "Car-hacking dataset (Seo et al., 12M+ mensagens via OBD-II); Car Hacking Attack & Defense Challenge 2020 (Hyundai Avante CN7, 1.27M mensagens)",
+    "frameworks": "Python 3.10.12, Keras 2.15.0, Intel Core i7-8750H (2.20 GHz), 32GB RAM, NVIDIA GeForce GTX 1050 4GB, Raspberry Pi 3 Model B (1.2 GHz ARM Cortex-A53, 1GB LPDDR2), SHAP (SHapley Additive exPlanations), Adam Optimizer, ReLU activation, Softmax output",
+    "link_codigo": "Não disponível (datasets públicos citados no artigo)"
+  },
+  {
+    "numero": 24,
+    "nome_arquivo": "Evaluation of different feedback designs for target guidance in human controlled robotic cranes.pdf",
+
+    "autores": "Felix A. Dreger; Gerhard Rinkenauer",
+    "ano": 2024,
+    "titulo": "Evaluation of different feedback designs for target guidance in human controlled robotic cranes",
+    "subtitulo": "A comparison between high and low performance groups",
+    "journal": "Applied Ergonomics",
+    "publisher": "Elsevier",
+
+    "objetivo": "Investigar a eficácia de sonificação (feedback auditivo) ou feedback visual contínuo para melhorar a precisão de movimento de guindastes robóticos, avaliando carga cognitiva, aceitação e utilidade do feedback, além de analisar os efeitos do mapeamento não-linear vs linear do feedback em grupos de alto e baixo desempenho.",
+
+    "metodologia": "Estudo em simulador com 36 participantes novatos (20 homens, 16 mulheres, 18-35 anos) divididos em grupos de alto e baixo desempenho via median split baseado em tempo de movimento inicial. Simulador de guindaste robótico com assento de caminhão Chicago, dois joysticks, duas telas de TV 55\" Xiao Mii combinadas com espelho semi-permeável para feedback visual contact-analogue. Guindaste robótico Robotis Open Manipulator com 4 DoF, controle de velocidade via juntas. Feedback fornecido durante últimos 66% da distância do movimento (fase de homing). 8 condições de feedback: auditivo (pitch e loudness, linear e não-linear) e visual (brightness e size, linear e não-linear). Pitch: 180-246.67 Hz; Loudness: 46.67-60 dB; ambos seguindo mapeamento baseado em lei do inverso do quadrado para não-linear. Feedback visual próximo ao end-effector usando RViz. 320 movimentos por participante (32 por categoria de feedback), design within-subjects com quadrado latino para balanceamento. Software: Ubuntu 20.04, GAZEBO (visualização), RViz (feedback visual), PureData (feedback auditivo), ROS noetic (comunicação), C++/Python 3.",
+
+    "analise_estatistica": "ANOVA de medidas repetidas e ANOVA de efeitos mistos para comparação de medidas de desempenho e habilidade. Nível α = 0.05. Comparações post-hoc ajustadas por Tukey. Testes qui-quadrado para verificar balanceamento de aprendizado entre grupos. Classificação de performers via median split em bloco de treinamento. Métricas objetivas: tempo de movimento, erro constante (distância ao centro do alvo), erro variável (desvio padrão do erro constante), suavidade de trajetória (spectral arc length), desvio lateral e vertical (RMSE). Métricas subjetivas: NASA TLX-R (carga mental), Van der Laan acceptance scale (utilidade e satisfação, escala -2 a +2). Pré-processamento em MATLAB 2021a e R 4.1.1.",
+
+    "resultados": "Low performers com feedback auditivo: maior acurácia (F(1,17)=6.02, p=.027, η²p=.26). Feedback pitch não-linear superou visual linear size (p=.022). High performers: tempo de movimento significativamente menor (F(1,32)=18.98, p<.001, η²p=.37) e trajetórias mais suaves (F(1,32)=8.40, p=.007, η²p=.21), mas sem melhora significativa com feedback. Sem efeito de mapeamento linear vs não-linear. Descritivamente, pitch não-linear teve menor erro constante (M=3.34, SD=1.38 cm). NASA TLX: esforço percebido maior que demanda temporal, frustração e demanda física (p<.05). Aceitação: feedback auditivo percebido como mais útil do que satisfatório (p<.05); satisfação com feedback auditivo menor que visual (p<.05). Interação significativa Performer Group × Feedback na acurácia (F(6.01,192.35)=2.15, p=.05, η²p=.06).",
+
+    "contribuicoes": "1) Primeiro estudo sistemático de feedback baseado em características perceptuais humanas para melhorar precisão de movimentos de guindastes robóticos controlados bimanualmente. 2) Demonstração de que feedback auditivo (sonificação) melhora acurácia de operadores de baixo desempenho, consistente com teoria de múltiplos recursos cognitivos de Wickens. 3) Feedback visual não melhora desempenho, possivelmente devido à sobrecarga do mesmo canal sensorial já utilizado na tarefa. 4) Avaliação abrangente combinando medidas objetivas (desempenho motor, suavidade de trajetória) e subjetivas (NASA TLX, Van der Laan acceptance scale). 5) Design de feedback não-linear baseado em percepção humana (lei do inverso do quadrado para audição, lei de potência de Stevens para brilho).",
+
+    "limitacoes": "Estudo em simulador com fidelidade simplificada; resultados precisam validação em operações reais. Resultados aplicáveis apenas a low performers/estágios iniciais de aprendizado. Amostra acadêmica (estudantes e funcionários universitários) pode limitar generalização. Efeitos de curto prazo; desempenho de longo prazo não avaliado. Não foi possível determinar se high performers usam feedback eficientemente ou simplesmente não necessitam dele. Mapeamento non-linear vs linear não mostrou diferença significativa - pode requerer ajuste mais fino ao conceito de feedback específico.",
+
+    "topico": "Sonification, Concurrent Feedback, Auditory Feedback, Visual Feedback, Motor Control, Human-Machine Interface, Robotic Crane Control, Bimanual Control, Operator Training, Forestry Machinery, Construction Equipment, Movement Accuracy, Skill Acquisition, Multiple Resource Theory, NASA TLX, Van der Laan Acceptance Scale",
+    "area_aplicacao": "Controle de Guindastes Robóticos, Indústria Florestal, Construção Civil, Treinamento de Operadores de Máquinas, Fatores Humanos, Ergonomia, Teleoperação, Interface Homem-Máquina",
+
+    "tipo_dados": "Dados experimentais de simulador (tempo de movimento, erro de acurácia, trajetórias, suavidade), questionários subjetivos (NASA TLX, Van der Laan)",
+    "dataset": "Próprio (estudo com 36 participantes, 320 movimentos cada)",
+    "frameworks": "Ubuntu 20.04, ROS noetic, GAZEBO (3D simulation), RViz (visualization), PureData (auditory synthesis), C++, Python 3, MATLAB 2021a, R 4.1.1, Robotis Open Manipulator, Xiao Mii 55\" TV screens, Semi-permeable mirror (45°), Chicago truck seat, Dual joysticks",
+    "link_codigo": "Não disponível (estudo financiado pelo ERA-NET ForestValue, EU Horizon 2020 grant N° 773324)"
+  },
+  {
+    "numero": 25,
+    "nome_arquivo": "Evaluation of the energy saving potential in electric motors aplying a load-based voltage control method.pdf",
+
+    "autores": "Vladimir Sousa Santos; Juan J. Cabello Eras; Mario J. Cabello Ulloa",
+    "ano": 2024,
+    "titulo": "Evaluation of the energy saving potential in electric motors applying a load-based voltage control method",
+    "subtitulo": "",
+    "journal": "Energy",
+    "publisher": "Elsevier",
+
+    "objetivo": "Estudar a viabilidade de economia de energia em motores elétricos ajustando a tensão de acordo com a carga em motores que operam sob variações significativas de carga durante seus ciclos de trabalho, avaliando o potencial de economia no ciclo de vida útil do motor usando redes neurais e séries temporais para modelagem.",
+
+    "metodologia": "Estudo em três estágios: (1) Avaliação experimental de motor trifásico de 1.1 kW (220V, 3.9A, 3420 rpm, 60Hz, eficiência nominal 86%) em bancada de testes com fonte de tensão variável De Lorenzo DL 1013, unidade de controle de freio DL 1054 TT com freio de pó magnético DL 1019P para controle de torque, e analisador de qualidade de energia Dranetz PowerVisa (classe A, erro ±1%). Avaliação de 20 estados de carga (5%-100% LF com incrementos de 5%), 15 replicações por condição. (2) Desenvolvimento de duas redes neurais (RN) em MATLAB usando função de transferência de base radial (exact fit): uma para tensão nominal e outra para LVCM, com torque como entrada e 5 saídas (tensão, velocidade, corrente, fator de potência, potência elétrica). Arquitetura: camada oculta com 20 neurônios (Radial basis) + camada de saída com 5 neurônios (pure line). (3) Simulação do ciclo de vida (5840 h/ano, 20 anos) em três regimes operacionais (OR) reais: compressor de refrigeração industrial (OR-1), compressor de ar industrial (OR-2), e cortadora de pedra industrial (OR-3), usando gerador de séries temporais. Princípio LVCM: T = K·V₁² (relação torque-tensão), permitindo redução de tensão quando torque diminui sem afetar fluxo magnético.",
+
+    "analise_estatistica": "Dados analisados em Statgraphics Centurion XV. Viés padronizado: -1.69 a 1.61; curtose padronizada: -1.75 a 1.96 (dentro de ±2, confirmando distribuição normal). Coeficiente de variação: 0.013%-1.170%. Validação das RNs com dados diferentes do treinamento: erro relativo máximo 2.0% (tensão nominal) e 2.91% (LVCM), ambos <5% (limite aceito em engenharia). CDF (Função de Distribuição Cumulativa) para análise de tempo de operação com LF<40%: OR-1 (47%), OR-2 (86%), OR-3 (40%). Resolução de séries temporais: OR-1=789, OR-2=1025, OR-3=1007. Análise econômica via VPL (Valor Presente Líquido) com taxa de desconto de 12%.",
+
+    "resultados": "LVCM aplicável entre 5-40% de fator de carga. Em 15% LF: tensão reduzida de 220V para 126V, corrente de 1.86A para 1.35A. Fator de potência melhorou 20.8% (40% LF) a 73.1% (5% LF) comparado à tensão nominal. Potência elétrica reduzida 1.3% (40% LF) a 32.6% (5% LF). Eficiência melhorou 0.06% (40% LF) a 18.1% (5% LF). OR-1: redução máxima de tensão 40.5% (para 130.9V), melhoria de eficiência 8.4% (de 68.88% para 77.32%). OR-2: redução máxima 49.4% (para 111.3V), melhoria 10.4% (de 60.52% para 70.88%). OR-3: redução máxima 40.1% (para 131.8V), melhoria 8.3% (de 69.26% para 77.59%). Economia de energia no ciclo de vida de 20 anos: OR-1: 3.3% (1810 kWh), OR-2: 5.2% (2465 kWh), OR-3: 2.0% (1291 kWh). Análise econômica em motores industriais de referência (93kW, 56kW, 100kW): economia anual $1,227-$1,549 USD, payback <3.5 anos, custo de implementação $3,421 USD. VPL em 5 anos: Motor OR-1 $2,594, Motor OR-2 $1,227, Motor OR-3 $1,244.",
+
+    "contribuicoes": "1) Avaliação do potencial de economia de energia do LVCM no ciclo de vida completo do motor (20 anos), não apenas em condições nominais. 2) Uso de redes neurais com função de base radial que não requerem parâmetros internos do motor (resistência, reatância) difíceis de obter em condições industriais. 3) Uso de séries temporais para simular comportamento de carga durante todo o ciclo de vida. 4) Demonstração de que LVCM pode mitigar o problema de baixo fator de potência em motores operando com baixo fator de carga. 5) Análise econômica demonstrando viabilidade com payback inferior a 1/3 da vida útil do motor. 6) LVCM tem campo de aplicação mais amplo que SRM (Speed Regulation Methods) pois não afeta significativamente a velocidade da carga.",
+
+    "limitacoes": "Testes realizados em motor de apenas 1.1 kW (motor pequeno para validação industrial). Condições transientes (partida, paradas súbitas) excluídas do estudo. LVCM aplicável apenas para LF<40%. Medição direta de torque mecânico em condições de campo permanece desafiadora (requer métodos de estimação). Validação das RNs com erro máximo de ~3%, não zero. Modelo assume que economia percentual do motor de 1.1 kW se aplica proporcionalmente a motores maiores.",
+
+    "topico": "Electric Motors, Energy Efficiency, Load-based Voltage Control Method (LVCM), Neural Networks, Time Series, Life Cycle Analysis, Load Factor, Power Factor Improvement, Variable Voltage, Energy Savings, Induction Motor, Motor Control, Industrial Applications, Economic Feasibility, Net Present Value",
+    "area_aplicacao": "Eficiência Energética Industrial, Motores Elétricos, Compressores Industriais, Refrigeração Industrial, Automação Industrial, Gestão de Energia, Indústria de Manufatura",
+
+    "tipo_dados": "Dados experimentais de bancada (tensão, corrente, potência, velocidade, torque, fator de potência), dados de operação industrial (perfis de carga), simulações de ciclo de vida",
+    "dataset": "Próprio (testes experimentais com motor 1.1 kW + perfis de carga de 3 aplicações industriais reais)",
+    "frameworks": "MATLAB (nntool, time series generator), Statgraphics Centurion XV, De Lorenzo DL 1013 (variable voltage source), De Lorenzo DL 1054 TT (brake control unit), De Lorenzo DL 1019P (magnetic powder brake), Dranetz PowerVisa (power quality analyzer class A), Fluke 435-II (three-phase power quality analyzer), Arduino, PLC, SCR three-phase power regulator, Force washer-type torque sensor, Current transformer (CT)",
+    "link_codigo": "Dados disponíveis mediante solicitação (financiado pela Universidad de Córdoba, Colombia - minute No. FI-04-22 de 2023)"
+  },
+  {
+    "numero": 26,
+    "nome_arquivo": "Experimental observer-based ddelayed control.pdf",
+
+    "autores": "Jesús Abraham Rodríguez-Arellano; Roger Miranda-Colorado; Raúl Villafuerte-Segura; Luis T. Aguilar",
+    "ano": 2025,
+    "titulo": "Experimental observer-based delayed control of wheeled mobile robots",
+    "subtitulo": "",
+    "journal": "Applied Mathematical Modelling",
+    "publisher": "Elsevier",
+
+    "objetivo": "Desenvolver um novo esquema de controle robusto (OPR - Observer-based Proportional-Retarded) para rastreamento de trajetória de robôs móveis com rodas tipo car-like que compensa perturbações cinemáticas usando um observador de perturbações combinado com um controlador proporcional-retardado baseado em teoria de atrasos artificiais.",
+
+    "metodologia": "Modelo cinemático completo de robô car-like (tipo Ackerman, 4 DoF: x, y, θ, φ) com perturbações d(t) incluindo efeitos de skidding e slipping. Transformação de coordenadas z(t) = [x + lcosθ + δcos(θ+φ), y + lsinθ + δsin(θ+φ)]ᵀ para desacoplar o sistema em dois sistemas de segunda ordem perturbados (Σ₁, Σ₂). Controlador dividido em duas partes: (1) Observador de perturbações baseado em diferenciador assintótico u_ia(t) = -ê̇_i(t) para compensar σ_j(t), transformando sistema em perturbações evanescentes; (2) Controlador proporcional-retardado u_ib(s) = k_pi - k_ri·exp(-sτ_i) usando teoria de atrasos artificiais para garantir convergência exponencial. Design de ganhos via abordagem de abscissa espectral e regiões de σ-estabilidade, garantindo máxima taxa de decaimento σ̄*. Prova teórica de estabilidade assintótica via análise de Lyapunov e quasi-polinômios. Validação experimental em plataforma Autominy (veículo autônomo escala 1:10) com comunicação wireless via ROS, sistema multicâmera para posição/orientação, e comparação com 4 controladores robustos da literatura.",
+
+    "analise_estatistica": "Índices de desempenho: IAE (Integral of Absolute Error), ITSE (Integral Time Squared Error), ITAE (Integral Time Absolute Error), RMS (Root Mean Squared error), ISV (Integral Squared Value do input). OPR apresentou menores valores em quase todas as métricas. IAE para OPR: e_x=68.1, e_y=81.8, e_θ=96.8, e_φ=61.7 (vs HI: 163.5/78.7/108.4/88.1; FC: 199.3/170.3/179.9/95.5; PID: 102.5/82.5/108.4/78.3; FT: 88.8/103.8/94.4/74.7). RMS para OPR: e_x=3.45, e_y=4.64, e_θ=3.86, e_φ=2.22. ISV (demanda de controle): HI=117.6, FC=172.9, PID=343.47, FT=238.11, OPR=263.73. Tempo de amostragem: 10 ms. Solver: Ode5 Dorman-Prince.",
+
+    "resultados": "OPR superou todos os controladores de comparação (H∞ observer-based, Feedback Controller, PID, Backstepping-Sliding Modes). Convergência mais rápida: ~3 segundos para x̃(t) convergir a zero (vs 6-7s para outros). Menor overshoot em todas as coordenadas (x, y, θ, φ). Menores erros de rastreamento em regime permanente. Sinal de controle com demandas moderadas. Robustez comprovada contra perturbações: ruído de comunicação wireless, tapetes macios afetando movimento, erros de medição do sistema multicâmera. Ganhos ótimos obtidos: k_p1=5, k_r1=4.54, k_p2=4.5, k_r2=3.99, τ₁=0.24, τ₂=0.24, δ=1. Decaimento exponencial ótimo σ̄*=-1.7 para k_pi=5.",
+
+    "contribuicoes": "1) Desenvolvimento de novo controlador OPR (Observer-based Proportional-Retarded) combinando observador de perturbações com controlador atrasado para robôs móveis. 2) Prova teórica de convergência assintótica apesar de perturbações cinemáticas (skidding, slipping). 3) Metodologia de design de ganhos via regiões de σ-estabilidade garantindo máxima taxa de decaimento exponencial. 4) Validação experimental extensiva em veículo em escala demonstrando superioridade sobre 4 controladores robustos da literatura. 5) Estrutura matemática simples do controlador facilitando implementação prática. 6) Uso de atrasos artificiais no controlador para atenuar ruídos de medição sem necessidade de derivativas de velocidade.",
+
+    "limitacoes": "Observador requer medições de velocidade. Não há metodologia sistemática para seleção de parâmetros dos ganhos do controlador além das regiões de σ-estabilidade. Testes realizados em veículo em escala 1:10, não em veículo real. Não considera perturbações não-casadas (unmatched disturbances). Trabalho futuro: observador sem medições de velocidade, design de controlador com índice de desempenho para obter ganhos apropriados, modificação da estrutura para atenuar perturbações não-casadas.",
+
+    "topico": "Wheeled Mobile Robot, Car-like Robot, Trajectory Tracking, Proportional-Retarded Control, Disturbance Observer, Time Delay Control, Spectral Abscissa, σ-Stability Regions, Asymptotic Stability, Nonholonomic Constraints, Kinematic Model, Ackerman Steering, Robust Control, Lyapunov Analysis, Quasi-polynomials",
+    "area_aplicacao": "Robótica Móvel, Veículos Autônomos, Controle de Trajetória, Sistemas Mecatrônicos, Automação de Veículos, Exploração Planetária, Agricultura de Precisão, Controle Robótico",
+
+    "tipo_dados": "Dados experimentais (posição, orientação, entradas de controle, erros de rastreamento), dados de simulação, índices de desempenho",
+    "dataset": "Próprio (experimentos em plataforma Autominy 1:10)",
+    "frameworks": "MATLAB-Simulink (controle), ROS Noetic Ninjemys, Ubuntu 18.04, Autominy Platform (1:10 autonomous car), Intel NUC CPU, LiDar sensor, Intel RealSense D435 camera, Servo motor (steering), DC motor (longitudinal), Stationary multi-camera vision system, Wireless communication, Ode5 Dorman-Prince solver, Sampling time 10ms",
+    "link_codigo": "Vídeo dos experimentos disponível em https://drive.google.com/file/d/1WIqAAOJK3EFkTsCZUX84PDrfMB8pb5Zi/view (SECIHTI Project CIR/063/2024, IPN Grant SIP 2025-0496)"
+  },
+  {
+    "numero": 27,
+    "nome_arquivo": "Hierarchical reinforcement learning with adaptive scheduling for robot control.pdf",
+
+    "autores": "Zhigang Huang; Quan Liu; Fei Zhu",
+    "ano": 2023,
+    "titulo": "Hierarchical reinforcement learning with adaptive scheduling for robot control",
+    "subtitulo": "",
+    "journal": "Engineering Applications of Artificial Intelligence",
+    "publisher": "Elsevier",
+
+    "objetivo": "Propor o algoritmo HAS (Hierarchical reinforcement learning with Adaptive Scheduling) que utiliza opções contínuas em vez de discretas para resolver problemas de controle de robôs com recompensas esparsas em espaços contínuos, alcançando um balanceamento adaptativo entre exploração e exploitação durante o escalonamento frequente de opções contínuas.",
+
+    "metodologia": "Arquitetura hierárquica de duas camadas: controlador de alto nível (policy de opções πO) gera opções estimadas o+ e determina opções ativadas via função de terminação β baseada em vantagem relativa entre opção anterior o- e estimada o+; controlador de baixo nível (intra-option policy πo) gera ações guiadas pela opção ativada. Escalonamento adaptativo combina: (1) escalonamento estático multi-step (k passos intra-opção) para exploração básica e comportamento direcionado; (2) escalonamento dinâmico via mecanismo de julgamento de interrupção baseado em vantagens relativas usando softmax: β(o+|s,o+,o-)=exp(Q(s,o+))/(exp(Q(s,o-))+exp(Q(s,o+))). Representação de opções via informação mútua I(O;S)=-H(O|S)+H(O) para estabelecer relação guia entre opções e trajetórias. Incentivo de interrupção η baseado em annealing para aliviar exploração excessiva na fase inicial de treinamento. Algoritmo base: SAC (Soft Actor-Critic) para ambos controladores. Buffers de experiência separados para alto nível (s,o,s̃',R) e baixo nível (o,s'). Redes neurais fully-connected: alto nível (256,256,256), baixo nível (128,128,128), discriminador (64,64). Distância t-step esperada δ para medir capacidade de exploração dos métodos de escalonamento.",
+
+    "analise_estatistica": "10 sementes aleatórias por tarefa. Avaliação a cada 50 iterações de treinamento. 20 episódios de teste por avaliação. Métricas: taxa de sucesso (média das taxas em diferentes avaliações), taxa de sucesso terminal (média dos últimos 10% de passos na avaliação), variância terminal. Comparação com 8 baselines: HIDIO (opções contínuas), MOC, AdInfo, DIAYN (opções discretas), HRAC, HIRO (baseados em metas), SAC, SACR. Ablação funcional: remoção de opção contínua (HAS-CO), escalonamento dinâmico (HAS-dynamic), escalonamento estático (HAS-static), incentivo de interrupção (HAS-incentive). Ablação paramétrica: dimensão de opção n ∈ {2,4,6}, passo intra-opção k ∈ {2,3,5}. Teste de distribuição de latência via Kolmogorov-Smirnov. Análise SHAP para importância de features não realizada neste artigo.",
+
+    "resultados": "HAS alcançou 93% de taxa de sucesso terminal média (vs HIDIO 76%, HRAC 73%, MOC 26%, AdInfo 22%, DIAYN 19%, HIRO 47%, SAC 19%, SACR 56%). Convergência mais rápida e alta estabilidade (menor área de sombra nos gráficos). HAS resolveu FetchSlide com >60% de sucesso enquanto outros algoritmos falharam. Distância t-step esperada: escalonamento adaptativo AS(2)=2.77 (t=4), 3.45 (t=6) vs estático SS(2)=2.52, 2.88 e dinâmico DS(1)=2.49, 2.98. Ablação: HAS-CO (sem opções contínuas) falhou em todas as tarefas exceto FetchReach. Robustez paramétrica: HAS manteve >60% sucesso com dim=2 vs HIDIO <30%. Redução de 68% nos passos finais de tarefa comparado a HIDIO (16.80 vs 24.81 passos médios). Comprimento de opção diminuiu ao longo do treinamento, refletindo transição de exploração para exploitação. Trajetórias de opções contínuas cobrem espaço de estados de forma mais uniforme que HIDIO em FetchPickAndPlace e FetchSlide.",
+
+    "contribuicoes": "1) Método de escalonamento adaptativo para opções contínuas balanceando exploração e exploitação durante escalonamento frequente. 2) Incentivo de interrupção baseado em annealing para aliviar dilema de exploração excessiva e acelerar convergência. 3) Algoritmo efetivo para problemas de controle de robôs com recompensas esparsas em espaços contínuos, desafiador para HRL convencional. 4) Análise teórica via distância t-step esperada demonstrando superioridade do escalonamento adaptativo em exploração. 5) Esquema experimental abrangente incluindo comparação, ablação funcional/paramétrica, e três experimentos de efeitos (mecanismo adaptativo, efeito na representação, efeito nas políticas de opção).",
+
+    "limitacoes": "Capacidade de exploração depende quase inteiramente do mecanismo de exploração ativa da abstração temporal, não construindo compreensão abrangente do ambiente. Não há mecanismo confiável para guiar o agente para longe de regiões bem exploradas, podendo desacelerar taxa de convergência. Taxa de aprendizado mais lenta que SAC e TD3 durante fase inicial de treinamento em tarefas de recompensa densa, pois requer mais tempo para aprender controlador de baixo nível. Trabalho futuro: incorporar medida de motivação intrínseca ao HAS para melhorar exploração sem comprometer abstração temporal.",
+
+    "topico": "Hierarchical Reinforcement Learning, Continuous Options, Adaptive Scheduling, Exploration-Exploitation Balance, Sparse Rewards, Temporal Abstraction, Option Framework, Soft Actor-Critic, Mutual Information, Intrinsic Motivation, Multi-step Scheduling, Termination Function, Interruption Incentive, Expected t-step Distance",
+    "area_aplicacao": "Controle de Robôs, Manipulação Robótica, Aprendizado por Reforço, Inteligência Artificial, Sistemas Autônomos, Navegação de Robôs, Tarefas de Alcance e Empurrar, Robótica de Manipulação",
+
+    "tipo_dados": "Dados de simulação (estados de robôs, ações, recompensas, trajetórias, taxas de sucesso)",
+    "dataset": "MuJoCo (Reacher, Pusher), OpenAI Gym Robotics (FetchReach, FetchPush, FetchPickAndPlace, FetchSlide)",
+    "frameworks": "MuJoCo (multi-joint dynamics), OpenAI Gym Robotics, SAC (Soft Actor-Critic), PyTorch (implied), Python, Intel Xeon Gold 5220R CPU @ 2.20 GHz (48 cores), NVIDIA Tesla P40 GPU, Adam Optimizer, ReLU activation",
+    "link_codigo": "https://github.com (HAS code - Original data, link disponível no artigo via Dataset link)"
+  }
+]

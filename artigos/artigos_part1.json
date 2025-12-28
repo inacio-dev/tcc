@@ -1,0 +1,501 @@
+[
+  {
+    "_comentario": "ESTE É UM EXEMPLO - NÃO PREENCHER, APENAS REFERÊNCIA",
+    "_arquivo_parte": "PARTE 1 - Contém artigos 1 a 15. Artigos 16+ estão em artigos_part2.json",
+    "numero": 0,
+    "nome_arquivo": "nome_do_arquivo.pdf",
+
+    "_comentario_artigos_grandes": "Para artigos muito grandes (>10 páginas ou erro 413 na API): 1) Dividir PDF em partes menores (ex: _parte01.pdf, _parte02.pdf); 2) Ler de 3 em 3 partes para não sobrecarregar contexto; 3) Criar arquivo artigoN_resumo.md com resumo detalhado de cada parte; 4) Após processar todas as partes, adicionar entrada resumida aqui no JSON. Exemplo: artigo 9 foi dividido em 8 partes e resumido em artigo9_resumo.md",
+
+    "_comentario_identificacao": "Informações bibliográficas do artigo - NOMES DOS AUTORES DEVEM ESTAR COMPLETOS conforme aparecem no PDF",
+    "autores": "Nome Completo; Nome Completo 2 (separados por ponto e vírgula)",
+    "ano": 2024,
+    "titulo": "Título completo do artigo",
+    "subtitulo": "Subtítulo se houver",
+    "journal": "Nome do periódico/conferência",
+    "publisher": "Editora (Elsevier, IEEE, Springer, etc.)",
+
+    "_comentario_conteudo": "Análise do conteúdo científico",
+    "objetivo": "Objetivo principal do artigo - o que os autores buscam resolver/propor",
+    "metodologia": "Métodos, algoritmos, arquiteturas e abordagens utilizadas",
+    "analise_estatistica": "Métricas, testes estatísticos, tamanho de amostra, distribuições",
+    "resultados": "Principais resultados quantitativos e qualitativos",
+    "contribuicoes": "Contribuições originais do trabalho",
+    "limitacoes": "Limitações identificadas pelos autores ou observadas",
+
+    "_comentario_classificacao": "Classificação e categorização",
+    "topico": "Palavras-chave principais (ex: Edge Computing, IoT, Machine Learning)",
+    "area_aplicacao": "Domínios de aplicação (ex: Robótica, Veículos Autônomos, Indústria 4.0)",
+
+    "_comentario_recursos": "Recursos práticos e reprodutibilidade",
+    "tipo_dados": "Tipo de dados utilizados (sensores, imagens, telemetria, etc.)",
+    "dataset": "Dataset utilizado (nome ou 'Próprio')",
+    "frameworks": "Ferramentas, bibliotecas, hardware utilizado",
+    "link_codigo": "Link para código fonte se disponível, ou 'Não disponível'"
+  },
+  {
+    "numero": 1,
+    "nome_arquivo": "A latency sensitive and agile IIoT architecture with optimized edge node selection and task scheduling.pdf",
+
+    "autores": "Mona Kumari; Maheswari Prasad Singh; Amit Kumar Singh",
+    "ano": 2025,
+    "titulo": "A latency sensitive and agile IIoT architecture with optimized edge node selection and task scheduling",
+    "subtitulo": "",
+    "journal": "Digital Communications and Networks",
+    "publisher": "Elsevier",
+
+    "objetivo": "Propor uma nova arquitetura IIoT baseada em edge computing para monitoramento e controle sensível a delay em indústrias de manufatura, garantindo disponibilidade de edge nodes e distribuição uniforme de carga de execução de tarefas entre múltiplos nós de computação de borda.",
+
+    "metodologia": "Arquitetura edge-cloud computing de três camadas: Device Layer (DN - Device Nodes com sensores IoT), Edge Layer (DC - Device Coordinators, EN - Edge Nodes, RL - Resource Logger) e Cloud Layer. Proposto algoritmo RLRTT-ESA (Resource Logger Round Trip Time-Based Edge Node Selection Algorithm) que utiliza Locality Sensitive Hashing (LSH) para seleção de nós vizinhos aproximados e protocolo CoAP (CON/ACK) para medir RTT e decidir alocação de tarefas.",
+
+    "analise_estatistica": "Chegada de tarefas modelada por distribuição de Poisson. Simulação com 100-150 DN, 20-25 DC, 10-20 EN. Tarefas de 2-5 MB com 100k-400k instruções. Métricas: tempo de execução (ms), delay de comunicação e enfileiramento (ms), tempo médio de resposta, carga de trabalho média nos ENs. Comparação com algoritmos ATS-FOA e RBEC/PENB.",
+
+    "resultados": "Redução de 88.28% no delay de comunicação comparado à abordagem cloud tradicional. Redução de 12.32% comparado aos métodos ATS-FOA e RBEC/PENB. Melhoria de 47.25% no tempo total de resposta da aplicação. RLRTT-ESA demonstrou menor variabilidade e melhor escalabilidade conforme número de tarefas aumenta.",
+
+    "contribuicoes": "1) Arquitetura IIoT edge-cloud com múltiplos dispositivos industriais móveis e estáticos, Device Coordinators, Edge Nodes heterogêneos e Resource Logger centralizado. 2) Algoritmo de task scheduling (RLRTT-ESA) para gerenciar congestionamento e distribuir uniformemente a carga de execução entre ENs usando RTT e disponibilidade de recursos.",
+
+    "limitacoes": "Não há número fixo de hiperplanos para dividir o espaço d-dimensional em LSH. Abordagem depende de condições ambientais específicas. Escalabilidade limitada em instalações de grande escala. Não considera segurança e privacidade dos dados.",
+
+    "topico": "Edge Computing, IIoT, Task Scheduling, Load Balancing",
+    "area_aplicacao": "Industrial IoT, Manufatura Inteligente, Indústria 4.0, Sistemas de Monitoramento e Controle",
+
+    "tipo_dados": "Dados de sensores IoT industriais, métricas de latência, telemetria de dispositivos",
+    "dataset": "Próprio (simulação)",
+    "frameworks": "Thingworx simulator, CoAP protocol, Raspberry Pi 4, Node MCU, BLE/Zigbee/RFID",
+    "link_codigo": "Não disponível"
+  },
+  {
+    "numero": 2,
+    "nome_arquivo": "A multipath redundancy communication framework for enhancing 5G mobile communication quality.pdf",
+
+    "autores": "Koki Ito; Jin Nakazato; Romain Fontugne; Manabu Tsukada; Esaki Hiroshi",
+    "ano": 2025,
+    "titulo": "A multipath redundancy communication framework for enhancing 5G mobile communication quality",
+    "subtitulo": "",
+    "journal": "Computer Communications",
+    "publisher": "Elsevier",
+
+    "objetivo": "Propor um framework de comunicação redundante multipath para melhorar a qualidade de streaming de mídia em tempo real em redes 5G, particularmente para aplicações baseadas em UDP como WebRTC, resolvendo o problema de handover durante movimento em redes móveis.",
+
+    "metodologia": "Framework composto por Mobile Router (MRT) em ambiente móvel instável e Central Router (CRT) em datacenter estável. Utiliza encapsulamento GENEVE (Generic Network Virtualization Encapsulation) na camada IP para tunelamento. Replicação de pacotes no lado transmissor com números de sequência no header GENEVE. Buffer com heap ordenado por número de sequência no receptor para reordenação de pacotes. Implementação em Go (golang) com biblioteca gopacket. Experimentos reais com veículo em ambiente urbano (Shinjuku e Shibuya, Tóquio) usando duas redes móveis (MNOs) e streaming WebRTC P2P.",
+
+    "analise_estatistica": "Experimentos em Shinjuku (15 min, 2.9km, 170.445 pacotes) e Shibuya (40 min, 10.6km, 692.708 pacotes). Veículo a 0-60 km/h. Métricas: taxa de perda de pacotes, bitrate WebRTC via getStats() API, RTT. Tempos máximos de buffer testados: 10ms, 100ms, 300ms, 500ms, 1000ms. Comparação entre MNO#1, MNO#2 e proposta com/sem buffering.",
+
+    "resultados": "Shinjuku: perda de pacotes reduzida de 2.078% (MNO#1) e 14.938% (MNO#2) para 0.002%. Shibuya: perda reduzida de 4.094% (MNO#1) e 3.980% (MNO#2) para 0.002%. Bitrate significativamente maior com framework proposto vs método convencional sem buffering. 75% dos valores de RTT abaixo de 85ms (vs 50ms para único MNO). Overhead one-way estimado em ~19ms. Buffer de 300ms+ elimina maioria dos timeouts.",
+
+    "contribuicoes": "1) Framework para comunicação redundante multipath usando tunelamento GENEVE na camada IP, aplicável a aplicações existentes sem modificação. 2) Mecanismo de buffering para resolver inconsistências de ordem de pacotes causadas por comunicação redundante. 3) Avaliação em ambiente real usando múltiplas redes móveis em cenário veicular urbano.",
+
+    "limitacoes": "Overhead do sistema de ~40ms (round-trip). Delays de processamento no buffer do kernel. Ausência de plano de controle dinâmico para troca de endereços de endpoints do túnel GENEVE. Reduz eficiência de utilização de frequência (dobro do consumo de bandwidth). Tempo máximo de buffer ótimo necessita investigação adicional.",
+
+    "topico": "5G, Multipath Communication, UDP Streaming, WebRTC, Mobile Networks, Handover, Packet Replication",
+    "area_aplicacao": "Veículos Conectados Autônomos (CAV), Streaming em Tempo Real, Sistemas de Controle Remoto, V2X, AR/VR/MR, Robótica Remota, UAVs",
+
+    "tipo_dados": "Tráfego de rede, estatísticas de pacotes, métricas WebRTC, medições de latência RTT",
+    "dataset": "Próprio (experimentos reais em ambiente urbano)",
+    "frameworks": "Go (golang), gopacket, WebRTC, GENEVE, Docker, nginx, Vite.js, Ayame signaling server, Chrome, VP9, Opus",
+    "link_codigo": "Não disponível"
+  },
+  {
+    "numero": 3,
+    "nome_arquivo": "A PID-based control architecture for mobile robot.pdf",
+
+    "autores": "Fernando Cañadas-Aránega; José C. Moreno; José L. Blanco-Claraco",
+    "ano": 2024,
+    "titulo": "A PID-based control architecture for mobile robot path planning in greenhouses",
+    "subtitulo": "",
+    "journal": "IFAC PapersOnLine",
+    "publisher": "Elsevier / IFAC",
+
+    "objetivo": "Apresentar uma estratégia de controle para robô móvel Ackermann projetado para operação em estufas, baseada em mecanismo de controle em cascata com PID para malha interna (motores) e Pure Pursuit para malha externa (navegação), além de feedforward para terreno irregular.",
+
+    "metodologia": "Controle em cascata com malha interna (PID para motores de tração e direção) e malha externa (Pure Pursuit para seguimento de trajetória). Modelagem de motores usando método da curva de reação (funções de transferência de primeira ordem). Controladores PI com Anti-Windup para ambos motores. Controle feedforward para lidar com terreno irregular (inclinações 0-1%). Modelo cinemático Ackermann simplificado para modelo de bicicleta. Simulação em MATLAB/Simulink. Testes em malha aberta no protótipo AGRICOBIOT II da Universidade de Almería.",
+
+    "analise_estatistica": "Parâmetros dos motores: ganhos tração 0.012-0.02 [m·s⁻¹·V⁻¹], direção 0.014-0.018 [m·s⁻¹·V⁻¹]. Constantes de tempo: tração 1.2-1.45s, direção 0.25-0.45s. Limites saturação: tração -23.7 a 23.5V, direção -23.78 a -23.8V. Zonas mortas: tração -1.7 a 1.5V, direção -0.89 a 1.1V. Parâmetros PI: KpT=110.72, τiT=1.33s (tração); KpS=351.33, τiS=0.5s (direção). Índices de desempenho IAE/IADU melhoraram 18% com feedforward (4.35 → 3.61).",
+
+    "resultados": "Implementação bem-sucedida do controle em cascata. Rastreamento de referência com erro zero em regime permanente. Melhoria de 18% no esforço de controle com feedforward. Navegação natural através da estufa demonstrada em simulação 2D. Velocidade linear máxima ±0.45 m/s, velocidade angular ±0.27 rad/s, ângulo de direção ±35°.",
+
+    "contribuicoes": "1) Esquema de controle em cascata combinando PID (malha interna) com Pure Pursuit (malha externa) para robô agrícola. 2) Estratégia de feedforward para compensação de terreno irregular em estufas mediterrâneas. 3) Caracterização de motores e identificação de não-linearidades para o robô AGRICOBIOT II.",
+
+    "limitacoes": "Validação apenas em simulação (protótipo físico não totalmente operacional). Feedforward baseado em valores de inclinação simulados aleatoriamente. Parâmetro de delay fixo (0.5s) para coordenação dos motores. Configuração Ackermann impede implementação de mecanismo de backlash devido à restrição de direção.",
+
+    "topico": "PID Control, Mobile Robot, Path Planning, Cascade Control, Pure Pursuit, Feedforward Control, Ackermann",
+    "area_aplicacao": "Agricultura de Precisão, Robótica Agrícola, Estufas/Greenhouses, Navegação Autônoma",
+
+    "tipo_dados": "Dados de motores DC (velocidade, posição, tensão), coordenadas de navegação 2D",
+    "dataset": "Próprio (simulação + testes malha aberta em protótipo real)",
+    "frameworks": "MATLAB/Simulink, AGRICOBIOT II robot platform, LiDAR",
+    "link_codigo": "Não disponível"
+  },
+  {
+    "numero": 4,
+    "nome_arquivo": "A portable, low-cost real-time imaging slab gel eectophoresis system for rapid separation.pdf",
+
+    "autores": "Kan Luo; Yu Chen; Min Fan; Jianxing Li; Wu Wang",
+    "ano": 2025,
+    "titulo": "A portable, low-cost real-time imaging slab gel electrophoresis system for rapid separation of nucleic acids",
+    "subtitulo": "",
+    "journal": "Sensors and Actuators: B. Chemical",
+    "publisher": "Elsevier",
+
+    "objetivo": "Desenvolver um sistema portátil de eletroforese em gel de placa (SGE) com imagem em tempo real para separação e análise de ácidos nucleicos, superando limitações de sistemas tradicionais como grande footprint, ineficiência operacional e falta de capacidade de monitoramento em tempo real para aplicações point-of-care (POCT).",
+
+    "metodologia": "Sistema modular com cinco componentes integrados: (1) bateria de lítio recarregável; (2) tanque SGE impresso em 3D com placa de vidro de quartzo embutida (60×100×1 mm³) para dissipação de calor e imagem de fluorescência; (3) módulo de fonte de alimentação com conversor BOOST (LM5022) fornecendo 24-140V; (4) painel LED (18 LEDs de 465nm em array 3×6 com espaçamento de 17.8mm) com difusor para irradiação uniforme; (5) smartphone (iPhone 13 Pro) com filtro passa-banda de 520nm para detecção. Eletrodos de liga platina-titânio (100×20×1 mm³) espaçados 80mm. Simulação FEM para otimização de distribuição térmica usando equações de Poisson e transferência de calor. Otimização da distância LED-gel (z=20mm) baseada em modelagem de intensidade luminosa.",
+
+    "analise_estatistica": "LOD de 0.07 ng/μL calculado via IUPAC (k=3). Faixa linear 0.08-10.00 ng/μL com R²=0.998 e RMSE=2.258. RSD de uniformidade de irradiação de 1.38% (n=169 sub-regiões de 13×13). RSDs das bandas de DNA variando de 4.96% a 8.89% (n=12 lanes). Repetibilidade com RSD <1.30%. Throughput de 12 amostras por corrida. Comparação de tempos: 12 min (proposto) vs 30 min (tradicional) a 100V. Intensidade de campo elétrico: 3-17.5 V/cm.",
+
+    "resultados": "Sistema compacto (108×108×60 mm³), leve (0.7 kg) e baixo custo (~$65). Dissipação de calor passiva eficiente: temperatura <45°C na região superior e <40°C na região do gel durante 15 min a 140V (17.5 V/cm). Redução de 60% no tempo de eletroforese (12 min vs 30 min) mantendo resolução de bandas. Uniformidade de irradiação máxima de 82.29% a z=20mm. Separação clara de 6 bandas de DNA (100-2000 bp) em 12 min. Screening bem-sucedido de genes de proteína quinase receptora de arroz (CERK1 e CEBiP). Consumo de buffer 16x menor que sistemas tradicionais (60 mL vs ~1000 mL).",
+
+    "contribuicoes": "1) Design compacto e open source totalmente impresso em 3D com baixo custo de fabricação (~$65). 2) Placas de vidro de quartzo com função dupla: imagem de fluorescência de alta qualidade e dissipação passiva de calor eficiente. 3) Irradiação LED uniforme em grande área (100×60 mm²) sem óptica complexa. 4) Detecção em tempo real baseada em smartphone com filtro óptico simples. 5) Eletroforese rápida de alta intensidade de campo sob resfriamento passivo com monitoramento dinâmico de migração de bandas.",
+
+    "limitacoes": "Falta de software de análise de dados em tempo real integrado, requerendo ferramentas externas como Image J para análise quantitativa. Processo de limpeza pós-eletroforese permanece manual. Saturação de sinal de fluorescência observada em concentrações acima de 10.00 ng/μL, necessitando ajustes no carregamento de amostras. Necessidade de integração com tecnologias de preparação de amostras (PCR ou amplificação isotérmica) para expandir aplicabilidade em diagnósticos clínicos.",
+
+    "topico": "Slab Gel Electrophoresis, Portable System, Real-time Imaging, Fluorescence Detection, DNA Analysis, Point-of-Care Testing, 3D Printing",
+    "area_aplicacao": "Biologia Molecular, Genética, Diagnóstico Point-of-Care (POCT), Análise de Ácidos Nucleicos, Biotecnologia, Ciência Forense",
+
+    "tipo_dados": "Imagens de fluorescência de DNA, valores de escala de cinza, medições de temperatura infravermelha, marcadores de DNA (100-2000 bp)",
+    "dataset": "Próprio (experimentos com marcadores de DNA e genes de arroz CERK1/CEBiP)",
+    "frameworks": "SOLIDWORKS 2021, UV-curable resin 3D printing (HM-300S), iPhone 13 Pro, FEM simulation, Image J, iSGE app (WeChat/Android), LM5022 BOOST converter, SYBR Green I",
+    "link_codigo": "Disponível (open source nos materiais suplementares S1-S3)"
+  },
+  {
+    "numero": 5,
+    "nome_arquivo": "A review of haptic technologies for hardware-in-the-loop development.pdf",
+
+    "autores": "Oluwaseun Kayode Ajayi; Shengzhi Du; Syeda Nadiah Fatima Nahri",
+    "ano": 2025,
+    "titulo": "A review of haptic technologies for hardware-in-the-loop development",
+    "subtitulo": "",
+    "journal": "Sensors and Actuators Reports",
+    "publisher": "Elsevier",
+
+    "objetivo": "Revisar tecnologias hápticas para compreender sua adoção e aplicação em sistemas hardware-in-the-loop (HITL), investigando sensores, atuadores e materiais utilizados no design de dispositivos hápticos para guiar a seleção de dispositivos apropriados em aplicações como manufatura, mineração, medicina e treinamento.",
+
+    "metodologia": "Revisão abrangente de literatura examinando quatro tipos de feedback háptico: (1) vibrotátil - usando motores de vibração (ERMs e LRAs) para transmitir informação tátil via vibrações de frequências e intensidades variáveis; (2) tátil - simulando sensação de toque através de força/pressão na pele usando dispositivos pneumáticos ou atuadores eletrostáticos; (3) force feedback - aplicando forças e pressão aos membros para simular interações físicas usando sensores de força ou atuadores pneumáticos; (4) feedback térmico - modulando temperatura da pele para simular sensações de calor/frio usando atuadores termoelétricos. Análise de materiais: piezoelétricos, ligas com memória de forma, elastômeros e motores de vibração. Discussão de integração de software para renderização de estímulos hápticos.",
+
+    "analise_estatistica": "Comparação de parâmetros: ERMs vs LRAs (força de vibração 0.6 vs 1.7, faixa de frequência 0-500 Hz vs 0-200 Hz, tempo de subida ratio 5:2). Elastômeros com faixa de força 0.1-7 N. Elastômeros magnetorreológicos (MREs) com rigidez 30-60 kPa e campos magnéticos 0-5 mT. Frequência de motores de vibração 50 Hz a centenas de Hz com tensões <6 V. Atuadores piezoelétricos com tensões até 20 V, consumo ~4 mW e tempo de resposta <5 ms. Framework de fidelidade háptica com 14 critérios de avaliação.",
+
+    "resultados": "Materiais flexíveis (elastômeros, eletrotáteis, LRAs) são mais versáteis devido à flexibilidade, tamanho e facilidade de integração. Sensores e feedback multimodais identificados como forma de melhorar o desempenho do sistema háptico. Integração de IA (reinforcement learning, redes neurais, modelagem de superfície) melhora a simulação de feedback háptico. Plataformas hápticas 6 DOF aplicáveis em manufatura, mineração, medicina e treinamento. Identificação de desafios críticos: latência, localização de estímulos, identificação de texturas e consumo de energia.",
+
+    "contribuicoes": "1) Classificação compreensiva de tecnologias hápticas em quatro tipos (vibrotátil, tátil, force feedback, térmico) com análise de aplicações, desvantagens e soluções. 2) Análise detalhada de materiais para sensores e atuadores hápticos: piezoelétricos, ligas com memória de forma, elastômeros e motores de vibração. 3) Discussão de software e algoritmos de controle para renderização háptica. 4) Identificação de desafios e direções futuras incluindo uso de IA, digital twins e materiais multimodais.",
+
+    "limitacoes": "Dificuldade em localização de estímulos e identificação de texturas. Complicações quando múltiplos estímulos devem ser capturados. Limitações nas capacidades dos materiais atuais. Volume e alto consumo de energia de certos sensores (especialmente force feedback e térmicos). Tempo de resposta lento para aplicações térmicas. Variações de sensação devido à intuição do usuário. Latência e precisão ainda são desafios críticos em operações hápticas.",
+
+    "topico": "Haptic Technologies, Sensors, Actuators, Hardware-in-the-Loop, Force Feedback, Tactile Feedback, Vibrotactile, Thermal Feedback, Wearable Devices",
+    "area_aplicacao": "Manufatura, Mineração, Medicina/Cirurgia, Treinamento e Simulação, Realidade Virtual/Aumentada/Mista, Robótica, Próteses, Reabilitação, Gaming",
+
+    "tipo_dados": "Revisão de literatura (análise qualitativa e comparativa de tecnologias existentes)",
+    "dataset": "Não aplicável (revisão de literatura)",
+    "frameworks": "Plataforma háptica 6 DOF, Geomagic Touch, VR/AR/MR systems, ERMs, LRAs, piezoelectric actuators, shape memory alloys, elastomers, LabVIEW, OpenBCI",
+    "link_codigo": "Não disponível"
+  },
+  {
+    "numero": 6,
+    "nome_arquivo": "A review of perception sesors, techniques, and harware archtectures.pdf",
+
+    "autores": "Muhammad Zohaib Butt; Nazri Nasir; Rozeha Bt A. Rashid",
+    "ano": 2024,
+    "titulo": "A review of perception sensors, techniques, and hardware architectures for autonomous low-altitude UAVs in non-cooperative local obstacle avoidance",
+    "subtitulo": "",
+    "journal": "Robotics and Autonomous Systems",
+    "publisher": "Elsevier",
+
+    "objetivo": "Revisar soluções de desvio de obstáculos não-cooperativos e locais para UAVs autônomos de baixa altitude, fornecendo uma análise aprofundada dos três componentes principais do sistema de desvio de obstáculos: sensores de percepção, técnicas de desvio e arquitetura de hardware.",
+
+    "metodologia": "Revisão sistemática de literatura categorizando: (1) Sensores de percepção em três grupos: visuais (monocular, estéreo, RGB-D), não-visuais/ativos (LiDAR, radar, ultrassônico) e fusão de sensores. (2) Técnicas de desvio de obstáculos em quatro grupos: gap-based (Open Sector, Nearness Diagram, Vector Field Histogram), geometric (Collision Cone, Velocity Obstacle), repulsive force-based (Potential Field, Artificial Potential Field) e AI-based (Deep Reinforcement Learning, Machine Learning/CNN). (3) Arquiteturas de hardware em três topologias: controlador de voo apenas, arquitetura híbrida (controlador + computador companheiro) e sistemas dedicados (ADS-B). Análise sistemática do banco de dados Web of Science para tendências de publicação.",
+
+    "analise_estatistica": "Matriz comparativa com 12 métricas de avaliação para sensores de percepção: robustez, detecção de múltiplos obstáculos, percepção de profundidade, erros de calibração, dependência de GPS, compatibilidade 3D, forma do obstáculo, ambiente outdoor, sensibilidade à luz, dependência climática, complexidade computacional e requisito de energia. Análise bibliométrica WoS mostrando crescimento de publicações UAV+sensors de 2014-2022, atingindo 1286 em 2022. China, EUA e Alemanha identificados como principais contribuidores. Mercado global de UAV de $127 bilhões com CAGR de 16.2%. Altitude máxima para operação de baixa altitude: 122m.",
+
+    "resultados": "Sensores LiDAR 2D são computacionalmente eficientes e adequados para UAVs pequenos em baixa altitude. Sensores não-visuais (ativos) demonstram maior robustez a condições de iluminação e clima adverso. Métodos gap-based oferecem navegação suave e eficiência computacional mas degradam com dados ruidosos. Métodos geometric utilizam informações de forma, posição e velocidade do obstáculo para navegação livre de colisão. Métodos repulsive force-based são propensos a mínimos locais e problema GNRON (Goals Not Reachable with Obstacles Nearby). Métodos AI-based mostram potencial para adaptabilidade usando grandes volumes de dados de sensores. Arquitetura híbrida (controlador de voo + computador companheiro como Jetson, Raspberry Pi, Intel NUC) oferece melhor desempenho e flexibilidade para upgrades futuros. Fusão de sensores melhora redundância, confiabilidade e tomada de decisão em condições desafiadoras.",
+
+    "contribuicoes": "1) Revisão abrangente de sensores de percepção para desvio de obstáculos não-cooperativo e local, incluindo classificação sistemática, vantagens e desvantagens de cada tipo. 2) Revisão estruturada e categorização das técnicas de desvio de obstáculos local não-cooperativo em quatro grupos distintos (gap-based, geometric, repulsive force-based, AI-based). 3) Visão geral das arquiteturas de hardware utilizadas na literatura revisada, categorizadas em três topologias principais.",
+
+    "limitacoes": "Desvio de obstáculos baseado em visão em condições de baixa luz e clima adverso permanece desafiador. Métodos gap-based dependem de scans sensoriais claros e degradam com ruído. Métodos repulsive force-based sofrem com mínimos locais e GNRON em ambientes densamente obstruídos. Métodos AI-based baseados em Machine Learning dependem de datasets de grande escala e qualidade; métodos DRL têm aplicabilidade limitada por requererem operação repetida no mesmo ambiente. Fusão de sensores ainda é área nascente e necessita otimização de consumo energético. Revisão limitada a UAVs multi-rotor de baixa altitude.",
+
+    "topico": "UAV, Obstacle Avoidance, Perception Sensors, LiDAR, Stereo Vision, Radar, Ultrasonic, Sensor Fusion, Deep Reinforcement Learning, Artificial Potential Field, Vector Field Histogram, Collision Cone, Velocity Obstacle",
+    "area_aplicacao": "UAVs Autônomos, Vigilância Aérea de Baixa Altitude, Navegação Autônoma, Agricultura de Precisão, Inspeção de Infraestrutura, Busca e Resgate, Entrega de Produtos, Monitoramento de Tráfego, Cobertura de Rede Wireless, Mapeamento Aéreo",
+
+    "tipo_dados": "Revisão de literatura (análise qualitativa e comparativa de sensores, técnicas e arquiteturas existentes)",
+    "dataset": "Não aplicável (revisão de literatura)",
+    "frameworks": "Pixhawk, Arduino Nano, DJI A3, Mateksys H743-WING, Pixracer R15, Raspberry Pi (Zero/3/4), Jetson (Nano/TX2/Xavier NX), ODROID (XU4/C2), Intel NUC, Hokuyo LiDAR (UST-10LX/UTM-30LX/URG-04LX), Velodyne VLP-16, SLAMTEC RPLiDAR, Intel RealSense (D435i/T265/L515/R200), Microsoft Kinect, ROS, Gazebo",
+    "link_codigo": "Não disponível"
+  },
+  {
+    "numero": 7,
+    "nome_arquivo": "A review on soft pneumatic actuators with integrated.pdf",
+
+    "autores": "Narendra Gariya; Sanjeev Kumar; Amir Shaikh; Brijesh Prasad; Hemant Nautiyal",
+    "ano": 2024,
+    "titulo": "A review on soft pneumatic actuators with integrated or embedded soft sensors",
+    "subtitulo": "",
+    "journal": "Sensors and Actuators: A. Physical",
+    "publisher": "Elsevier",
+
+    "objetivo": "Fornecer uma revisão abrangente dos designs de atuadores pneumáticos macios (SPAs) frequentemente utilizados, sensores macios, e SPAs com sensores macios integrados ou embarcados, além de discutir tendências emergentes, desafios e limitações na integração SPA-sensor.",
+
+    "metodologia": "Revisão abrangente de literatura examinando: (1) Três designs principais de SPAs: McKibben (músculo artificial pneumático com tubo elastomérico e fibras trançadas), Pneu-Nets (rede de câmaras de ar interconectadas para movimentos complexos), e material jamming (transição entre estado fluido e rígido usando materiais granulares). (2) Sete tipos de sensores macios: strain, pressão, temperatura, táteis, flex, ópticos e magnéticos, com análise de evolução histórica e mecanismos de sensoriamento. (3) Técnicas de integração sensor-SPA: impressão direta (screen printing, inkjet, aerosol jet), embedding durante fabricação, fibras ópticas (Fiber Bragg Gratings), sensores magnéticos com partículas embarcadas, peles sensoriais conformáveis, e sensores wireless. (4) Análise de tendências de publicação no Web of Science (WOS).",
+
+    "analise_estatistica": "Total de 165 publicações indexadas no WOS desde 2009 usando termos 'Soft pneumatic actuators' AND 'embedded or integrated soft sensors'. Pico de 30 publicações em 2021. Tabela comparativa de 14 estudos de SPAs com sensores integrados incluindo métricas: sensibilidade de strain sensor EGaIn (28.6-30.8), resolução de força ajustável até 0.02 N, resposta rápida de 10 ms, robustez >10,000 ciclos, força de saída até 1.55 N (SenAct), precisão de detecção de diâmetro de objetos com erro de 3.99% (gripper com sensor espiral CNT/MWCNT).",
+
+    "resultados": "SPAs com sensores integrados permitem controle automático baseado em feedback em tempo real, melhorando segurança e eficiência em interações humano-robô. Sensores de metal líquido EGaIn demonstram alta sensibilidade para strain e pressão. Atuadores auto-sensores (SenAct) alcançam resposta rápida, alta robustez e força de saída significativa para feedback háptico. Integração bem-sucedida demonstrada em: grippers macios (detecção de tamanho, maciez e perfil de objetos), exoesqueletos de membros inferiores (monitoramento de pressão e ângulo), dispositivos hápticos (feedback vibrotátil e mecano-tátil), e mãos biônicas inteligentes (geração de sinais para diferentes gestos). Tendências emergentes identificadas: sensoriamento multimodal, designs bioinspirados, integração com machine learning, e tecnologias wearable/assistivas.",
+
+    "contribuicoes": "1) Revisão compreensiva dos três designs de SPAs frequentemente utilizados (McKibben, Pneu-Nets, material jamming) com suas características, vantagens e limitações. 2) Revisão detalhada de sete tipos de sensores macios (strain, pressão, temperatura, táteis, flex, ópticos, magnéticos) incluindo evolução histórica, materiais e técnicas de fabricação. 3) Análise de técnicas de integração sensor-SPA e aplicações em robótica soft. 4) Identificação de tendências emergentes e breakthroughs incluindo designs modulares, redes de sensoriamento distribuído, materiais auto-curativos, e mecanismos de sensoriamento eficientes em energia. 5) Discussão de desafios (compatibilidade de materiais, precisão, robustez) e limitações (custo, tamanho, segurança).",
+
+    "limitacoes": "Compatibilidade de materiais entre elastômeros de SPAs e materiais de sensores com alta extensibilidade permanece desafiadora. Não-linearidade inerente em sensores integrados requer calibração complexa e estratégias de controle adaptativo. Sensibilidade a fatores ambientais (temperatura, umidade, forças externas) compromete precisão. Custo elevado de materiais especializados e técnicas de fabricação. Aumento de tamanho e peso do SPA com integração de sensores. Preocupações de segurança com componentes rígidos ou fiação elétrica próximos a humanos. Desafios de integração com protocolos de comunicação, processamento de sinal e requisitos de energia de sistemas de controle existentes. Durabilidade de sensores em aplicações com deformação repetida necessita de materiais resistentes à fadiga.",
+
+    "topico": "Soft Pneumatic Actuators, Soft Sensors, Embedded Sensors, McKibben Actuator, Pneu-Nets, Material Jamming, Strain Sensors, Pressure Sensors, Tactile Sensors, Flex Sensors, Optical Sensors, Magnetic Sensors, Soft Robotics",
+    "area_aplicacao": "Robótica Macia, Dispositivos Biomédicos, Próteses, Exoesqueletos, Tecnologia Wearable, Reabilitação, Interação Humano-Robô, Dispositivos Hápticos, Grippers Macios, Busca e Resgate, Saúde, Cirurgia Minimamente Invasiva",
+
+    "tipo_dados": "Revisão de literatura (análise qualitativa e comparativa de designs de SPAs, sensores macios e técnicas de integração)",
+    "dataset": "Não aplicável (revisão de literatura)",
+    "frameworks": "McKibben PAM, Pneu-Nets, Material Jamming grippers, EGaIn (Eutectic Gallium Indium), PZT (lead zirconate titanate), CNT/MWCNT (carbon nanotubes), Silver nanowires, NdFeB magnetic composites, PVDF, Silicone rubber, Elastomers, DragonSkin-30, Ecoflex, PDMS, Fiber Bragg Gratings (FBG), GMR sensors, 3D printing",
+    "link_codigo": "Não disponível"
+  },
+  {
+    "numero": 8,
+    "nome_arquivo": "Adaptive formation control of leader-follower mobile.pdf",
+
+    "autores": "Gholamreza Khodamipour; Saeed Khorashadizadeh; Mohsen Farshad",
+    "ano": 2023,
+    "titulo": "Adaptive formation control of leader–follower mobile robots using reinforcement learning and the Fourier series expansion",
+    "subtitulo": "",
+    "journal": "ISA Transactions",
+    "publisher": "Elsevier",
+
+    "objetivo": "Propor um controlador de formação para robôs móveis líder-seguidor baseado em aprendizado por reforço (estratégia actor-critic) e expansão em séries de Fourier, utilizando estratégia de controle por tensão com motores DC de ímã permanente como atuadores, eliminando a necessidade de sensores de corrente.",
+
+    "metodologia": "Modelo dinâmico completo de robô móvel não-holonômico incluindo motores DC de ímã permanente como atuadores. Estratégia de controle por tensão (voltage control) ao invés de torque. Controlador de aprendizado por reforço com estrutura actor-critic onde actor e critic utilizam expansão em séries de Fourier (apenas os 3 primeiros termos) ao invés de redes neurais. Design de controlador por backstepping para equações cinemáticas de separação e bearing. Parâmetros de separação-bearing para formação líder-seguidor com múltiplos seguidores que podem atuar como líderes para seguidores atrás. Análise de estabilidade via teorema de Lyapunov com lema de Barbalat garantindo estabilidade assintótica global.",
+
+    "analise_estatistica": "Comparação de erro absoluto integral (IAE): método proposto (FF-RL) = 10.4116 vs redes neurais (NN) = 15.2798, representando redução de ~32% no erro de formação. Simulação com 4 robôs (1 líder, 3 seguidores) por 500 segundos. Parâmetros do robô: m=1kg, I=0.1kg², d=0.1m, r=0.02m, R=0.1m. Parâmetros do motor: kb=km=0.5, rg=0.5, Ra=1Ω, La=0.00021H, Bm=0.001, Jm=0.002. Erros de separação e bearing convergem para zero após tempo inicial de transiente (~10s).",
+
+    "resultados": "Apenas os 3 primeiros termos da série de Fourier são suficientes para superar incertezas do modelo. Redução de ~32% no índice de desempenho IAE comparado com RBFNN. Sistema de malha fechada é globalmente assintoticamente estável. Controlador não necessita sensores de corrente nem parâmetros nominais dos motores. Tensões de motor limitadas e suaves após transiente inicial. Erros de formação (separação e bearing) convergem para zero. Seguidores podem atuar como líderes para outros seguidores em formação hierárquica.",
+
+    "contribuicoes": "1) Controlador model-free baseado em tensão que não necessita sensores de corrente nem parâmetros nominais dos motores. 2) Controlador actor-critic de aprendizado por reforço para formação líder-seguidor com estabilidade assintótica garantida via análise de Lyapunov. 3) Combinação de controladores inteligentes (RL) e baseados em aproximação de funções (Fourier) em estrutura unificada. 4) Menor número de parâmetros de ajuste comparado com redes neurais, utilizando apenas os 3 primeiros termos da série de Fourier. 5) Análise rigorosa de estabilidade para robôs móveis líder-seguidor incluindo dinâmica de separação e bearing.",
+
+    "limitacoes": "Validação apenas por simulação sem experimentos em hardware real. Assume que distúrbios e dinâmicas não modeladas são limitados (Assumption 2). Assume limites superiores conhecidos para matrizes de pesos (Assumptions 3 e 4). Trajetória de referência pré-definida sem adaptação a obstáculos em tempo real. Formação com estrutura fixa (separação e bearing desejados constantes). Ganhos de controle iniciais elevados resultam em tensões iniciais altas. Não considera restrições de saturação dos atuadores no design do controlador.",
+
+    "topico": "Formation Control, Reinforcement Learning, Actor-Critic, Fourier Series Expansion, Leader-Follower, Mobile Robots, Voltage Control, Lyapunov Stability",
+    "area_aplicacao": "Robótica Móvel Cooperativa, Sistemas Multi-Agentes, Robôs Autônomos, Formação de Robôs, Navegação Coordenada",
+
+    "tipo_dados": "Simulação (trajetórias de robôs, erros de formação, tensões de motor)",
+    "dataset": "Próprio (simulação com parâmetros definidos)",
+    "frameworks": "MATLAB/Simulink (inferido), Robô móvel não-holonômico com motores DC de ímã permanente",
+    "link_codigo": "Disponível mediante solicitação ao autor correspondente"
+  },
+  {
+    "numero": 9,
+    "nome_arquivo": "Adaptive process parameters decision-making in robotic grinding based on meta-reinforcement learning.pdf",
+
+    "autores": "Jie Pan; Fan Chen; Dan Han; Shuai Ke; Zhiao Wei; Han Ding",
+    "ano": 2025,
+    "titulo": "Adaptive process parameters decision-making in robotic grinding based on meta-reinforcement learning",
+    "subtitulo": "",
+    "journal": "Journal of Manufacturing Processes",
+    "publisher": "Elsevier (The Society of Manufacturing Engineers)",
+
+    "objetivo": "Propor um modelo de tomada de decisão adaptativa para parâmetros de processo de grinding robótico baseado no algoritmo MAML-PPOBE (Model-Agnostic Meta-Learning + Proximal Policy Optimization with Better Experience), capaz de ajustar adaptativamente os parâmetros com amostras mínimas de treinamento em diferentes coatings, tipos de ferramentas e condições de desgaste.",
+
+    "metodologia": "Algoritmo PPOBE: extensão do PPO com pool de experiências melhores (PBE) que armazena trajetórias com retornos superiores para guiar seleção de ações via função de otimização O(φ). MAML-PPOBE: combinação de meta-learning (MAML) para adaptação rápida entre tarefas heterogêneas com PPOBE para precisão em tarefas específicas. MDP com espaço de estados S=(H,Ha,Ma) - espessura alvo, atual e taxa de remoção; espaço de ações A=(F,Rs,Ms) - força de contato, velocidade rotacional e velocidade do robô. Rede neural actor-critic com 2 camadas ocultas (128+64 neurônios). Plataforma experimental com robô industrial, atuador de controle de força, spindle elétrico e computador industrial. Testes em 4 tipos de coating térmico (TR-52, TR-42A, TR-42D, TR-48) com 360 conjuntos de dados.",
+
+    "analise_estatistica": "PPOBE vs PPO vs TRPO: convergência de reward em 100 vs 135 vs 145 steps; desvio de remoção 0.017 vs 0.028 vs 0.027 mm; melhoria de reward máximo 326%/199%. MAML-PPOBE: 357/360 instâncias com desvio ≤0.05mm; desvio médio 0.025mm; 21 steps para convergência. Comparação MAML-PPOBE vs outros: redução de desvio de 51.4% vs MAML, 68.9% vs PPOBE, 57.2% vs SAC, 55.2% vs FLC. Parâmetros de treinamento: 50 amostras por tarefa (vs 200 do PPOBE puro), 24 tarefas totais (4 coatings × 2 espessuras × 3 lixas), discount factor γ=0.99, clip ε=0.2, optimization factor β=0.2.",
+
+    "resultados": "MAML-PPOBE alcança desvio de remoção de material de 0.025mm em 16 tarefas diferentes de grinding. Convergência em 21 steps (vs 33 MAML, 43 PPOBE, 53 SAC, 62 FLC). Adaptação rápida a novas tarefas com few-shot training (50 amostras vs 200+ de métodos tradicionais). Algoritmo PPOBE supera PPO e TRPO em rewards, loss, value e precisão de remoção. Solução de aderência de coating com lixa mesh + esmerilhadeira com extração de pó. Validação experimental em ambiente real com múltiplos coatings aeroespaciais.",
+
+    "contribuicoes": "1) Algoritmo PPOBE: rede auto-guiada treinada em trajetórias de experiências melhores para otimizar seleção de ações, superando PPO e TRPO em precisão de remoção de material. 2) Modelo MAML-PPOBE: combinação de meta-learning com reinforcement learning para adaptação rápida entre tarefas heterogêneas de grinding mantendo alta precisão. 3) Framework completo de tomada de decisão adaptativa para parâmetros de grinding (força, velocidade rotacional, velocidade do robô) com validação experimental.",
+
+    "limitacoes": "Validação limitada a coatings de proteção térmica aeroespacial (TR-52, TR-42A, TR-42D, TR-48). Problema de aderência de coating à lixa requer hardware especializado (mesh sandpaper + dust extraction). Planejamento de trajetórias não adaptativo (trabalho futuro). Dependência de computador industrial para execução do algoritmo. Não considera integração com sistemas de visão computacional para inspeção automática.",
+
+    "topico": "Meta-Reinforcement Learning, MAML, PPO, Robotic Grinding, Process Parameters, Material Removal, Actor-Critic, Adaptive Decision-Making, Intelligent Manufacturing",
+    "area_aplicacao": "Grinding Robótico, Manufatura Inteligente, Indústria Aeroespacial, Revestimentos Térmicos, Controle de Processo Adaptativo, Automação Industrial",
+
+    "tipo_dados": "Dados de espessura de coating (mm), parâmetros de processo (força N, velocidade rpm, velocidade mm/s), desvios de remoção de material",
+    "dataset": "Próprio (experimentos com coatings TR-52, TR-42A, TR-42D, TR-48)",
+    "frameworks": "Actor-Critic Neural Networks (128+64 neurons, ReLU/Softmax), MAML, PPO, Industrial Robot Platform, Force Control Actuator, Electric Spindle",
+    "link_codigo": "Não disponível"
+  },
+  {
+    "numero": 10,
+    "nome_arquivo": "Analysis of an all-terrain tracked robot with innovative suspension system.pdf",
+
+    "autores": "Angelo Ugenti; Rocco Galati; Giacomo Mantriota; Giulio Reina",
+    "ano": 2023,
+    "titulo": "Analysis of an all-terrain tracked robot with innovative suspension system",
+    "subtitulo": "",
+    "journal": "Mechanism and Machine Theory",
+    "publisher": "Elsevier",
+
+    "objetivo": "Introduzir um novo robô com esteiras passivamente articulado (Polibot) com sistema de suspensão inovador onde cada roda de contato é suspensa independentemente para adaptar-se a irregularidades do terreno, além de desenvolver um modelo cinemático inverso para prever a configuração do sistema dado a topografia do terreno.",
+
+    "metodologia": "Arquitetura de robô com esteiras de borracha envolvendo quatro rodas de contato independentemente suspensas, uma roda tensionadora e uma roda motriz (sprocket). Sistema de suspensão passivamente articulado com swing arms (FSA, RSA) e bogie (BFA, BRA) conectados por molas-amortecedores. Modelo cinemático inverso baseado em equações de restrição geométrica (contato roda-solo, comprimento constante da esteira) e análise quasi-estática de forças. Sistema de 21 equações em 21 incógnitas (7 graus de liberdade + 14 forças desconhecidas). Solução numérica via algoritmo trust region. Validação experimental com protótipo real usando trena e inclinômetro digital.",
+
+    "analise_estatistica": "Validação do modelo com erro relativo médio de ~4%. Pior caso: 10% para estimação de ângulo de pitch. Teste com payload de 80 kg: erro de 3% para altura do centro de massa, 13% para pitch. Negociação de obstáculos (55 mm): erro ≤10% para pitch. Experimento de subida em parede: erro médio de 4.7%. Comparação com suspensão X-shaped: Polibot mantém 4 rodas em contato mesmo para obstáculos de 100% do raio da roda, enquanto X-shaped perde tensão da esteira com obstáculos de 35% do raio. KPIs definidos: pitch do robô (θ), número de rodas em contato (n_cont), desvio padrão normalizado das forças normais (σ_N).",
+
+    "resultados": "Boa concordância entre predições do modelo e robô real. Polibot mantém 4 rodas em contato com o solo mesmo para obstáculos altos. Melhor desempenho que suspensão X-shaped para obstáculos maiores que 28% do raio da roda. Tensão da esteira mantida bem acima de zero durante negociação de obstáculos. Menor complexidade mecânica: 9 juntas e 5 links vs 28 juntas e 30 links para suspensão X-shaped. Modelo capaz de prever configuração do sistema e avaliar impacto de parâmetros de design (massa do robô, comprimento da esteira, comprimento do FSA).",
+
+    "contribuicoes": "1) Robô off-road com esteiras com sistema de suspensão passivamente articulado inovador, onde cada roda de contato é suspensa independentemente. 2) Modelo cinemático inverso para a arquitetura proposta usando abordagem quasi-estática de forças. 3) Ferramenta de validação e análise para parâmetros de design da suspensão. 4) Comparação funcional com suspensão bio-inspirada X-shaped existente, demonstrando superioridade em cenários de obstáculos altos.",
+
+    "limitacoes": "Modelo validado apenas estaticamente/quasi-estaticamente, sem análise dinâmica completa. Não considera terramecânica na interface esteira-solo. Modelo de meia-simetria assumido (sem roll/yaw, apenas pitch). Experimentos de validação limitados a medições manuais. Trabalho futuro inclui análise dinâmica completa e otimização baseada em modelo dos parâmetros de design.",
+
+    "topico": "Tracked Robots, Passive Articulated Suspension, Inverse Kinematics, All-terrain Robots, Mobile Robotics, Quasi-static Analysis, Obstacle Negotiation",
+    "area_aplicacao": "Robótica Off-road, Agricultura, Gerenciamento de Desastres, Operações Militares, Exploração Planetária, Navegação Autônoma em Terrenos Não-estruturados",
+
+    "tipo_dados": "Medições experimentais manuais (trena e inclinômetro digital), dados de simulação do modelo analítico",
+    "dataset": "Próprio (experimentos com protótipo real Polibot)",
+    "frameworks": "ROS, Ubuntu, Intel i7 industrial computer, 350W 24VDC brush motors, 24VDC 30Ah LiPo battery, Rubber tracks (2000mm × 127mm), UHMW sprockets, Optical encoders (1024 pulses), Wi-Fi/Bluetooth, Trust region algorithm",
+    "link_codigo": "Dados disponíveis mediante solicitação"
+  },
+  {
+    "numero": 11,
+    "nome_arquivo": "Assisted teleoperation control of robotic endoscope with visual feedback for nasotracheal intubation.pdf",
+
+    "autores": "Zhen Deng; Shengzhan Zhang; Yuxin Guo; Hongqi Jiang; Xiaochun Zheng; Bingwei He",
+    "ano": 2024,
+    "titulo": "Assisted teleoperation control of robotic endoscope with visual feedback for nasotracheal intubation",
+    "subtitulo": "",
+    "journal": "Robotics and Autonomous Systems",
+    "publisher": "Elsevier",
+
+    "objetivo": "Desenvolver um sistema robótico master-slave de intubação nasotraqueal (RNIS) para operação endoscópica, com estratégia de controle de teleoperação assistida por feedback visual para ajustar a pose (posição e orientação) da ponta do endoscópio flexível durante o procedimento de intubação nasotraqueal (NTI).",
+
+    "metodologia": "Sistema RNIS com quatro módulos: Robotic Support Arm (RSA) com 4 DOF (PRRR) para posicionamento global, Endoscope Steering Unit (ESU) com 5 motores para controle de 3 DOF do endoscópio (rotação wz, flexão wy, avanço vz), endoscópio flexível e joystick (Logitech Extreme 3D Pro). Estratégia de teleoperação assistida com mapeamento master-slave entre joystick e ponta do endoscópio usando matriz Jacobiana de tarefa. Assistência por feedback visual com detecção do centro do lúmen via segmentação por threshold adaptativo e filtragem de regiões escuras. Controlador PD para ajuste fino da orientação. Lei de atribuição de papéis (role assignment) com função sigmoid para coordenação humano-robô em três regiões: controle automático (Ep ≤ Ep,min), teleoperação assistida (Ep,min < Ep < Ep,max) e teleoperação completa (Ep ≥ Ep,max).",
+
+    "analise_estatistica": "Experimentos em simulador de movimento: rastreamento de alvo em trajetória 'I' com 9 segmentos, erro < 50 pixels considerado sucesso. Testes em 4 velocidades (3, 5, 7, 10 mm/s) com 10 tentativas cada (40 experimentos). Experimentos em phantom com 9 anestesiologistas especialistas divididos em 3 grupos: operação manual (A), teleoperação não-assistida (B), teleoperação assistida (C). Métricas: erro Ep entre centro do lúmen e centro da imagem, número de colisões Nm, tempo de operação Tm. Resolução de imagem: 640×480 pixels. Workspace do simulador: 100×10 mm.",
+
+    "resultados": "Teleoperação assistida reduziu erro médio em ~30% comparado à teleoperação não-assistida. Colisões reduzidas em 42% comparado à operação manual. Tempo de operação do Grupo C: ~80s (dentro dos requisitos cirúrgicos). Função sigmoid para atribuição de papéis superou funções linear e tangente em estabilidade. RNIS inseriu com sucesso endoscópio flexível através da cavidade nasal até a traqueia passando por: cavidade nasal, glote, traqueia e carina traqueal. Passagem pela glote requer ~15s adicionais devido à anatomia complexa.",
+
+    "contribuicoes": "1) Desenvolvimento do sistema master-slave RNIS com controle de 3 DOF do endoscópio flexível para intubação nasotraqueal. 2) Estratégia de controle de teleoperação assistida com feedback visual para ajuste fino da orientação da ponta do endoscópio. 3) Lei de atribuição de papéis contínua (sigmoid) para coordenação humano-robô durante intubação, reduzindo carga cognitiva do operador. 4) Validação experimental em simulador de movimento e phantom com anestesiologistas especialistas.",
+
+    "limitacoes": "Validação apenas em simulador e phantom, sem experimentos em animais ou humanos. Sensibilidade a condições de iluminação externa afeta detecção do centro do lúmen. Passagem pela glote mais demorada (~15s) devido à anatomia complexa e menor workspace. Trabalho futuro inclui integração de virtual fixtures dinâmicos e experimentos em animais para validação clínica.",
+
+    "topico": "Surgical Robotics, Robotic Endoscope, Teleoperation Control, Visual Feedback, Visual Servoing, Human-Robot Shared Control, Nasotracheal Intubation, Master-Slave System",
+    "area_aplicacao": "Robótica Médica, Anestesiologia, Gerenciamento de Vias Aéreas, Cirurgia Minimamente Invasiva, Intubação Endotraqueal, Medicina de Emergência",
+
+    "tipo_dados": "Imagens endoscópicas, dados de rastreamento de movimento, medições de erro de posição, contagem de colisões, tempo de operação",
+    "dataset": "Próprio (experimentos em simulador de movimento e phantom com anestesiologistas)",
+    "frameworks": "C++ em Windows (Intel i9 2.50 GHz), Logitech Extreme 3D Pro joystick, câmera monocular (640×480), motores de passo, controlador PD, segmentação por threshold adaptativo, equalização de histograma",
+    "link_codigo": "Dados disponíveis mediante solicitação"
+  },
+  {
+    "numero": 12,
+    "nome_arquivo": "Automatic-switching-based teleoperation framework for mobile manipulator with asymmetrical mapping and force feedback.pdf",
+
+    "autores": "Wenwen Li; Fanghao Huang; Zihao Chen; Zheng Chen",
+    "ano": 2024,
+    "titulo": "Automatic-switching-based teleoperation framework for mobile manipulator with asymmetrical mapping and force feedback",
+    "subtitulo": "",
+    "journal": "Mechatronics",
+    "publisher": "Elsevier",
+
+    "objetivo": "Desenvolver um framework de teleoperação baseado em chaveamento automático para manipuladores móveis (MM), abordando o problema de heterogeneidade master-slave (MSH) através de mapeamento assimétrico híbrido (posição-velocidade e posição-posição) e feedback de força integrado, reduzindo a carga de trabalho do operador e melhorando a eficiência operacional.",
+
+    "metodologia": "Framework com coeficientes de chaveamento automático (ξv, ξω, ξθ, ξr, ξh) que variam continuamente com o comando local e a distância d ao alvo/obstáculo. Mapeamento assimétrico híbrido: posição-velocidade para plataforma móvel (navegação) e posição-posição para manipulador (manipulação). Feedback de força baseado em Artificial Potential Field (APF): força repulsiva frep para obstáculos e força atrativa fatt para alvos, com chaveamento automático entre força virtual de guia e força medida por sensor. Dispositivo local: Phantom Omni (6 DOF, 3 DOF force feedback). Robô remoto: KUKA-Youbot (plataforma com 4 rodas mecanum + manipulador 5 DOF + gripper 2 DOF). Cinemática inversa do manipulador com condições geométricas (paralela e perpendicular). Comunicação via ROS através de rede LAN.",
+
+    "analise_estatistica": "Estudo com usuários usando NASA Task Load Index (NASA-TLX) com 6 escalas: Mental Demand (I1), Physical Demand (I2), Temporal Demand (I3), Performance (I4), Effort (I5), Frustration (I6). 5 voluntários (20-26 anos, 3 homens, 2 mulheres), 15 tarefas por caso. 5 casos comparativos (C1-C5) variando chaveamento manual/automático, mapeamento assimétrico e feedback de força. Indicador de carga Po = (1/n)ΣIi. Resultados: tempo de tarefa reduzido de 75.6s para 56.3s (~25% de redução). Workload Po reduzido de 83.3 para 62.5. Physical Demand aumentou 29% sem mapeamento assimétrico. Workload aumentou 19% com chaveamento manual. Effort reduzido ~28% com feedback de força.",
+
+    "resultados": "Chaveamento automático permite transição suave entre estados de navegação e manipulação. Tempo de tarefa reduzido em ~25% (simulação: 82.5s→64.4s; real: 75.6s→56.3s). Workload do operador reduzido (simulação: 80.7→60.2; real: 83.3→62.5). Feedback de força corresponde automaticamente às tarefas remotas (força repulsiva durante navegação, força atrativa durante aproximação ao alvo, força de contato durante manipulação). Framework mais intuitivo e user-friendly para operadores. Coeficientes de chaveamento contínuos evitam estados instáveis durante transição.",
+
+    "contribuicoes": "1) Framework de mapeamento assimétrico híbrido baseado em chaveamento automático, alternando suavemente entre modos posição-velocidade (plataforma móvel) e posição-posição (manipulador) usando coeficientes continuamente variáveis. 2) Algoritmo integrado de mapeamento de feedback de força baseado em APF, correspondendo automaticamente às tarefas remotas (navegação vs manipulação). 3) Experimentos comparativos e estudo com usuários demonstrando redução de tempo de execução e pressão de tomada de decisão do operador.",
+
+    "limitacoes": "Impacto do time-delay na estabilidade do sistema não considerado. Validação limitada a tarefa navigate-manipulate-navigate-manipulate específica. Trabalho futuro inclui integração de outras modalidades como voz e fala para controle do robô remoto. Experimentos realizados em ambiente controlado de laboratório.",
+
+    "topico": "Mobile Manipulator, Teleoperation, Master-Slave Heterogeneity, Automatic Switching, Asymmetrical Mapping, Force Feedback, Artificial Potential Field, Human-Robot Interaction, Position-Velocity Mapping, Position-Position Mapping",
+    "area_aplicacao": "Manufatura, Construção, Agricultura, Indústria Militar, Aeroespacial, Exploração de Águas Profundas, Ambientes de Radiação Nuclear, Robótica de Serviço",
+
+    "tipo_dados": "Dados de estudo com usuários (NASA-TLX), sinais de mapeamento de movimento, medições de feedback de força, tempo de conclusão de tarefa, distância laser radar",
+    "dataset": "Próprio (experimentos com Phantom Omni + KUKA-Youbot em simulação e robô real)",
+    "frameworks": "Phantom Omni (6 DOF haptic device), KUKA-Youbot, MATLAB/Simulink 2016a, PHANSIM TOOLKIT Library, CoppeliaSim simulator, ROS (Ubuntu 14.04), Hokuyo Urg04 laser radar, LAN network, NASA-TLX workload assessment",
+    "link_codigo": "Dados disponíveis mediante solicitação"
+  },
+  {
+    "numero": 13,
+    "nome_arquivo": "Autonomous water sampling and quality monitoring in remote locations_ A novel approach using a remote-controlled boat.pdf",
+
+    "autores": "Ashish Shukla; Robert Ross; Bishakh Bhattacharya; Alex Stumpf",
+    "ano": 2025,
+    "titulo": "Autonomous water sampling and quality monitoring in remote locations: A novel approach using a remote-controlled boat",
+    "subtitulo": "",
+    "journal": "HardwareX",
+    "publisher": "Elsevier",
+
+    "objetivo": "Desenvolver um sistema de monitoramento de qualidade da água de baixo custo, open-source, baseado em um barco RC modificado, capaz de coletar dados de sensores geo-localizados em tempo real e permitir a coleta de até 8 amostras de água separadas para análise laboratorial, superando limitações de sistemas estacionários tradicionais como custo elevado, ausência de dimensionalidade territorial e coleta limitada de amostras.",
+
+    "metodologia": "Plataforma: barco RC comercial (T888 10400, 60×38×27 cm, capacidade 3 kg) modificado com sensores e sistema de coleta de amostras. Sensores de qualidade da água Atlas Scientific: pH (±0.002), oxigênio dissolvido DO (±0.05 mg/L), condutividade elétrica EC (±2%), ORP (±1 mV) e temperatura RTD. Sensor de profundidade Ping2 sonar (Blue Robotics, range 0.3-100m, frequência 115 kHz). GPS RTK-GNSS (simpleRTK2B com módulo u-blox ZED-F9P) com precisão centimétrica (<1 cm). Sistema de coleta: 8 seringas de 30ml com micro atuadores lineares (50N, 15 mm/s, stroke 100mm) controlados por Arduino Nano via motor driver DRV8833. Processamento central: ESP32 WROOM com Wi-Fi/Bluetooth para comunicação UDP e armazenamento em cartão SD. PCBs customizadas: Water Sample Collection PCB e Water Sensor PCB. Fabricação: peças impressas em 3D (PET-G), placas de alumínio cortadas a jato d'água. GUI desenvolvida em Visual Studio para monitoramento remoto e controle de amostradores. Validação em campo no lago da La Trobe University (Melbourne, Austrália) com comparação contra instrumentos de laboratório.",
+
+    "analise_estatistica": "Validação de sensores com comparação contra equipamentos de laboratório (Metrohm 827 pH Lab Meter, EPU357 Conductivity Isopod). Erro relativo percentual: condutividade -2.60% a 0.98%, pH -3.79% a 2.01%, DO 0.03% a 3.23%. Testes em 8 locais diferentes, antes e após evento de chuva (10/09/2024 e 12/09/2024). Análise microbiana via sequenciamento do gene 16S rRNA para identificação de comunidades bacterianas (Limnohabitans, Polynucleobacter, Methylotenera, etc.). Consumo médio de energia: 3.41W. Autonomia da bateria (3400mAh): 6-7 horas com frequência de coleta de 20 min.",
+
+    "resultados": "Sistema compacto com custo total de $2400 USD. Tempo de coleta de amostra (30ml): 10 segundos. Precisão do GPS RTK: <1 cm. Alcance do controle remoto: 500m. Alcance Wi-Fi (ESP32 Long Range): até 1 km. Validação bem-sucedida dos sensores contra equipamentos de laboratório com erros dentro de limites aceitáveis para aplicações de campo. Análise microbiana revelou composição variada da comunidade bacteriana em diferentes locais do lago. Sistema demonstrou capacidade de detectar variações de qualidade da água antes e após eventos de chuva (mudanças em pH, condutividade, DO, ORP e temperatura). Consumo de buffer 16x menor que sistemas tradicionais (60 mL vs ~1000 mL).",
+
+    "contribuicoes": "1) Sistema open-source completo (hardware + firmware) sob licença CERN-OHL-W com todos os arquivos de design disponíveis. 2) Integração de sensoriamento em tempo real com coleta física de 8 amostras de água por missão (significativamente superior aos sistemas existentes que coletam apenas 1 amostra). 3) Dados geo-localizados com precisão centimétrica via RTK-GNSS. 4) Design modular e adaptável com PCBs customizadas, peças 3D printáveis e comunicação UART entre módulos. 5) Custo significativamente menor que soluções comerciais (~$2400 vs sistemas comerciais >$10000). 6) Capacidade de análise microbiológica laboratorial através das amostras coletadas.",
+
+    "limitacoes": "Controle manual via controle remoto 2.4 GHz (não totalmente autônomo, navegação GPS-guiada não implementada nesta versão). Dependência de conectividade Wi-Fi para transmissão de dados em tempo real. Sensores requerem recalibração periódica (1-2 anos) e armazenamento adequado. Baterias Li-ion degradam com ciclos de carga (substituição anual recomendada para uso intensivo). Testes limitados a ambiente controlado (lago universitário). Trabalho futuro inclui navegação autônoma com path-planning e sensores de evasão de obstáculos, além de testes para microplásticos e contaminação bacteriana.",
+
+    "topico": "Unmanned Surface Vehicle (USV), Remote Water Monitoring, Autonomous Water Sampling, Water Quality Sensors, RTK-GPS, ESP32, Arduino, Open-source Hardware, Environmental Monitoring, IoT, Microbial Analysis, Geotemporal Water Analysis",
+    "area_aplicacao": "Monitoramento Ambiental, Qualidade da Água, Ecologia Aquática, Saúde Pública, Gestão de Recursos Hídricos, Limnologia, Oceanografia, Agricultura, Saneamento",
+
+    "tipo_dados": "Dados de sensores de qualidade da água (pH, DO, EC, ORP, temperatura), profundidade por sonar, coordenadas GPS RTK, análise microbiana (sequenciamento 16S rRNA)",
+    "dataset": "Próprio (experimentos no lago da La Trobe University, Melbourne, Austrália - 8 locais, 2 dias antes e após chuva)",
+    "frameworks": "ESP32 WROOM, Arduino Nano, Atlas Scientific sensors (pH/DO/EC/ORP/RTD), Ping2 sonar (Blue Robotics), simpleRTK2B (u-blox ZED-F9P), Visual Studio (GUI), Arduino IDE, Altium Designer (PCB), PET-G 3D printing, DRV8833 motor driver, gopacket library, 16S rRNA sequencing",
+    "link_codigo": "http://doi.org/10.17605/OSF.IO/N3F4X"
+  },
+  {
+    "numero": 14,
+    "nome_arquivo": "Control and performance analyses of a DC motor using optimized PIDs and fuzzy logic controller.pdf",
+
+    "autores": "Nelson Luis Manuel; Nihat İnanç; Murat Lüy",
+    "ano": 2023,
+    "titulo": "Control and performance analyses of a DC motor using optimized PIDs and fuzzy logic controller",
+    "subtitulo": "",
+    "journal": "Results in Control and Optimization",
+    "publisher": "Elsevier",
+
+    "objetivo": "Analisar o desempenho de cinco algoritmos metaheurísticos de classes distintas (Equilibrium Optimizer, Particle Swarm Optimization, Teaching-Learning-Based Optimization, Differential Evolution e Genetic Algorithm) na otimização dos ganhos de controladores PID para controle de velocidade de motor DC, comparando com um Fuzzy Logic Controller (FLC) e com o OBL/HGO-based PID reportado como estado da arte.",
+
+    "metodologia": "Modelo matemático de motor DC de excitação separada representado por função de transferência (parâmetros: B=0.0022 Nm.s/rad, J=0.0004 kg.m², Kb=0.05 Vs/rad, Kt=0.015 Nm/A, La=2.7H, Ra=0.4Ω). Função fitness: ITAE (Integral Time Absolute Error). Cinco algoritmos metaheurísticos de 4 classes distintas: EO (physics-based), PSO (swarm-intelligence), TLBO (human-related), DE e GA (evolutionary). Configuração: 20 execuções independentes por algoritmo, 50 iterações, população de 40 indivíduos, limites de busca [0.001, 20] para KP, KI, KD. FLC com 2 entradas (erro e derivada do erro), 5 funções de pertinência triangulares (NL, NS, ZE, PS, PL), matriz de regras 5x5, método de inferência Mamdani e defuzzificação por centroid. Análises: domínio do tempo (rise time, settling time, overshoot), domínio da frequência (bandwidth, gain/phase margins), rejeição de distúrbio de carga (0.01 Nm), robustez (variação de ±25% Ra e ±20% Kt em 4 casos).",
+
+    "analise_estatistica": "Indicadores estatísticos do ITAE para 20 execuções independentes: EO (min=0.000413, max=0.000415, std=5.659e-07), PSO (min=0.000413, max=0.000414, std=2.256e-07), TLBO (min=0.000413, max=0.000413, std=2.188e-10 - menor dispersão), DE (min=0.000414, max=0.000452, std=1.296e-05), GA (min=0.000419, max=0.002107, std=0.000524 - maior dispersão). Boxplots demonstrando variabilidade entre algoritmos. Curvas de convergência mostrando TLBO convergindo em 23 iterações vs GA/DE em 50 iterações. Análise de robustez com 4 casos de variação paramétrica.",
+
+    "resultados": "Todos os 5 algoritmos convergiram para ganhos aproximadamente iguais: KP=20, KI≈5.344, KD≈3.541, demonstrando que com execuções suficientes encontram o mesmo ótimo global. TLBO apresentou maior velocidade de convergência (23 iterações), enquanto GA e DE foram mais lentos (50 iterações). Métricas dos PIDs otimizados: Tr=0.0447s, Ts=0.0795s, MP=0%, bandwidth≈49Hz. FLC superou todos os PIDs: Tr=0.0026s (17x mais rápido), Ts=0.0053s (15x mais rápido), MP=0.004%. FLC demonstrou melhor rejeição de distúrbio de carga e maior robustez às variações paramétricas. Resultados superiores ao OBL/HGO-PID (Tr=0.0546s, Ts=0.0946s, bandwidth=39.86Hz) e consequentemente superiores a ASO-PID, GWO-PID, SFS-PID e SCA-PID reportados na literatura.",
+
+    "contribuicoes": "1) Comparação sistemática de algoritmos metaheurísticos de 4 classes distintas (physics-based, swarm-intelligence, human-related, evolutionary) para otimização de PID em controle de motor DC. 2) Análise estatística rigorosa com 20 execuções independentes demonstrando que todos os algoritmos convergem para o mesmo ótimo global. 3) Análises abrangentes incluindo domínio do tempo, frequência, distúrbio de carga e robustez paramétrica. 4) Comparação com FLC e com OBL/HGO-PID (estado da arte), demonstrando superioridade do FLC. 5) Descrições matemáticas detalhadas de todos os algoritmos aplicados.",
+
+    "limitacoes": "Resultados baseados apenas em simulações MATLAB/Simulink sem implementação em hardware real. Modelo de motor DC linearizado e simplificado. FLC requer ajuste manual das funções de pertinência dependente de expertise do projetista. Não considera atrasos de transporte, ruído de medição ou saturação de atuadores. Parâmetros dos algoritmos metaheurísticos não foram otimizados sistematicamente (valores da literatura). Trabalhos futuros sugerem incluir técnicas de IA emergentes como machine learning, deep learning e metaheurísticas baseadas em jogos.",
+
+    "topico": "DC Motor Speed Control, PID Controller, Metaheuristic Algorithms, Equilibrium Optimizer, Particle Swarm Optimization, Teaching-Learning-Based Optimization, Differential Evolution, Genetic Algorithm, Fuzzy Logic Controller, ITAE Optimization",
+    "area_aplicacao": "Controle de Motores DC, Sistemas de Controle Industrial, Veículos Elétricos, Robótica, Automação Residencial, Sistemas de Acionamento",
+
+    "tipo_dados": "Dados de simulação (resposta no tempo, resposta em frequência, métricas de desempenho, curvas de convergência, indicadores estatísticos)",
+    "dataset": "Próprio (simulação com parâmetros definidos do motor DC)",
+    "frameworks": "MATLAB/Simulink R2019a, Fuzzy Logic Designer, Intel Core i3-2328M 2.20GHz, 4GB RAM",
+    "link_codigo": "Dados disponíveis mediante solicitação ao autor correspondente"
+  },
+  {
+    "numero": 15,
+    "nome_arquivo": "Cross-modal feedback of tactile and auditory stimuli for cyclists in noisy environments.pdf",
+
+    "autores": "Ryosuke Uemura; Takumi Asakura",
+    "ano": 2024,
+    "titulo": "Cross-modal feedback of tactile and auditory stimuli for cyclists in noisy environments",
+    "subtitulo": "",
+    "journal": "Sensors and Actuators: A. Physical",
+    "publisher": "Elsevier",
+
+    "objetivo": "Investigar sinais de apresentação apropriados para feedback cross-modal que possam melhorar a precisão de reconhecimento e velocidade de reação de ciclistas, utilizando um novo dispositivo integrado em capacetes de bicicleta que fornece estímulos táteis vibratórios e auditivos durante o ciclismo, visando aumentar a segurança em ambientes urbanos complexos.",
+
+    "metodologia": "Simulador de ciclismo com sistema Blync (sensor de caminho + sensor de velocidade) e bicicleta de cidade (Bridgestone A6SC11). Ruído ambiental simulado via speakers Yamaha HS8: sons de tráfego rodoviário (gravação binaural da Rota Nacional 1, Japão) a 60dB e 75dB LAeq, e ruído branco a 60dB e 75dB. Linear Resonance Actuators (LRAs, VLV152564W Vybronics, frequência ressonante 80Hz) fixados ao capacete em 4 posições: testa, têmporas bilaterais e parte posterior da cabeça (occipital). Sinais auditivos via fones open-ear (MWE001, NTT Sonority) com tons puros de 500Hz, 1000Hz e 2000Hz a SNR de -10dB relativo ao ruído ambiental. LabVIEW + Arduino Uno para controle de atuadores de vibração, geração de sons e medição de tempo de reação via botão no guidão. Experimento I: 14 participantes (homens, 23.4±1.0 anos), ruído de tráfego 75dB, 32 padrões (2 durações × 4 direções × 4 condições de áudio) × 3 repetições = 96 apresentações, 3 sessões de 30 min. Experimento II: 10 participantes (homens, 23.4±0.6 anos), 3 condições de ruído (tráfego 60dB, ruído branco 60dB e 75dB), 48 padrões × 3 repetições = 96 apresentações, 3 sessões de 20 min.",
+
+    "analise_estatistica": "ANOVA multifatorial de três vias (Experimento I: frequência do sinal auditivo, direção de vibração, duração do sinal) e duas vias (Experimento II: frequência, direção para cada condição de ruído). Testes de comparação múltipla de Tukey post-hoc. Teste t de Student para presença/ausência de sinais auditivos. Cohen's d para tamanhos de efeito (small: 0.2-0.5, medium: 0.5-0.8, large: 0.8-1.0). Nível de significância p < 0.05. Software JMP para análises estatísticas. Experimento I: efeitos significativos para direção de vibração (F=6.7, p<0.01) e frequência (F=5.2, p<0.01). Redução de tempo de reação com cross-modal: diferença média -30.75ms, t=3.32, p<0.01, d=0.18. Comparações direcionais: traseira vs esquerda (p<0.01, d=0.23), traseira vs direita (p<0.01, d=0.22).",
+
+    "resultados": "100% de precisão no reconhecimento da direção de vibração em todas as 4 direções sob ruído de tráfego de 75dB. Feedback cross-modal reduziu significativamente tempos de reação comparado a sinais táteis isolados: 330ms (cross-modal) vs 430ms (tátil apenas) sob ruído de 75dB (p<0.01). Parte posterior da cabeça (occipital) apresentou tempos de reação mais rápidos que outras localizações. Reconhecimento de sinais auditivos altamente dependente da frequência: sob ruído de tráfego (60dB e 75dB), sinais de 1000Hz tiveram precisão ~85% vs ~100% para 500Hz e 2000Hz devido ao pico de energia do tráfego em 1000Hz; sob ruído branco, sinais de 2000Hz tiveram menor precisão (~80%) vs 500Hz e 1000Hz (~100%) devido ao aumento de energia em altas frequências. Efetividade do cross-modal depende do nível de pressão sonora: efetivo a 65dB (SNR -10dB de ruído 75dB), não efetivo a 50dB (SNR -10dB de ruído 60dB) pois o ruído da corrente/pedal da bicicleta (51.5dB) mascara o sinal.",
+
+    "contribuicoes": "1) Sistema inovador de feedback cross-modal integrado ao capacete combinando vibração tátil (LRAs 80Hz) e estímulos auditivos (open-ear speakers) para segurança de ciclistas. 2) Demonstração quantitativa da efetividade da combinação tátil+auditivo para redução de tempo de reação em ~30ms comparado a sinais táteis isolados. 3) Identificação da localização ótima de estimulação tátil (occipital/parte posterior da cabeça) consistente com literatura prévia sobre discriminação espacial vibrotátil. 4) Caracterização dos efeitos de mascaramento dependentes de frequência para diferentes tipos e níveis de ruído ambiental. 5) Diretrizes para design de sistemas de feedback adaptativos baseados em características espectrais do ruído ambiental e nível de pressão sonora.",
+
+    "limitacoes": "Tamanho amostral relativamente pequeno (14 e 10 participantes) sem análise de poder estatístico prévia, baseado em estudos anteriores similares. Ambiente de laboratório controlado não replica totalmente condições reais de ciclismo (clima, superfície da estrada, outros participantes do tráfego). Participantes exclusivamente do sexo masculino e jovens (média 23.4 anos), limitando generalização para outras populações. Apenas sessões de 30 minutos sem avaliação de uso prolongado ou ciclismo de longa distância. Tipos limitados de condições de ruído testadas (apenas tráfego rodoviário e ruído branco). Preferências individuais e características sensoriais (habilidades auditivas, sensibilidade tátil) não abordadas de forma personalizada. Impacto de vento e umidade na propagação sonora não considerado. Trabalho futuro inclui testes de campo em ambientes urbanos reais.",
+
+    "topico": "Cross-modal Feedback, Tactile Feedback, Auditory Feedback, Cyclist Safety, Helmet-based Systems, Reaction Time, Human-Computer Interaction, Vibrotactile Stimulation, Environmental Noise, Signal Masking, Linear Resonance Actuators",
+    "area_aplicacao": "Sistemas de Segurança para Ciclistas, Dispositivos Wearable de Feedback, Capacetes de Bicicleta, Sistemas de Navegação, Sistemas de Alerta e Aviso, Interface Humano-Computador, Mobilidade Urbana",
+
+    "tipo_dados": "Dados experimentais de estudo com sujeitos humanos (tempos de reação, precisão de reconhecimento de direção, precisão de detecção de som)",
+    "dataset": "Próprio (experimentos com participantes humanos em simulador de ciclismo)",
+    "frameworks": "LabVIEW (National Instruments), Arduino Uno, Blync cycling simulator (Kinbona Limited), JMP (SAS Institute), Linear Resonance Actuators VLV152564W (Vybronics, 80Hz), MWE001 open-ear speakers (NTT Sonority), Yamaha HS8 speakers, hearWHO hearing test app (WHO), stationary roller stand (CXWXC)",
+    "link_codigo": "Não disponível (dados disponíveis mediante solicitação aos autores)"
+  }
+]

@@ -1,0 +1,377 @@
+[
+  {
+    "_comentario": "ESTE É UM EXEMPLO - NÃO PREENCHER, APENAS REFERÊNCIA",
+    "_arquivo_parte": "PARTE 3 - Contém artigos 28-38. Artigos 1-15 em artigos_part1.json, 16-27 em artigos_part2.json, 39+ em artigos_part4.json",
+    "numero": 0,
+    "nome_arquivo": "nome_do_arquivo.pdf",
+
+    "_comentario_artigos_grandes": "Para artigos muito grandes (>10 páginas ou erro 413 na API): 1) Dividir PDF em partes menores (ex: _parte01.pdf, _parte02.pdf); 2) Ler de 3 em 3 partes para não sobrecarregar contexto; 3) Criar arquivo artigoN_resumo.md com resumo detalhado de cada parte; 4) Após processar todas as partes, adicionar entrada resumida aqui no JSON. Exemplo: artigo 9 foi dividido em 8 partes e resumido em artigo9_resumo.md",
+
+    "_comentario_identificacao": "Informações bibliográficas do artigo - NOMES DOS AUTORES DEVEM ESTAR COMPLETOS conforme aparecem no PDF",
+    "autores": "Nome Completo; Nome Completo 2 (separados por ponto e vírgula)",
+    "ano": 2024,
+    "titulo": "Título completo do artigo",
+    "subtitulo": "Subtítulo se houver",
+    "journal": "Nome do periódico/conferência",
+    "publisher": "Editora (Elsevier, IEEE, Springer, etc.)",
+
+    "_comentario_conteudo": "Análise do conteúdo científico",
+    "objetivo": "Objetivo principal do artigo - o que os autores buscam resolver/propor",
+    "metodologia": "Métodos, algoritmos, arquiteturas e abordagens utilizadas",
+    "analise_estatistica": "Métricas, testes estatísticos, tamanho de amostra, distribuições",
+    "resultados": "Principais resultados quantitativos e qualitativos",
+    "contribuicoes": "Contribuições originais do trabalho",
+    "limitacoes": "Limitações identificadas pelos autores ou observadas",
+
+    "_comentario_classificacao": "Classificação e categorização",
+    "topico": "Palavras-chave principais (ex: Edge Computing, IoT, Machine Learning)",
+    "area_aplicacao": "Domínios de aplicação (ex: Robótica, Veículos Autônomos, Indústria 4.0)",
+
+    "_comentario_recursos": "Recursos práticos e reprodutibilidade",
+    "tipo_dados": "Tipo de dados utilizados (sensores, imagens, telemetria, etc.)",
+    "dataset": "Dataset utilizado (nome ou 'Próprio')",
+    "frameworks": "Ferramentas, bibliotecas, hardware utilizado",
+    "link_codigo": "Link para código fonte se disponível, ou 'Não disponível'"
+  },
+  {
+    "numero": 28,
+    "nome_arquivo": "High-precision speed control of induction motors using a multi-pulse.pdf",
+
+    "autores": "Carlos E. Castañeda; Antonio Valderrabano-Gonzalez; Hossam A. Gabbar; Vijay K. Sood",
+    "ano": 2025,
+    "titulo": "High-precision speed control of induction motors using a multi-pulse voltage source converter and advanced observer-based strategies",
+    "subtitulo": "",
+    "journal": "e-Prime - Advances in Electrical Engineering, Electronics and Energy",
+    "publisher": "Elsevier",
+
+    "objetivo": "Apresentar um sistema de controle de velocidade de motor usando um Sistema de Acionamento de Motor Elétrico (EMDS) preciso utilizando um Conversor de Fonte de Tensão (VSC) de 84 pulsos, empregando observadores de modos deslizantes, assintóticos e Luenberger para estimar variáveis não mensuráveis (λαr, λβr e TL), com algoritmo de controle baseado em modos deslizantes com estratégia de controle equivalente.",
+
+    "metodologia": "EMDS baseado em VSC de 84 pulsos com técnica de Reinjeção de Ponto Neutro (NPR) para baixa THD. Dois parâmetros críticos para desenvolvimento do sinal VSC: Vmodule (amplitude combinada dos sinais trifásicos calculada como √(va²+vb²+vc²)) e frequência variável ajustada via PLL. Transformação de Clarke (Amplitude-Invariante) para Referencial Estacionário (SRF). Modelo matemático de motor de indução gaiola de esquilo (3 HP, 127V L-N, Rs=0.435Ω, Rr=0.816Ω, Jm=0.089 kg·m²) com 5 variáveis de estado: ωr (velocidade angular), λαr e λβr (fluxos rotóricos), iαs e iβs (correntes estatóricas). Três observadores implementados: (1) Observador de modos deslizantes (Smo) para λαr, λβr e TL com termos sign(ε) e ganhos α e k; (2) Observador robusto/assintótico (Ro) para λαr e λβr baseado em representação vetorial com superfície deslizante s=εis; (3) Observador Luenberger (Lo) para TL com ganhos l1 e l2. Algoritmo de controle equivalente baseado em modos deslizantes: transformação do sistema não-linear para forma de controle em blocos via dinâmicas de erro de rastreamento, criando manifold deslizante s=ε2 e aplicando controle equivalente vs=[vαs vβs]⊤. Análise de estabilidade via metodologia de Lyapunov.",
+
+    "analise_estatistica": "Métricas: RMS (Root Mean Square), IAE (Integral of Absolute Error), ISE (Integral of Squared Error). Simulações em MATLAB/Simulink R2024a com solver Runge-Kutta, passo fixo 1×10⁻⁶ s, duração 1 segundo. Cinco valores diferentes de referência de velocidade angular ωref: 500, 700, 300, 600, 550 rev/min. Cinco valores diferentes de perturbação externa TL: 4, 10, 6, 12, 4 N·m. Referência de módulo quadrado do fluxo φref=0.21 Wb². Comparação entre observadores Smo, Ro e Lo para rastreamento de ωr e estimação de λαr, λβr e TL.",
+
+    "resultados": "Rastreamento de velocidade angular: Smo RMS=0.0040 rpm, IAE=0.0393 rev, ISE=0.0030 rev² vs Ro RMS=0.0117 rpm, IAE=0.0521 rev, ISE=0.0088 rev². Acurácia de rastreamento: Smo 97.5% RMS, 96.8% IAE, 95.3% ISE vs Ro 94.2%, 93.5%, 92.1%. Estimação de λαr: Smo RMS=0.1001 Wb vs Ro RMS=0.0125 Wb. Estimação de λβr: Smo RMS=0.0634 Wb vs Ro RMS=0.0147 Wb. Estimação de TL: Smo RMS=0.0026 N·m, Lo RMS=0.0028 N·m (desempenho similar). Convergência rápida dos estimadores de modos deslizantes. Mudanças na referência de velocidade causam mais oscilação que mudanças na perturbação. Transientes usando Smo alcançados mais rapidamente que usando Ro. Erro de rastreamento de velocidade angular reduzido de 0.1797 rpm (trabalho anterior sem observadores) para 0.0040 rpm com Smo.",
+
+    "contribuicoes": "1) Desenvolvimento de observador de modos deslizantes para fluxos rotóricos (λαr, λβr) e torque de carga (TL) baseado em metodologia específica com termos sign(ε) e ganhos adaptativos. 2) Integração de VSC de 84 pulsos com técnica NPR para baixa distorção harmônica total. 3) Comparação sistemática de três tipos de observadores (Smo, Ro, Lo) para estimação de variáveis não mensuráveis. 4) Algoritmo de controle equivalente com variáveis estimadas alimentando forma de controle em blocos. 5) Validação extensiva via simulações demonstrando eficácia do sistema para controle de alta precisão de motores de indução. 6) Mitigação do efeito de chattering através da transformação do sistema em forma amigável para controle.",
+
+    "limitacoes": "Validação apenas por simulação, sem validação experimental em hardware real. Parâmetros específicos para motor de indução gaiola de esquilo de 3 HP. Resultados dependem do ajuste adequado dos ganhos dos observadores. Desempenho de estimação de fluxos varia entre observadores (Ro melhor para fluxos em RMS/ISE, Smo melhor para rastreamento de velocidade). Análise limitada a condições de regime permanente para métricas estatísticas.",
+
+    "topico": "Sliding Mode Observer, Asymptotic Observer, Luenberger Observer, Voltage Source Converter, Electric Motor Drive System, Induction Motor Control, Equivalent Control, Block Control Form, Clarke Transformation, Phase-Locked Loop, Rotor Flux Linkages, Load Torque Estimation, Lyapunov Stability, Multi-pulse VSC, Neutral Point Reinjection",
+    "area_aplicacao": "Acionamentos de Motores Elétricos, Automação Industrial, Robótica, Máquinas CNC, Veículos Elétricos, Controle de Velocidade de Motores, Eletrônica de Potência, STATCOM, Filtros Ativos, Fontes de Alimentação Ininterrupta",
+
+    "tipo_dados": "Dados de simulação (velocidade angular, fluxos rotóricos, torque de carga, correntes, tensões de controle, erros de rastreamento)",
+    "dataset": "Próprio (simulações de motor de indução gaiola de esquilo em MATLAB/Simulink)",
+    "frameworks": "MATLAB/Simulink R2024a, Runge-Kutta solver (passo fixo 1×10⁻⁶ s), Modelo de motor de indução baseado em Krause et al., 84-pulse VSC com NPR, Transformação de Clarke, PLL para sincronização",
+    "link_codigo": "Não disponível (financiado por Universidad Panamericana - Fondo Fomento a la Investigación UP 2024 - Project UP-CI-2024-GDL-10-ING)"
+  },
+  {
+    "numero": 29,
+    "nome_arquivo": "Hybrid robot navigation_ Integrating monocular depth estimation and visual odometry for efficient navigation on low-resource hardware.pdf",
+
+    "autores": "Ankit Vashisht; Geeta Chhabra Gandhi; Sumit Kalra; Dinesh Kumar Saini",
+    "ano": 2025,
+    "titulo": "Hybrid robot navigation: Integrating monocular depth estimation and visual odometry for efficient navigation on low-resource hardware",
+    "subtitulo": "",
+    "journal": "Computers and Electrical Engineering",
+    "publisher": "Elsevier",
+
+    "objetivo": "Propor uma abordagem híbrida para navegação robótica que combina técnicas de construção de mapa da odometria visual clássica (VO) com navegação mapless baseada em estimação de profundidade monocular (MDE) usando deep learning, otimizada para hardware de baixo recurso computacional.",
+
+    "metodologia": "Pipeline de 9 etapas: (1) detecção de objetivo com YOLO v7 treinado em dataset customizado via Roboflow; (2) correção de orientação inicial via visual servoing; (3) geração de caminho com algoritmo A* modificado priorizando nós com espaço livre máximo e custo zero para gap nodes; (4) controle de movimento com PID (Kp=30, Ki=5, Kd=20); (5) localização do robô via wheel odometry (WO) e visual odometry (VO); (6) análise de mapa de profundidade usando MiDaS v2.0 TensorFlow Lite para detecção de obstáculos e gaps; (7) detecção de colisão e ausência de gap; (8) processamento de VO com DBSCAN clustering (eps=3, min_samples=6) para pontos 3D; (9) atualização dinâmica de caminho. Segmentação de piso com K-means (2 clusters) para remover regiões de chão do mapa de profundidade. Mapeamento instantâneo armazenando apenas 4 nós: obstáculo mais próximo, gap, objetivo e pose do robô.",
+
+    "analise_estatistica": "Teste de Friedman para comparação de taxas de sucesso entre velocidades (estatística=15.20, p-value=0.0005). Métricas de profundidade: MAE (Mean Absolute Error), RMSE (Root Mean Squared Error), REL (Relative Absolute Error). Taxa de sucesso calculada como número de navegações bem-sucedidas / total de tentativas x 100. Comparação com trabalhos anteriores (Yi and Guan DRL 77%, Gervet et al. Modular Learning 90%).",
+
+    "resultados": "Taxa de sucesso de navegação: 85% a 0.15 m/s (43/50 trials), 78% a 0.25 m/s (39/50), 65% a 0.35 m/s (33/50). MiDaS v2.0: tempo de inferência 0.582s no RPi 4B (2GB), 0.593s no RPi 4B (1GB), 0.97s no RPi 3B. Depth Anything: 18.39s no RPi 4B (2GB), processo killed em dispositivos com menos de 2GB RAM. Precisão de profundidade - MiDaS V2.0: MAE=0.4665, RMSE=0.5536, REL=0.3736; Depth Anything: MAE=0.0515, RMSE=0.0614, REL=0.0422; Scaled MiDaS V2.0 (VO): MAE=0.1086, RMSE=0.1315, REL=0.0894. Sistema opera a ~1.3 FPS no Raspberry Pi 4. Wheel odometry superou visual odometry em precisão de escala e consistência.",
+
+    "contribuicoes": "Primeira integração de navegação mapless baseada em MDE com construção de mapa baseada em VO. Algoritmo A* modificado com heurística ajustada para movimentos horizontais e custo zero para gap nodes. Redução significativa de requisitos de memória através de mapeamento instantâneo com apenas 4 nós. Demonstração de viabilidade de navegação em tempo real em hardware de baixo recurso (Raspberry Pi 3B/4B). Combinação de MiDaS para profundidade relativa rápida com VO para profundidade métrica escalada por WO.",
+
+    "limitacoes": "Falha de VO em condições de baixa iluminação (6 de 11 falhas totais). Dificuldade com obstáculos muito próximos onde gap navegável é menor que 1.5x largura do robô (5 de 11 falhas). Sistema opera a apenas 1.3 FPS, limitando performance em ambientes altamente dinâmicos ou alta velocidade. MiDaS v2.0 fornece apenas profundidade relativa, não métrica absoluta. Tratamento de obstáculos dinâmicos como estáticos no momento da detecção.",
+
+    "topico": "SLAM, Monocular Depth Estimation, Visual Odometry, Path Planning, Performance Optimization, Sustainable Computation",
+    "area_aplicacao": "Mobile Robotics, Autonomous Navigation, Edge Computing, Indoor Navigation, Low-Resource Devices",
+
+    "tipo_dados": "Real-world indoor environment images, Custom depth test dataset",
+    "dataset": "Custom test dataset (objetos a 0.6m-2.4m, 10 imagens por distância). MiDaS v2.0 pré-treinado em: ReDWeb, DIML, Movies, MegaDepth, WSVD, TartanAir, HRWSI, ApolloScape, BlendedMVS, IRS, KITTI, NYU Depth V2. Depth Anything pré-treinado em: LSUN, Objects365, Open Images V7, Places365 + 62M imagens não rotuladas.",
+    "frameworks": "TensorFlow Lite, OpenCV, YOLO v7, MiDaS v2.0, Roboflow, Raspbian OS, Raspberry Pi 3B/4B (1.2-1.5 GHz ARM Cortex, 1-2GB RAM)",
+    "link_codigo": "Não disponível (Data will be made available on request)"
+  },
+  {
+    "numero": 30,
+    "nome_arquivo": "Improving TCP performance over a common IoT scenario using the Early Window Tailoring method.pdf",
+
+    "autores": "Marcos Talau; Thiago A. Herek; Mauro Fonseca; Emilio C.G. Wille",
+    "ano": 2023,
+    "titulo": "Improving TCP performance over a common IoT scenario using the Early Window Tailoring method",
+    "subtitulo": "",
+    "journal": "Computer Networks",
+    "publisher": "Elsevier",
+
+    "objetivo": "Propor o EWT-IoT, uma nova versão do método Early Window Tailoring (EWT) para melhorar o controle de congestionamento TCP em ambientes IoT com redes 802.11, usando um novo mecanismo para medir a ocupação do buffer e informar as fontes sobre as condições da rede, sem requerer modificações no protocolo TCP.",
+
+    "metodologia": "EWT-IoT utiliza média móvel ponderada para os bytes disponíveis (Ba) na memória do roteador, modificando o valor da janela anunciada do receptor (Wr) nos segmentos ACK do TCP. Equação principal: Ba = (1-g)·Ba_anterior + g·Ba_atual se Ba ≥ Ba_anterior, caso contrário Ba = Ba_atual. Parâmetro g é fator de suavização no intervalo [0,1] (valor usado: 0.0007). Threshold St (Memory size/3) define quando o EWT-IoT começa a operar. Modelo baseado no modelo discreto de Zhang et al. para interações do algoritmo de controle de congestionamento TCP com mecanismo AQM. O método é instalado na interface wireless do Access Point, processando segmentos ACK de todas as fontes TCP de forma igualitária. Topologia: N clientes wireless conectados ao AP (R1), link 100 Mbps com 10ms delay para R2, que conecta a N servidores com delays aleatórios [1,20]ms. Cada cliente transfere 5MB de dados. Memória do buffer: 97kB. TCP segment size: 1458 bytes. WiFi 802.11g com modelo de perda de propagação Friis.",
+
+    "analise_estatistica": "Níveis de congestionamento baseados na RFC 7928: Mild (0.05% perda, 3 fluxos), Medium (0.62% perda, 5 fluxos), Heavy (1.28% perda, 7 fluxos). 30 rodadas com diferentes seeds para intervalos de confiança de 95%. Métricas avaliadas: TCP efficiency (% dados não retransmitidos), file transfer latency (segundos), goodput (Mbits/s), goodput fairness (índice de Jain), mean loss ratio (% segmentos perdidos). Comparação contra drop-tail, RED, ARED e EWA.",
+
+    "resultados": "TCP efficiency: EWT-IoT manteve 100% em todos os três níveis de congestionamento (zero perdas), enquanto drop-tail/RED/ARED/EWA tiveram queda de eficiência conforme congestionamento aumentava. File transfer latency: EWT-IoT registrou os menores valores em todos os três níveis. Goodput: EWT-IoT alcançou maior goodput no nível heavy; nos níveis mild e medium, resultados similares ao drop-tail considerando intervalo de confiança. Goodput fairness: EWT-IoT mostrou fairness satisfatória (similar a ARED e EWA), superior a drop-tail e RED. Mean loss ratio: EWT-IoT não registrou perdas nas camadas de rede e transporte. Número de fluxos para atingir RFC 7928: EWT-IoT permitiu em média 65.2% mais fluxos que o melhor competidor, e 71.3% mais quando nenhum esquema AQM foi usado.",
+
+    "contribuicoes": "1) Proposta do EWT-IoT, nova versão do EWT adaptada para cenários IoT com alto RTT. 2) Modelagem analítica do EWT-IoT usando modelo discreto no tempo baseado em Zhang et al. 3) Demonstração de convergência monotônica do sistema sem oscilações indesejadas. 4) Avaliação extensiva no simulador ns-3 comparando com drop-tail, RED, ARED e EWA. 5) Demonstração de controle efetivo de congestionamento sem perdas de pacotes. 6) Compatibilidade com TCP padrão sem necessidade de modificações no protocolo.",
+
+    "limitacoes": "Validação apenas por simulação (ns-3), sem implementação em ambiente de produção. Topologia única testada (802.11g WiFi com AP). Apenas variante TCP CUBIC testada. Requer ajuste de parâmetros (g, St). Trabalho futuro sugerido: testes em outros cenários e implementação no kernel de sistema operacional.",
+
+    "topico": "IoT, AQM, TCP, Congestion Control, Receiver's Advertised Window, Early Window Tailoring, Active Queue Management, Wireless Networks, 802.11, Buffer Management, Network Feedback, Implicit Feedback",
+    "area_aplicacao": "Internet of Things, Home Networks, Wireless LANs (802.11), Smart Home, Smart Cities, Access Point Management, Network Gateways",
+
+    "tipo_dados": "Dados de simulação (fluxos TCP, ocupação de fila, throughput, latência, taxa de perda, fairness)",
+    "dataset": "Próprio (simulações no ns-3 com topologia 802.11g)",
+    "frameworks": "ns-3 network simulator, Zhang's discrete-time TCP/AQM model, TCP CUBIC, 802.11g WiFi standard, Friis propagation loss model",
+    "link_codigo": "Não disponível"
+  },
+  {
+    "numero": 31,
+    "nome_arquivo": "IoT systems modeling and performance evaluation.pdf",
+
+    "autores": "Alem Čolaković",
+    "ano": 2023,
+    "titulo": "IoT systems modeling and performance evaluation",
+    "subtitulo": "",
+    "journal": "Computer Science Review",
+    "publisher": "Elsevier",
+
+    "objetivo": "Apresentar um modelo para descrição formal de sistemas IoT e um método de avaliação analítica para projetar esses sistemas usando arquitetura, tecnologias, protocolos e modelos de integração correspondentes para otimizar o desempenho. A abordagem facilita a seleção do modelo correspondente para a arquitetura do sistema e permite otimização eficiente de desempenho baseada em processos de offloading (balanceamento de carga).",
+
+    "metodologia": "Arquitetura de sistema IoT de três camadas: Camada 1 (dispositivos IoT/percepção), Camada 2 (Fog), Camada 3 (Cloud). Descrição formal do sistema IoT como 4-tupla: IoTsys = ⟨A, D, N, C⟩ (Aplicações, Dispositivos, Redes, Sistemas de computação). KPIs principais: Latência de serviço (Texe) e Consumo de energia (Edev). Latência de serviço = Tcm (comunicação) + Tcp (computação). Latência de comunicação: Tcm = Σ(dproc + dqueue + dtrans + dprop) incluindo atrasos de processamento, fila, transmissão e propagação. Latência de computação: Tcp = tL + tF + tC (local, fog, cloud). Modelo de consumo de energia: Edev = PL·tL + (pu + βτu⁻¹)·Dtx + Pid·toff. Abordagem de função utilidade usando curvas sigmoides para avaliação de QoS: IoTsys(p) = Σwi·f(pi) onde f(pi) são funções utilidade específicas escaladas [0,1]. Validação através do simulador de rede NS-3 e medições experimentais com sistema IoT de monitoramento de armazém.",
+
+    "analise_estatistica": "Comparação do modelo analítico vs resultados de simulação NS-3. Desvio máximo de 4.6% para transferência de dados para camadas fog, <2% para outros cenários. Diferenças de tempo de processamento: 3-8% para fog 1, variações para fog 2 e cloud. Diferenças de latência de serviço: 3-5% para fog 1, 4-7% para fog 2, 0.4-2% para cloud. Diferenças de consumo de energia: ~1%. 30 cenários de simulação com diferentes números de nós (1-64 dispositivos IoT). Validação estatística com intervalos de confiança. Métricas: TCP efficiency, file transfer latency, goodput, goodput fairness (índice de Jain).",
+
+    "resultados": "Para poucos dispositivos IoT (~10): útil fazer offloading para sistemas fog/cloud. Para 16-32 dispositivos: melhor usar servidor local (fog 2) ou cloud. Para 64 dispositivos: sistema cloud apresenta melhor desempenho. Sem offloading: tempo de computação domina a latência total. Com offloading fog/cloud: atraso de rede torna-se mais significativo para poucos dispositivos. Consumo de energia: reduzido com offloading para qualquer sistema de computação (fog1, fog2, cloud). Função utilidade (UF) proposta: resultados compatíveis com método Cost Function (CF). Carga do sistema afeta significativamente estimativas de tempo de processamento. Variável X (intensidade de processamento) estimada: 1500 (IoT gateway), 700 (servidor local), 430 (cloud server).",
+
+    "contribuicoes": "1) Modelo formal para descrição de sistemas IoT baseado em modelos de integração IoT e sistemas de offloading. 2) Modelo analítico para avaliação de KPIs (latência de serviço e consumo de energia). 3) Método matemático baseado em múltiplas métricas para avaliação geral de sistemas IoT usando funções utilidade sigmoides. 4) Comparação com simulação NS-3 e medições experimentais. 5) Framework para decisões de offloading e otimização de desempenho. 6) Algoritmo de baixa complexidade computacional prático para cenários IoT reais. 7) Taxonomia de tecnologias habilitadoras de IoT organizadas em quatro domínios funcionais.",
+
+    "limitacoes": "Número limitado de KPIs observados (apenas latência de serviço e consumo de energia). Precisão depende de valores estimados da variável X (intensidade de processamento). Necessidade de pesquisa adicional para cenários de mobilidade e handovers. Requer medições mais específicas para estimativa de KPIs. Cenários de validação limitados (caso de uso de monitoramento de armazém). Necessidade de projetar framework autônomo de posicionamento de serviços. Não considera outros KPIs importantes como segurança, privacidade e confiabilidade.",
+
+    "topico": "Internet of Things (IoT), Cloud Computing, Fog Computing, Edge Computing, System Modeling, Performance Evaluation, Resource Allocation, Quality of Service (QoS), Computation Offloading, Task Scheduling, Mobile Edge Computing (MEC), Mobile Cloud Computing (MCC), Cloudlets, Load Balancing, Service Latency, Energy Consumption",
+    "area_aplicacao": "IoT Systems, Smart Home, Smart Cities, Industrial IoT, Warehouse Monitoring, Smart Agriculture, Healthcare IoT, Environment Monitoring, Smart Meters",
+
+    "tipo_dados": "Dados de simulação (NS-3), medições experimentais de sistema IoT de monitoramento de armazém (temperatura, umidade, iluminação)",
+    "dataset": "Próprio (simulações NS-3 e medições experimentais com NodeMCU, Raspberry Pi, servidor local, servidor cloud)",
+    "frameworks": "NS-3 network simulator, EdgeCloudSim, NodeMCU (ESP8266EX MCU, Tensilica L106 32-bit RISC 160 MHz), Raspberry Pi 3 Model B+ (Broadcom BCM2837B0 Cortex-A53 64-bit 1.4 GHz), IEEE 802.11n WiFi, MongoDB, CoAP/HTTPS, UDP/IPv4, RESTful architecture, Arduino IDE, Python",
+    "link_codigo": "Não disponível (Supplementary materials and data available upon request)"
+  },
+  {
+    "numero": 32,
+    "nome_arquivo": "Monitoring performance metrics in low-power wireless systems.pdf",
+
+    "autores": "Fabian Graf; Thomas Watteyne; Michael Villnow",
+    "ano": 2024,
+    "titulo": "Monitoring performance metrics in low-power wireless systems",
+    "subtitulo": "",
+    "journal": "ICT Express",
+    "publisher": "Elsevier (The Korean Institute of Communications and Information Sciences)",
+
+    "objetivo": "Apresentar um survey e tutorial sobre Application Performance Monitoring (APM) para sistemas wireless de baixo consumo com restrições severas de recursos (potência, memória e largura de banda), focando em soluções Time Synchronized Channel Hopping (TSCH) adequadas para aplicações industriais críticas, e demonstrar uma cadeia completa mote-to-cloud de APM usando Memfault, SmartMesh IP e Zephyr RTOS.",
+
+    "metodologia": "Survey de literatura abrangente sobre métricas de desempenho, classificadas em 5 grupos: (1) Device HW Metrics (tensão da bateria, consumo de carga, temperatura, RSSI, LQI, SINR, RDC); (2) Device Application Metrics (ocupação de fila, tempo de computação, bytes enviados/recebidos, contador de reboots, uptime); (3) RTOS Runtime Metrics (task stack size, task/CPU utilization, heap bytes, mutex, context switches); (4) Networking Metrics node-centric (neighbor stats, channel stability, PDR, ETX, latência); (5) Networking Metrics global (network reliability, availability, throughput, latência upstream/downstream). Survey de frameworks APM: Active monitoring (Sympathy, Memento, SmartMesh IP Health Reports, Memfault, Tracealyzer), Passive monitoring (SNIF, PDA, Pimoto), Hybrid approaches (HMP, Sternum IoT), Piggyback method (piggybacking via Information Element IEEE 802.15.4), Alternate-marking performance measurement (AM-PM), In-band network telemetry (INT). Comparação de RTOS (FreeRTOS, Zephyr, Contiki-NG, RIOT OS, Mbed OS, µC/OS-III) em termos de funcionalidades APM built-in. Tutorial hands-on: integração SmartMesh IP C-Library com Zephyr RTOS, implementação Memfault SDK para coleta de métricas via heartbeats, serialização CBOR, comunicação UART entre application chip (nRF52840/nRF52833) e networking chip (LTC5800), exportação via JsonServer.py e Memfault CLI para cloud. Análise de formatos de serialização: JSON, MessagePack, Protobuf, packed C struct, CBOR.",
+
+    "analise_estatistica": "Simulação de overhead de payload para diferentes formatos de serialização e intervalos de heartbeat (1, 30, 60 min). Estimativa de consumo de corrente via SmartMesh IP Power and Performance Estimator: rede de 20 motes, max hop-depth 4, temperatura 25°C, payload 80B, variando intervalo de heartbeat (1-15s). Comparação de current draw entre hop-depths: 1-hop motes ~500µA (1s interval) vs ~50µA (15s interval); 4-hop motes ~25µA (relativamente constante). Análise de impacto do tamanho do payload: diferença de 10µA para 1-hop motes e 2µA para 4-hop motes entre payloads de 5B e 90B com intervalo fixo de 20s. Chunk Memfault mínimo: 43 bytes totais (39 bytes payload), incluindo 28 bytes metadata + 4 bytes heartbeat info + 7 bytes metric values + 2 bytes header + 2 bytes CRC.",
+
+    "resultados": "Nenhum framework APM existente captura o conjunto completo de métricas propostas. Métricas de networking node-centric são as mais monitoradas na literatura. Monitoramento passivo fornece apenas estatísticas de rede (não revela métricas de HW/SW do dispositivo). CBOR é o formato de serialização mais eficiente para sistemas constrained - permite heartbeats com muito mais métricas comparado a JSON/MessagePack. Existe um report rate mínimo abaixo do qual o impacto no consumo de energia é negligenciável (~10s). É mais eficiente colocar mais payload em um pacote do que dividir em múltiplos pacotes (overhead fixo do IEEE 802.15.4). SmartMesh IP suporta payload de até 90 bytes. Tutorial demonstrou cadeia completa: Zephyr app → SmartMesh IP C-Lib → UART → LTC5800 → wireless mesh → Manager → JsonServer.py → Memfault CLI → Memfault Cloud. Comparação de RTOS: µC/OS-III oferece funcionalidades APM mais completas (kernel objects monitoring); FreeRTOS, Zephyr, RIOT OS e Mbed OS oferecem task stack size e CPU utilization; Contiki-NG oferece módulo energest para CPU utilization.",
+
+    "contribuicoes": "1) Survey abrangente de métricas de desempenho servindo como checklist para design de sistemas APM em dispositivos constrained. 2) Primeira comparação de implementações RTOS em termos de funcionalidades APM built-in. 3) Taxonomia e survey de frameworks APM state-of-the-art (active, passive, hybrid, piggyback, AM-PM, INT). 4) Demonstração prática de integração Memfault + SmartMesh IP + Zephyr em sistema wireless de baixo consumo. 5) Análise comparativa de formatos de serialização confirmando superioridade do CBOR. 6) Tutorial step-by-step com código open-source disponível no GitHub. 7) Análise de consumo de energia mostrando trade-offs entre verbosidade do monitoramento e lifetime da bateria.",
+
+    "limitacoes": "Tutorial baseado em hardware específico (SmartMesh IP LTC5800 + chips nRF). Análise de consumo de energia baseada em simulação/estimativa, não em medições reais. Análise de segurança limitada às funcionalidades built-in do SmartMesh IP (MIC, AES-128, PSK). Compressão/agregação de dados deixada para trabalho futuro. Segurança no edge device (ataques man-in-the-middle entre SmartMesh IP manager e Memfault cloud) não totalmente endereçada. Métricas de aplicação e RTOS raramente consideradas pelos frameworks existentes na literatura.",
+
+    "topico": "Application Performance Monitoring (APM), Low-Power Wireless Systems, IEEE 802.15.4, 6TiSCH, Time-Slotted Channel Hopping (TSCH), SmartMesh IP, Zephyr RTOS, Memfault, Constrained Devices, Wireless Sensor Networks (WSN), Industrial IoT (IIoT), Performance Metrics, CBOR Serialization, Real-Time Operating Systems (RTOS), Network Telemetry, In-Band Network Telemetry (INT), Heartbeat Monitoring, Mesh Networks, IoT Observability",
+    "area_aplicacao": "Industrial IoT (IIoT), Wireless Sensor Networks (WSN), Factory Automation, Smart Home, Smart Cities, Industrial Monitoring, Critical Infrastructure, Process Control, Environmental Monitoring",
+
+    "tipo_dados": "Dados de simulação (consumo de energia, tamanhos de payload, intervalos de heartbeat), dados de survey de literatura",
+    "dataset": "Próprio (simulações com SmartMesh IP Power and Performance Estimator, testes de integração Memfault)",
+    "frameworks": "Memfault SDK, SmartMesh IP C-Library, Zephyr RTOS, FreeRTOS, Contiki-NG, RIOT OS, Mbed OS, µC/OS-III, nRF52840-DK, AIOT Play board, LTC5800, TIG stack (Telegraf, InfluxDB, Grafana), Node-Red, Nordic Connect SDK (NCS), CBOR, Protobuf, MessagePack, CoAP, 6LoWPAN, RPL, OSCORE, EDHOC",
+    "link_codigo": "https://github.com/aiotsystems/aiot_play_fw_zephyr (tutorial code), https://gist.github.com/fabiangraf96/4c213cd340612aa5382783e05b97bd92 (serialization comparison)"
+  },
+  {
+    "numero": 33,
+    "nome_arquivo": "On the performance of Zenoh in Industrial IoT Scenarios.pdf",
+
+    "autores": "Miguel Barón; Luis Diez; Mihail Zverev; José R. Juárez; Ramón Agüero",
+    "ano": 2025,
+    "titulo": "On the performance of Zenoh in Industrial IoT Scenarios",
+    "subtitulo": "",
+    "journal": "Ad Hoc Networks",
+    "publisher": "Elsevier",
+
+    "objetivo": "Apresentar uma análise abrangente de desempenho do Eclipse Zenoh, um protocolo promissor para Industrial Internet of Things (IIoT), comparando-o com MQTT em termos de latência, confiabilidade e mecanismos de controle de congestionamento sobre diversas topologias de rede, utilizando tanto TCP quanto UDP como protocolos de transporte.",
+
+    "metodologia": "Testbed real com Raspberry Pi 3 Model B V1.2 e B+ (Linux raspberrypi 6.1.21-v7+, Raspbian GNU/Linux 11 bullseye). Conectividade wireless via roteador Asus RT-N18U 2.4 GHz (802.11n, até 600 Mbps) e conexões cabeadas via switch NETGEAR GS108 Gigabit Ethernet. Cenários de mobilidade implementados com duas STE2300 shielded test enclosures e atenuador programável RCDAT-8000-90 (90 dB). Implementação Zenoh: Python API (v0.10.0-rc) sobre implementação Rust primária, router zenohd (v0.10.1-rc), Zenoh Dissector para Wireshark 4.0.10. Implementação MQTT: Eclipse Paho client (v1.6.1) e Eclipse Mosquitto broker (v2.0.11). Quatro cenários de teste: (α) Brokered topology em rede única Wi-Fi; (β) Brokered topology em múltiplas redes (Wi-Fi + Ethernet) emulando cloud com delay adicional via Traffic Control (tc) Linux e mobilidade emulada a 1, 10, 15 m/s usando modelo de canal veicular; (γ) Routed topology através de dois routers em três redes diferentes; (δ) P2P topology somente Zenoh. Configurações de confiabilidade/controle de congestionamento: Zenoh RELIABLE()/BEST_EFFORT() com BLOCK()/DROP(); MQTT QoS 0, 1, 2. Medição de RTT via request/response mechanism entre publishers e subscribers. Testes TCP vs UDP com transmissão de arquivo 5MB segmentado em: 5000 pacotes de 1000B, 10000 pacotes de 500B, 50000 pacotes de 100B.",
+
+    "analise_estatistica": "1000 amostras de RTT por configuração para análise de latência. 100 amostras para cada configuração nos testes TCP/UDP de confiabilidade/congestionamento. Box plots com quartis (25th, 50th, 75th percentis), média, mediana e whiskers representando ~99% das amostras. Outliers identificados abaixo/acima dos percentis 1 e 99. Comparação de médias e medianas de RTT em milissegundos. Análise de porcentagem de perda de pacotes para UDP vs TCP. Cenário β com mobilidade: atenuação programada refletindo path loss dependente de distância (modelo veicular), range dinâmico 0-80 dB, RSSI variando de -30 dBm (espaço livre) a -42 dBm (setup controlado). Buffers padrão Raspberry Pi: 180224 B máximo para receive e transmit buffers.",
+
+    "resultados": "Cenário α (Brokered, Wi-Fi): Zenoh BE median 6.81ms, Rel. 7.03ms vs MQTT QoS0 7.58ms, QoS1 8.47ms, QoS2 119.73ms. Zenoh supera MQTT QoS2 significativamente. Cenário β sem delay: latências menores que α; Zenoh ligeiramente melhor. Cenário β com 200ms delay cloud: diferença >0.5ms no RTT favorecendo Zenoh. Cenário β com mobilidade (1, 10, 15 m/s): Zenoh consistentemente supera MQTT com latências muito menores e menos variabilidade. Cenário γ (Routed): Zenoh significativamente melhor (BE 5.54ms, Rel. 5.61ms vs MQTT QoS0 9.80ms, QoS1 99.00ms, QoS2 118.39ms); MQTT exibe latências piores que cenário α em topologias distribuídas. Cenário δ (P2P Zenoh): menores latências observadas (BE 3.91ms, Rel. 3.90ms). TCP vs UDP: UDP resulta em perdas significativas de pacotes em todas configurações (até 80-90% com 50000 pacotes); TCP com BLOCK() zero perda de pacotes; TCP com DROP() apresenta perdas pois Zenoh descarta pacotes antes da camada de transporte. UDP tem latência consideravelmente menor que TCP (trade-off perda vs delay). RTT individual com TCP pode chegar a ~15s em casos extremos (50000 pacotes).",
+
+    "contribuicoes": "1) Descrição abrangente dos princípios subjacentes do Eclipse Zenoh (multicast scouting, gossip scouting, abertura de portas, sessão Zenoh, four-way handshake). 2) Análise comparativa detalhada de latência Zenoh vs MQTT em diversas topologias de rede (P2P, Brokered, Routed). 3) Primeira avaliação de desempenho de MQTT e Zenoh em cenários de mobilidade com diferentes velocidades de nós. 4) Avaliação dos mecanismos de confiabilidade (RELIABLE/BEST_EFFORT) e controle de congestionamento (BLOCK/DROP) do Zenoh sobre TCP e UDP. 5) Demonstração de que Zenoh é particularmente adequado para robótica e aplicações automotivas onde comunicação de dados em tempo real e topologias flexíveis são essenciais. 6) Análise do trade-off entre perda de pacotes e latência para UDP vs TCP.",
+
+    "limitacoes": "Eclipse Zenoh ainda não possui especificação formal ou padrão, documentação detalhada limitada. Testes limitados a hardware Raspberry Pi 3. Cenários de mobilidade emulados (não mobilidade real de robôs/veículos). Não testou QUIC como protocolo de transporte. Não testou Zenoh-Pico para dispositivos constrained. Análise limitada a redes Wi-Fi 802.11n. Não aborda integração com tecnologias emergentes como 5G ou comunicações Non-Terrestrial Network (NTN). Trabalho futuro inclui testes com robôs móveis reais e comparação com DDS e CoAP.",
+
+    "topico": "Eclipse Zenoh, MQTT, Industrial Internet of Things (IIoT), Latency, Reliability, Congestion Control, Middleware, TCP, UDP, Publish/Subscribe (Pub/Sub), Industry 4.0, Vehicle-to-Everything (V2X), Robot Operating System (ROS 2), Robot-to-Anything (R2X), Data Distribution Service (DDS), Network Topologies, P2P Communications, Brokered Communications, Routed Communications, Wireless Networks, Mobility",
+    "area_aplicacao": "Industrial IoT (IIoT), Robotics, Automotive (V2X), Industry 4.0, Smart Manufacturing, Machine-to-Machine (M2M) Communications, Autonomous Vehicles, Assisted Driving, Tactile Internet",
+
+    "tipo_dados": "Dados experimentais de testbed real (RTT, packet loss, RSSI)",
+    "dataset": "Próprio (experimentos com Raspberry Pi em testbed físico, medições de latência e perda de pacotes)",
+    "frameworks": "Eclipse Zenoh Python API (v0.10.0-rc), Eclipse Zenoh Rust implementation, zenohd router (v0.10.1-rc), Eclipse Paho MQTT client (v1.6.1), Eclipse Mosquitto broker (v2.0.11), Wireshark 4.0.10, Zenoh Dissector for Wireshark, Linux Traffic Control (tc), Raspberry Pi 3 Model B/B+, Asus RT-N18U Wi-Fi Router (802.11n), NETGEAR GS108 Gigabit Ethernet Switch, STE2300 shielded test enclosures, RCDAT-8000-90 programmable attenuator",
+    "link_codigo": "Não disponível (Data will be made available on request)"
+  },
+  {
+    "numero": 34,
+    "nome_arquivo": "Open-source ROS-based simulation for verification of FPGA robotics applications.pdf",
+
+    "autores": "Rubén Nieto; Felipe Machado; Jesús Fernández-Conde; David Lobato; José M. Cañas",
+    "ano": 2025,
+    "titulo": "Open-source ROS-based simulation for verification of FPGA robotics applications",
+    "subtitulo": "",
+    "journal": "Microprocessors and Microsystems",
+    "publisher": "Elsevier",
+
+    "objetivo": "Propor uma nova metodologia que valida o comportamento do robô em um ambiente simulado realista antes de transferir o design para o robô físico e a FPGA embarcada. A metodologia permite ciclos de depuração integrais, rápidos e flexíveis de aplicações robóticas ao integrar a simulação funcional da unidade de processamento (FPGA) com a simulação do robô, seu ambiente e suas interconexões mútuas.",
+
+    "metodologia": "Sistema de simulação combinada com duas partes principais: (1) Módulos FPGA Verilados desenvolvidos em C++ usando a ferramenta open-source Verilator que transforma módulos Verilog HDL em modelos C++ otimizados (simulação cycle-accurate em vez de event-driven); (2) Conectores para sensores e atuadores do robô desenvolvidos em C++ que ligam os módulos Verilog aos drivers ROS. Conectores desenvolvidos: SimCamera connector (subscreve ao tópico ROS '/image_raw' para receber stream de frames da câmera simulada via callback imageCallback), SimMotors connector (publica comandos de movimento no tópico '/cmd_vel' com geometry_msgs/twist, converte velocidade angular das rodas em DPS para velocidade linear V e angular W), Display connector (GUI para visualização de imagens filtradas, valores de centróide, proximidade, LEDs indicadores). Arquitetura do sistema: Gazebo-11 como simulador 3D com física realista (ODE, Bullet, Mujoco), ROS1-Noetic como middleware robótico (tópicos, serviços, ações), arquivos SDF para configuração do mundo simulado. Módulos Verilog do POC: frame buffer de entrada (160×120 pixels, 12-bit RGB), processamento de cor (filtro configurável via porta de 3 bits), frame buffer de saída processado, cálculo de centróide (8 bits) e proximidade (3 bits, range 0-7), controle de motores diferencial (saídas em DPS para rodas esquerda e direita). Hardware Abstraction Layer (HAL) provê interface idêntica para sistemas reais e simulados através de convenções de tópicos ROS.",
+
+    "analise_estatistica": "Tempos de processamento para diferentes resoluções de frame: QQVGA (160×120) = 41ms (~24 FPS, tempo real), QVGA (320×240) = 156ms (~7 FPS), VGA (640×480) = 680ms (<2 FPS). Ambiente de teste: Ubuntu 20.04 LTS, Intel Core i5-13500 13th Gen, 32GB DDR4 3200MHz RAM, AMD Radeon RX 6600 8GB. Pipeline de processamento inclui: simulação FPGA Verilada, conectores, visualização SDL2. Bottleneck principal identificado: simulação Verilator. Comparação de tempo de depuração: filtro de cor via framework proposto = 30min vs método tradicional (waveforms/testbenches) = 2h estimadas (redução de pelo menos 50%). Ajuste de módulo de proximidade: 4h via framework vs 8h estimadas em hardware físico.",
+
+    "resultados": "POC validado com sucesso: aplicação 'Follow Person' com robô TurtleBot2 seguindo pessoa vestida de vermelho em cenário indoor simulado (aws-robomaker-small-house-world). Simulação em tempo real alcançada para resolução QQVGA (160×120) a ~24 FPS. Framework permitiu refinamento de três características fundamentais do comportamento do robô: (1) ajuste fino do filtro de cor (detecção de problemas com gradientes de sombra e reflexões inesperadas), (2) níveis do sinal de proximidade (determinação empírica de limiares via simulação visual), (3) controle de motores (ajuste de constantes Kp do controle proporcional). Benefícios demonstrados: depuração mais fácil (visualização de imagens filtradas lado a lado com originais), redução de uso de recursos (dispensa hardware FPGA físico para validação inicial), tempos de desenvolvimento mais rápidos (ciclos iterativos em desktop padrão), validação mais segura (testes de cenários perigosos em ambiente simulado - ex: controle PID instável causando queda do robô). Detecção facilitada de bugs típicos de FPGA: sinal de centróide não centralizado devido a range de bits insuficiente. Mesmo código Verilog posteriormente transferido com sucesso para robô real GoPiGo.",
+
+    "contribuicoes": "1) Nova metodologia para verificação de aplicações robóticas baseadas em FPGA que propõe uso intensivo de simulação para teste e depuração antes de executar a aplicação no robô físico e sua FPGA embarcada. 2) Integração da simulação FPGA (usando Verilator) com tecnologias robóticas como middleware ROS e Gazebo 3D através de conectores de software open-source desenvolvidos pelos autores (SimCamera, SimMotors, Display connectors). 3) Validação experimental da metodologia através do desenvolvimento de uma aplicação robótica baseada em visão como prova de conceito (TurtleBot2 seguindo pessoa usando câmera e motores diferencial) utilizando biblioteca Verilog de visão open-source. 4) Primeira conexão de simulador robótico state-of-the-art a um simulador funcional FPGA usando software open-source para toda a toolchain. 5) Contribuição para o projeto open-source FPGA-Robotics da JdeRobot Organization.",
+
+    "limitacoes": "Simulação cycle-accurate é menos detalhada que event-driven (suficiente se modelo é síncrono e requisitos de setup/hold são atendidos). Tempo de processamento aumenta significativamente com resolução (VGA a 680ms impede tempo real). Para frames maiores ou processamento FPGA mais complexo, computador não consegue simulação em tempo real (Gazebo permite controlar time step para rodar mais lento que tempo real). Conectores atualmente escritos manualmente (arquitetura projetada para facilitar automação futura de geração de conectores). Limitado a cenários suportados pelo Gazebo. Validação experimental apenas com cenários indoor e objeto vermelho como alvo. Análise de performance escalando para aplicações Verilog robóticas mais complexas deixada para trabalho futuro.",
+
+    "topico": "Field-Programmable Gate Array (FPGA), Robotics, Open-source, Simulation, Robot Operating System (ROS), Verilog, SystemVerilog, Verilator, Gazebo, Hardware Verification, RTL Simulation, Hardware Description Languages (HDL), Register Transfer Level (RTL), Electronic Design Automation (EDA), Cycle-accurate Simulation, Event-driven Simulation, High-Level Synthesis (HLS), Robot Simulation, Computer Vision, Motor Control, Differential Drive, Color Filter, Object Tracking, Hardware-in-the-Loop (HIL), ReconROS, Hardware Abstraction Layer (HAL)",
+    "area_aplicacao": "Robotics, FPGA Development, Embedded Systems, Computer Vision, Autonomous Robots, Robot Verification, Hardware/Software Co-design, Vision-based Navigation, Mobile Robots, Unmanned Ground Vehicles (UGV), Industrial Robots, Drones, Autonomous Driving, Educational Robotics",
+
+    "tipo_dados": "Dados de simulação (tempos de processamento, frames de câmera simulada, sinais de controle de motor, imagens filtradas, valores de centróide e proximidade)",
+    "dataset": "Próprio (simulações em Gazebo com cenário aws-robomaker-small-house-world, testes de aplicação Follow Person com TurtleBot2)",
+    "frameworks": "Verilator (simulador Verilog/SystemVerilog para C++/SystemC), ROS1-Noetic, Gazebo-11, OpenCV, C++, GCC, GTKWave (visualização de waveforms), SDL2 (GUI), cv_bridge (ROS-OpenCV), image_transport (ROS), TurtleBot2, GoPiGo robot, Project IceStorm, Icestudio, F4PGA (formerly Symbiflow), Python (cocotb para testbenches), VCD files, Intel Core i5-13500, AMD Radeon RX 6600, Ubuntu 20.04 LTS",
+    "link_codigo": "https://github.com/JdeRobot/FPGA-robotics (projeto principal), https://github.com/JdeRobot/FPGA-robotics/tree/master/sim_fpga/paper-FPGA_Robotics-sim-FPGA (código do POC), https://github.com/JdeRobot/FPGA-robotics/tree/master/blocks (biblioteca de módulos Verilog)"
+  },
+  {
+    "numero": 35,
+    "nome_arquivo": "Optimal control of DC motor using leader-based Harris Hawks.pdf",
+
+    "autores": "Shehu Lukman Ayinla; Temitope Ibrahim Amosa; Oladimeji Ibrahim; Md. Siddikur Rahman; Abdulrahman Abdullah Bahashwan; Mohammad Golam Mostafa; Abdulrahman Olalekan Yusuf",
+    "ano": 2024,
+    "titulo": "Optimal control of DC motor using leader-based Harris Hawks optimization algorithm",
+    "subtitulo": "",
+    "journal": "Franklin Open",
+    "publisher": "Elsevier (The Franklin Institute)",
+
+    "objetivo": "Propor um novo algoritmo Leader-based Harris Hawks Optimization (LHHO) para o projeto de controladores Proportional-Integral-Derivative (PID) e Fractional Order Proportional-Integral-Derivative (FOPID) para alcançar regulação ótima de velocidade de motores DC. O algoritmo LHHO é uma meta-heurística inovadora inspirada no comportamento cooperativo de caça e liderança dos Harris Hawks chamado 'seven pounds'.",
+
+    "metodologia": "Algoritmo LHHO com probabilidade de pouso adaptativa (Pi-ap) baseada nos níveis de fitness dos hawks durante a fase de exploração, em vez da probabilidade fixa de 0.5 do HHO padrão. Mecanismo de mutação-seleção baseado em líderes através de cada geração de Harris Hawks. Duas fases principais: Exploração (|Eprey| ≥ 1) com estratégia de pouso adaptativa, e Exploração (|Eprey| < 1) com quatro estratégias de cerco: (1) Soft besiege (r ≥ 0.5, |Eprey| ≥ 0.5), (2) Hard besiege (r ≥ 0.5, |Eprey| < 0.5), (3) Soft besiege with progressive rapid dives usando Levy flight (r < 0.5, |Eprey| ≥ 0.5), (4) Hard besiege with progressive rapid dives (r < 0.5, |Eprey| < 0.5). Energia de escape do prey: Eprey = 2E0-prey(1 - t/tmax). Modelo de motor DC: Externally Excited DC Motor (EEDCM) com parâmetros Ra=0.4Ω, La=2.7H, J=0.0004 kg.m², B=0.0022 N.m.s/rad, Km=0.015 N.m/A, Kb=0.05 V.s. Função de transferência: Gp(s) = 15/(1.08s² + 6.1s + 1.63). Controlador PID: GPID(s) = Kp + Ki/s + Kd·s (3 parâmetros). Controlador FOPID: GFOPID(s) = Kp + Ki·s^(-λ) + Kd·s^μ (5 parâmetros com ordens fracionárias λ e μ). Funções objetivo testadas: IAE, ISE, ITAE, ITSE. ITAE adotada como função objetivo principal por fornecer menores tempos de settling e rise com overshoot reduzido.",
+
+    "analise_estatistica": "Parâmetros do algoritmo: N=100 hawks (população), tmax=50 iterações, β=1.5 (constante Levy flight), bounds Kp/Ki/Kd ∈ [0.001, 20], λ/μ ∈ [0, 1], tsim=0.5s. 20 execuções independentes para análise estatística. Métricas estatísticas: best, worst, mean, median, standard deviation dos valores de fitness ITAE. Comparação com baseline HHO e algoritmos state-of-the-art: ASO, PSO, IGWO. Análise de resposta ao degrau: rise time (tr), settling time (ts), maximum overshoot (Mp), steady state error (ESS). Análise de resposta em frequência: gain margin (dB), phase margin (°), phase crossover frequency (rad/s), bandwidth (Hz). Análise de robustez: 8 cenários variando Ra (±25%, ±50%) e Km (±20%, ±40%). Bode plots para análise de estabilidade.",
+
+    "resultados": "Convergência: LHHO-FOPID convergiu em 3 iterações, LHHO-PID em 8 iterações. Valores de fitness ITAE: LHHO-PID = 0.000401 vs HHO-PID = 0.003993; LHHO-FOPID = 0.000132 vs HHO-FOPID = 0.001346. Estatísticas LHHO-FOPID: best=0.0001237, worst=0.0007040, mean=0.0003118, std=0.000223 - worst score do LHHO supera best score do HHO. Ganhos ótimos LHHO-PID: Kp=19.99999, Ki=5.437263, Kd=3.359391. Ganhos ótimos LHHO-FOPID: Kp=19.92098, Ki=19.91353, Kd=6.41358, λ=0.13691, μ=0.99552. Resposta ao degrau LHHO-PID: tr=0.0463s, ts=0.0794s, Mp=0.2657%, ESS=5.6374e-04. Resposta ao degrau LHHO-FOPID: tr=0.0254s, ts=0.0453s, Mp=0.0456%, ESS=7.8875e-04. Melhorias LHHO-FOPID vs state-of-the-art: 4.15% rise time, 29.33% settling time, 99.43% max overshoot, 87.68% steady state error. Resposta em frequência LHHO-PID: Gm=Infinito, Pm=89.63°, bandwidth=46.88 Hz. Resposta em frequência LHHO-FOPID: Gm=Infinito, Pm=90.22°, bandwidth=86.32 Hz. Todos controladores LHHO mantiveram performance desejável sob variações de parâmetros do motor (8 cenários de robustez).",
+
+    "contribuicoes": "1) Nova aplicação do algoritmo Leader Harris Hawks Optimization (LHHO) para ajuste ótimo de parâmetros de controladores PID e FOPID em regulação de velocidade de motor DC. 2) Verificação rigorosa da eficácia dos controladores otimizados (LHHO-PID e LHHO-FOPID) em relação a critérios de performance e perfis de convergência. 3) Demonstração de melhor robustez contra incerteza do modelo do sistema comparado a controladores comuns (HHO, PSO, ASO, IGWO). 4) Exploração da probabilidade de pouso adaptativa e liderança dos hawks para melhor exploração do espaço de soluções. 5) Análise comparativa extensiva com múltiplas funções objetivo (IAE, ISE, ITAE, ITSE).",
+
+    "limitacoes": "Robustez a parâmetros de motor rapidamente variantes (força contra-eletromotriz, resistência de armadura) ainda aberta a melhorias. Validação apenas por simulação, sem implementação em hardware real. Aplicado apenas a sistema de controle de velocidade de motor DC (sistema de ordem relativamente baixa). Trabalho futuro sugerido: aplicação a sistemas de controle mais complexos incluindo controladores em cascata e baseados em lógica fuzzy, bem como perturbações altamente variantes. Investigação de outras funções objetivo como Zwe-Lee Gaing (ZLG) e suas variantes.",
+
+    "topico": "DC Motor, Leader Harris Hawks Optimization (LHHO), Harris Hawks Optimization (HHO), FOPID Controller, Fractional Order PID, PID Controller, ITAE, Meta-heuristic Algorithms, Swarm Intelligence, Speed Control, Optimal Control, Fractional Calculus, Convergence Analysis, Robustness Analysis, Step Response, Frequency Response, Bode Plot, Gain Margin, Phase Margin, Levy Flight, Exploration-Exploitation Balance",
+    "area_aplicacao": "DC Motor Control, Industrial Automation, Servo Systems, Motion Control, Process Control, Electric Drives, Speed Regulation, Position Control, High-Performance Motion Control, Low-Power Servo Applications",
+
+    "tipo_dados": "Dados de simulação (resposta ao degrau, resposta em frequência, curvas de convergência, valores de fitness, parâmetros de controladores)",
+    "dataset": "Próprio (simulações de motor DC com parâmetros da literatura: Ra=0.4Ω, La=2.7H, J=0.0004 kg.m², B=0.0022 N.m.s/rad, Km=0.015 N.m/A, Kb=0.05 V.s)",
+    "frameworks": "MATLAB/Simulink 2022b, FOMCON toolbox (fractional-order modeling and control), MATLAB Control Toolbox, Intel Core i3 @ 3.3 GHz, 16GB RAM",
+    "link_codigo": "Não disponível"
+  },
+  {
+    "numero": 36,
+    "nome_arquivo": "Parameter estimation and speed control of real DC motor with low resolution encoder.pdf",
+
+    "autores": "Celal Onur Gökçe; Mahmut Esat İpek; Mehmet Dayıoğlu; Rıdvan Ünal",
+    "ano": 2025,
+    "titulo": "Parameter estimation and speed control of real DC motor with low resolution encoder",
+    "subtitulo": "",
+    "journal": "Results in Control and Optimization",
+    "publisher": "Elsevier",
+
+    "objetivo": "Realizar estimação de parâmetros e controle de velocidade de um motor DC real com escova utilizando encoder óptico de baixa resolução. Para estimação de parâmetros, utiliza-se o algoritmo Particle Swarm Optimization (PSO) e para controle em malha fechada utiliza-se controlador Proporcional-Integral (PI). Importância de sistemas com sensores de baixa resolução: (1) custo muito baixo comparado a sensores de alta resolução; (2) para sistemas com pequenas dimensões físicas (ex: nanorobôs), sensores de alta resolução podem não estar disponíveis.",
+
+    "metodologia": "Motor DC real com escova, caixa de engrenagens e encoder óptico. Modelo matemático baseado em leis de Kirchhoff e segunda lei de Newton: Va = Ra*ia + La*(dia/dt) + eb; eb = Kb*θ̇; Tm = Km*ia; Tm - Tl = J*θ̈ + b*θ̇. Função de transferência de segunda ordem: Ω(s)/Va(s) = Km/[La*J*s² + (Ra*J + b*La)*s + (Km*Kb + Ra*b)]. Aproximação para sistema de primeira ordem (La << Ra na maioria dos motores DC práticos): Ω(s)/Va(s) = 1/(coefficient0 + coefficient1*s). Dois parâmetros a estimar: coefficient0 e coefficient1. Encoder óptico de canal único com baixa resolução de 96 pulsos-por-revolução (PPR) usando LED IR transmissor e fototransistor receptor separados por disco circular com furos acoplado ao eixo. Medição de velocidade via medição do período de cada pulso usando timer interno da unidade de computação digital. Algoritmo PSO para estimação de parâmetros: partículas representam hipóteses para parâmetros, velocidade de cada partícula depende de três fatores (velocidade anterior, melhor posição conhecida da partícula, melhor posição global de todas as partículas). Controle PI em malha fechada com parâmetros Kp e Ki. Entrada degrau de 10V aplicada por 1 segundo para estimação de parâmetros. PSO executado por 200 épocas. H-bridge com PWM para tensão efetiva de armadura.",
+
+    "analise_estatistica": "Quatro configurações de parâmetros do controlador PI testadas: [Kp,Ki] = [10,1], [10,10], [100,1], [100,10]. Simulações executadas por 1 segundo. Oscilações em torno do valor de referência menores que 10% tanto em simulações quanto em experimentos. Velocidade máxima do motor medida: 174.097 rad/s sob 12V de tensão de armadura (usada para normalização dos resultados). Comparação entre resultados de simulação e experimentos reais. Observação de desvios entre simulação e experimentos para constantes de controlador pequenas (Kp=10, Ki=1) devido a fricção estática na caixa de engrenagens e rolamentos (não modelada nas simulações).",
+
+    "resultados": "Estimação de parâmetros via PSO bem-sucedida após 200 épocas - curva simulada com parâmetros estimados corresponde bem aos dados medidos de resposta ao degrau. Controle PI em malha fechada: para Kp=10, amplitudes de oscilação são menores que para Kp=100 (Kp maior torna o sistema menos estável, como esperado). Oscilações nos experimentos reais ligeiramente maiores que nas simulações devido ao erro de quantização do encoder de baixa resolução. Resultados de simulação compatíveis com resultados experimentais. Controlador PI simples apresenta desempenho aceitável para o sistema linear simples utilizado. Resultados normalizados mostram velocidade atingindo aproximadamente 60% da velocidade máxima para referência de 100 rad/s. Desvios entre simulação e experimento para Kp=10, Ki=1 atribuídos à fricção estática não modelada.",
+
+    "contribuicoes": "1) Estimação de parâmetros de motor DC real com escova usando algoritmo PSO com encoder de baixa resolução - combinação novel. 2) Controle PI de motor DC real com escova com vários parâmetros PI usando encoder óptico de baixa resolução. 3) Análise de sistemas com sensores de baixa resolução, importantes para baixo custo e produção fácil especialmente para sistemas muito pequenos como nanorobôs. 4) Demonstração da compatibilidade entre resultados de simulação e experimentos para sistema linear simples. 5) Comparação de diferentes configurações de parâmetros PI e análise de estabilidade/oscilações.",
+
+    "limitacoes": "Apenas sistema single-input single-output (SISO) linear com motor DC estudado. Fricção estática na caixa de engrenagens e rolamentos não modelada nas simulações, causando desvios para constantes de controlador pequenas. Encoder de baixa resolução causa erro de quantização e oscilações maiores nos experimentos. Controlador PI simples pode ser insuficiente para dinâmicas de planta mais complexas. Sistemas não-lineares com múltiplas entradas e saídas (MIMO) podem apresentar problemas adicionais mas espera-se que funcionem com mais tempo de computação. Trabalho futuro planejado: sistemas mais complexos com dinâmicas não-lineares de ordem superior como robôs móveis e quadricópteros.",
+
+    "topico": "Real Brushed DC Motor, Low Resolution Optical Encoder, Parameter Estimation, Particle Swarm Optimization (PSO), PI Control, Speed Control, First-Order System, Transfer Function, Step Response, Closed-Loop Control, H-Bridge, Pulse Width Modulation (PWM), Quantization Error, Optoelectronics, Iterative Optimization",
+    "area_aplicacao": "DC Motor Control, Robotics, CNC Machines, Automation Systems, Mobile Robots, Quadcopters, Nanorobots, Low-Cost Systems, Small-Scale Systems, Servo Applications, Speed Regulation",
+
+    "tipo_dados": "Dados experimentais de motor DC real (resposta ao degrau, velocidade medida via encoder óptico de 96 PPR) e dados de simulação",
+    "dataset": "Próprio (experimentos em motor DC real com caixa de engrenagens e encoder óptico, velocidade máxima 174.097 rad/s a 12V)",
+    "frameworks": "Motor DC real com escova e caixa de engrenagens, Encoder óptico de canal único (96 PPR), LED IR transmissor, Fototransistor IR receptor, H-bridge com PWM, Unidade de computação digital com timer",
+    "link_codigo": "Não disponível (Data will be made available on request)"
+  },
+  {
+    "numero": 37,
+    "nome_arquivo": "quicSDN_ Transitioning from TCP to QUIC for southbound communication in software-defined networks.pdf",
+
+    "autores": "Puneet Kumar; Behnam Dezfouli",
+    "ano": 2024,
+    "titulo": "quicSDN: Transitioning from TCP to QUIC for southbound communication in software-defined networks",
+    "subtitulo": "",
+    "journal": "Journal of Network and Computer Applications",
+    "publisher": "Elsevier",
+
+    "objetivo": "Investigar o impacto dos protocolos da camada de transporte na comunicação southbound em Software-Defined Networks (SDNs), identificar as causas do overhead imposto pelo TCP, e propor a arquitetura quicSDN que utiliza o protocolo QUIC (Quick UDP Internet Connection) para substituir TCP na comunicação entre controladores e switches, reduzindo overhead de comunicação e delay de entrega de mensagens.",
+
+    "metodologia": "Arquitetura quicSDN com dois componentes principais: quic-client (lado switch) e quic-server (lado controlador). Multiplexação de múltiplos agentes (OpenFlow e OVSDB) em uma única conexão QUIC usando streams com IDs diferentes (IDs divisíveis por 3 para OpenFlow, demais para OVSDB). Inter-Process Communication (IPC) via Unix Domain Sockets (UDS) do tipo datagram entre agentes e módulos QUIC. Modificações no Open vSwitch (OVS) para suportar interface UDP: nova classe udp_vconn_class com funções open(), close(), connect(), recv(), send(). Modificações no controlador RYU: substituição de TCP por UDP na biblioteca eventlet, GreenSockets para I/O assíncrono. Implementação QUIC baseada em ngtcp2 (biblioteca C++ open-source). Modelagem analítica do overhead de comunicação para TCP (Eq. 1) e QUIC (Eq. 2) considerando: headers Ethernet/IP/TCP/UDP/QUIC, MTU, taxa de geração de mensagens por agente (λ), buffering delay (Tb), burstiness de mensagens. Análise do problema Head-of-Line (HOL) blocking: QUIC mitiga entregando streams independentes mesmo com perda de pacotes de outras streams. Análise de estabelecimento de conexão: TCP+TLS1.3 = 2 RTTs, QUIC = 1 RTT (0 RTT para reconexão). Testbed real: Switch 1 (Linux machine com OVS), Switches 2-4 (Arista 7050CX3 e 7050QX), Controller (Linux com RYU). Cenários short RTT (0.32ms média) e long RTT (150ms média). Duas variantes: quicSDN-2s (2 streams bidirecionais) e quicSDN-16s (16 streams bidirecionais, round-robin).",
+
+    "analise_estatistica": "Modelagem matemática do overhead de transmissão e acknowledgment para TCP e QUIC. Variação de parâmetros: taxa de mensagens λ (10, 1000, 100k msgs/s), número de agentes |A| (2, 10), tamanho médio de mensagem m̄ (500 bytes), buffering delay Tb (0-0.4s para baixa taxa, 0-0.08s para alta taxa), taxa de perda de pacotes (1%, 5%). Total de 50.000 mensagens por agente em cada direção. Níveis de congestionamento baseados em RFC 7928. Medição de message delivery delay com pares de tamanho de mensagem <400,600> e <3000,600> bytes. 30 execuções para cada configuração nos testes de delay. Comparação de overhead em bytes (notação 'M' = megabytes = 2^20). Análise de ACK overhead considerando número de pacotes de dados d: número médio de ACKs = (d + d/2)/2. TCP SACK limitado a 3 blocos vs QUIC NACK suporta 256 blocos.",
+
+    "resultados": "Overhead de comunicação: quicSDN reduz overhead em até 82% (short RTT) e 80% (long RTT) comparado a tcpSDN. Overhead diminui com aumento da taxa de mensagens devido à agregação de múltiplas mensagens em pacotes maiores. QUIC estabiliza overhead mais rapidamente que TCP devido à multiplexação. Long RTT aumenta overhead de tcpSDN em 25.9% vs apenas 19.5% para quicSDN-2s (1% loss, 10 msgs/s). Message delivery delay: quicSDN até 27% melhor (0ms RTT) e 45% melhor (100ms RTT) que tcpSDN. quicSDN-16s apresenta menor delay que quicSDN-2s devido à maior efetividade na determinação de independência entre frames. Cenário α (Brokered, Wi-Fi): Zenoh BE median 6.81ms vs MQTT QoS2 119.73ms. HOL blocking mitigation: QUIC entrega mensagens completas (ex: M5, M6) imediatamente mesmo quando pacotes anteriores (Packet i) são perdidos, enquanto TCP aguarda retransmissão. Overhead de QUIC maior que TCP apenas quando >10 streams por pacote (raramente ocorre). Menor overhead de ACK do QUIC é efeito direto de menor número de pacotes transmitidos.",
+
+    "contribuicoes": "1) Análise dos benefícios do QUIC comparado ao TCP considerando propriedades específicas de SDNs, incluindo modelagem analítica do overhead de comunicação quando múltiplos agentes em um switch comunicam com agentes no controlador. 2) Framework para transição de tcpSDN para quicSDN, incluindo discussão de opções de design e arquitetura de sistema baseada em RYU controller e switches executando Open vSwitch (OVS) e OVSDB. 3) Detalhamento de remoção da dependência entrelaçada de RYU, OVS e OVSDB em TCP e substituição por QUIC, incluindo métodos IPC para comunicação multi-agente. 4) Implementação open-source disponível publicamente para reprodução de resultados e extensão de funcionalidades. 5) Testbed empírico para avaliação de overhead de tráfego de controle vs taxa de mensagens, taxa de perda e número de streams. 6) Demonstração de menor delay de estabelecimento de conexão do QUIC, facilitando reassociação dinâmica de switches a controladores para balanceamento de carga.",
+
+    "limitacoes": "Implementação atual usa Unix Domain Sockets (UDS) para IPC, envolvendo stack de rede do kernel Linux para processamento de mensagens trocadas. Uso de métodos alternativos como Data Plane Development Kit (DPDK) para redução de overhead de IPC deixado como trabalho futuro. Throughput e latência podem ser melhorados trazendo processamento de pacotes Ethernet, IP e UDP para userspace para pacotes QUIC. Framework testado apenas com RYU controller e OVS switches. Integração de protocolos southbound adicionais (ex: NETCONF) e controladores (ex: OpenDaylight) possível mas não demonstrada. Estudo do impacto de diferentes algoritmos de controle de congestionamento (além de CUBIC) na comunicação southbound deixado como trabalho futuro. quicSDN é arquitetura genérica aplicável a outros sistemas como comunicação de dispositivos IoT com gateways.",
+
+    "topico": "Software-Defined Networks (SDN), QUIC Protocol, TCP, Transport Layer Protocols, Southbound Communication, OpenFlow, OVSDB, Head-of-Line (HOL) Blocking, Connection Multiplexing, Stream Multiplexing, Network Overhead, Message Delivery Delay, Control Plane, Data Plane, Inter-Process Communication (IPC), Unix Domain Sockets (UDS), Network Configuration, Quality of Service (QoS), Connection Establishment, TLS, CUBIC Congestion Control, NACK, SACK",
+    "area_aplicacao": "Software-Defined Networks (SDN), Data Center Networks, Wide Area Networks (WANs), Network Function Virtualization (NFV), Wireless Networks, Edge Computing, Fog Computing, Cloud Computing, Network Management, Controller-Switch Communication, IoT Gateways, Network Observability, Dynamic Configuration",
+
+    "tipo_dados": "Dados experimentais de testbed real (overhead de comunicação, message delivery delay, RTT) e dados de modelagem analítica",
+    "dataset": "Próprio (testbed com switches Arista 7050QX e 7050CX3, Linux machines com OVS e RYU controller)",
+    "frameworks": "ngtcp2 (QUIC C++ library), RYU SDN controller, Open vSwitch (OVS), OVSDB, libevent (C async I/O), eventlet (Python async I/O), GreenSockets, TCP CUBIC, Arista 7050QX switch, Arista 7050CX3 switches, Linux Traffic Control (tc), Python, C, C++",
+    "link_codigo": "https://github.com/SIOTLAB/quicSDN"
+  },
+  {
+    "numero": 38,
+    "nome_arquivo": "Real-time deep learning for multi-label retinal disease diagnosis with embedded system.pdf",
+
+    "autores": "Feudjio Ghislain; Saha Tchinda Beaudelaire; Romain Atangana; Tchiotsop Daniel",
+    "ano": 2025,
+    "titulo": "Real-time deep learning for multi-label retinal disease diagnosis with embedded system",
+    "subtitulo": "",
+    "journal": "Computational and Structural Biotechnology Reports",
+    "publisher": "Elsevier",
+
+    "objetivo": "Desenvolver uma plataforma de classificação para várias doenças retinianas usando Raspberry Pi 4 Model B, combinando portabilidade, facilidade de acesso e eficiência energética. O sistema utiliza modelo de deep learning leve baseado em CNNs com transformadas wavelet biortogonais para extração eficiente de características, visando diagnóstico automatizado em tempo real especialmente para áreas rurais ou peri-urbanas com recursos médicos limitados.",
+
+    "metodologia": "Arquitetura CNN leve com 6 camadas convolucionais e 2 camadas densas (fully connected). Cada operação convolucional seguida por função de ativação ReLU e camada MaxPooling (kernel 2×2). Primeira camada densa com 128 neurônios, segunda com 4 neurônios (correspondendo às 4 classes). Função Softmax na saída para conversão de logits em probabilidades. Técnica de dropout para regularização. Extração de características via Discrete Wavelet Transform (DWT) usando wavelet biortogonal bior1.3 - decompõe imagens em 4 matrizes de coeficientes: LL (summary image), HL (horizontal details), LH (vertical details), HH (diagonal details). Imagens convertidas para escala de cinza antes da decomposição wavelet. Total de 176.228 parâmetros treináveis (688.39 KB). Modelo treinado por 80 epochs com batch size de 20 usando TensorFlow e convertido para TensorFlow Lite para otimização em dispositivos com recursos limitados. Interface gráfica desenvolvida para uso via terminal Android com aplicativo VNC (Virtual Network Computing) conectado ao RPi4B via Wi-Fi. Smartphone configurado como access point Wi-Fi para conexão direta sem necessidade de rede externa.",
+
+    "analise_estatistica": "Dataset de 4303 imagens de fundo de retina dividido em: training set (2560 imagens), validation set (452 imagens), test set (1291 imagens). Quatro classes: Healthy (~1070 imagens do ODIR), Glaucoma/GL (~1070 do ODIR), Diabetic Retinopathy/DR (~1070 do ODIR), Others (~1100 do RFMiD incluindo Tessellation, Drusen, Media Haze, Optic Disc Pallor, Branch Retinal Vein Occlusion). Métricas de avaliação: Precision = TP/(TP+FP), Recall = TP/(TP+FN), F1-Score = 2×PPV×Recall/(PPV+Recall), Accuracy = (TP+TN)/(TP+FP+TN+FN). Curvas ROC e área sob a curva (AUC) calculadas para cada classe. Matriz de confusão para análise de erros de classificação. Comparação com métodos state-of-the-art incluindo modelos com até 29.6M parâmetros.",
+
+    "resultados": "Accuracy média: 0.9806, Precision média: 0.9807, Recall médio: 0.9806, F1-Score médio: 0.9806. AUC = 1.0 para todas as 4 classes (performance perfeita na distinção entre classes). Por classe: Healthy (Acc=0.95, Prec=0.95, Recall=0.98, F1=0.96), GL (Acc=0.97, Prec=0.97, Recall=0.95, F1=0.96), DR (Acc=1.0, Prec=1.0, Recall=1.0, F1=1.0), Others (Acc=1.0, Prec=1.0, Recall=1.0, F1=1.0). Matriz de confusão: 316 Healthy corretos (8 confundidos com GL), 305 GL corretos (15 confundidos com Healthy, 1 com DR), 322 DR corretos, 323 Others corretos (zero confusões). Tempo de execução: 0.53 segundos no Raspberry Pi 4 B - significativamente menor que métodos comparáveis (Al Jbaar 3.25s, Zamir 30s, James 20.67s, Kristiani 50s). Confiança do modelo nas predições: 99.97-100% para classes corretas. Modelo supera vários métodos state-of-the-art mesmo usando apenas 176.228 parâmetros vs até 29.6M em outros modelos.",
+
+    "contribuicoes": "1) Implementação de sistema de diagnóstico em tempo real usando Raspberry Pi 4 B para identificação automática de 4 classes distintas de patologias retinianas. 2) Arquitetura CNN leve otimizada para execução rápida e eficiente com poder computacional mínimo (176.228 parâmetros vs milhões em modelos convencionais). 3) Uso de transformada wavelet biortogonal (bior1.3) para extração eficiente de características preservando contornos e detalhes importantes. 4) Conversão para TensorFlow Lite para otimização em dispositivos com recursos limitados. 5) Interface portátil usando smartphone Android como terminal de controle e display via VNC, permitindo operação autônoma sem PC externo. 6) Demonstração de viabilidade para centros de saúde em áreas peri-urbanas ou rurais com recursos limitados. 7) Performance competitiva ou superior a métodos state-of-the-art com fração dos parâmetros treináveis.",
+
+    "limitacoes": "Falta de análise aprofundada do impacto dos diferentes dispositivos de captura de imagens (Kowa VX-10, TOPCON 3D OCT-2000, TOPCON TRC-NW300 para RFMiD; Canon, Zeiss, Kowa para ODIR) na performance do modelo. Variação na qualidade de imagem entre dispositivos pode afetar capacidade de generalização. Uso exclusivo de datasets com imagens capturadas por dispositivos tradicionais (alto custo e complexidade) - não testado com imagens de smartphone que seriam mais acessíveis em ambientes com recursos limitados. Confusão observada principalmente entre classes Healthy e GL (8+15 erros). Necessidade de pesquisa adicional para otimizar datasets com imagens de smartphone e avaliar impacto na precisão diagnóstica.",
+
+    "topico": "Embedded Systems, Raspberry Pi, Convolutional Neural Networks (CNN), Deep Learning, Real-time Classification, Wavelet Transforms, Biorthogonal Wavelets, TensorFlow Lite, Retinal Image Analysis, Multi-label Classification, Lightweight Neural Networks, Edge Computing, Medical Image Processing, Feature Extraction, Discrete Wavelet Transform (DWT), MaxPooling, ReLU Activation, Softmax, Dropout Regularization",
+    "area_aplicacao": "Ophthalmology, Medical Diagnosis, Retinal Disease Detection, Diabetic Retinopathy, Glaucoma Detection, Healthcare in Rural Areas, Point-of-Care Diagnostics, Telemedicine, Low-Resource Healthcare Settings, Mobile Health (mHealth), Computer-Aided Diagnosis (CAD)",
+
+    "tipo_dados": "Imagens de fundo de retina (fundus images) em escala de cinza, coeficientes de decomposição wavelet",
+    "dataset": "ODIR (Ocular Disease Intelligence Recognition - Peking University), RFMiD (Retinal Fundus Multi-Disease Image Dataset)",
+    "frameworks": "TensorFlow, TensorFlow Lite, Python, Raspberry Pi 4 Model B (Broadcom BCM2711 SoC, Cortex-A72 64-bit 1.8 GHz quad-core, 4GB RAM), VNC Viewer (Android app), bior1.3 wavelet, IEEE 802.11b/g/n/ac WiFi, Smartphone Android (4GB RAM, Android 14)",
+    "link_codigo": "Não disponível (Data will be made available on request)"
+  }
+]
