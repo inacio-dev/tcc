@@ -313,6 +313,27 @@ Examples:
   - `5-conclusao.tex`: Conclusões e trabalhos futuros
 - Compilação: `make compile` (requer texlive + abntex2)
 - Verificação: `chktex documento.tex` (warnings suprimidos em `.chktexrc`)
+- **IMPORTANTE - Citações**: Sempre usar `\citeonline{chave}` para citações no texto (padrão ABNT/abnTeX2)
+  - Exemplo: `\citeonline{dreger2024evaluation}` → "Dreger e Rinkenauer (2024)"
+  - NÃO usar `\cite{}` que gera formato entre parênteses
+- **IMPORTANTE - Edição**: Ao editar a monografia, SEMPRE ler o arquivo primeiro e seguir o padrão já estabelecido:
+  - Manter o estilo de escrita, tom e vocabulário existente
+  - Seguir a estrutura de seções e subseções já definida
+  - Respeitar a formatação LaTeX utilizada (comandos, ambientes, macros)
+  - Manter consistência com as convenções de nomenclatura técnica
+- **IMPORTANTE - Referências**: Ao citar artigos na monografia:
+  1. Primeiro consultar os arquivos JSON em `artigos/artigos_part*.json` para obter os dados do artigo
+  2. Depois verificar a chave BibTeX correspondente em `monografia/3-pos-textuais/referencias.bib`
+  3. Usar a chave exata do BibTeX com `\citeonline{chave}`
+- **IMPORTANTE - Listas LaTeX**: NUNCA usar o padrão `\begin{itemize}` com `\item \textbf{Título}: descrição` na monografia. Este formato é visualmente poluído e não segue boas práticas acadêmicas. Preferir SEMPRE texto corrido em formato de parágrafo.
+- **IMPORTANTE - Evitar Redundâncias**: Ao editar a monografia, evitar repetições de informações entre capítulos:
+  - Detalhes técnicos de citações (ex: "1,33ms", "16 sensores") devem aparecer com detalhes APENAS na Fundamentação Teórica
+  - Em outros capítulos, apenas referenciar: "conforme \citeonline{autor}" sem repetir os dados numéricos
+  - Não duplicar equações entre capítulos (ex: equação de suavização)
+  - Não duplicar labels de seções/subseções (verificar com grep antes de criar)
+  - Valores como custos devem ser consistentes em todo o documento
+  - Verificar se uma informação já foi dita antes de adicioná-la novamente
+  - Formato da chave: `sobrenome_primeiro_autor+ano+palavra_chave` (ex: `dreger2024evaluation`)
 
 **Client:**
 
