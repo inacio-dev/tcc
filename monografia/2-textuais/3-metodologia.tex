@@ -1,9 +1,9 @@
 \chapter{Metodologia}
 \label{chap:metodologia}
 
-Será realizado um desenvolvimento incremental e modular de um simulador completo de um carrinho de Fórmula 1 com cockpit, sendo o carrinho controlado via protocolo UDP. Utilizarei uma metodologia de prototipagem evolutiva, que busca o teste individual de cada componente antes da integração final. O projeto busca um objetivo semelhante ao artigo de \citeonline{shaik2025design}, que também desenvolveu um sistema de controle completo para veículos usando single board computer, integrando Raspberry Pi 5 para controle de movimento e direção com operação bem-sucedida em velocidades de até 40 km/h\@.
+Será realizado um desenvolvimento incremental e modular de um simulador completo de um carrinho de Fórmula 1 com cockpit, sendo o carrinho controlado via protocolo UDP. Utilizarei uma metodologia de prototipagem evolutiva, que busca o teste individual de cada componente antes da integração final. O projeto busca um objetivo semelhante ao artigo de \citeonline{shaik2025design}, conforme apresentado na fundamentação teórica.
 
-O projeto seguirá uma arquitetura de três camadas: o carrinho com o elemento principal sendo o Raspberry Pi 4 terá o objetivo de receber mensagens de controle e enviar mensagens de vídeo e status de sensores; a comunicação entre o carrinho e o cliente será feita por protocolo UDP\@; e, por último, o PC (cliente) receberá as mensagens e encaminhará os comandos de status para o simulador, bem como encaminhará as mensagens de controle para o carrinho. A utilização dos sensores e integração de múltiplos sensores visa um bom resultado de feedback ao usuário, como no artigo de \citeonline{bobrovsky2023development}, que desenvolveram um módulo universal para conectar até 16 sensores em um carro elétrico Formula Student, reduzindo significativamente a complexidade da fiação e garantindo transmissão segura de dados através do protocolo CAN\@.
+O projeto seguirá uma arquitetura de três camadas: o carrinho com o elemento principal sendo o Raspberry Pi 4 terá o objetivo de receber mensagens de controle e enviar mensagens de vídeo e status de sensores; a comunicação entre o carrinho e o cliente será feita por protocolo UDP\@; e, por último, o PC (cliente) receberá as mensagens e encaminhará os comandos de status para o simulador, bem como encaminhará as mensagens de controle para o carrinho. A integração de múltiplos sensores segue a abordagem de \citeonline{bobrovsky2023development}, visando um bom resultado de feedback ao usuário.
 
 \section{Especificações dos Componentes}
 \label{sec:especificacoes}
@@ -73,7 +73,7 @@ A \autoref{tab:componentes} apresenta as especificações detalhadas dos compone
 \section{Protocolo de Comunicação UDP}
 \label{sec:protocolo-udp}
 
-O UDP é um protocolo que lida com o alto envio de mensagens, muito utilizado para envio de streams e em jogos de computador. A arquitetura atual necessita de baixa latência, pois uma latência muito alta irá atrapalhar o controle em tempo real do carrinho, passando por um alto delay de comandos e prejudicando a experiência do usuário. Por causa dessa baixa latência, também demonstrada no artigo de \citeonline{lu2023udp}, que demonstrou que UDP-RT melhorou a latência de inicialização em 62\% e o tempo total de comunicação em 22\% comparado ao TCP, é que justifico o uso desse protocolo.
+O UDP é um protocolo que lida com o alto envio de mensagens, muito utilizado para envio de streams e em jogos de computador. A arquitetura atual necessita de baixa latência, pois uma latência muito alta irá atrapalhar o controle em tempo real do carrinho, passando por um alto delay de comandos e prejudicando a experiência do usuário. Conforme demonstrado por \citeonline{lu2023udprt} na fundamentação teórica, protocolos baseados em UDP alcançam latências significativamente inferiores ao TCP em aplicações de tempo real, justificando o uso desse protocolo.
 
 \subsection{Evolução das Decisões de Arquitetura de Comunicação}
 \label{subsec:evolucao-decisoes-comunicacao}
@@ -139,7 +139,7 @@ Essa arquitetura resultou em um sistema com apenas dois saltos de comunicação 
 \subsection{Justificativa para UDP Simples}
 \label{subsec:justificativa-udp}
 
-A escolha do UDP simples sobre protocolos mais avançados como UDP-RT \citeonline{lu2023udp} é justificada pela necessidade de simplicidade de implementação e recursos limitados do Raspberry Pi 4. Embora o UDP-RT ofereça melhorias de 62\% na latência de inicialização e 22\% no tempo total de comunicação, sua implementação aumentaria significativamente a complexidade do sistema. Conforme demonstrado nos resultados, a latência obtida de 1.94ms com UDP simples supera os targets típicos de 5ms, validando que esta abordagem é adequada para o projeto sem necessidade de complexidade adicional.
+A escolha do UDP simples sobre protocolos mais avançados como UDP-RT \citeonline{lu2023udprt} é justificada pela necessidade de simplicidade de implementação e recursos limitados do Raspberry Pi 4. Embora o UDP-RT ofereça vantagens em redes congestionadas, sua implementação requer mecanismos adicionais de correção de erros e detecção na camada de aplicação, aumentando significativamente a complexidade do sistema. Conforme demonstrado nos resultados, a latência obtida de 1,94ms com UDP simples supera os targets típicos de 5ms, validando que esta abordagem é adequada para o projeto.
 
 % ============================================================================
 % ARQUITETURA DO VEÍCULO (RASPBERRY PI 4)
@@ -154,12 +154,7 @@ O Raspberry Pi 4 Model B com 8GB de RAM constitui o núcleo de processamento emb
 
 O veículo utiliza o chassi FV01, um modelo de carro de Fórmula 1 projetado para impressão 3D por Velocity Projects\footnote{Modelo FV01 disponível em: \url{https://cults3d.com/en/3d-model/game/fv01-the-most-advanced-3d-printed-rc-racing-car-velocityprojects3d}. Créditos: VelocityProjects3D.}. O modelo original possui escala 1:7, porém foi modificado para escala 1:5 neste projeto para acomodar todos os componentes eletrônicos necessários. O modelo apresenta características avançadas que o tornam adequado para o projeto de teleoperação com feedback háptico:
 
-\begin{itemize}
-	\item \textbf{Suspensão push rod}: Sistema independente que reproduz fielmente o comportamento de suspensões de carros de F1 reais, permitindo detecção precisa de forças G pelo sensor BMI160;
-	\item \textbf{Aerodinâmica funcional}: Asas dianteira e traseira geram downforce em velocidades elevadas, contribuindo para estabilidade e realismo;
-	\item \textbf{Diferencial operacional}: Permite comportamento realista em curvas, essencial para geração de feedback háptico adequado;
-	\item \textbf{Modularidade}: Peças projetadas para fácil reparo e substituição, facilitando manutenção e modificações.
-\end{itemize}
+O modelo inclui suspensão push rod independente que reproduz fielmente o comportamento de suspensões de carros de F1 reais, permitindo detecção precisa de forças G pelo sensor BMI160. A aerodinâmica funcional com asas dianteira e traseira gera downforce em velocidades elevadas, contribuindo para estabilidade e realismo. O diferencial operacional permite comportamento realista em curvas, essencial para geração de feedback háptico adequado. A modularidade do projeto, com peças projetadas para fácil reparo e substituição, facilita manutenção e modificações.
 
 O chassi foi impresso em PLA utilizando impressora 3D, com pneus de borracha para melhor aderência e realismo. A modificação para escala 1:5 resultou em um veículo de maior porte comparado ao modelo original, proporcionando espaço interno adequado para acomodação do Raspberry Pi 4, sensores, drivers e demais componentes eletrônicos do sistema de teleoperação.
 
@@ -220,11 +215,7 @@ O ESP32 DevKit V1 com processador dual-core Xtensa LX6 a 240MHz constitui o cont
 
 O cockpit utiliza três encoders rotacionais LPD3806-600BM-G5-24C com resolução de 600 pulsos por revolução (PPR) e saída em quadratura (canais A e B). A leitura é realizada via interrupções de hardware nos pinos GPIO, garantindo captura precisa mesmo em rotações rápidas.
 
-\begin{itemize}
-	\item \textbf{Encoder de Acelerador}: GPIO 25 (CLK) e GPIO 26 (DT) --- pinos invertidos para correção de direção
-	\item \textbf{Encoder de Freio}: GPIO 27 (CLK) e GPIO 14 (DT)
-	\item \textbf{Encoder de Direção}: GPIO 12 (CLK) e GPIO 13 (DT) --- pinos invertidos para correção de direção
-\end{itemize}
+O encoder de acelerador utiliza GPIO 25 (CLK) e GPIO 26 (DT) com pinos invertidos para correção de direção. O encoder de freio utiliza GPIO 27 (CLK) e GPIO 14 (DT). O encoder de direção utiliza GPIO 12 (CLK) e GPIO 13 (DT), também com pinos invertidos para correção de direção.
 
 Os valores dos encoders são normalizados para porcentagem (0--100\% para acelerador e freio) ou ângulo (-100\% a +100\% para direção) e transmitidos ao cliente a 100Hz via serial USB.
 
@@ -277,7 +268,7 @@ O cliente PC, implementado em Python com interface Tkinter, atua como hub centra
 \subsection{Interface Gráfica}
 \label{subsec:interface-cliente}
 
-A interface gráfica utiliza layout de duas colunas: telemetria à esquerda e vídeo/controles à direita. Podemos utilizar um meio parecido ao do artigo de \citeonline{shendge2023development}, que desenvolveram streaming de vídeo ao vivo utilizando Raspberry Pi com câmera USB, obtendo latência de 1--3 segundos na transmissão com taxa de 10 quadros por segundo na resolução de $640\times480$, demonstrando a viabilidade técnica do streaming em tempo real com essa plataforma.
+A interface gráfica utiliza layout de duas colunas: telemetria à esquerda e vídeo/controles à direita. A viabilidade técnica do streaming em tempo real com Raspberry Pi foi demonstrada por \citeonline{shendge2023development}, conforme apresentado na fundamentação teórica.
 
 O painel de instrumentos exibe RPM, marcha atual, posição do acelerador e velocidade estimada, atualizados em tempo real conforme dados recebidos do veículo e cockpit. A visualização de vídeo utiliza PyAV para decodificação H.264 e Pillow para renderização no canvas Tkinter.
 
@@ -289,9 +280,9 @@ O cliente opera threads separadas para recepção UDP (veículo) e serial (cockp
 \subsection{Algoritmos de Cálculo de Force Feedback}
 \label{subsec:algoritmos-ff-cliente}
 
-Os algoritmos de force feedback são executados no cliente, utilizando dados do sensor BMI160 recebidos do veículo para calcular intensidade e direção da força a ser aplicada no volante. A utilização dos sensores e integração de múltiplos sensores visa um bom resultado de feedback ao usuário, como no artigo de \citeonline{bobrovsky2023development}, que desenvolveram um módulo universal para conectar até 16 sensores em um carro elétrico Formula Student.
+Os algoritmos de force feedback são executados no cliente, utilizando dados do sensor BMI160 recebidos do veículo para calcular intensidade e direção da força a ser aplicada no volante.
 
-Embora o estado da arte demonstre a superioridade de algoritmos meta-heurísticos como LHHO e TLBO \citeonline{ayinla2024optimal}, optou-se por implementação direta dos algoritmos de force feedback devido às limitações computacionais e à necessidade de resposta em tempo real inferior a 5ms.
+Embora algoritmos meta-heurísticos como LHHO e TLBO demonstrem vantagens conforme \citeonline{ayinla2024optimal}, optou-se por implementação direta dos algoritmos de force feedback devido às limitações computacionais e à necessidade de resposta em tempo real inferior a 5ms.
 
 \subsubsection{Cálculo das Forças G}
 
