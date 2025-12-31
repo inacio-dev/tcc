@@ -19,11 +19,12 @@ numpy>=1.24.0
 # Pillow para processamento de imagem (Tkinter)
 Pillow>=10.0.0
 
-# PySerial para comunicacao serial com ESP32 (cockpit)
+# PySerial para comunicacao serial com ESP32 (simulador)
 pyserial>=3.5
 
-# PyAV para decodificacao H.264 (wrapper FFmpeg)
-av>=10.0.0
+# NOTA: PyAV (av) foi removido pois não usamos mais H.264
+# O sistema utiliza apenas MJPEG para transmissão de vídeo
+# Ver: docs/CAMERA_VIDEO_ISSUES.md para detalhes da decisão
 
 # Matplotlib para graficos de telemetria F1 em tempo real
 matplotlib>=3.7.0

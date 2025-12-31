@@ -21,14 +21,14 @@ Além disso, a combinação de protocolo UDP simples com algoritmos diretos de f
 \section{Objetivos}
 \label{sec:objetivos}
 
-O objetivo geral deste trabalho é desenvolver um sistema completo de controle remoto de veículos com interface háptica, utilizando protocolo UDP para comunicação de baixa latência, integrando carrinho controlado via Raspberry Pi 4, cockpit com force feedback via ESP32, e interface gráfica para visualização em tempo real.
+O objetivo geral deste trabalho é desenvolver um sistema completo de controle remoto de veículos com interface háptica, utilizando protocolo UDP para comunicação de baixa latência, integrando veículo teleoperado controlado via Raspberry Pi 4, simulador com volante, pedais e force feedback via ESP32, e interface gráfica para visualização em tempo real.
 
 \subsection{Hipótese de Pesquisa}
 \label{subsec:hipotese-pesquisa}
 
 Sistemas de teleoperação baseados em UDP simples com algoritmos diretos de force feedback podem superar protocolos complexos (UDP-RT) em aplicações de baixo custo, mantendo latência inferior a 5ms e precisão superior a 95\% na detecção de eventos hápticos, validando que a simplicidade de implementação não compromete a performance operacional em cenários de recursos limitados.
 
-Para alcançar este objetivo geral, foram estabelecidos os seguintes objetivos específicos: projetar e implementar um carrinho controlável remotamente baseado em Raspberry Pi 4, integrando câmera OV5647, sensores BMI160 e sistema de controle de motores DC; desenvolver algoritmos de force feedback em tempo real para simulação de forças G, vibrações e feedback tátil baseados em dados de sensores inerciais; implementar comunicação UDP otimizada para baixa latência (< 5ms) entre carrinho e estação de controle; construir cockpit físico com encoders rotativos para acelerador, freio e direção, botões de troca de marcha e motor de force feedback controlado via ESP32; criar interface gráfica em Python/Tkinter para visualização de vídeo em tempo real e telemetria de sensores; e validar o sistema através de métricas de performance, latência, qualidade de vídeo e experiência do usuário.
+Para alcançar este objetivo geral, foram estabelecidos os seguintes objetivos específicos: projetar e implementar um veículo teleoperado baseado em Raspberry Pi 4, integrando câmera OV5647, sensores BMI160 e sistema de controle de motores DC; desenvolver algoritmos de force feedback em tempo real para simulação de forças G, vibrações e feedback tátil baseados em dados de sensores inerciais; implementar comunicação UDP otimizada para baixa latência (< 5ms) entre veículo teleoperado e estação de controle; construir simulador físico com volante, pedais (acelerador e freio) e encoders rotativos, botões de troca de marcha e motor de force feedback controlado via ESP32; criar interface gráfica em Python/Tkinter para visualização de vídeo em tempo real e telemetria de sensores; e validar o sistema através de métricas de performance, latência, qualidade de vídeo e experiência do usuário.
 
 \section{Contribuições}
 \label{sec:contribuicoes}

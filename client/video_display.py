@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
 """
-video_display.py - Gerenciamento da Exibição de Vídeo (MJPEG/H.264 + Tkinter)
-Responsável por decodificar vídeo e exibir frames na interface integrada
+video_display.py - Gerenciamento da Exibição de Vídeo (MJPEG + Tkinter)
+Responsável por decodificar vídeo MJPEG e exibir frames na interface integrada
 
 CARACTERÍSTICAS:
 ===============
 - Decodificação MJPEG (cada frame é JPEG independente)
-- Fallback para H.264 via PyAV (FFmpeg)
 - Redimensionamento automático
 - Estatísticas de FPS em tempo real
 - Tratamento de erros robusto
 - Integração completa com Tkinter
+
+NOTA: H.264 foi removido devido a problemas de distorção causados por
+perda de pacotes UDP (P-frames dependem de frames anteriores).
+MJPEG transmite frames independentes, eliminando este problema.
+Ver: docs/CAMERA_VIDEO_ISSUES.md
 """
 
 import threading
@@ -22,98 +26,9 @@ import cv2
 import numpy as np
 from PIL import Image, ImageTk
 
-# Tenta importar av (PyAV) para decodificação H.264
-try:
-    import av
-
-    H264_AVAILABLE = True
-except ImportError:
-    H264_AVAILABLE = False
-    print("⚠ PyAV não instalado. Execute: pip install av")
-    print("  Fallback para decodificação JPEG")
-
-
-class H264Decoder:
-    """Decodificador H.264 usando PyAV (FFmpeg)"""
-
-    def __init__(self):
-        self.codec = None
-        self.context = None
-        self.is_initialized = False
-        self.frames_decoded = 0
-        self.errors = 0
-
-    def initialize(self):
-        """Inicializa o decoder H.264"""
-        try:
-            if not H264_AVAILABLE:
-                return False
-
-            self.codec = av.CodecContext.create("h264", "r")
-            self.codec.options = {
-                "flags": "low_delay",
-                "flags2": "fast",
-            }
-            self.is_initialized = True
-            return True
-
-        except Exception as e:
-            print(f"Erro ao inicializar decoder H.264: {e}")
-            self.is_initialized = False
-            return False
-
-    def decode(self, nal_data: bytes) -> Optional[np.ndarray]:
-        """
-        Decodifica NAL units H.264 para frame numpy
-
-        Args:
-            nal_data: Bytes contendo NAL units H.264
-
-        Returns:
-            np.ndarray em formato BGR (OpenCV) ou None
-        """
-        if not self.is_initialized or not nal_data:
-            return None
-
-        try:
-            # Cria packet com os dados H.264
-            packet = av.Packet(nal_data)
-
-            # Decodifica
-            frames = self.codec.decode(packet)
-
-            for frame in frames:
-                # Converte para numpy array (formato YUV → BGR)
-                img = frame.to_ndarray(format="bgr24")
-
-                # Valida dimensões (640x480 esperado)
-                if img.shape[0] < 100 or img.shape[1] < 100:
-                    continue  # Frame inválido, pula
-
-                # Garante memória contígua para evitar distorção na exibição
-                if not img.flags["C_CONTIGUOUS"]:
-                    img = np.ascontiguousarray(img)
-
-                self.frames_decoded += 1
-                return img
-
-            return None
-
-        except Exception as e:
-            self.errors += 1
-            if self.errors <= 5:
-                print(f"Erro decodificando H.264: {e}")
-            return None
-
-    def cleanup(self):
-        """Libera recursos do decoder"""
-        # PyAV codec context não tem método close(), apenas libera referência
-        self.codec = None
-        self.is_initialized = False
-
 
 class VideoDisplay:
-    """Gerencia a exibição de vídeo do carrinho F1 (H.264 + Tkinter)"""
+    """Gerencia a exibição de vídeo do veículo F1 (MJPEG + Tkinter)"""
 
     def __init__(self, video_queue=None, log_queue=None):
         """
@@ -125,10 +40,6 @@ class VideoDisplay:
         """
         self.video_queue = video_queue
         self.log_queue = log_queue
-
-        # Decoder H.264
-        self.h264_decoder = H264Decoder()
-        self.use_h264 = False
 
         # Estatísticas
         self.start_time = time.time()
@@ -153,17 +64,7 @@ class VideoDisplay:
         # Filtro de imagem PDI (None = sem filtro)
         self.image_filter = None
 
-        # Inicializa decoder H.264 como fallback (MJPEG é o padrão agora)
-        if H264_AVAILABLE:
-            if self.h264_decoder.initialize():
-                self.use_h264 = True  # Será alterado para False quando receber JPEG
-                self._log("INFO", "Decoder H.264 disponível como fallback")
-            else:
-                self._log("INFO", "Usando MJPEG (H.264 não disponível)")
-        else:
-            self._log("INFO", "Usando MJPEG (PyAV não instalado)")
-
-        self._log("INFO", "VideoDisplay inicializado")
+        self._log("INFO", "VideoDisplay inicializado (MJPEG)")
 
     def _log(self, level, message):
         """Envia mensagem para fila de log"""
@@ -232,7 +133,7 @@ class VideoDisplay:
                     "connected": True,
                     "resolution": f"{width}x{height}",
                     "fps": self.current_fps,
-                    "codec": "H.264" if self.use_h264 else "MJPEG",
+                    "codec": "MJPEG",
                 }
                 try:
                     self.status_callback(status)
@@ -288,8 +189,7 @@ class VideoDisplay:
             if self.frame_count % 5 != 0:
                 return frame
 
-            codec_text = "H.264" if self.use_h264 else "MJPEG"
-            fps_text = f"{codec_text} | FPS: {self.current_fps:.1f}"
+            fps_text = f"MJPEG | FPS: {self.current_fps:.1f}"
             resolution_text = f"{frame.shape[1]}x{frame.shape[0]}"
 
             # Adiciona info do filtro se ativo
@@ -361,26 +261,12 @@ class VideoDisplay:
             self.frame_count = 0
             self.last_fps_time = current_time
 
-    def _is_jpeg_data(self, data: bytes) -> bool:
-        """Detecta se dados são JPEG (SOI marker)"""
-        if len(data) < 2:
-            return False
-        # JPEG começa com SOI (Start of Image): 0xFFD8
-        return data[:2] == b"\xff\xd8"
-
-    def _is_h264_data(self, data: bytes) -> bool:
-        """Detecta se dados são H.264 (NAL units com start code)"""
-        if len(data) < 4:
-            return False
-        # H.264 Annex B start codes: 0x00000001 ou 0x000001
-        return data[:4] == b"\x00\x00\x00\x01" or data[:3] == b"\x00\x00\x01"
-
     def _decode_frame(self, frame_data: bytes) -> Optional[np.ndarray]:
         """
-        Decodifica frame (JPEG ou H.264 automaticamente)
+        Decodifica frame MJPEG
 
         Args:
-            frame_data: Bytes do frame codificado
+            frame_data: Bytes do frame JPEG
 
         Returns:
             np.ndarray em formato BGR ou None
@@ -388,34 +274,17 @@ class VideoDisplay:
         if not frame_data:
             return None
 
-        # Detecta formato automaticamente (JPEG primeiro, pois é o principal agora)
-        if self._is_jpeg_data(frame_data):
-            # Decodifica JPEG (mais eficiente e sem dependência entre frames)
+        try:
+            # Decodifica JPEG
             nparr = np.frombuffer(frame_data, dtype=np.uint8)
             frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-            if frame is not None:
-                self.use_h264 = False  # Indica que está usando JPEG
             return frame
-
-        elif self._is_h264_data(frame_data):
-            # Decodifica H.264 (fallback)
-            if self.use_h264:
-                frame = self.h264_decoder.decode(frame_data)
-                if frame is not None:
-                    return frame
+        except Exception:
             return None
 
-        else:
-            # Tenta JPEG como fallback final
-            nparr = np.frombuffer(frame_data, dtype=np.uint8)
-            frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-            return frame
-
     def process_video_queue(self):
-        """Processa frames da fila de vídeo (H.264 ou JPEG)"""
+        """Processa frames da fila de vídeo (MJPEG)"""
         try:
-            # Para H.264, TODOS os frames precisam ser decodificados em sequência
-            # (P-frames dependem dos anteriores), mas só exibimos o último
             latest_frame = None
             frames_decoded = 0
             max_frames = 10  # Limita para não travar se fila acumular muito
@@ -445,10 +314,7 @@ class VideoDisplay:
 
     def run_display(self):
         """Loop principal de exibição de vídeo"""
-        self._log(
-            "INFO",
-            f"Iniciando display de vídeo (codec: {'H.264' if self.use_h264 else 'MJPEG'})...",
-        )
+        self._log("INFO", "Iniciando display de vídeo (MJPEG)...")
 
         self.is_running = True
         no_signal_displayed = False
@@ -470,7 +336,7 @@ class VideoDisplay:
                         if frame is not None:
                             latest_frame = frame
 
-                    # Se há mais frames na fila, processa todos para manter decoder sync
+                    # Se há mais frames na fila, processa todos
                     # (mas só exibe o último para não travar)
                     frames_extra = 0
                     while not self.video_queue.empty() and frames_extra < 5:
@@ -518,12 +384,8 @@ class VideoDisplay:
             "avg_fps": self.frame_count / runtime if runtime > 0 else 0,
             "last_frame_time": self.last_frame_time,
             "is_running": self.is_running,
-            "codec": "H.264" if self.use_h264 else "MJPEG",
+            "codec": "MJPEG",
         }
-
-        if self.use_h264:
-            stats["h264_frames_decoded"] = self.h264_decoder.frames_decoded
-            stats["h264_errors"] = self.h264_decoder.errors
 
         return stats
 
@@ -533,13 +395,6 @@ class VideoDisplay:
             return
 
         self.is_running = False
-
-        # Cleanup decoder H.264 (thread-safe)
-        try:
-            if self.h264_decoder:
-                self.h264_decoder.cleanup()
-        except Exception:
-            pass
 
         # Não limpa tkinter_label aqui - será limpo pelo main thread
         # Isso evita o erro "Tcl_AsyncDelete: async handler deleted by the wrong thread"

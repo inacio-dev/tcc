@@ -1,48 +1,49 @@
 \chapter{Metodologia}
 \label{chap:metodologia}
 
-Será realizado um desenvolvimento incremental e modular de um simulador completo de um carrinho de Fórmula 1 com cockpit, sendo o carrinho controlado via protocolo UDP. Utilizarei uma metodologia de prototipagem evolutiva, que busca o teste individual de cada componente antes da integração final. O projeto busca um objetivo semelhante ao artigo de \citeonline{shaik2025design}, conforme apresentado na fundamentação teórica.
+Será realizado um desenvolvimento incremental e modular de um sistema completo de teleoperação de um veículo de Fórmula 1 com simulador (volante e pedais), sendo o veículo controlado via protocolo UDP. Utilizarei uma metodologia de prototipagem evolutiva, que busca o teste individual de cada componente antes da integração final. O projeto busca um objetivo semelhante ao artigo de \citeonline{shaik2025design}, conforme apresentado na fundamentação teórica.
 
-O projeto seguirá uma arquitetura de três camadas: o carrinho com o elemento principal sendo o Raspberry Pi 4 terá o objetivo de receber mensagens de controle e enviar mensagens de vídeo e status de sensores; a comunicação entre o carrinho e o cliente será feita por protocolo UDP\@; e, por último, o PC (cliente) receberá as mensagens e encaminhará os comandos de status para o simulador, bem como encaminhará as mensagens de controle para o carrinho. A integração de múltiplos sensores segue a abordagem de \citeonline{bobrovsky2023development}, visando um bom resultado de feedback ao usuário.
+O projeto seguirá uma arquitetura de três camadas: o veículo teleoperado com o elemento principal sendo o Raspberry Pi 4 terá o objetivo de receber mensagens de controle e enviar mensagens de vídeo e status de sensores; a comunicação entre o veículo e o cliente será feita por protocolo UDP; e, por último, o PC (cliente) receberá as mensagens e encaminhará os comandos de status para o simulador, bem como encaminhará as mensagens de controle para o veículo. A integração de múltiplos sensores segue a abordagem de \citeonline{bobrovsky2023development}, visando um bom resultado de feedback ao usuário. A \autoref{fig:arquitetura-projeto} apresenta o diagrama da arquitetura proposta.
+
+\begin{figure}[!h]
+	\captionsetup{width=16cm}
+	\Caption{\label{fig:arquitetura-projeto} Arquitetura do sistema de teleoperação com feedback háptico}
+	\UFCfig{}{
+		\includegraphics[width=16cm]{figuras/Arquitetura do Projeto}
+	}{
+		\Fonte{elaborado pelo autor.}
+	}
+\end{figure}
 
 \section{Especificações dos Componentes}
 \label{sec:especificacoes}
 
-A \autoref{tab:componentes} apresenta as especificações detalhadas dos componentes utilizados no sistema, definindo suas funções específicas na arquitetura do projeto.
+Esta seção apresenta as especificações detalhadas dos componentes utilizados no sistema, organizados por subsistema: veículo teleoperado (\autoref{tab:componentes-veiculo}), simulador de controle (\autoref{tab:componentes-simulador}) e estação cliente (\autoref{tab:componentes-cliente}).
+
+\subsection{Componentes do Veículo (Raspberry Pi 4)}
+\label{subsec:componentes-veiculo}
+
+A \autoref{tab:componentes-veiculo} apresenta os componentes embarcados no veículo teleoperado, responsáveis pelo controle de propulsão, sensoriamento e comunicação via UDP.
 
 \begin{table}[!h]
 \captionsetup{width=16cm}
-\Caption{\label{tab:componentes} Especificações dos componentes utilizados no sistema}
+\Caption{\label{tab:componentes-veiculo} Especificações dos componentes do veículo teleoperado}
 \IBGEtab{}{%
 	\begin{tabular}{p{3.5cm}p{6cm}p{6cm}}
 		\toprule
 		Componente & Especificação & Função no Sistema \\
 		\midrule \midrule
-		Raspberry Pi 4 Model B & Broadcom BCM2711, Quad core Cortex-A72 64-bit @ 1.8GHz, 8GB RAM & Núcleo de controle e comunicação do carrinho, servidor UDP, processamento de vídeo e controle de sensores \\
-		\midrule
-		ESP32 DevKit V1 & Dual-core Xtensa LX6 @ 240MHz, 520KB SRAM, 4MB Flash, WiFi/Bluetooth & Controle de encoders do cockpit, force feedback via BTS7960 e comunicação serial USB com cliente PC \\
+		Raspberry Pi 4 Model B & Broadcom BCM2711, Quad core Cortex-A72 64-bit @ 1.8GHz, 8GB RAM & Núcleo de controle e comunicação do veículo, servidor UDP, processamento de vídeo e controle de sensores \\
 		\midrule
 		Câmera OV5647 & 5MP, 2592×1944 pixels, vídeo 1080p/30fps, interface CSI & Captura de vídeo em tempo real para transmissão via UDP \\
 		\midrule
 		Sensor BMI160 & IMU 6 eixos, ±4g/±500°/s, 16 bits, I2C, 100Hz sampling & Detecção de forças G, aceleração e velocidade angular para force feedback \\
 		\midrule
-		Motor RC 775 & 24V, 12.000 RPM, com transmissão manual de 5 marchas & Propulsão principal do carrinho com zonas de eficiência F1 \\
+		Motor RC 775 & 24V, 12.000 RPM, com transmissão manual de 5 marchas & Propulsão principal do veículo com zonas de eficiência F1 \\
 		\midrule
-		Motor DC 775 & 24V, 12.000 RPM, controlado por BTS7960 & Geração de force feedback no volante do cockpit via ESP32 \\
+		Ponte H BTS7960 & 5.5--27Vdc, corrente contínua 40A, proteção térmica integrada & Controle bidirecional de velocidade do motor de propulsão \\
 		\midrule
-		Ponte H BTS7960 & 5.5--27Vdc, corrente contínua 40A, proteção térmica integrada & Controle bidirecional de velocidade dos motores DC \\
-		\midrule
-		Servo MG996R & 4.8--7.2V, torque 11kg.cm, rotação 180°, velocidade 0.14s/60° & Controle de direção e sistema de freio do carrinho \\
-		\midrule
-		Caixa Diferencial HSP 1:10 & Modelo 94111/94123, relação 02051 & Transmissão diferencial para rodas traseiras do carrinho \\
-		\midrule
-		Amortecedores RC 1:10 & Compatível Axial SCX10/TRX4, óleo ajustável & Suspensão do carrinho e amortecimento dos pedais do cockpit \\
-		\midrule
-		Atuadores Lineares DC & 12V, força 1000N, curso 250mm, velocidade 14mm/s & Simulação de movimentos da pista e força G no cockpit \\
-		\midrule
-		Rolamento Unidirecional CSK8PP & $8\times22\times9$mm, uma direção de rotação & Proteção contra travamento por torque reverso no eixo de velocidade \\
-		\midrule
-		Encoder LPD3806-600BM & 600 PPR, saída A/B quadratura, 5--24V & Leitura de posição de acelerador, freio e direção no cockpit (3 unidades) \\
+		Servo MG996R (3x) & 4.8--7.2V, torque 11kg.cm, rotação 180°, velocidade 0.14s/60° & Controle de direção e sistema de freio dianteiro/traseiro \\
 		\midrule
 		PCA9685 PWM Driver & 16 canais, 12 bits, I2C, endereço \texttt{0x40} & Controle de servos (freio dianteiro, traseiro e direção) \\
 		\midrule
@@ -54,7 +55,7 @@ A \autoref{tab:componentes} apresenta as especificações detalhadas dos compone
 		\midrule
 		ACS758 100A & Sensor Hall, sensibilidade 20mV/A, largura de banda 120kHz & Medição de corrente do motor DC 775 via ADS1115 \\
 		\midrule
-		ACS758 50A & Sensor Hall, sensibilidade 40mV/A, largura de banda 120kHz & Medição de corrente do Raspberry Pi e servos via ADS1115 \\
+		ACS758 50A (2x) & Sensor Hall, sensibilidade 40mV/A, largura de banda 120kHz & Medição de corrente do Raspberry Pi e servos via ADS1115 \\
 		\midrule
 		Regulador XL4015 & Step-down 8--36V para 1.25--32V, 5A, eficiência 96\% & Alimentação 5V do Raspberry Pi a partir da bateria \\
 		\midrule
@@ -62,7 +63,81 @@ A \autoref{tab:componentes} apresenta as especificações detalhadas dos compone
 		\midrule
 		Bateria LiPo 3S & Turnigy Graphene 6000mAh, 11.1V, 75C descarga & Fonte de energia principal do veículo \\
 		\midrule
+		Caixa Diferencial HSP 1:10 & Modelo 94111/94123, relação 02051 & Transmissão diferencial para rodas traseiras \\
+		\midrule
+		Rolamento Unidirecional CSK8PP & $8\times22\times9$mm, uma direção de rotação & Proteção contra torque reverso no eixo do motor de propulsão \\
+		\midrule
+		Amortecedores RC 1:10 & Compatível Axial SCX10/TRX4, óleo ajustável & Suspensão do veículo com amortecimento ajustável \\
+		\midrule
 		Chassi FV01 & Escala 1:5 (modificada), impressão 3D em PLA, pneus de borracha & Estrutura do veículo com suspensão push rod e aerodinâmica funcional \\
+		\bottomrule
+	\end{tabular}%
+}{%
+\Fonte{elaborado pelo autor.}%
+}
+\end{table}
+
+\subsection{Componentes do Simulador (ESP32)}
+\label{subsec:componentes-simulador}
+
+A \autoref{tab:componentes-simulador} apresenta os componentes do simulador de controle, responsáveis pela interface física com o operador e geração de feedback háptico.
+
+\begin{table}[!h]
+\captionsetup{width=16cm}
+\Caption{\label{tab:componentes-simulador} Especificações dos componentes do simulador de controle}
+\IBGEtab{}{%
+	\begin{tabular}{p{3.5cm}p{6cm}p{6cm}}
+		\toprule
+		Componente & Especificação & Função no Sistema \\
+		\midrule \midrule
+		ESP32 DevKit V1 & Dual-core Xtensa LX6 @ 240MHz, 520KB SRAM, 4MB Flash, WiFi/Bluetooth & Controle de encoders, force feedback via BTS7960 e comunicação serial USB com cliente PC \\
+		\midrule
+		Encoder LPD3806-600BM (3x) & 600 PPR, saída A/B quadratura, 5--24V & Leitura de posição de acelerador, freio e direção \\
+		\midrule
+		Motor DC 775 & 24V, 12.000 RPM, controlado por BTS7960 & Geração de force feedback no volante \\
+		\midrule
+		Ponte H BTS7960 & 5.5--27Vdc, corrente contínua 40A, proteção térmica integrada & Controle bidirecional do motor de force feedback \\
+		\midrule
+		Atuadores Lineares DC & 12V, força 1000N, curso 250mm, velocidade 14mm/s & Simulação de movimentos da pista e força G \\
+		\midrule
+		Amortecedores RC 1:10 & Compatível Axial SCX10/TRX4, óleo ajustável & Amortecimento dos pedais de acelerador e freio \\
+		\midrule
+		Botões Push (2x) & Normalmente aberto, com resistor pull-up interno & Controle de troca de marchas (subir/descer) \\
+		\bottomrule
+	\end{tabular}%
+}{%
+\Fonte{elaborado pelo autor.}%
+}
+\end{table}
+
+\subsection{Estação Cliente (PC)}
+\label{subsec:componentes-cliente}
+
+A \autoref{tab:componentes-cliente} apresenta as especificações do computador utilizado como estação cliente, responsável pelo processamento de telemetria, decodificação de vídeo MJPEG e cálculo de algoritmos de force feedback.
+
+\begin{table}[!h]
+\captionsetup{width=16cm}
+\Caption{\label{tab:componentes-cliente} Especificações da estação cliente}
+\IBGEtab{}{%
+	\begin{tabular}{p{3.5cm}p{6cm}p{6cm}}
+		\toprule
+		Componente & Especificação & Função no Sistema \\
+		\midrule \midrule
+		Notebook & Acer Nitro V 15 ANV15-51 & Plataforma de desenvolvimento e execução do cliente \\
+		\midrule
+		Processador & Intel Core i5-13420H (13ª geração), 8 núcleos (4P+4E), 12 threads, até 4.6GHz & Processamento de telemetria, interface gráfica e algoritmos de force feedback \\
+		\midrule
+		GPU Dedicada & NVIDIA GeForce RTX 3050 6GB GDDR6 (GA107BM) & Aceleração de processamento de imagem e renderização da interface \\
+		\midrule
+		GPU Integrada & Intel UHD Graphics (Raptor Lake-P) & Renderização secundária e economia de energia \\
+		\midrule
+		Memória RAM & 32GB DDR5 & Buffers de vídeo, histórico de telemetria e estruturas de dados \\
+		\midrule
+		Armazenamento & WD SN770 NVMe + Kingston NV1 NVMe & Armazenamento de logs, datasets e código fonte \\
+		\midrule
+		Sistema Operacional & Arch Linux, Kernel 6.18.2-arch2-1 & Ambiente de desenvolvimento com baixa latência e controle total do sistema \\
+		\midrule
+		Conectividade & WiFi 6 (802.11ax), USB 3.0 & Comunicação UDP com veículo e serial USB com simulador ESP32 \\
 		\bottomrule
 	\end{tabular}%
 }{%
@@ -73,12 +148,12 @@ A \autoref{tab:componentes} apresenta as especificações detalhadas dos compone
 \section{Protocolo de Comunicação UDP}
 \label{sec:protocolo-udp}
 
-O UDP é um protocolo que lida com o alto envio de mensagens, muito utilizado para envio de streams e em jogos de computador. A arquitetura atual necessita de baixa latência, pois uma latência muito alta irá atrapalhar o controle em tempo real do carrinho, passando por um alto delay de comandos e prejudicando a experiência do usuário. Conforme demonstrado por \citeonline{lu2023udprt} na fundamentação teórica, protocolos baseados em UDP alcançam latências significativamente inferiores ao TCP em aplicações de tempo real, justificando o uso desse protocolo.
+O UDP é um protocolo que lida com o alto envio de mensagens, muito utilizado para envio de streams e em jogos de computador. A arquitetura atual necessita de baixa latência, pois uma latência muito alta irá atrapalhar o controle em tempo real do veículo teleoperado, passando por um alto delay de comandos e prejudicando a experiência do usuário. Conforme demonstrado por \citeonline{lu2023udprt} na fundamentação teórica, protocolos baseados em UDP alcançam latências significativamente inferiores ao TCP em aplicações de tempo real, justificando o uso desse protocolo.
 
 \subsection{Evolução das Decisões de Arquitetura de Comunicação}
 \label{subsec:evolucao-decisoes-comunicacao}
 
-A arquitetura final de comunicação do sistema foi definida após uma série de testes experimentais com diferentes tecnologias e topologias de rede. O objetivo inicial era verificar a viabilidade de controlar múltiplos carrinhos simultaneamente através de um servidor central que redirecionaria mensagens entre clientes e veículos. A meta de latência estabelecida foi de no máximo 10ms para comunicação em tempo real na mesma rede local.
+A arquitetura final de comunicação do sistema foi definida após uma série de testes experimentais com diferentes tecnologias e topologias de rede. O objetivo inicial era verificar a viabilidade de controlar múltiplos veículos simultaneamente através de um servidor central que redirecionaria mensagens entre clientes e veículos. A meta de latência estabelecida foi de no máximo 10ms para comunicação em tempo real na mesma rede local.
 
 \subsubsection{Testes com Arduino Mega e ESP8266}
 
@@ -90,7 +165,7 @@ Para melhorar o processamento, o Arduino Mega com ESP8266 foi substituído por u
 
 \subsubsection{Testes com Módulo NRF24L01}
 
-Buscando comunicação mais rápida entre servidor e veículo, foram realizados testes com módulos de rádio NRF24L01 com antena externa, capazes de alcançar até 800 metros com boa qualidade de sinal. Os resultados foram expressivos: latência de apenas 2ms entre os dispositivos. Porém, essa abordagem implica comunicação direta ponto-a-ponto entre servidor e veículo, aumentando a complexidade para adicionar novos carrinhos ao sistema.
+Buscando comunicação mais rápida entre servidor e veículo, foram realizados testes com módulos de rádio NRF24L01 com antena externa, capazes de alcançar até 800 metros com boa qualidade de sinal. Os resultados foram expressivos: latência de apenas 2ms entre os dispositivos. Porém, essa abordagem implica comunicação direta ponto-a-ponto entre servidor e veículo, aumentando a complexidade para adicionar novos veículos ao sistema.
 
 \subsubsection{Avaliação de Redes Mesh}
 
@@ -100,15 +175,15 @@ O protocolo ESP-NOW foi considerado como alternativa para comunicação mesh ent
 
 \subsubsection{Decisão Final: Arquitetura UDP com Raspberry Pi e ESP32}
 
-A análise comparativa dos testes, sumarizada na \autoref{tab:comparativo-comunicacao}, conduziu à definição da arquitetura final baseada em três pilares: protocolo UDP, Raspberry Pi 4 embarcado no veículo e ESP32 no cockpit. O princípio norteador foi manter o sistema simples e funcional.
+A análise comparativa dos testes, sumarizada na \autoref{tab:comparativo-comunicacao}, conduziu à definição da arquitetura final baseada em três pilares: protocolo UDP, Raspberry Pi 4 embarcado no veículo e ESP32 no simulador. O princípio norteador foi manter o sistema simples e funcional.
 
 A comunicação via rádio NRF24L01, apesar de apresentar excelente latência (2ms) e alcance (800m), exigiria a implementação de um broker intermediário para traduzir os pacotes de rádio para o protocolo UDP do servidor. Essa camada adicional aumentaria a complexidade do sistema, introduziria novos pontos de falha e demandaria desenvolvimento de firmware específico para gerenciamento da comunicação bidirecional entre rádio e rede IP.
 
 A decisão de embarcar o Raspberry Pi 4 diretamente no veículo eliminou essa necessidade, permitindo comunicação UDP nativa com latência de apenas 1ms --- superando a meta estabelecida de 10ms. O Raspberry Pi atua simultaneamente como controlador do veículo e servidor UDP, processando vídeo da câmera OV5647, dados do sensor BMI160 e comandos de controle em uma única plataforma.
 
-Para o cockpit, o ESP32 DevKit V1 foi mantido devido ao seu processamento superior em relação ao Arduino Mega, com dual-core de 240MHz contra single-core de 16MHz. Essa capacidade permite leitura simultânea de três encoders rotacionais a 100Hz, processamento de comandos de force feedback e comunicação serial USB com o cliente PC sem perda de dados. A comunicação serial USB entre ESP32 e cliente elimina a necessidade de protocolos wireless adicionais no cockpit, garantindo conexão estável e determinística.
+Para o simulador, o ESP32 DevKit V1 foi mantido devido ao seu processamento superior em relação ao Arduino Mega, com dual-core de 240MHz contra single-core de 16MHz. Essa capacidade permite leitura simultânea de três encoders rotacionais a 100Hz, processamento de comandos de force feedback e comunicação serial USB com o cliente PC sem perda de dados. A comunicação serial USB entre ESP32 e cliente elimina a necessidade de protocolos wireless adicionais no simulador, garantindo conexão estável e determinística.
 
-Essa arquitetura resultou em um sistema com apenas dois saltos de comunicação (Veículo $\leftrightarrow$ Cliente $\leftrightarrow$ Cockpit), maximizando a confiabilidade e minimizando a latência total do loop de controle.
+Essa arquitetura resultou em um sistema com apenas dois saltos de comunicação (Veículo $\leftrightarrow$ Cliente $\leftrightarrow$ Simulador), maximizando a confiabilidade e minimizando a latência total do loop de controle.
 
 \begin{table}[!h]
 \captionsetup{width=16cm}
@@ -147,7 +222,7 @@ A escolha do UDP simples sobre protocolos mais avançados como UDP-RT \citeonlin
 \section{Arquitetura do Veículo (Raspberry Pi 4)}
 \label{sec:arquitetura-veiculo}
 
-O Raspberry Pi 4 Model B com 8GB de RAM constitui o núcleo de processamento embarcado no veículo, responsável por todas as operações de controle, sensoriamento e comunicação. A escolha deste hardware foi motivada pela capacidade de processamento suficiente para codificação de vídeo H.264 em tempo real, comunicação UDP nativa e controle de múltiplos periféricos via I2C, conforme validado nos testes de arquitetura descritos na \autoref{subsec:evolucao-decisoes-comunicacao}.
+O Raspberry Pi 4 Model B com 8GB de RAM constitui o núcleo de processamento embarcado no veículo, responsável por todas as operações de controle, sensoriamento e comunicação. A escolha deste hardware foi motivada pela capacidade de processamento suficiente para codificação de vídeo MJPEG em tempo real, comunicação UDP nativa e controle de múltiplos periféricos via I2C, conforme validado nos testes de arquitetura descritos na \autoref{subsec:evolucao-decisoes-comunicacao}.
 
 \subsection{Chassi e Estrutura}
 \label{subsec:chassi-estrutura-veiculo}
@@ -165,7 +240,7 @@ O veículo incorpora múltiplos sensores para captura de dados em tempo real, tr
 
 \subsubsection{Câmera OV5647}
 
-A câmera OV5647 conectada via interface CSI captura vídeo em resolução 1080p a 30 FPS. O stream de vídeo é codificado em H.264 diretamente pelo hardware do Raspberry Pi, minimizando uso de CPU e garantindo baixa latência. Os frames codificados são transmitidos via UDP para o cliente, onde são decodificados utilizando a biblioteca PyAV (wrapper do FFmpeg).
+A câmera OV5647 conectada via interface CSI captura vídeo em resolução 640x480 a 30 FPS. O stream de vídeo é codificado em MJPEG (Motion JPEG), onde cada frame é comprimido independentemente como imagem JPEG. Essa escolha foi motivada pela robustez contra perda de pacotes UDP: enquanto codecs como H.264 utilizam P-frames que dependem de frames anteriores (causando distorção em cascata quando há perda de pacotes), o MJPEG transmite frames independentes, limitando o impacto de perdas a um único frame. O trade-off é maior uso de banda (aproximadamente 4x mais que H.264), compensado pela qualidade de imagem consistente e simplicidade de decodificação via OpenCV.
 
 \subsubsection{Sensor IMU BMI160}
 
@@ -203,29 +278,29 @@ O driver BTS7960 foi selecionado especificamente por possuir proteções integra
 Essa arquitetura de proteção elimina a necessidade de componentes externos de proteção, como diodos flyback ou capacitores de supressão de transientes, simplificando o projeto eletrônico e aumentando a confiabilidade do sistema.
 
 % ============================================================================
-% ARQUITETURA DO COCKPIT (ESP32)
+% ARQUITETURA DO SIMULADOR (ESP32)
 % ============================================================================
-\section{Arquitetura do Cockpit (ESP32)}
-\label{sec:arquitetura-cockpit}
+\section{Arquitetura do Simulador (ESP32)}
+\label{sec:arquitetura-simulador}
 
-O ESP32 DevKit V1 com processador dual-core Xtensa LX6 a 240MHz constitui o controlador do cockpit, responsável pela leitura de encoders, controle do motor de force feedback e comunicação serial com o cliente PC. A escolha do ESP32 sobre o Arduino Mega foi motivada pelo processamento superior, conforme demonstrado nos testes de latência da \autoref{subsec:evolucao-decisoes-comunicacao}.
+O ESP32 DevKit V1 com processador dual-core Xtensa LX6 a 240MHz constitui o controlador do simulador, responsável pela leitura de encoders, controle do motor de force feedback e comunicação serial com o cliente PC. A escolha do ESP32 sobre o Arduino Mega foi motivada pelo processamento superior, conforme demonstrado nos testes de latência da \autoref{subsec:evolucao-decisoes-comunicacao}.
 
 \subsection{Leitura de Encoders Rotacionais}
-\label{subsec:encoders-cockpit}
+\label{subsec:encoders-simulador}
 
-O cockpit utiliza três encoders rotacionais LPD3806-600BM-G5-24C com resolução de 600 pulsos por revolução (PPR) e saída em quadratura (canais A e B). A leitura é realizada via interrupções de hardware nos pinos GPIO, garantindo captura precisa mesmo em rotações rápidas.
+O simulador utiliza três encoders rotacionais LPD3806-600BM-G5-24C com resolução de 600 pulsos por revolução (PPR) e saída em quadratura (canais A e B). A leitura é realizada via interrupções de hardware nos pinos GPIO, garantindo captura precisa mesmo em rotações rápidas.
 
 O encoder de acelerador utiliza GPIO 25 (CLK) e GPIO 26 (DT) com pinos invertidos para correção de direção. O encoder de freio utiliza GPIO 27 (CLK) e GPIO 14 (DT). O encoder de direção utiliza GPIO 12 (CLK) e GPIO 13 (DT), também com pinos invertidos para correção de direção.
 
 Os valores dos encoders são normalizados para porcentagem (0--100\% para acelerador e freio) ou ângulo (-100\% a +100\% para direção) e transmitidos ao cliente a 100Hz via serial USB.
 
 \subsection{Controle de Marchas}
-\label{subsec:marchas-cockpit}
+\label{subsec:marchas-simulador}
 
 O sistema de marchas utiliza dois botões push conectados aos GPIO 32 (subir marcha) e GPIO 33 (descer marcha). A detecção é feita por polling com debounce de software, evitando acionamentos múltiplos. Eventos de troca de marcha são transmitidos ao cliente como mensagens \texttt{GEAR\_UP} e \texttt{GEAR\_DOWN}.
 
 \subsection{Sistema de Force Feedback}
-\label{subsec:ff-cockpit}
+\label{subsec:ff-simulador}
 
 O motor DC 775 de 24V do volante é controlado por ponte H BTS7960, recebendo comandos de intensidade e direção do cliente PC via serial USB. O protocolo de comunicação utiliza formato texto:
 
@@ -238,7 +313,7 @@ FF_MOTOR:NEUTRO:0       - Libera o volante
 A proteção contra back-EMF do BTS7960, descrita na \autoref{subsec:protecao-backemf-veiculo}, também se aplica ao motor de force feedback, permitindo que o operador gire o volante livremente quando o motor não está acionado.
 
 \subsection{Calibração de Encoders}
-\label{subsec:calibracao-cockpit}
+\label{subsec:calibracao-simulador}
 
 O sistema de calibração permite ajuste dos valores mínimo, máximo e centro de cada encoder, armazenados na EEPROM do ESP32. O protocolo de calibração opera via serial:
 
@@ -253,7 +328,7 @@ O sistema de calibração permite ajuste dos valores mínimo, máximo e centro d
 A estrutura de dados na EEPROM utiliza magic number (\texttt{0xCAFE}) e checksum para validação de integridade, com endereços separados para cada encoder (16 bytes cada).
 
 \subsection{Comunicação Serial USB}
-\label{subsec:serial-cockpit}
+\label{subsec:serial-simulador}
 
 A comunicação com o cliente PC utiliza USB serial a 115200 baud, operando em modo full-duplex. O ESP32 transmite dados de encoders e eventos de marcha, enquanto recebe comandos de force feedback e calibração. A taxa de atualização de 100Hz (10ms) garante responsividade adequada para controle em tempo real.
 
@@ -263,19 +338,19 @@ A comunicação com o cliente PC utiliza USB serial a 115200 baud, operando em m
 \section{Arquitetura do Cliente (PC)}
 \label{sec:arquitetura-cliente}
 
-O cliente PC, implementado em Python com interface Tkinter, atua como hub central do sistema, recebendo dados do veículo via UDP, processando telemetria, calculando force feedback e transmitindo comandos para cockpit e veículo. O Python foi escolhido devido à facilidade de prototipagem e disponibilidade de bibliotecas para decodificação de vídeo (PyAV), interface gráfica (Tkinter) e comunicação (socket, pyserial).
+O cliente PC, implementado em Python com interface Tkinter, atua como hub central do sistema, recebendo dados do veículo via UDP, processando telemetria, calculando force feedback e transmitindo comandos para simulador e veículo. O Python foi escolhido devido à facilidade de prototipagem e disponibilidade de bibliotecas para decodificação de vídeo (PyAV), interface gráfica (Tkinter) e comunicação (socket, pyserial).
 
 \subsection{Interface Gráfica}
 \label{subsec:interface-cliente}
 
 A interface gráfica utiliza layout de duas colunas: telemetria à esquerda e vídeo/controles à direita. A viabilidade técnica do streaming em tempo real com Raspberry Pi foi demonstrada por \citeonline{shendge2023development}, conforme apresentado na fundamentação teórica.
 
-O painel de instrumentos exibe RPM, marcha atual, posição do acelerador e velocidade estimada, atualizados em tempo real conforme dados recebidos do veículo e cockpit. A visualização de vídeo utiliza PyAV para decodificação H.264 e Pillow para renderização no canvas Tkinter.
+O painel de instrumentos exibe RPM, marcha atual, posição do acelerador e velocidade estimada, atualizados em tempo real conforme dados recebidos do veículo e simulador. A visualização de vídeo utiliza OpenCV para decodificação MJPEG e Pillow para renderização no canvas Tkinter.
 
 \subsection{Recepção e Processamento de Dados}
 \label{subsec:recepcao-cliente}
 
-O cliente opera threads separadas para recepção UDP (veículo) e serial (cockpit), com filas thread-safe para transferência de dados à thread principal de interface. O filtro por IP garante que apenas pacotes do veículo configurado sejam processados, ignorando tráfego de rede não relacionado.
+O cliente opera threads separadas para recepção UDP (veículo) e serial (simulador), com filas thread-safe para transferência de dados à thread principal de interface. O filtro por IP garante que apenas pacotes do veículo configurado sejam processados, ignorando tráfego de rede não relacionado.
 
 \subsection{Algoritmos de Cálculo de Force Feedback}
 \label{subsec:algoritmos-ff-cliente}
@@ -301,7 +376,7 @@ G_{lateral} = \frac{velocidade_{angular\_Z} \times velocidade_{linear}}{9.81}
 \subsubsection{Algoritmos de Controle de Force Feedback}
 \label{sec:algoritmos-force-feedback}
 
-Serão acumulados vários dados sobre os sensores para analisar todos os valores e assim descobrir os padrões para controle háptico dos atuadores; dessa forma, posso calibrar de forma mais parecida possível com o ambiente real. O giroscópio me permite calcular tanto a aceleração do carro para os impulsos de força G lateral e frontal quanto calcular a posição do assoalho com relação à suspensão e emitir as vibrações do carro, como segue de exemplo no artigo de \citeonline{dreger2024evaluation}, que investigaram diferentes designs de feedback para orientação em sistemas controlados por humanos, demonstrando que feedback em tempo real pode melhorar significativamente a precisão do operador sobre diferentes designs de feedback para orientação.
+Serão acumulados vários dados sobre os sensores para analisar todos os valores e assim descobrir os padrões para controle háptico dos atuadores; dessa forma, posso calibrar de forma mais parecida possível com o ambiente real. O giroscópio me permite calcular tanto a aceleração do veículo para os impulsos de força G lateral e frontal quanto calcular a posição do assoalho com relação à suspensão e emitir as vibrações do veículo, como segue de exemplo no artigo de \citeonline{dreger2024evaluation}, que investigaram diferentes designs de feedback para orientação em sistemas controlados por humanos, demonstrando que feedback em tempo real pode melhorar significativamente a precisão do operador sobre diferentes designs de feedback para orientação.
 
 O algoritmo para cálculo das forças G considera os valores de aceleração linear e velocidade angular obtidos do sensor BMI160, aplicando normalização por G para obter valores em força gravitacional:
 
@@ -447,7 +522,7 @@ Ajuste automático dos ganhos baseado na atividade detectada. A calibração ada
 
 \subsubsection{Algoritmo Completo de Force Feedback da Direção}
 
-O sistema de force feedback da direção combina três componentes principais: força lateral (curvas), rotação yaw e mola de centralização. O algoritmo é executado no cliente PC e envia comandos para o motor DC 775 do cockpit via ESP32:
+O sistema de force feedback da direção combina três componentes principais: força lateral (curvas), rotação yaw e mola de centralização. O algoritmo é executado no cliente PC e envia comandos para o motor DC 775 do simulador via ESP32:
 
 \begin{algorithm}[h!]
 	\SetSpacedAlgorithm
@@ -632,14 +707,14 @@ A análise demonstra que o tamanho da amostra coletada (n = 90.000) proporciona 
 As etapas de desenvolvimento seguem respectivamente:
 
 \begin{alineascomnumero}
-	\item Modelagem, impressão e montagem do chassi do carrinho;
+	\item Modelagem, impressão e montagem do chassi do veículo teleoperado;
 	\item Testes de desempenho e comunicação entre o Raspberry Pi e o Cliente (PC);
-	\item Integração gradual dos sensores e atuadores do carrinho com o Raspberry Pi;
-	\item Testes de comunicação do carrinho completo entre o PC\@;
-	\item Modelagem, impressão e montagem do cockpit;
+	\item Integração gradual dos sensores e atuadores do veículo teleoperado com o Raspberry Pi;
+	\item Testes de comunicação do veículo teleoperado completo com o PC\@;
+	\item Modelagem, impressão e montagem do simulador (volante e pedais);
 	\item Teste de atuadores e sensores de comando da direção e pedais para o PC via serial;
-	\item Integração gradual do cockpit com o PC via serial;
-	\item Teste completo entre o carrinho e o cockpit.
+	\item Integração gradual do simulador com o PC via serial;
+	\item Teste completo entre o veículo teleoperado e o simulador.
 \end{alineascomnumero}
 
 \section{Armazenamento de Logs e Validação}
@@ -688,7 +763,7 @@ As configurações de rede wireless seguem padrões reproduzíveis, especificand
 
 As configurações ambientais experimentais são registradas sistematicamente para garantir reprodutibilidade das condições de teste. O ambiente de rede é caracterizado através de medições de potência de sinal WiFi utilizando ferramentas como iwconfig e wavemon, documentando valores de RSSI (Received Signal Strength Indicator) em múltiplos pontos do ambiente experimental.
 
-As características do ambiente físico incluem dimensões precisas do local de teste (5m × 8m), materiais de construção das paredes (alvenaria com reboco), presença de obstáculos metálicos e fontes potenciais de interferência eletromagnética. O posicionamento relativo entre carrinho e estação de controle é documentado com coordenadas precisas, utilizando sistema de referência baseado em marcos físicos permanentes.
+As características do ambiente físico incluem dimensões precisas do local de teste (5m × 8m), materiais de construção das paredes (alvenaria com reboco), presença de obstáculos metálicos e fontes potenciais de interferência eletromagnética. O posicionamento relativo entre veículo teleoperado e estação de controle é documentado com coordenadas precisas, utilizando sistema de referência baseado em marcos físicos permanentes.
 
 As condições de iluminação para os testes de câmera são padronizadas utilizando iluminação artificial controlada (lâmpadas LED 6500K, 1000 lúmens), minimizando variações devido à iluminação natural. Os padrões de teste visual incluem alvos de calibração com dimensões conhecidas, permitindo validação da qualidade de captura de vídeo independente das condições específicas do ambiente.
 

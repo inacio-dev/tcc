@@ -27,7 +27,7 @@ F1-style remote-controlled car with complete telemetry system using Raspberry Pi
 **Raspberry Pi Side (`raspberry/`):**
 
 - `main.py`: Orchestrates all hardware
-- `camera_manager.py`: OV5647 camera + H.264 video encoding
+- `camera_manager.py`: OV5647 camera + MJPEG video encoding
 - `bmi160_manager.py`: IMU sensor (accel/gyro) data
 - `motor_manager.py`: RC 775 motor + 5-speed transmission
 - `brake_manager.py`: Dual servo brake (front/rear)
@@ -40,7 +40,7 @@ F1-style remote-controlled car with complete telemetry system using Raspberry Pi
 - `main.py`: Main orchestrator
 - `network_client.py`: UDP receiver (filters by configured IP)
 - `serial_receiver_manager.py`: ESP32 cockpit receiver
-- `video_display.py`: H.264 video rendering (PyAV/FFmpeg)
+- `video_display.py`: MJPEG video rendering (OpenCV)
 - `console_interface.py`: UI with instrument panel + auto-save
 - `sensor_display.py`: Sensor data processing + history
 - `keyboard_controller.py`: Async keyboard input
@@ -177,11 +177,10 @@ cd client && python3 main.py --port 9999
 
 ## Key Dependencies
 
-- **opencv-python**: Video processing
+- **opencv-python**: Video processing and MJPEG decoding
 - **numpy**: Sensor computations
 - **picamera2**: Raspberry Pi camera
 - **Pillow**: Image processing
-- **av (PyAV)**: H.264 decoding (FFmpeg wrapper)
 - **smbus2**: I2C communication
 - **adafruit-circuitpython-pca9685**: PCA9685 PWM driver
 - **adafruit-circuitpython-servokit**: Servo control
@@ -198,7 +197,7 @@ cd client && python3 main.py --port 9999
 - **Instrument Panel**: RPM, gear, throttle, speed
 - **Telemetry**: BMI160 data, G-forces, vehicle dynamics
 - **Async Keyboard**: WASD/Arrows (20Hz), M/N (gear shifts)
-- **Video Display**: Embedded Tkinter with H.264 decoding
+- **Video Display**: Embedded Tkinter with MJPEG decoding
 - **Auto-Save**: Automatic data export every 20s
 - **2-Column Layout**: Left (telemetry), Right (video/controls)
 
@@ -334,13 +333,16 @@ Examples:
   - Valores como custos devem ser consistentes em todo o documento
   - Verificar se uma informação já foi dita antes de adicioná-la novamente
   - Formato da chave: `sobrenome_primeiro_autor+ano+palavra_chave` (ex: `dreger2024evaluation`)
+- **IMPORTANTE - Nomenclatura do Projeto**:
+  - NUNCA usar "carrinho" ou "carro" para se referir ao projeto. SEMPRE usar "veículo" ou "veículo teleoperado" para manter o tom acadêmico e profissional da monografia. Exceção: quando se refere a "carros de F1 reais" ou "modelo de carro de Fórmula 1" (chassi) é aceitável.
+  - NUNCA usar "cockpit" para se referir ao sistema de controle. SEMPRE usar "simulador" que representa o volante e os pedais (acelerador e freio). O termo "cockpit" é inadequado pois o projeto não possui uma cabine completa, apenas os controles de direção.
 
 **Client:**
 
 - `client/main.py`: Primary application
 - `client/console_interface.py`: Main GUI + auto-save
 - `client/network_client.py`: UDP receiver with IP filtering
-- `client/video_display.py`: H.264 decoder
+- `client/video_display.py`: MJPEG decoder
 - `client/sensor_display.py`: Sensor processing + pickle export
 
 **Raspberry Pi:**
@@ -405,7 +407,7 @@ Examples:
 - Direct hardware control (no smooth movement threads)
 - Clean codebase (no unused code)
 - F1-style efficiency zones
-- Optimized video pipeline (H.264 + frame dropping)
+- Optimized video pipeline (MJPEG + frame dropping)
 - Thread-safe operations with `root.after()`
 - Auto-save with Pickle (5-10x faster than CSV)
 
