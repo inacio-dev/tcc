@@ -3,7 +3,7 @@
 
 Será realizado um desenvolvimento incremental e modular de um sistema completo de teleoperação de um veículo de Fórmula 1 com simulador (volante e pedais), sendo o veículo controlado via protocolo UDP. Utilizarei uma metodologia de prototipagem evolutiva, que busca o teste individual de cada componente antes da integração final. O projeto busca um objetivo semelhante ao artigo de \citeonline{shaik2025design}, conforme apresentado na fundamentação teórica.
 
-O projeto seguirá uma arquitetura de três camadas: o veículo teleoperado com o elemento principal sendo o Raspberry Pi 4 terá o objetivo de receber mensagens de controle e enviar mensagens de vídeo e status de sensores; a comunicação entre o veículo e o cliente será feita por protocolo UDP; e, por último, o PC (cliente) receberá as mensagens e encaminhará os comandos de status para o simulador, bem como encaminhará as mensagens de controle para o veículo. A integração de múltiplos sensores segue a abordagem de \citeonline{bobrovsky2023development}, visando um bom resultado de feedback ao usuário. A \autoref{fig:arquitetura-projeto} apresenta o diagrama da arquitetura proposta.
+O projeto seguirá uma arquitetura de três camadas. A primeira corresponde ao veículo teleoperado, tendo como elemento principal o Raspberry Pi 4, responsável por receber mensagens de controle e enviar mensagens de vídeo e status de sensores. A segunda camada é a comunicação entre o veículo e o cliente, realizada por protocolo UDP. A terceira camada é o PC (cliente), que receberá as mensagens e encaminhará os comandos de status para o simulador, bem como encaminhará as mensagens de controle para o veículo. A integração de múltiplos sensores segue a abordagem de \citeonline{bobrovsky2023development}, visando um bom resultado de feedback ao usuário. A \autoref{fig:arquitetura-projeto} apresenta o diagrama da arquitetura proposta.
 
 \begin{figure}[!h]
 	\captionsetup{width=16cm}
@@ -14,136 +14,6 @@ O projeto seguirá uma arquitetura de três camadas: o veículo teleoperado com 
 		\Fonte{elaborado pelo autor.}
 	}
 \end{figure}
-
-\section{Especificações dos Componentes}
-\label{sec:especificacoes}
-
-Esta seção apresenta as especificações detalhadas dos componentes utilizados no sistema, organizados por subsistema: veículo teleoperado (\autoref{tab:componentes-veiculo}), simulador de controle (\autoref{tab:componentes-simulador}) e estação cliente (\autoref{tab:componentes-cliente}).
-
-\subsection{Componentes do Veículo (Raspberry Pi 4)}
-\label{subsec:componentes-veiculo}
-
-A \autoref{tab:componentes-veiculo} apresenta os componentes embarcados no veículo teleoperado, responsáveis pelo controle de propulsão, sensoriamento e comunicação via UDP.
-
-\begin{table}[!h]
-\captionsetup{width=16cm}
-\Caption{\label{tab:componentes-veiculo} Especificações dos componentes do veículo teleoperado}
-\IBGEtab{}{%
-	\begin{tabular}{p{3.5cm}p{6cm}p{6cm}}
-		\toprule
-		Componente & Especificação & Função no Sistema \\
-		\midrule \midrule
-		Raspberry Pi 4 Model B & Broadcom BCM2711, Quad core Cortex-A72 64-bit @ 1.8GHz, 8GB RAM & Núcleo de controle e comunicação do veículo, servidor UDP, processamento de vídeo e controle de sensores \\
-		\midrule
-		Câmera OV5647 & 5MP, 2592×1944 pixels, vídeo 1080p/30fps, interface CSI & Captura de vídeo em tempo real para transmissão via UDP \\
-		\midrule
-		Sensor BMI160 & IMU 6 eixos, ±4g/±500°/s, 16 bits, I2C, 100Hz sampling & Detecção de forças G, aceleração e velocidade angular para force feedback \\
-		\midrule
-		Motor RC 775 & 24V, 12.000 RPM, com transmissão manual de 5 marchas & Propulsão principal do veículo com zonas de eficiência F1 \\
-		\midrule
-		Ponte H BTS7960 & 5.5--27Vdc, corrente contínua 40A, proteção térmica integrada & Controle bidirecional de velocidade do motor de propulsão \\
-		\midrule
-		Servo MG996R (3x) & 4.8--7.2V, torque 11kg.cm, rotação 180°, velocidade 0.14s/60° & Controle de direção e sistema de freio dianteiro/traseiro \\
-		\midrule
-		PCA9685 PWM Driver & 16 canais, 12 bits, I2C, endereço \texttt{0x40} & Controle de servos (freio dianteiro, traseiro e direção) \\
-		\midrule
-		ADS1115 ADC & 16 bits, 4 canais, I2C, endereço \texttt{0x48} & Monitoramento de corrente via sensores ACS758 \\
-		\midrule
-		INA219 & Sensor corrente/tensão, I2C, endereço \texttt{0x41} & Monitoramento de energia do Raspberry Pi \\
-		\midrule
-		Sensor DS18B20 & Digital 1-Wire, $-55$°C a $+125$°C, precisão $\pm0{,}5$°C & Monitoramento de temperatura do motor e eletrônica \\
-		\midrule
-		ACS758 100A & Sensor Hall, sensibilidade 20mV/A, largura de banda 120kHz & Medição de corrente do motor DC 775 via ADS1115 \\
-		\midrule
-		ACS758 50A (2x) & Sensor Hall, sensibilidade 40mV/A, largura de banda 120kHz & Medição de corrente do Raspberry Pi e servos via ADS1115 \\
-		\midrule
-		Regulador XL4015 & Step-down 8--36V para 1.25--32V, 5A, eficiência 96\% & Alimentação 5V do Raspberry Pi a partir da bateria \\
-		\midrule
-		UBEC 15A & 6--12S entrada, 5.25V saída, 15A contínuo, 30A pico & Alimentação dos servos MG996R \\
-		\midrule
-		Bateria LiPo 3S & Turnigy Graphene 6000mAh, 11.1V, 75C descarga & Fonte de energia principal do veículo \\
-		\midrule
-		Caixa Diferencial HSP 1:10 & Modelo 94111/94123, relação 02051 & Transmissão diferencial para rodas traseiras \\
-		\midrule
-		Rolamento Unidirecional CSK8PP & $8\times22\times9$mm, uma direção de rotação & Proteção contra torque reverso no eixo do motor de propulsão \\
-		\midrule
-		Amortecedores RC 1:10 & Compatível Axial SCX10/TRX4, óleo ajustável & Suspensão do veículo com amortecimento ajustável \\
-		\midrule
-		Chassi FV01 & Escala 1:5 (modificada), impressão 3D em PLA, pneus de borracha & Estrutura do veículo com suspensão push rod e aerodinâmica funcional \\
-		\bottomrule
-	\end{tabular}%
-}{%
-\Fonte{elaborado pelo autor.}%
-}
-\end{table}
-
-\subsection{Componentes do Simulador (ESP32)}
-\label{subsec:componentes-simulador}
-
-A \autoref{tab:componentes-simulador} apresenta os componentes do simulador de controle, responsáveis pela interface física com o operador e geração de feedback háptico.
-
-\begin{table}[!h]
-\captionsetup{width=16cm}
-\Caption{\label{tab:componentes-simulador} Especificações dos componentes do simulador de controle}
-\IBGEtab{}{%
-	\begin{tabular}{p{3.5cm}p{6cm}p{6cm}}
-		\toprule
-		Componente & Especificação & Função no Sistema \\
-		\midrule \midrule
-		ESP32 DevKit V1 & Dual-core Xtensa LX6 @ 240MHz, 520KB SRAM, 4MB Flash, WiFi/Bluetooth & Controle de encoders, force feedback via BTS7960 e comunicação serial USB com cliente PC \\
-		\midrule
-		Encoder LPD3806-600BM (3x) & 600 PPR, saída A/B quadratura, 5--24V & Leitura de posição de acelerador, freio e direção \\
-		\midrule
-		Motor DC 775 & 24V, 12.000 RPM, controlado por BTS7960 & Geração de force feedback no volante \\
-		\midrule
-		Ponte H BTS7960 & 5.5--27Vdc, corrente contínua 40A, proteção térmica integrada & Controle bidirecional do motor de force feedback \\
-		\midrule
-		Atuadores Lineares DC & 12V, força 1000N, curso 250mm, velocidade 14mm/s & Simulação de movimentos da pista e força G \\
-		\midrule
-		Amortecedores RC 1:10 & Compatível Axial SCX10/TRX4, óleo ajustável & Amortecimento dos pedais de acelerador e freio \\
-		\midrule
-		Botões Push (2x) & Normalmente aberto, com resistor pull-up interno & Controle de troca de marchas (subir/descer) \\
-		\bottomrule
-	\end{tabular}%
-}{%
-\Fonte{elaborado pelo autor.}%
-}
-\end{table}
-
-\subsection{Estação Cliente (PC)}
-\label{subsec:componentes-cliente}
-
-A \autoref{tab:componentes-cliente} apresenta as especificações do computador utilizado como estação cliente, responsável pelo processamento de telemetria, decodificação de vídeo MJPEG e cálculo de algoritmos de force feedback.
-
-\begin{table}[!h]
-\captionsetup{width=16cm}
-\Caption{\label{tab:componentes-cliente} Especificações da estação cliente}
-\IBGEtab{}{%
-	\begin{tabular}{p{3.5cm}p{6cm}p{6cm}}
-		\toprule
-		Componente & Especificação & Função no Sistema \\
-		\midrule \midrule
-		Notebook & Acer Nitro V 15 ANV15-51 & Plataforma de desenvolvimento e execução do cliente \\
-		\midrule
-		Processador & Intel Core i5-13420H (13ª geração), 8 núcleos (4P+4E), 12 threads, até 4.6GHz & Processamento de telemetria, interface gráfica e algoritmos de force feedback \\
-		\midrule
-		GPU Dedicada & NVIDIA GeForce RTX 3050 6GB GDDR6 (GA107BM) & Aceleração de processamento de imagem e renderização da interface \\
-		\midrule
-		GPU Integrada & Intel UHD Graphics (Raptor Lake-P) & Renderização secundária e economia de energia \\
-		\midrule
-		Memória RAM & 32GB DDR5 & Buffers de vídeo, histórico de telemetria e estruturas de dados \\
-		\midrule
-		Armazenamento & WD SN770 NVMe + Kingston NV1 NVMe & Armazenamento de logs, datasets e código fonte \\
-		\midrule
-		Sistema Operacional & Arch Linux, Kernel 6.18.2-arch2-1 & Ambiente de desenvolvimento com baixa latência e controle total do sistema \\
-		\midrule
-		Conectividade & WiFi 6 (802.11ax), USB 3.0 & Comunicação UDP com veículo e serial USB com simulador ESP32 \\
-		\bottomrule
-	\end{tabular}%
-}{%
-\Fonte{elaborado pelo autor.}%
-}
-\end{table}
 
 \section{Protocolo de Comunicação UDP}
 \label{sec:protocolo-udp}
@@ -169,19 +39,41 @@ Buscando comunicação mais rápida entre servidor e veículo, foram realizados 
 
 \subsubsection{Avaliação de Redes Mesh}
 
-Para estender o alcance além dos 800 metros do NRF24L01, foi avaliada a implementação de rede mesh. A análise indicou acréscimo de aproximadamente 2ms de latência para cada salto entre antenas intermediárias, além de introduzir erros na resposta de status do veículo. Uma otimização testada foi utilizar formato ACK para retorno de status dos sensores, eliminando a alternância entre leitura e escrita. Contudo, essa abordagem tornou a implementação de mesh com NRF24L01 excessivamente complexa para o cronograma disponível.
+Para estender o alcance além dos 800 metros do NRF24L01, foi avaliada a implementação de rede mesh. A análise indicou acréscimo de aproximadamente 2ms de latência para cada salto entre antenas intermediárias, além de introduzir erros na resposta de status do veículo. Uma otimização testada foi utilizar o payload de ACK (\textit{acknowledgment}) para retorno de status dos sensores. O ACK é uma confirmação de recebimento que o NRF24L01 envia automaticamente ao transmissor; ao anexar dados do sensor nessa confirmação, elimina-se a necessidade de alternar o módulo entre modos de transmissão e recepção, reduzindo latência. Contudo, essa abordagem tornou a implementação de mesh com NRF24L01 excessivamente complexa para o cronograma disponível.
 
-O protocolo ESP-NOW foi considerado como alternativa para comunicação mesh entre dispositivos ESP32, porém foi descartado devido ao alcance limitado de aproximadamente 50 metros --- significativamente inferior aos 800 metros do NRF24L01 com antena externa --- além do custo mais elevado por unidade.
+O protocolo ESP-NOW foi considerado como alternativa para comunicação mesh entre dispositivos ESP32, porém foi descartado devido ao alcance limitado de aproximadamente 50 metros, significativamente inferior aos 800 metros do NRF24L01 com antena externa, além do custo mais elevado por unidade.
 
 \subsubsection{Decisão Final: Arquitetura UDP com Raspberry Pi e ESP32}
 
 A análise comparativa dos testes, sumarizada na \autoref{tab:comparativo-comunicacao}, conduziu à definição da arquitetura final baseada em três pilares: protocolo UDP, Raspberry Pi 4 embarcado no veículo e ESP32 no simulador. O princípio norteador foi manter o sistema simples e funcional.
 
-A comunicação via rádio NRF24L01, apesar de apresentar excelente latência (2ms) e alcance (800m), exigiria a implementação de um broker intermediário para traduzir os pacotes de rádio para o protocolo UDP do servidor. Essa camada adicional aumentaria a complexidade do sistema, introduziria novos pontos de falha e demandaria desenvolvimento de firmware específico para gerenciamento da comunicação bidirecional entre rádio e rede IP.
+A comunicação via rádio NRF24L01, apesar de apresentar excelente latência (2ms) e alcance (800m), exigiria a implementação de um broker intermediário para traduzir os pacotes de rádio para o protocolo UDP do servidor. Essa camada adicional aumentaria a complexidade do sistema, introduziria novos pontos de falha e demandaria desenvolvimento de firmware específico para gerenciamento da comunicação bidirecional entre rádio e rede IP. Além disso, embora o NRF24L01 seja adequado para transmissão de comandos de controle (pacotes pequenos de dezenas de bytes), a transmissão de vídeo em tempo real seria inviável: o módulo opera com taxa máxima de 2 Mbps e payload limitado a 32 bytes por pacote, tornando a fragmentação e remontagem de frames MJPEG (10 a 50 KB cada) excessivamente complexa e propensa a erros. Implementar um protocolo confiável de transmissão de imagem sobre rádio demandaria esforço de desenvolvimento incompatível com o cronograma do projeto.
 
-A decisão de embarcar o Raspberry Pi 4 diretamente no veículo eliminou essa necessidade, permitindo comunicação UDP nativa com latência de apenas 1ms --- superando a meta estabelecida de 10ms. O Raspberry Pi atua simultaneamente como controlador do veículo e servidor UDP, processando vídeo da câmera OV5647, dados do sensor BMI160 e comandos de controle em uma única plataforma.
+A decisão de embarcar o Raspberry Pi 4 diretamente no veículo eliminou essas limitações, permitindo comunicação UDP nativa sobre WiFi. Com o Raspberry Pi embarcado, a captura de vídeo, codificação MJPEG e transmissão UDP ocorrem internamente no mesmo dispositivo, simplificando drasticamente a arquitetura. O Raspberry Pi atua simultaneamente como controlador do veículo e servidor UDP, processando vídeo da câmera OV5647, dados do sensor BMI160 e comandos de controle em uma única plataforma.
 
-Para o simulador, o ESP32 DevKit V1 foi mantido devido ao seu processamento superior em relação ao Arduino Mega, com dual-core de 240MHz contra single-core de 16MHz. Essa capacidade permite leitura simultânea de três encoders rotacionais a 100Hz, processamento de comandos de force feedback e comunicação serial USB com o cliente PC sem perda de dados. A comunicação serial USB entre ESP32 e cliente elimina a necessidade de protocolos wireless adicionais no simulador, garantindo conexão estável e determinística.
+A arquitetura de comunicação utiliza três portas UDP separadas para otimizar o desempenho de cada tipo de dado, conforme detalhado na \autoref{tab:arquitetura-portas-udp}. Essa separação é necessária porque pacotes de vídeo grandes (50 KB) bloqueariam os pacotes pequenos de sensores (200 bytes) se compartilhassem a mesma porta, e o sistema de force feedback requer taxa consistente de 100Hz com latência inferior a 10ms para resposta tátil adequada no volante.
+
+\begin{table}[!h]
+\captionsetup{width=16cm}
+\Caption{\label{tab:arquitetura-portas-udp} Arquitetura de comunicação UDP com três portas separadas}
+\IBGEtab{}{%
+	\begin{tabular}{ccp{5cm}ccc}
+		\toprule
+		Porta & Direção & Conteúdo & Taxa & Pacote & Buffer \\
+		\midrule \midrule
+		9999 & RPi $\rightarrow$ PC & Vídeo MJPEG + energia + temperatura & 30Hz & 10--50 KB & 64 KB \\
+		\midrule
+		9997 & RPi $\rightarrow$ PC & Sensores BMI160 (aceleração e giroscópio) & 100Hz & 200 B & 8 KB \\
+		\midrule
+		9998 & Bidirecional & Comandos de controle (acelerador, freio, direção, marcha) & On-demand & 50 B & 8 KB \\
+		\bottomrule
+	\end{tabular}%
+}{%
+\Fonte{elaborado pelo autor.}%
+}
+\end{table}
+
+Para o simulador, o ESP32 DevKit V1 foi mantido devido ao seu processamento superior em relação ao Arduino Mega, com dual-core de 240MHz contra single-core de 16MHz. O firmware opera com taxa de atualização de 100Hz (intervalo de 10ms entre transmissões), permitindo leitura simultânea de três encoders rotacionais, processamento de comandos de force feedback e comunicação serial USB a 115200 baud com o cliente PC sem perda de dados. O processamento é distribuído entre os dois núcleos: o Core 0 executa a leitura de encoders e controle do motor de force feedback com alta prioridade, enquanto o Core 1 gerencia a comunicação serial. A comunicação serial USB entre ESP32 e cliente elimina a necessidade de protocolos wireless adicionais no simulador, garantindo conexão estável e determinística.
 
 Essa arquitetura resultou em um sistema com apenas dois saltos de comunicação (Veículo $\leftrightarrow$ Cliente $\leftrightarrow$ Simulador), maximizando a confiabilidade e minimizando a latência total do loop de controle.
 
@@ -224,14 +116,81 @@ A escolha do UDP simples sobre protocolos mais avançados como UDP-RT \citeonlin
 
 O Raspberry Pi 4 Model B com 8GB de RAM constitui o núcleo de processamento embarcado no veículo, responsável por todas as operações de controle, sensoriamento e comunicação. A escolha deste hardware foi motivada pela capacidade de processamento suficiente para codificação de vídeo MJPEG em tempo real, comunicação UDP nativa e controle de múltiplos periféricos via I2C, conforme validado nos testes de arquitetura descritos na \autoref{subsec:evolucao-decisoes-comunicacao}.
 
+\subsection{Especificações dos Componentes do Veículo}
+\label{subsec:componentes-veiculo}
+
+A \autoref{tab:componentes-veiculo} apresenta os componentes embarcados no veículo teleoperado, responsáveis pelo controle de propulsão, sensoriamento e comunicação via UDP.
+
+\begin{table}[!h]
+\captionsetup{width=16cm}
+\Caption{\label{tab:componentes-veiculo} Especificações dos componentes do veículo teleoperado}
+\IBGEtab{}{%
+	\begin{tabular}{p{3.5cm}p{6cm}p{6cm}}
+		\toprule
+		Componente & Especificação & Função no Sistema \\
+		\midrule \midrule
+		Raspberry Pi 4 Model B & Broadcom BCM2711, Quad core Cortex-A72 64-bit @ 1.8GHz, 8GB RAM & Núcleo de controle e comunicação do veículo, servidor UDP, processamento de vídeo e controle de sensores \\
+		\midrule
+		Câmera OV5647 & 5MP, 2592×1944 pixels, vídeo 1080p/30fps, interface CSI & Captura de vídeo em tempo real para transmissão via UDP \\
+		\midrule
+		Sensor BMI160 \cite{bosch2015bmi160} & IMU 6 eixos, ±4g/±500°/s, 16 bits, I2C, 100Hz sampling & Detecção de forças G, aceleração e velocidade angular para force feedback \\
+		\midrule
+		Motor RC 775 & 24V, 12.000 RPM, com transmissão manual de 5 marchas & Propulsão principal do veículo com zonas de eficiência F1 \\
+		\midrule
+		Ponte H BTS7960 \cite{infineon2013btn7960} & 5.5--27Vdc, corrente contínua 40A, proteção térmica integrada & Controle bidirecional de velocidade do motor de propulsão \\
+		\midrule
+		Servo MG996R (3x) & 4.8--7.2V, torque 11kg.cm, rotação 180°, velocidade 0.14s/60° & Controle de direção e sistema de freio dianteiro/traseiro \\
+		\midrule
+		PCA9685 PWM Driver \cite{nxp2015pca9685} & 16 canais, 12 bits, I2C, endereço \texttt{0x40} & Controle de servos (freio dianteiro, traseiro e direção) \\
+		\midrule
+		ADS1115 ADC \cite{ti2018ads1115} & 16 bits, 4 canais, I2C, endereço \texttt{0x48} & Monitoramento de corrente via sensores ACS758 \\
+		\midrule
+		INA219 \cite{ti2015ina219} & Sensor corrente/tensão, I2C, endereço \texttt{0x41} & Monitoramento de energia do Raspberry Pi \\
+		\midrule
+		Sensor DS18B20 \cite{maxim2019ds18b20} & Digital 1-Wire, $-55$°C a $+125$°C, precisão $\pm0{,}5$°C & Monitoramento de temperatura do motor e eletrônica \\
+		\midrule
+		ACS758 100A \cite{allegro2018acs758} & Sensor Hall, sensibilidade 20mV/A, largura de banda 120kHz & Medição de corrente do motor DC 775 via ADS1115 \\
+		\midrule
+		ACS758 50A (2x) \cite{allegro2018acs758} & Sensor Hall, sensibilidade 40mV/A, largura de banda 120kHz & Medição de corrente do Raspberry Pi e servos via ADS1115 \\
+		\midrule
+		Regulador XL4015 \cite{xlsemi2017xl4015} & Step-down 8--36V para 1.25--32V, 5A, eficiência 96\% & Alimentação 5V do Raspberry Pi a partir da bateria \\
+		\midrule
+		UBEC 15A & 6--12S entrada, 5.25V saída, 15A contínuo, 30A pico & Alimentação dos servos MG996R \\
+		\midrule
+		Bateria LiPo 3S & Turnigy Graphene 6000mAh, 11.1V, 75C descarga & Fonte de energia principal do veículo \\
+		\midrule
+		Caixa Diferencial HSP 1:10 & Modelo 94111/94123, relação 02051 & Transmissão diferencial para rodas traseiras \\
+		\midrule
+		Rolamento Unidirecional CSK8PP & $8\times22\times9$mm, uma direção de rotação & Proteção contra torque reverso no eixo do motor de propulsão \\
+		\midrule
+		Amortecedores RC 1:10 & Compatível Axial SCX10/TRX4, óleo ajustável & Suspensão do veículo com amortecimento ajustável \\
+		\midrule
+		Chassi FV01 & Escala 1:5 (modificada), impressão 3D em PLA, pneus de borracha & Estrutura do veículo com suspensão push rod e aerodinâmica funcional \\
+		\bottomrule
+	\end{tabular}%
+}{%
+\Fonte{elaborado pelo autor.}%
+}
+\end{table}
+
 \subsection{Chassi e Estrutura}
 \label{subsec:chassi-estrutura-veiculo}
 
-O veículo utiliza o chassi FV01, um modelo de carro de Fórmula 1 projetado para impressão 3D por Velocity Projects\footnote{Modelo FV01 disponível em: \url{https://cults3d.com/en/3d-model/game/fv01-the-most-advanced-3d-printed-rc-racing-car-velocityprojects3d}. Créditos: VelocityProjects3D.}. O modelo original possui escala 1:7, porém foi modificado para escala 1:5 neste projeto para acomodar todos os componentes eletrônicos necessários. O modelo apresenta características avançadas que o tornam adequado para o projeto de teleoperação com feedback háptico:
+O veículo utiliza o chassi FV01, um modelo de carro de Fórmula 1 projetado para impressão 3D por Velocity Projects\footnote{Modelo FV01 disponível em: \url{https://www.printables.com/model/964784-fv01-the-most-advanced-3d-printed-rc-formula-1-car}. Créditos: VelocityProjects3D.}. O modelo original possui escala 1:7, porém foi modificado para escala 1:5 neste projeto para acomodar todos os componentes eletrônicos necessários. O modelo apresenta características avançadas que o tornam adequado para o projeto de teleoperação com feedback háptico.
 
-O modelo inclui suspensão push rod independente que reproduz fielmente o comportamento de suspensões de carros de F1 reais, permitindo detecção precisa de forças G pelo sensor BMI160. A aerodinâmica funcional com asas dianteira e traseira gera downforce em velocidades elevadas, contribuindo para estabilidade e realismo. O diferencial operacional permite comportamento realista em curvas, essencial para geração de feedback háptico adequado. A modularidade do projeto, com peças projetadas para fácil reparo e substituição, facilita manutenção e modificações.
+Entre essas características, destaca-se a suspensão push rod independente que reproduz fielmente o comportamento de suspensões de carros de F1 reais, permitindo detecção precisa de forças G pelo sensor BMI160. O diferencial operacional permite comportamento realista em curvas, essencial para geração de feedback háptico adequado. A modularidade do projeto, com peças projetadas para fácil reparo e substituição, facilita manutenção e modificações.
 
-O chassi foi impresso em PLA utilizando impressora 3D, com pneus de borracha para melhor aderência e realismo. A modificação para escala 1:5 resultou em um veículo de maior porte comparado ao modelo original, proporcionando espaço interno adequado para acomodação do Raspberry Pi 4, sensores, drivers e demais componentes eletrônicos do sistema de teleoperação.
+O chassi foi impresso em PLA utilizando impressora 3D, com pneus de borracha para melhor aderência e realismo. A modificação para escala 1:5 resultou em um veículo de maior porte comparado ao modelo original, proporcionando espaço interno adequado para acomodação do Raspberry Pi 4, sensores, drivers e demais componentes eletrônicos do sistema de teleoperação. A \autoref{fig:chassi-fv01} apresenta o modelo original do chassi FV01.
+
+\begin{figure}[!ht]
+	\captionsetup{width=16cm}
+	\Caption{\label{fig:chassi-fv01} Modelo do chassi FV01 projetado para impressão 3D}
+	\UFCfig{}{
+		\includegraphics[width=12cm]{figuras/FV01-1}
+	}{
+		\Fonte{VelocityProjects3D (2024).}
+	}
+\end{figure}
 
 \subsection{Sistema de Sensoriamento}
 \label{subsec:sensoriamento-veiculo}
@@ -257,12 +216,26 @@ O sistema de propulsão utiliza motor RC 775 de 24V controlado por ponte H BTS79
 
 \subsubsection{Motor de Propulsão}
 
-O motor RC 775 opera com transmissão manual de 5 marchas, simulando comportamento de veículo real. O controle de velocidade é realizado via PWM, com o BTS7960 permitindo operação bidirecional (frente/ré). O algoritmo de controle ajusta o fator de torque conforme a marcha selecionada:
+O motor RC 775 opera com transmissão manual de 5 marchas, simulando comportamento de veículo real. O controle de velocidade é realizado via PWM através do driver BTS7960. O algoritmo de controle ajusta o fator de torque conforme a marcha selecionada:
 
 \begin{equation}
 \label{eq:fator-torque}
 Fator_{torque} = 1.0 + 0.2 \times (Marcha_{max} - Marcha_{atual})
 \end{equation}
+
+O sistema implementa zonas de eficiência inspiradas em veículos de Fórmula 1, onde cada marcha possui uma faixa ideal de operação em termos de PWM do motor. Operar fora dessa faixa resulta em penalização na taxa de aceleração, incentivando o operador a utilizar a marcha correta para cada situação. A \autoref{fig:zonas-eficiencia-marchas} ilustra as zonas de eficiência e os limitadores de PWM por marcha.
+
+\begin{figure}[!ht]
+	\captionsetup{width=16cm}
+	\Caption{\label{fig:zonas-eficiencia-marchas} Sistema de transmissão F1: (a) zonas de eficiência por marcha e (b) limitadores de PWM com fator de torque}
+	\UFCfig{}{
+		\includegraphics[width=15cm]{figuras/sistema_transmissao_f1}
+	}{
+		\Fonte{elaborado pelo autor.}
+	}
+\end{figure}
+
+Conforme ilustrado na figura, cada marcha possui uma zona IDEAL (verde) onde a aceleração ocorre em taxa normal, uma zona SUBOPTIMAL (laranja) com aceleração 10 vezes mais lenta, e uma zona POOR (vermelho) com aceleração 25 vezes mais lenta. Os limitadores de PWM restringem a potência máxima disponível em cada marcha: 40\% na 1ª, 60\% na 2ª, 80\% na 3ª e 100\% na 4ª e 5ª marchas. Esse sistema força o operador a progredir pelas marchas para atingir velocidade máxima, reproduzindo o comportamento de uma transmissão real.
 
 \subsubsection{Sistema de Direção e Freios}
 
@@ -271,11 +244,13 @@ A direção utiliza servo MG996R no canal 2 do PCA9685, com rotação de 0° a 1
 \subsection{Proteção contra Força Eletromotriz de Retorno}
 \label{subsec:protecao-backemf-veiculo}
 
-Quando um motor DC gira --- seja por acionamento elétrico ou por força mecânica externa --- ele atua como gerador e produz uma tensão conhecida como força eletromotriz de retorno (\textit{back-EMF}). No contexto deste projeto, essa situação ocorre quando as rodas do veículo giram livremente (motor desligado) ou durante frenagem regenerativa.
+Quando um motor DC gira, seja por acionamento elétrico ou por força mecânica externa, ele atua como gerador e produz uma tensão conhecida como força eletromotriz de retorno (\textit{back-EMF}). No contexto deste projeto, essa situação ocorre tanto no veículo (quando as rodas giram livremente com motor desligado) quanto no simulador (quando o operador gira o volante manualmente).
 
-O driver BTS7960 foi selecionado especificamente por possuir proteções integradas contra esse fenômeno. O circuito integrado incorpora diodos de \textit{freewheeling} nos MOSFETs de potência, que conduzem a corrente reversa de forma segura quando o motor opera como gerador. Além disso, o BTS7960 oferece proteção contra sobrecorrente, proteção térmica com desligamento automático em temperaturas elevadas e proteção contra curto-circuito, conforme especificado no datasheet do fabricante.
+O driver BTS7960 foi selecionado para ambos os sistemas, veículo e simulador, especificamente por possuir proteções integradas contra esse fenômeno. Conforme especificado no datasheet do fabricante \citeonline{infineon2013btn7960}, o circuito integrado BTN7960 (chip utilizado no módulo BTS7960) incorpora capacidade de \textit{active freewheeling} com frequência PWM de até 25 kHz, minimizando a dissipação de potência nos diodos integrados quando o motor opera como gerador. Além disso, o BTN7960 oferece proteção contra sobrecorrente, proteção térmica com desligamento automático em temperaturas elevadas e proteção contra curto-circuito.
 
-Essa arquitetura de proteção elimina a necessidade de componentes externos de proteção, como diodos flyback ou capacitores de supressão de transientes, simplificando o projeto eletrônico e aumentando a confiabilidade do sistema.
+No veículo, uma proteção mecânica adicional foi implementada através de rolamento unidirecional no eixo de transmissão. Esse componente permite que as rodas girem livremente sem transmitir rotação reversa ao motor, reduzindo a geração de back-EMF quando o veículo está em movimento com motor desligado. No simulador, essa proteção mecânica não é aplicável porque o motor de force feedback necessita operar em ambas as direções para simular resistência no volante, dependendo exclusivamente das proteções eletrônicas do BTS7960.
+
+Essa arquitetura de proteção elimina a necessidade de componentes externos adicionais, como diodos flyback ou capacitores de supressão de transientes, simplificando o projeto eletrônico e aumentando a confiabilidade do sistema.
 
 % ============================================================================
 % ARQUITETURA DO SIMULADOR (ESP32)
@@ -284,6 +259,39 @@ Essa arquitetura de proteção elimina a necessidade de componentes externos de 
 \label{sec:arquitetura-simulador}
 
 O ESP32 DevKit V1 com processador dual-core Xtensa LX6 a 240MHz constitui o controlador do simulador, responsável pela leitura de encoders, controle do motor de force feedback e comunicação serial com o cliente PC. A escolha do ESP32 sobre o Arduino Mega foi motivada pelo processamento superior, conforme demonstrado nos testes de latência da \autoref{subsec:evolucao-decisoes-comunicacao}.
+
+\subsection{Especificações dos Componentes do Simulador}
+\label{subsec:componentes-simulador}
+
+A \autoref{tab:componentes-simulador} apresenta os componentes do simulador de controle, responsáveis pela interface física com o operador e geração de feedback háptico.
+
+\begin{table}[!h]
+\captionsetup{width=16cm}
+\Caption{\label{tab:componentes-simulador} Especificações dos componentes do simulador de controle}
+\IBGEtab{}{%
+	\begin{tabular}{p{3.5cm}p{6cm}p{6cm}}
+		\toprule
+		Componente & Especificação & Função no Sistema \\
+		\midrule \midrule
+		ESP32 DevKit V1 \cite{espressif2024esp32} & Dual-core Xtensa LX6 @ 240MHz, 520KB SRAM, 4MB Flash, WiFi/Bluetooth & Controle de encoders, force feedback via BTS7960 e comunicação serial USB com cliente PC \\
+		\midrule
+		Encoder LPD3806-600BM (3x) & 600 PPR, saída A/B quadratura, 5--24V & Leitura de posição de acelerador, freio e direção \\
+		\midrule
+		Motor DC 775 & 24V, 12.000 RPM, controlado por BTS7960 & Geração de force feedback no volante \\
+		\midrule
+		Ponte H BTS7960 \cite{infineon2013btn7960} & 5.5--27Vdc, corrente contínua 40A, proteção térmica integrada & Controle bidirecional do motor de force feedback \\
+		\midrule
+		Atuadores Lineares DC & 12V, força 1000N, curso 250mm, velocidade 14mm/s & Simulação de movimentos da pista e força G \\
+		\midrule
+		Amortecedores RC 1:10 & Compatível Axial SCX10/TRX4, óleo ajustável & Amortecimento dos pedais de acelerador e freio \\
+		\midrule
+		Botões Push (2x) & Normalmente aberto, com resistor pull-up interno & Controle de troca de marchas (subir/descer) \\
+		\bottomrule
+	\end{tabular}%
+}{%
+\Fonte{elaborado pelo autor.}%
+}
+\end{table}
 
 \subsection{Leitura de Encoders Rotacionais}
 \label{subsec:encoders-simulador}
@@ -339,6 +347,41 @@ A comunicação com o cliente PC utiliza USB serial a 115200 baud, operando em m
 \label{sec:arquitetura-cliente}
 
 O cliente PC, implementado em Python com interface Tkinter, atua como hub central do sistema, recebendo dados do veículo via UDP, processando telemetria, calculando force feedback e transmitindo comandos para simulador e veículo. O Python foi escolhido devido à facilidade de prototipagem e disponibilidade de bibliotecas para decodificação de vídeo (PyAV), interface gráfica (Tkinter) e comunicação (socket, pyserial).
+
+\subsection{Especificações da Estação Cliente}
+\label{subsec:componentes-cliente}
+
+A \autoref{tab:componentes-cliente} apresenta as especificações do computador utilizado como estação cliente, responsável pelo processamento de telemetria, decodificação de vídeo MJPEG e cálculo de algoritmos de force feedback.
+
+\begin{table}[!h]
+\captionsetup{width=16cm}
+\Caption{\label{tab:componentes-cliente} Especificações da estação cliente}
+\IBGEtab{}{%
+	\begin{tabular}{p{3.5cm}p{6cm}p{6cm}}
+		\toprule
+		Componente & Especificação & Função no Sistema \\
+		\midrule \midrule
+		Notebook & Acer Nitro V 15 ANV15-51 & Plataforma de desenvolvimento e execução do cliente \\
+		\midrule
+		Processador & Intel Core i5-13420H (13ª geração), 8 núcleos (4P+4E), 12 threads, até 4.6GHz & Processamento de telemetria, interface gráfica e algoritmos de force feedback \\
+		\midrule
+		GPU Dedicada & NVIDIA GeForce RTX 3050 6GB GDDR6 (GA107BM) & Aceleração de processamento de imagem e renderização da interface \\
+		\midrule
+		GPU Integrada & Intel UHD Graphics (Raptor Lake-P) & Renderização secundária e economia de energia \\
+		\midrule
+		Memória RAM & 32GB DDR5 & Buffers de vídeo, histórico de telemetria e estruturas de dados \\
+		\midrule
+		Armazenamento & WD SN770 NVMe + Kingston NV1 NVMe & Armazenamento de logs, datasets e código fonte \\
+		\midrule
+		Sistema Operacional & Arch Linux, Kernel 6.18.2-arch2-1 & Ambiente de desenvolvimento com baixa latência e controle total do sistema \\
+		\midrule
+		Conectividade & WiFi 6 (802.11ax), USB 3.0 & Comunicação UDP com veículo e serial USB com simulador ESP32 \\
+		\bottomrule
+	\end{tabular}%
+}{%
+\Fonte{elaborado pelo autor.}%
+}
+\end{table}
 
 \subsection{Interface Gráfica}
 \label{subsec:interface-cliente}

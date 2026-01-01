@@ -312,9 +312,11 @@ Examples:
   - `5-conclusao.tex`: Conclusões e trabalhos futuros
 - Compilação: `make compile` (requer texlive + abntex2)
 - Verificação: `chktex documento.tex` (warnings suprimidos em `.chktexrc`)
-- **IMPORTANTE - Citações**: Sempre usar `\citeonline{chave}` para citações no texto (padrão ABNT/abnTeX2)
-  - Exemplo: `\citeonline{dreger2024evaluation}` → "Dreger e Rinkenauer (2024)"
-  - NÃO usar `\cite{}` que gera formato entre parênteses
+- **IMPORTANTE - Citações**: Usar o comando correto conforme o contexto:
+  - **Em texto corrido**: Usar `\citeonline{chave}` → "Dreger e Rinkenauer (2024)"
+  - **Em tabelas**: Usar `\cite{chave}` → "(DREGER; RINKENAUER, 2024)" - mais compacto
+  - Exemplo texto: `\citeonline{dreger2024evaluation}` → "Dreger e Rinkenauer (2024)"
+  - Exemplo tabela: `Sensor BMI160 \cite{bosch2015bmi160}` → "Sensor BMI160 (BOSCH, 2015)"
 - **IMPORTANTE - Edição**: Ao editar a monografia, SEMPRE ler o arquivo primeiro e seguir o padrão já estabelecido:
   - Manter o estilo de escrita, tom e vocabulário existente
   - Seguir a estrutura de seções e subseções já definida
