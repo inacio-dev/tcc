@@ -3,7 +3,7 @@
 
 Será realizado um desenvolvimento incremental e modular de um sistema completo de teleoperação de um veículo de Fórmula 1 com simulador (volante e pedais), sendo o veículo controlado via protocolo UDP. Utilizarei uma metodologia de prototipagem evolutiva, que busca o teste individual de cada componente antes da integração final. O projeto busca um objetivo semelhante ao artigo de \citeonline{shaik2025design}, conforme apresentado na fundamentação teórica.
 
-O projeto seguirá uma arquitetura de três camadas. A primeira corresponde ao veículo teleoperado, tendo como elemento principal o Raspberry Pi 4, responsável por receber mensagens de controle e enviar mensagens de vídeo e status de sensores. A segunda camada é a comunicação entre o veículo e o cliente, realizada por protocolo UDP. A terceira camada é o PC (cliente), que receberá as mensagens e encaminhará os comandos de status para o simulador, bem como encaminhará as mensagens de controle para o veículo. A integração de múltiplos sensores segue a abordagem de \citeonline{bobrovsky2023development}, visando um bom resultado de feedback ao usuário. A \autoref{fig:arquitetura-projeto} apresenta o diagrama da arquitetura proposta.
+O projeto seguirá uma arquitetura de três camadas. A primeira corresponde ao veículo teleoperado, tendo como elemento principal o Raspberry Pi 4, responsável por receber mensagens de controle via UDP e enviar mensagens de vídeo e status de sensores. A segunda camada é o cliente (notebook ou PC), que receberá as mensagens do veículo, exibirá a interface de telemetria e encaminhará as mensagens de controle oriundas do simulador para o veículo. A terceira camada é o simulador baseado em ESP32, composto por volante com encoder rotativo, pedais de acelerador e freio, e botões de troca de marcha, responsável por capturar os comandos do usuário e transmiti-los ao cliente via comunicação serial USB. A integração de múltiplos sensores segue a abordagem de \citeonline{bobrovsky2023development}, visando um bom resultado de feedback ao usuário. A \autoref{fig:arquitetura-projeto} apresenta o diagrama da arquitetura proposta.
 
 \begin{figure}[!h]
 	\captionsetup{width=16cm}
@@ -114,7 +114,31 @@ A escolha do UDP simples sobre protocolos mais avançados como UDP-RT \citeonlin
 \section{Arquitetura do Veículo (Raspberry Pi 4)}
 \label{sec:arquitetura-veiculo}
 
-O Raspberry Pi 4 Model B com 8GB de RAM constitui o núcleo de processamento embarcado no veículo, responsável por todas as operações de controle, sensoriamento e comunicação. A escolha deste hardware foi motivada pela capacidade de processamento suficiente para codificação de vídeo MJPEG em tempo real, comunicação UDP nativa e controle de múltiplos periféricos via I2C, conforme validado nos testes de arquitetura descritos na \autoref{subsec:evolucao-decisoes-comunicacao}.
+O Raspberry Pi 4 Model B com 8GB de RAM constitui o núcleo de processamento embarcado no veículo, responsável por todas as operações de controle, sensoriamento e comunicação. A escolha deste hardware foi motivada pela capacidade de processamento suficiente para codificação de vídeo MJPEG em tempo real, comunicação UDP nativa e controle de múltiplos periféricos via I2C, conforme validado nos testes de arquitetura descritos na \autoref{subsec:evolucao-decisoes-comunicacao}. O diagrama elétrico completo das conexões do Raspberry Pi 4 com todos os componentes do sistema está disponível no \autoref{apendice:diagrama-rpi}.
+
+O software embarcado foi desenvolvido em Python 3.11.2 utilizando o editor Visual Studio Code, aproveitando bibliotecas nativas para controle de GPIO, comunicação I2C e captura de vídeo via interface CSI. A \autoref{tab:bibliotecas-rpi} apresenta as principais bibliotecas utilizadas no desenvolvimento do software embarcado.
+
+\begin{table}[!h]
+\captionsetup{width=16cm}
+\Caption{\label{tab:bibliotecas-rpi} Bibliotecas Python utilizadas no Raspberry Pi}
+\IBGEtab{}{
+\begin{tabular}{p{4.5cm}p{10cm}}
+\toprule
+\textbf{Biblioteca} & \textbf{Função} \\
+\midrule
+picamera2 & Captura de vídeo via interface CSI com codificação MJPEG por hardware \\
+smbus2 & Comunicação I2C direta com sensores BMI160, ADS1115 e INA219 \\
+adafruit-circuitpython-pca9685 & Controle do driver PWM PCA9685 para acionamento de servos \\
+adafruit-circuitpython-servokit & Abstração de alto nível para controle de servomotores \\
+RPi.GPIO & Controle de pinos GPIO para ponte H BTS7960 do motor DC \\
+numpy & Processamento numérico de dados de sensores e cálculos de telemetria \\
+socket & Comunicação UDP nativa para transmissão de dados ao cliente \\
+\bottomrule
+\end{tabular}
+}{
+\Fonte{elaborado pelo autor.}
+}
+\end{table}
 
 \subsection{Especificações dos Componentes do Veículo}
 \label{subsec:componentes-veiculo}
@@ -176,11 +200,49 @@ A \autoref{tab:componentes-veiculo} apresenta os componentes embarcados no veíc
 \subsection{Chassi e Estrutura}
 \label{subsec:chassi-estrutura-veiculo}
 
-O veículo utiliza o chassi FV01, um modelo de carro de Fórmula 1 projetado para impressão 3D por Velocity Projects\footnote{Modelo FV01 disponível em: \url{https://www.printables.com/model/964784-fv01-the-most-advanced-3d-printed-rc-formula-1-car}. Créditos: VelocityProjects3D.}. O modelo original possui escala 1:7, porém foi modificado para escala 1:5 neste projeto para acomodar todos os componentes eletrônicos necessários. O modelo apresenta características avançadas que o tornam adequado para o projeto de teleoperação com feedback háptico.
+O veículo utiliza o chassi FV01, um modelo de carro de Fórmula 1 projetado para impressão 3D por \citeonline{velocityprojects2024fv01}. O modelo original possui escala 1:7, porém foi modificado para escala 1:5 neste projeto para acomodar o Raspberry Pi 4, sensores, drivers e demais componentes eletrônicos. O chassi foi impresso em PLA com pneus de borracha para melhor aderência.
 
-Entre essas características, destaca-se a suspensão push rod independente que reproduz fielmente o comportamento de suspensões de carros de F1 reais, permitindo detecção precisa de forças G pelo sensor BMI160. O diferencial operacional permite comportamento realista em curvas, essencial para geração de feedback háptico adequado. A modularidade do projeto, com peças projetadas para fácil reparo e substituição, facilita manutenção e modificações.
+O modelo apresenta características que o tornam adequado para teleoperação com feedback háptico. A suspensão push rod independente reproduz o comportamento de carros de F1 reais, permitindo detecção precisa de forças G pelo sensor BMI160. O diferencial operacional proporciona comportamento realista em curvas, enquanto a modularidade do projeto facilita manutenção e substituição de peças.
 
-O chassi foi impresso em PLA utilizando impressora 3D, com pneus de borracha para melhor aderência e realismo. A modificação para escala 1:5 resultou em um veículo de maior porte comparado ao modelo original, proporcionando espaço interno adequado para acomodação do Raspberry Pi 4, sensores, drivers e demais componentes eletrônicos do sistema de teleoperação. A \autoref{fig:chassi-fv01} apresenta o modelo original do chassi FV01.
+A impressão das peças do chassi foi realizada utilizando o software fatiador Ultimaker Cura 5.11 \cite{ultimaker2024cura} com perfil de qualidade padrão. A \autoref{tab:config-impressao-3d} apresenta os principais parâmetros de impressão utilizados, selecionados para balancear resistência mecânica, tempo de impressão e consumo de material.
+
+\begin{table}[!h]
+\captionsetup{width=16cm}
+\Caption{\label{tab:config-impressao-3d} Parâmetros de impressão 3D do chassi FV01}
+\IBGEtab{}{%
+	\begin{tabular}{p{5cm}p{4cm}p{6cm}}
+		\toprule
+		Parâmetro & Valor & Observação \\
+		\midrule \midrule
+		Altura de camada & 0,2 mm & Qualidade padrão \\
+		\midrule
+		Espessura de parede & 0,8 mm & 2 linhas de parede \\
+		\midrule
+		Densidade de preenchimento & 15\% & Padrão Cubic Subdivision \\
+		\midrule
+		Temperatura de impressão & 210°C & 215°C na camada inicial \\
+		\midrule
+		Temperatura da mesa & 60°C & --- \\
+		\midrule
+		Velocidade de impressão & 60 mm/s & 25 mm/s na camada inicial \\
+		\midrule
+		Velocidade de deslocamento & 150 mm/s & --- \\
+		\midrule
+		Suporte & Tree & Ângulo de overhang 45° \\
+		\midrule
+		Adesão à mesa & Raft & Margem de 5 mm, 2 camadas \\
+		\midrule
+		Resfriamento & 100\% & Ventoinha ativada \\
+		\midrule
+		Retração & 0,8 mm & Velocidade de 40 mm/s \\
+		\bottomrule
+	\end{tabular}%
+}{%
+\Fonte{elaborado pelo autor.}%
+}
+\end{table}
+
+A densidade de preenchimento de 15\% com padrão Cubic Subdivision foi escolhida por oferecer boa resistência estrutural com economia de material, enquanto o suporte tipo Tree minimiza o contato com a superfície da peça, facilitando a remoção e melhorando o acabamento. O uso de Raft como adesão à mesa garante estabilidade durante a impressão de peças maiores, evitando empenamento nas bordas. A \autoref{fig:chassi-fv01} apresenta o modelo original do chassi FV01.
 
 \begin{figure}[!ht]
 	\captionsetup{width=16cm}
@@ -188,7 +250,19 @@ O chassi foi impresso em PLA utilizando impressora 3D, com pneus de borracha par
 	\UFCfig{}{
 		\includegraphics[width=12cm]{figuras/FV01-1}
 	}{
-		\Fonte{VelocityProjects3D (2024).}
+		\Fonte{\citeonline{velocityprojects2024fv01}.}
+	}
+\end{figure}
+
+Para realizar as modificações de escala e planejar a disposição interna dos componentes, utilizou-se o Tinkercad \cite{autodesk2024tinkercad}, uma ferramenta de modelagem 3D gratuita baseada em navegador. A \autoref{fig:tinkercad-layout} apresenta a simulação realizada, onde a bateria LiPo 3S (em vermelho) ocupa a região central inferior e o motor DC 775 com a transmissão (em laranja) está posicionado na parte traseira. Essa simulação prévia demonstrou que a escala 1:5 proporciona espaço adequado para os demais componentes eletrônicos.
+
+\begin{figure}[!ht]
+	\captionsetup{width=16cm}
+	\Caption{\label{fig:tinkercad-layout} Simulação no Tinkercad da organização interna dos componentes no chassi FV01 modificado}
+	\UFCfig{}{
+		\includegraphics[width=14cm]{figuras/thinckercad}
+	}{
+		\Fonte{elaborado pelo autor.}
 	}
 \end{figure}
 
@@ -216,26 +290,36 @@ O sistema de propulsão utiliza motor RC 775 de 24V controlado por ponte H BTS79
 
 \subsubsection{Motor de Propulsão}
 
-O motor RC 775 opera com transmissão manual de 5 marchas, simulando comportamento de veículo real. O controle de velocidade é realizado via PWM através do driver BTS7960. O algoritmo de controle ajusta o fator de torque conforme a marcha selecionada:
+O motor RC 775 opera com transmissão manual de 5 marchas, simulando comportamento de veículo real. O controle de velocidade é realizado via PWM através do driver BTS7960. O sistema implementa zonas de eficiência inspiradas em veículos de Fórmula 1, onde cada marcha possui uma faixa ideal de operação em termos de PWM do motor. Operar fora dessa faixa resulta em penalização na taxa de aceleração, calculada conforme a equação:
 
 \begin{equation}
-\label{eq:fator-torque}
-Fator_{torque} = 1.0 + 0.2 \times (Marcha_{max} - Marcha_{atual})
+\label{eq:taxa-aceleracao}
+Taxa_{acel} = \frac{100\%}{T_{base}} \times M_{zona}
 \end{equation}
 
-O sistema implementa zonas de eficiência inspiradas em veículos de Fórmula 1, onde cada marcha possui uma faixa ideal de operação em termos de PWM do motor. Operar fora dessa faixa resulta em penalização na taxa de aceleração, incentivando o operador a utilizar a marcha correta para cada situação. A \autoref{fig:zonas-eficiencia-marchas} ilustra as zonas de eficiência e os limitadores de PWM por marcha.
+\noindent onde $T_{base} = 5s$ é o tempo base para atingir 100\% do PWM, e $M_{zona}$ é o multiplicador da zona de eficiência: $M_{IDEAL} = 1.0$, $M_{SUB} = 0.1$ (10× mais lento), e $M_{RUIM} = 0.04$ (25× mais lento). Isso resulta em taxas de 20\%/s na zona IDEAL, 2\%/s na zona SUBÓTIMA e 0.8\%/s na zona RUIM, conforme ilustrado na \autoref{fig:taxa-aceleracao-zonas}.
 
 \begin{figure}[!ht]
 	\captionsetup{width=16cm}
-	\Caption{\label{fig:zonas-eficiencia-marchas} Sistema de transmissão F1: (a) zonas de eficiência por marcha e (b) limitadores de PWM com fator de torque}
+	\Caption{\label{fig:taxa-aceleracao-zonas} Taxa de aceleração por zona de eficiência}
 	\UFCfig{}{
-		\includegraphics[width=15cm]{figuras/sistema_transmissao_f1}
+		\includegraphics[width=12cm]{figuras/taxa_aceleracao_zonas}
 	}{
 		\Fonte{elaborado pelo autor.}
 	}
 \end{figure}
 
-Conforme ilustrado na figura, cada marcha possui uma zona IDEAL (verde) onde a aceleração ocorre em taxa normal, uma zona SUBOPTIMAL (laranja) com aceleração 10 vezes mais lenta, e uma zona POOR (vermelho) com aceleração 25 vezes mais lenta. Os limitadores de PWM restringem a potência máxima disponível em cada marcha: 40\% na 1ª, 60\% na 2ª, 80\% na 3ª e 100\% na 4ª e 5ª marchas. Esse sistema força o operador a progredir pelas marchas para atingir velocidade máxima, reproduzindo o comportamento de uma transmissão real.
+A \autoref{fig:zonas-eficiencia-marchas} ilustra as zonas de eficiência por marcha. Cada marcha possui uma zona IDEAL (verde) onde a aceleração ocorre em taxa normal, uma zona SUBÓTIMA (laranja) com aceleração 10 vezes mais lenta, e uma zona RUIM (vermelho) com aceleração 25 vezes mais lenta. Os limitadores de PWM restringem a potência máxima disponível em cada marcha: 15\% na 1ª, 30\% na 2ª, 60\% na 3ª, 90\% na 4ª e 100\% na 5ª marcha. As marchas 1ª e 2ª dividem a faixa de 0-30\% do PWM (marchas lentas), as marchas 3ª e 4ª dividem a faixa de 30-90\% (marchas médias e altas), enquanto a 5ª marcha possui zona IDEAL ampla de 70-100\% (velocidade pura). Esse sistema força o operador a progredir pelas marchas para atingir velocidade máxima, reproduzindo o comportamento de uma transmissão real.
+
+\begin{figure}[!ht]
+	\captionsetup{width=16cm}
+	\Caption{\label{fig:zonas-eficiencia-marchas} Zonas de eficiência F1 por marcha}
+	\UFCfig{}{
+		\includegraphics[width=14cm]{figuras/zonas_eficiencia_marchas}
+	}{
+		\Fonte{elaborado pelo autor.}
+	}
+\end{figure}
 
 \subsubsection{Sistema de Direção e Freios}
 
@@ -259,6 +343,27 @@ Essa arquitetura de proteção elimina a necessidade de componentes externos adi
 \label{sec:arquitetura-simulador}
 
 O ESP32 DevKit V1 com processador dual-core Xtensa LX6 a 240MHz constitui o controlador do simulador, responsável pela leitura de encoders, controle do motor de force feedback e comunicação serial com o cliente PC. A escolha do ESP32 sobre o Arduino Mega foi motivada pelo processamento superior, conforme demonstrado nos testes de latência da \autoref{subsec:evolucao-decisoes-comunicacao}.
+
+O firmware foi desenvolvido em C++ utilizando o Arduino IDE, aproveitando o framework Arduino para ESP32 que fornece abstrações para controle de GPIO, interrupções de hardware e comunicação serial. A \autoref{tab:bibliotecas-esp32} apresenta as bibliotecas utilizadas no desenvolvimento do firmware.
+
+\begin{table}[!h]
+\captionsetup{width=16cm}
+\Caption{\label{tab:bibliotecas-esp32} Bibliotecas C++ utilizadas no ESP32}
+\IBGEtab{}{
+\begin{tabular}{p{4cm}p{10.5cm}}
+\toprule
+\textbf{Biblioteca} & \textbf{Função} \\
+\midrule
+Arduino.h & Framework base com abstrações para GPIO, PWM e temporização \\
+EEPROM.h & Armazenamento persistente de dados de calibração dos encoders \\
+FreeRTOS & Sistema operacional de tempo real para execução dual-core \\
+HardwareSerial & Comunicação serial USB com o cliente PC a 115200 baud \\
+\bottomrule
+\end{tabular}
+}{
+\Fonte{elaborado pelo autor.}
+}
+\end{table}
 
 \subsection{Especificações dos Componentes do Simulador}
 \label{subsec:componentes-simulador}
@@ -293,6 +398,8 @@ A \autoref{tab:componentes-simulador} apresenta os componentes do simulador de c
 }
 \end{table}
 
+O volante do simulador utiliza uma réplica em escala real do volante da McLaren MP4-30 de 2015, modelo 3D composto por 129 peças impressas em PLA, projetado por \citeonline{nacho3d2020volante}. A estrutura foi adaptada para acomodar o encoder rotacional de direção e o motor DC 775 de force feedback, mantendo a ergonomia e aparência característica dos volantes de Fórmula 1.
+
 \subsection{Leitura de Encoders Rotacionais}
 \label{subsec:encoders-simulador}
 
@@ -305,7 +412,31 @@ Os valores dos encoders são normalizados para porcentagem (0--100\% para aceler
 \subsection{Controle de Marchas}
 \label{subsec:marchas-simulador}
 
-O sistema de marchas utiliza dois botões push conectados aos GPIO 32 (subir marcha) e GPIO 33 (descer marcha). A detecção é feita por polling com debounce de software, evitando acionamentos múltiplos. Eventos de troca de marcha são transmitidos ao cliente como mensagens \texttt{GEAR\_UP} e \texttt{GEAR\_DOWN}.
+O sistema de marchas utiliza dois botões push conectados aos GPIO 32 (subir marcha) e GPIO 33 (descer marcha). A detecção é feita por polling com debounce de software, evitando acionamentos múltiplos. Eventos de troca de marcha são transmitidos ao cliente como mensagens \texttt{GEAR\_UP} e \texttt{GEAR\_DOWN}. O \autoref{alg:debounce-marchas} apresenta o algoritmo de leitura com debounce implementado.
+
+\begin{algorithm}[h!]
+	\SetSpacedAlgorithm
+	\caption{\label{alg:debounce-marchas}Leitura de botão com debounce}
+	\Entrada{pino, estado\_anterior, tempo\_anterior}
+	\Saida{pressionado}
+	\Inicio{
+		leitura $\leftarrow$ digitalRead(pino)\;
+		pressionado $\leftarrow$ falso\;
+		tempo\_atual $\leftarrow$ millis()\;
+		// Verifica se o estado do botão mudou\;
+		\Se{leitura $\neq$ estado\_anterior}{
+			// Verifica se passou o tempo de debounce (50ms)\;
+			\Se{(tempo\_atual - tempo\_anterior) > 50}{
+				// Detecta transição HIGH $\rightarrow$ LOW (pressão)\;
+				\Se{leitura = LOW \textbf{e} estado\_anterior = HIGH}{
+					pressionado $\leftarrow$ verdadeiro\;
+				}
+				estado\_anterior $\leftarrow$ leitura\;
+			}
+			tempo\_anterior $\leftarrow$ tempo\_atual\;
+		}
+	}
+\end{algorithm}
 
 \subsection{Sistema de Force Feedback}
 \label{subsec:ff-simulador}
@@ -346,7 +477,30 @@ A comunicação com o cliente PC utiliza USB serial a 115200 baud, operando em m
 \section{Arquitetura do Cliente (PC)}
 \label{sec:arquitetura-cliente}
 
-O cliente PC, implementado em Python com interface Tkinter, atua como hub central do sistema, recebendo dados do veículo via UDP, processando telemetria, calculando force feedback e transmitindo comandos para simulador e veículo. O Python foi escolhido devido à facilidade de prototipagem e disponibilidade de bibliotecas para decodificação de vídeo (PyAV), interface gráfica (Tkinter) e comunicação (socket, pyserial).
+O cliente PC atua como hub central do sistema, recebendo dados do veículo via UDP, processando telemetria, calculando force feedback e transmitindo comandos para simulador e veículo. O software foi desenvolvido em Python 3.11.2 utilizando o editor Visual Studio Code, com interface gráfica Tkinter. O Python foi escolhido devido à facilidade de prototipagem e disponibilidade de bibliotecas para decodificação de vídeo, interface gráfica, processamento de imagens e comunicação. A \autoref{tab:bibliotecas-cliente} apresenta as principais bibliotecas utilizadas no desenvolvimento do cliente.
+
+\begin{table}[!h]
+\captionsetup{width=16cm}
+\Caption{\label{tab:bibliotecas-cliente} Bibliotecas Python utilizadas no cliente PC}
+\IBGEtab{}{
+\begin{tabular}{p{3.5cm}p{11cm}}
+\toprule
+\textbf{Biblioteca} & \textbf{Função} \\
+\midrule
+tkinter & Interface gráfica nativa com suporte a widgets e canvas para vídeo \\
+opencv-python & Decodificação de frames MJPEG e aplicação de filtros de imagem \\
+numpy & Processamento numérico de dados de telemetria e operações matriciais \\
+cupy & Aceleração GPU para filtros PDI via CUDA (opcional) \\
+Pillow & Conversão de imagens OpenCV para formato compatível com Tkinter \\
+pyserial & Comunicação serial com ESP32 para recepção de dados do simulador \\
+socket & Comunicação UDP com Raspberry Pi para recepção de telemetria e vídeo \\
+matplotlib & Renderização de gráficos de telemetria em tempo real \\
+\bottomrule
+\end{tabular}
+}{
+\Fonte{elaborado pelo autor.}
+}
+\end{table}
 
 \subsection{Especificações da Estação Cliente}
 \label{subsec:componentes-cliente}
@@ -386,9 +540,52 @@ A \autoref{tab:componentes-cliente} apresenta as especificações do computador 
 \subsection{Interface Gráfica}
 \label{subsec:interface-cliente}
 
-A interface gráfica utiliza layout de duas colunas: telemetria à esquerda e vídeo/controles à direita. A viabilidade técnica do streaming em tempo real com Raspberry Pi foi demonstrada por \citeonline{shendge2023development}, conforme apresentado na fundamentação teórica.
+A interface gráfica utiliza layout de duas colunas: telemetria à esquerda e vídeo/controles à direita, conforme ilustrado na \autoref{fig:interface-geral}. A viabilidade técnica do streaming em tempo real com Raspberry Pi foi demonstrada por \citeonline{shendge2023development}, conforme apresentado na fundamentação teórica.
 
-O painel de instrumentos exibe RPM, marcha atual, posição do acelerador e velocidade estimada, atualizados em tempo real conforme dados recebidos do veículo e simulador. A visualização de vídeo utiliza OpenCV para decodificação MJPEG e Pillow para renderização no canvas Tkinter.
+\begin{figure}[!ht]
+	\captionsetup{width=16cm}
+	\Caption{\label{fig:interface-geral} Interface gráfica do console de controle}
+	\UFCfig{}{
+		\includegraphics[width=15cm]{figuras/interface-geral}
+	}{
+		\Fonte{elaborado pelo autor.}
+	}
+\end{figure}
+
+A coluna esquerda apresenta o status da conexão UDP e serial, painel de instrumentos com zona de eficiência, marcha atual, informações de energia, bateria e temperatura, dados brutos e físicos do sensor BMI160, forças G calculadas, velocidade estimada e componentes do cálculo de force feedback. A coluna direita exibe o vídeo da câmera em tempo real, filtros de processamento de imagem e gráficos de telemetria F1.
+
+O painel de instrumentos exibe a porcentagem dentro da zona IDEAL de eficiência, marcha atual, posição do acelerador e velocidade estimada, atualizados em tempo real conforme dados recebidos do veículo e simulador. A visualização de vídeo utiliza OpenCV para decodificação MJPEG e Pillow para renderização no canvas Tkinter.
+
+\subsection{Filtros de Processamento Digital de Imagens}
+\label{subsec:filtros-pdi}
+
+O cliente implementa um sistema de filtros de Processamento Digital de Imagens (PDI) combináveis, permitindo ao operador ativar múltiplos filtros simultaneamente via checkboxes na interface. Os filtros são aplicados em ordem otimizada para maximizar a qualidade visual do vídeo recebido do veículo.
+
+A \autoref{tab:filtros-pdi} apresenta os filtros disponíveis no sistema, baseados em técnicas clássicas de processamento de imagens conforme \citeonline{gonzalez2010processamento}.
+
+\begin{table}[!h]
+\captionsetup{width=16cm}
+\Caption{\label{tab:filtros-pdi} Filtros de processamento digital de imagens disponíveis no cliente}
+\IBGEtab{}{
+\begin{tabular}{p{3cm}p{4cm}p{7cm}}
+\toprule
+\textbf{Filtro} & \textbf{Técnica} & \textbf{Descrição} \\
+\midrule
+Sharpen & Máscara Laplaciana 3×3 & Aguça bordas usando operador de segunda derivada \\
+Unsharp Mask & Subtração gaussiana & Realça detalhes subtraindo versão borrada da imagem \\
+High-Boost & Laplaciano ponderado & Aguçamento com preservação de baixas frequências \\
+CLAHE & Equalização adaptativa & Melhora contraste local com limite de amplificação \\
+Bilateral & Filtragem bilateral & Suaviza ruído preservando bordas \\
+Super-Res 2x & Supersampling & Anti-aliasing via upscale/downscale Lanczos \\
+Brilho +/- & Ajuste HSV & Modifica canal V para ambientes claros/escuros \\
+\bottomrule
+\end{tabular}
+}{
+\Fonte{elaborado pelo autor.}
+}
+\end{table}
+
+O sistema suporta aceleração por GPU NVIDIA via biblioteca CuPy quando disponível, executando operações de convolução e transformações diretamente na placa de vídeo. Os filtros Sharpen, Unsharp Mask, High-Boost, Brilho e Super-Res utilizam GPU quando disponível, enquanto CLAHE e Bilateral executam em CPU devido à complexidade algorítmica. O fallback automático para CPU garante funcionamento em sistemas sem GPU dedicada.
 
 \subsection{Recepção e Processamento de Dados}
 \label{subsec:recepcao-cliente}

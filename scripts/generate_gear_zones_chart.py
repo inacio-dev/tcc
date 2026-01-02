@@ -25,62 +25,64 @@ plt.rcParams['font.family'] = 'DejaVu Sans'
 plt.rcParams['font.size'] = 10
 
 # Dados das zonas de eficiência por marcha (baseado em motor_manager.py)
+# Distribuição: 1ª e 2ª dividem 0-30% | 3ª e 4ª dividem 30-90% | 5ª pega 70-100%
 # Formato: marcha -> [(inicio, fim, zona), ...]
 GEAR_ZONES = {
     1: [
-        (0, 20, 'IDEAL'),
-        (20, 30, 'SUBOPTIMAL'),
-        (30, 40, 'POOR'),
+        (0, 10, 'IDEAL'),
+        (10, 13, 'SUBÓTIMA'),
+        (13, 15, 'RUIM'),
     ],
     2: [
-        (0, 10, 'POOR'),
-        (10, 20, 'SUBOPTIMAL'),
-        (20, 40, 'IDEAL'),
-        (40, 50, 'SUBOPTIMAL'),
-        (50, 60, 'POOR'),
+        (0, 5, 'RUIM'),
+        (5, 10, 'SUBÓTIMA'),
+        (10, 22, 'IDEAL'),
+        (22, 27, 'SUBÓTIMA'),
+        (27, 30, 'RUIM'),
     ],
     3: [
-        (0, 30, 'POOR'),
-        (30, 40, 'SUBOPTIMAL'),
-        (40, 60, 'IDEAL'),
-        (60, 70, 'SUBOPTIMAL'),
-        (70, 80, 'POOR'),
+        (0, 22, 'RUIM'),
+        (22, 30, 'SUBÓTIMA'),
+        (30, 45, 'IDEAL'),
+        (45, 52, 'SUBÓTIMA'),
+        (52, 60, 'RUIM'),
     ],
     4: [
-        (0, 50, 'POOR'),
-        (50, 60, 'SUBOPTIMAL'),
-        (60, 80, 'IDEAL'),
-        (80, 90, 'SUBOPTIMAL'),
-        (90, 100, 'POOR'),
+        (0, 35, 'RUIM'),
+        (35, 45, 'SUBÓTIMA'),
+        (45, 75, 'IDEAL'),
+        (75, 85, 'SUBÓTIMA'),
+        (85, 90, 'RUIM'),
     ],
     5: [
-        (0, 70, 'POOR'),
-        (70, 80, 'SUBOPTIMAL'),
-        (80, 100, 'IDEAL'),
+        (0, 55, 'RUIM'),
+        (55, 70, 'SUBÓTIMA'),
+        (70, 100, 'IDEAL'),
     ],
 }
 
 # Limitadores de PWM por marcha
+# 1ª e 2ª dividem 0-30% | 3ª e 4ª dividem 30-90% | 5ª pega 70-100%
 GEAR_LIMITERS = {
-    1: 40,
-    2: 60,
-    3: 80,
-    4: 100,
+    1: 15,
+    2: 30,
+    3: 60,
+    4: 90,
     5: 100,
 }
 
 # Cores para cada zona
 ZONE_COLORS = {
     'IDEAL': '#2ecc71',      # Verde
-    'SUBOPTIMAL': '#f39c12', # Amarelo/Laranja
-    'POOR': '#e74c3c',       # Vermelho
+    'SUBÓTIMA': '#f39c12',   # Amarelo/Laranja
+    'RUIM': '#e74c3c',       # Vermelho
 }
 
 # Multiplicadores de aceleração
 ZONE_RATES = {
     'IDEAL': '1.0x',
-    'SUBOPTIMAL': '0.1x (10x mais lento)',
-    'POOR': '0.04x (25x mais lento)',
+    'SUBÓTIMA': '0.1x (10x mais lento)',
+    'RUIM': '0.04x (25x mais lento)',
 }
 
 
@@ -131,18 +133,18 @@ def create_gear_zones_chart():
     # Legenda
     legend_patches = [
         mpatches.Patch(color=ZONE_COLORS['IDEAL'], label=f'IDEAL - Aceleração {ZONE_RATES["IDEAL"]}'),
-        mpatches.Patch(color=ZONE_COLORS['SUBOPTIMAL'], label=f'SUBOPTIMAL - Aceleração {ZONE_RATES["SUBOPTIMAL"]}'),
-        mpatches.Patch(color=ZONE_COLORS['POOR'], label=f'POOR - Aceleração {ZONE_RATES["POOR"]}'),
+        mpatches.Patch(color=ZONE_COLORS['SUBÓTIMA'], label=f'SUBÓTIMA - Aceleração {ZONE_RATES["SUBÓTIMA"]}'),
+        mpatches.Patch(color=ZONE_COLORS['RUIM'], label=f'RUIM - Aceleração {ZONE_RATES["RUIM"]}'),
     ]
     ax.legend(handles=legend_patches, loc='upper right', fontsize=9)
 
     # Anotações das zonas ideais
     ideal_ranges = {
-        1: '0-20%',
-        2: '20-40%',
-        3: '40-60%',
-        4: '60-80%',
-        5: '80-100%',
+        1: '0-10%',
+        2: '10-22%',
+        3: '30-45%',
+        4: '45-75%',
+        5: '70-100%',
     }
 
     for gear in range(1, 6):
@@ -163,76 +165,79 @@ def create_gear_zones_chart():
                 facecolor='white', edgecolor='none')
     print(f'Gráfico salvo em: {output_path}')
 
-    # Também salva em PDF para LaTeX
-    output_pdf = 'monografia/figuras/zonas_eficiencia_marchas.pdf'
-    plt.savefig(output_pdf, bbox_inches='tight', facecolor='white', edgecolor='none')
-    print(f'PDF salvo em: {output_pdf}')
-
     plt.close()
 
 
-def create_torque_factor_chart():
-    """Cria gráfico do fator de torque por marcha"""
+def create_acceleration_rate_chart():
+    """Cria gráfico da taxa de aceleração por zona de eficiência"""
 
     fig, ax = plt.subplots(figsize=(10, 6))
 
-    # Dados
-    gears = [1, 2, 3, 4, 5]
-    max_gear = 5
+    # Dados das zonas de eficiência
+    # Do motor_manager.py: base_acceleration_time = 5.0s
+    # Taxa = (100 / tempo_base) × multiplicador_zona
+    zones = ['IDEAL', 'SUBÓTIMA', 'RUIM']
+    multipliers = [1.0, 0.1, 0.04]
+    base_time = 5.0  # segundos
 
-    # Fator de torque: 1.0 + 0.2 × (Marcha_max - Marcha_atual)
-    torque_factors = [1.0 + 0.2 * (max_gear - g) for g in gears]
+    # Taxa de aceleração (%PWM por segundo)
+    rates = [(100 / base_time) * m for m in multipliers]  # [20.0, 2.0, 0.8]
 
-    # Relações de transmissão (do código)
-    gear_ratios = [3.5, 2.2, 1.4, 0.9, 0.7]
+    # Tempo para atingir 100% PWM
+    times = [base_time / m for m in multipliers]  # [5.0, 50.0, 125.0]
 
-    # Limitadores de PWM
-    limiters = [40, 60, 80, 100, 100]
+    # Configuração de barras
+    x = np.arange(len(zones))
+    width = 0.35
 
-    # Configuração de barras agrupadas
-    x = np.arange(len(gears))
-    width = 0.25
+    # Barras da taxa de aceleração
+    bars1 = ax.bar(x - width/2, rates, width, label='Taxa de Aceleração (%/s)',
+                   color=[ZONE_COLORS[z] for z in zones], edgecolor='black', linewidth=1)
 
-    # Barras
-    bars1 = ax.bar(x - width, torque_factors, width, label='Fator de Torque', color='#3498db')
-    bars2 = ax.bar(x, gear_ratios, width, label='Relação de Transmissão', color='#9b59b6')
-    bars3 = ax.bar(x + width, [l/100 * 1.8 for l in limiters], width,
-                   label='Limitador PWM (escala /100×1.8)', color='#e67e22')
+    # Eixo secundário para tempo
+    ax2 = ax.twinx()
+    bars2 = ax2.bar(x + width/2, times, width, label='Tempo para 100% (s)',
+                    color=[ZONE_COLORS[z] for z in zones], alpha=0.4,
+                    edgecolor='black', linewidth=1, hatch='//')
 
     # Valores nas barras
-    for bar, val in zip(bars1, torque_factors):
-        ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.05,
-                f'{val:.1f}', ha='center', va='bottom', fontsize=8)
+    for bar, val in zip(bars1, rates):
+        ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.5,
+                f'{val:.1f}%/s', ha='center', va='bottom', fontsize=10, fontweight='bold')
 
-    for bar, val in zip(bars2, gear_ratios):
-        ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.05,
-                f'{val:.1f}', ha='center', va='bottom', fontsize=8)
-
-    for bar, val in zip(bars3, limiters):
-        ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.05,
-                f'{val}%', ha='center', va='bottom', fontsize=8)
+    for bar, val in zip(bars2, times):
+        ax2.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 3,
+                f'{val:.0f}s', ha='center', va='bottom', fontsize=10, fontweight='bold')
 
     # Configurações
-    ax.set_xlabel('Marcha')
-    ax.set_ylabel('Valor')
-    ax.set_title('Características do Sistema de Transmissão por Marcha')
+    ax.set_xlabel('Zona de Eficiência', fontsize=11)
+    ax.set_ylabel('Taxa de Aceleração (%PWM/s)', fontsize=11)
+    ax2.set_ylabel('Tempo para 100% PWM (s)', fontsize=11)
+    ax.set_title('Taxa de Aceleração por Zona de Eficiência\n(Tempo base: 5 segundos)', fontsize=12)
     ax.set_xticks(x)
-    ax.set_xticklabels([f'{g}ª' for g in gears])
-    ax.legend(loc='upper right')
+    ax.set_xticklabels(zones, fontsize=11)
+    ax.set_ylim(0, 25)
+    ax2.set_ylim(0, 150)
     ax.grid(axis='y', alpha=0.3)
-    ax.set_ylim(0, 2.2)
+
+    # Legenda combinada
+    lines1, labels1 = ax.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    ax.legend(lines1 + lines2, labels1 + labels2, loc='upper right')
+
+    # Equação
+    ax.text(0.5, -0.15, r'$Taxa_{acel} = \frac{100\%}{T_{base}} \times M_{zona}$ onde $M_{IDEAL}=1.0$, $M_{SUB}=0.1$, $M_{RUIM}=0.04$',
+            transform=ax.transAxes, fontsize=11, ha='center',
+            bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
 
     plt.tight_layout()
+    plt.subplots_adjust(bottom=0.18)
 
     # Salva
-    output_path = 'monografia/figuras/caracteristicas_transmissao.png'
+    output_path = 'monografia/figuras/taxa_aceleracao_zonas.png'
     plt.savefig(output_path, dpi=150, bbox_inches='tight',
                 facecolor='white', edgecolor='none')
     print(f'Gráfico salvo em: {output_path}')
-
-    output_pdf = 'monografia/figuras/caracteristicas_transmissao.pdf'
-    plt.savefig(output_pdf, bbox_inches='tight', facecolor='white', edgecolor='none')
-    print(f'PDF salvo em: {output_pdf}')
 
     plt.close()
 
@@ -282,56 +287,63 @@ def create_combined_chart():
 
     legend_patches = [
         mpatches.Patch(color=ZONE_COLORS['IDEAL'], label='IDEAL (1.0x)'),
-        mpatches.Patch(color=ZONE_COLORS['SUBOPTIMAL'], label='SUBOPTIMAL (0.1x)'),
-        mpatches.Patch(color=ZONE_COLORS['POOR'], label='POOR (0.04x)'),
+        mpatches.Patch(color=ZONE_COLORS['SUBÓTIMA'], label='SUBÓTIMA (0.1x)'),
+        mpatches.Patch(color=ZONE_COLORS['RUIM'], label='RUIM (0.04x)'),
     ]
     ax1.legend(handles=legend_patches, loc='upper right', fontsize=9)
 
-    # ===== SUBPLOT 2: Fator de Torque e PWM Máximo =====
+    # ===== SUBPLOT 2: Taxa de Aceleração por Zona =====
     ax2 = axes[1]
 
-    gears = np.array([1, 2, 3, 4, 5])
-    max_gear = 5
+    # Dados das zonas de eficiência
+    # Do motor_manager.py: base_acceleration_time = 5.0s
+    # Taxa = (100 / tempo_base) × multiplicador_zona
+    zones = ['IDEAL', 'SUBÓTIMA', 'RUIM']
+    multipliers = [1.0, 0.1, 0.04]
+    base_time = 5.0  # segundos
 
-    # Fator de torque
-    torque_factors = 1.0 + 0.2 * (max_gear - gears)
+    # Taxa de aceleração (%PWM por segundo)
+    rates = [(100 / base_time) * m for m in multipliers]  # [20.0, 2.0, 0.8]
 
-    # PWM máximo (limitador)
-    pwm_max = np.array([40, 60, 80, 100, 100])
+    # Tempo para atingir 100% PWM
+    times = [base_time / m for m in multipliers]  # [5.0, 50.0, 125.0]
 
-    # Eixo duplo
+    # Configuração de barras
+    x = np.arange(len(zones))
+    width = 0.35
+
+    # Barras da taxa de aceleração
+    bars1 = ax2.bar(x - width/2, rates, width, label='Taxa (%/s)',
+                   color=[ZONE_COLORS[z] for z in zones], edgecolor='black', linewidth=1)
+
+    # Eixo secundário para tempo
     ax2_twin = ax2.twinx()
+    bars2 = ax2_twin.bar(x + width/2, times, width, label='Tempo (s)',
+                    color=[ZONE_COLORS[z] for z in zones], alpha=0.4,
+                    edgecolor='black', linewidth=1, hatch='//')
 
-    # Barras do PWM máximo
-    bars = ax2.bar(gears, pwm_max, color='#3498db', alpha=0.7,
-                   label='PWM Máximo (%)', width=0.6)
+    # Valores nas barras
+    for bar, val in zip(bars1, rates):
+        ax2.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.5,
+                f'{val:.1f}%/s', ha='center', va='bottom', fontsize=9, fontweight='bold')
 
-    # Linha do fator de torque
-    line = ax2_twin.plot(gears, torque_factors, 'o-', color='#e74c3c',
-                        linewidth=2, markersize=10, label='Fator de Torque')
-
-    # Valores
-    for bar, val in zip(bars, pwm_max):
-        ax2.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 2,
-                f'{val}%', ha='center', fontsize=10, fontweight='bold')
-
-    for x, y in zip(gears, torque_factors):
-        ax2_twin.text(x, y + 0.08, f'{y:.1f}', ha='center', fontsize=10,
-                     color='#e74c3c', fontweight='bold')
+    for bar, val in zip(bars2, times):
+        ax2_twin.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 3,
+                f'{val:.0f}s', ha='center', va='bottom', fontsize=9, fontweight='bold')
 
     # Equação
-    ax2.text(0.5, -0.18, r'$Fator_{torque} = 1.0 + 0.2 \times (Marcha_{max} - Marcha_{atual})$',
-            transform=ax2.transAxes, fontsize=11, ha='center',
+    ax2.text(0.5, -0.18, r'$Taxa_{acel} = \frac{100\%}{5s} \times M_{zona}$ onde $M_{IDEAL}=1.0$, $M_{SUB}=0.1$, $M_{RUIM}=0.04$',
+            transform=ax2.transAxes, fontsize=10, ha='center',
             bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
 
-    ax2.set_xlabel('Marcha')
-    ax2.set_ylabel('PWM Máximo (%)', color='#3498db')
-    ax2_twin.set_ylabel('Fator de Torque', color='#e74c3c')
-    ax2.set_title('(b) Limitadores de PWM e Fator de Torque por Marcha', fontweight='bold')
-    ax2.set_xticks(gears)
-    ax2.set_xticklabels([f'{g}ª' for g in gears])
-    ax2.set_ylim(0, 120)
-    ax2_twin.set_ylim(0.8, 2.2)
+    ax2.set_xlabel('Zona de Eficiência')
+    ax2.set_ylabel('Taxa de Aceleração (%/s)')
+    ax2_twin.set_ylabel('Tempo para 100% (s)')
+    ax2.set_title('(b) Taxa de Aceleração por Zona de Eficiência', fontweight='bold')
+    ax2.set_xticks(x)
+    ax2.set_xticklabels(zones)
+    ax2.set_ylim(0, 25)
+    ax2_twin.set_ylim(0, 150)
     ax2.grid(axis='y', alpha=0.3)
 
     # Legenda combinada
@@ -348,10 +360,6 @@ def create_combined_chart():
                 facecolor='white', edgecolor='none')
     print(f'Gráfico combinado salvo em: {output_path}')
 
-    output_pdf = 'monografia/figuras/sistema_transmissao_f1.pdf'
-    plt.savefig(output_pdf, bbox_inches='tight', facecolor='white', edgecolor='none')
-    print(f'PDF salvo em: {output_pdf}')
-
     plt.close()
 
 
@@ -361,8 +369,8 @@ if __name__ == '__main__':
     # Gráfico 1: Zonas de eficiência
     create_gear_zones_chart()
 
-    # Gráfico 2: Características da transmissão
-    create_torque_factor_chart()
+    # Gráfico 2: Taxa de aceleração por zona
+    create_acceleration_rate_chart()
 
     # Gráfico 3: Figura combinada
     create_combined_chart()

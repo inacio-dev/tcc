@@ -751,8 +751,9 @@ class ConsoleInterface:
     def _update_motor_display(self, sensor_data):
         """Atualiza o painel de instrumentos do motor"""
         try:
-            if "engine_rpm" in sensor_data:
-                rpm = sensor_data["engine_rpm"]
+            # rpm_display = % dentro da zona IDEAL (calculado no RPi)
+            if "rpm_display" in sensor_data:
+                rpm = sensor_data["rpm_display"]
                 self.rpm_var.set(f"{rpm:.0f}")
 
             if "current_gear" in sensor_data:
