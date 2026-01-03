@@ -5,6 +5,19 @@ Será realizado um desenvolvimento incremental e modular de um sistema completo 
 
 O projeto seguirá uma arquitetura de três camadas. A primeira corresponde ao veículo teleoperado, tendo como elemento principal o Raspberry Pi 4, responsável por receber mensagens de controle via UDP e enviar mensagens de vídeo e status de sensores. A segunda camada é o cliente (notebook ou PC), que receberá as mensagens do veículo, exibirá a interface de telemetria e encaminhará as mensagens de controle oriundas do simulador para o veículo. A terceira camada é o simulador baseado em ESP32, composto por volante com encoder rotativo, pedais de acelerador e freio, e botões de troca de marcha, responsável por capturar os comandos do usuário e transmiti-los ao cliente via comunicação serial USB. A integração de múltiplos sensores segue a abordagem de \citeonline{bobrovsky2023development}, visando um bom resultado de feedback ao usuário. A \autoref{fig:arquitetura-projeto} apresenta o diagrama da arquitetura proposta.
 
+As etapas de desenvolvimento seguem respectivamente:
+
+\begin{alineascomnumero}
+	\item Modelagem, impressão e montagem do chassi do veículo teleoperado;
+	\item Testes de desempenho e comunicação entre o Raspberry Pi e o Cliente (PC);
+	\item Integração gradual dos sensores e atuadores do veículo teleoperado com o Raspberry Pi;
+	\item Testes de comunicação do veículo teleoperado completo com o PC\@;
+	\item Modelagem, impressão e montagem do simulador (volante e pedais);
+	\item Teste de atuadores e sensores de comando da direção e pedais para o PC via serial;
+	\item Integração gradual do simulador com o PC via serial;
+	\item Teste completo entre o veículo teleoperado e o simulador.
+\end{alineascomnumero}
+
 \begin{figure}[!h]
 	\captionsetup{width=16cm}
 	\Caption{\label{fig:arquitetura-projeto} Arquitetura do sistema de teleoperação com feedback háptico}
@@ -47,6 +60,32 @@ O protocolo ESP-NOW foi considerado como alternativa para comunicação mesh ent
 
 A análise comparativa dos testes, sumarizada na \autoref{tab:comparativo-comunicacao}, conduziu à definição da arquitetura final baseada em três pilares: protocolo UDP, Raspberry Pi 4 embarcado no veículo e ESP32 no simulador. O princípio norteador foi manter o sistema simples e funcional.
 
+\begin{table}[!h]
+\captionsetup{width=16cm}
+\Caption{\label{tab:comparativo-comunicacao} Comparativo de latência entre tecnologias de comunicação testadas}
+\IBGEtab{}{%
+	\begin{tabular}{p{5cm}p{3cm}p{3cm}p{4cm}}
+		\toprule
+		Configuração & Latência Média & Alcance & Observações \\
+		\midrule \midrule
+		Arduino Mega + ESP8266 & 60ms & WiFi local & Gargalo no ESP8266 \\
+		\midrule
+		ESP32 DevKit V1 & 40ms & WiFi local & Melhoria de 33\% \\
+		\midrule
+		NRF24L01 + antena & 2ms & 800m & Comunicação ponto-a-ponto \\
+		\midrule
+		NRF24L01 mesh & 2ms + 2ms/salto & Extensível & Complexidade elevada \\
+		\midrule
+		ESP-NOW (ESP32) & Similar ao WiFi & 50m & Custo elevado, alcance limitado \\
+		\midrule
+		\textbf{RPi 4 embarcado + UDP} & \textbf{1ms} & \textbf{WiFi local} & \textbf{Solução adotada} \\
+		\bottomrule
+	\end{tabular}%
+}{%
+\Fonte{elaborado pelo autor.}%
+}
+\end{table}
+
 A comunicação via rádio NRF24L01, apesar de apresentar excelente latência (2ms) e alcance (800m), exigiria a implementação de um broker intermediário para traduzir os pacotes de rádio para o protocolo UDP do servidor. Essa camada adicional aumentaria a complexidade do sistema, introduziria novos pontos de falha e demandaria desenvolvimento de firmware específico para gerenciamento da comunicação bidirecional entre rádio e rede IP. Além disso, embora o NRF24L01 seja adequado para transmissão de comandos de controle (pacotes pequenos de dezenas de bytes), a transmissão de vídeo em tempo real seria inviável: o módulo opera com taxa máxima de 2 Mbps e payload limitado a 32 bytes por pacote, tornando a fragmentação e remontagem de frames MJPEG (10 a 50 KB cada) excessivamente complexa e propensa a erros. Implementar um protocolo confiável de transmissão de imagem sobre rádio demandaria esforço de desenvolvimento incompatível com o cronograma do projeto.
 
 A decisão de embarcar o Raspberry Pi 4 diretamente no veículo eliminou essas limitações, permitindo comunicação UDP nativa sobre WiFi. Com o Raspberry Pi embarcado, a captura de vídeo, codificação MJPEG e transmissão UDP ocorrem internamente no mesmo dispositivo, simplificando drasticamente a arquitetura. O Raspberry Pi atua simultaneamente como controlador do veículo e servidor UDP, processando vídeo da câmera OV5647, dados do sensor BMI160 e comandos de controle em uma única plataforma.
@@ -77,25 +116,33 @@ Para o simulador, o ESP32 DevKit V1 foi mantido devido ao seu processamento supe
 
 Essa arquitetura resultou em um sistema com apenas dois saltos de comunicação (Veículo $\leftrightarrow$ Cliente $\leftrightarrow$ Simulador), maximizando a confiabilidade e minimizando a latência total do loop de controle.
 
+\subsection{Justificativa para UDP Simples}
+\label{subsec:justificativa-udp}
+
+A escolha do UDP simples sobre protocolos mais avançados como UDP-RT \citeonline{lu2023udprt} é justificada pela necessidade de simplicidade de implementação e recursos limitados do Raspberry Pi 4. Embora o UDP-RT ofereça vantagens em redes congestionadas, sua implementação requer mecanismos adicionais de correção de erros e detecção na camada de aplicação, aumentando significativamente a complexidade do sistema. Conforme demonstrado nos resultados, a latência obtida de 1,94ms com UDP simples supera os targets típicos de 5ms, validando que esta abordagem é adequada para o projeto.
+
+\subsection{Limitações de Alcance e Considerações de Escala}
+\label{subsec:limitacoes-alcance}
+
+O alcance da comunicação WiFi constitui uma limitação relevante para operação do veículo em pistas de maior extensão. Considerando que o veículo foi construído na escala 1:5 e que circuitos de Fórmula 1 reais possuem extensões entre 3 km (Mônaco) e 7 km (Spa-Francorchamps), uma pista em escala correspondente teria entre 600 m e 1.400 m de comprimento.
+
+A \autoref{tab:alcance-wifi-pistas} apresenta a análise de viabilidade de cobertura WiFi para pistas em escala 1:5, considerando as características de roteadores comerciais e possíveis extensões de alcance.
+
 \begin{table}[!h]
 \captionsetup{width=16cm}
-\Caption{\label{tab:comparativo-comunicacao} Comparativo de latência entre tecnologias de comunicação testadas}
+\Caption{\label{tab:alcance-wifi-pistas} Análise de cobertura WiFi para pistas de F1 em escala 1:5}
 \IBGEtab{}{%
-	\begin{tabular}{p{5cm}p{3cm}p{3cm}p{4cm}}
+	\begin{tabular}{p{4cm}p{2.5cm}p{2.5cm}p{5.5cm}}
 		\toprule
-		Configuração & Latência Média & Alcance & Observações \\
+		Circuito Real & Extensão Real & Escala 1:5 & Solução de Cobertura \\
 		\midrule \midrule
-		Arduino Mega + ESP8266 & 60ms & WiFi local & Gargalo no ESP8266 \\
+		Mônaco & 3,337 km & 667 m & Roteador central + 1 repetidor \\
 		\midrule
-		ESP32 DevKit V1 & 40ms & WiFi local & Melhoria de 33\% \\
+		Interlagos & 4,309 km & 862 m & 2 access points mesh \\
 		\midrule
-		NRF24L01 + antena & 2ms & 800m & Comunicação ponto-a-ponto \\
+		Silverstone & 5,891 km & 1.178 m & 3 access points mesh \\
 		\midrule
-		NRF24L01 mesh & 2ms + 2ms/salto & Extensível & Complexidade elevada \\
-		\midrule
-		ESP-NOW (ESP32) & Similar ao WiFi & 50m & Custo elevado, alcance limitado \\
-		\midrule
-		\textbf{RPi 4 embarcado + UDP} & \textbf{1ms} & \textbf{WiFi local} & \textbf{Solução adotada} \\
+		Spa-Francorchamps & 7,004 km & 1.401 m & 4 access points mesh ou 5G \\
 		\bottomrule
 	\end{tabular}%
 }{%
@@ -103,10 +150,9 @@ Essa arquitetura resultou em um sistema com apenas dois saltos de comunicação 
 }
 \end{table}
 
-\subsection{Justificativa para UDP Simples}
-\label{subsec:justificativa-udp}
+Para pistas de até 600 m (equivalente a circuitos compactos como Mônaco), um roteador WiFi comercial de alta potência (20 dBm) posicionado centralmente oferece cobertura adequada em ambiente aberto. Para pistas maiores, a implementação de redes mesh com múltiplos access points permite extensão do alcance, adicionando aproximadamente 2 ms de latência por salto entre nós da rede. Alternativamente, redes 5G oferecem cobertura ampla com latência potencialmente inferior, porém com maior custo de infraestrutura e dependência de operadoras.
 
-A escolha do UDP simples sobre protocolos mais avançados como UDP-RT \citeonline{lu2023udprt} é justificada pela necessidade de simplicidade de implementação e recursos limitados do Raspberry Pi 4. Embora o UDP-RT ofereça vantagens em redes congestionadas, sua implementação requer mecanismos adicionais de correção de erros e detecção na camada de aplicação, aumentando significativamente a complexidade do sistema. Conforme demonstrado nos resultados, a latência obtida de 1,94ms com UDP simples supera os targets típicos de 5ms, validando que esta abordagem é adequada para o projeto.
+O projeto atual foi validado em ambiente de teste com dimensões de 40 m $\times$ 80 m, suficiente para circuitos de kart em escala 1:5. A extensão para pistas maiores requer planejamento de infraestrutura de rede conforme as dimensões do circuito desejado.
 
 % ============================================================================
 % ARQUITETURA DO VEÍCULO (RASPBERRY PI 4)
@@ -929,55 +975,145 @@ with open("sensors_20241216_143000.pkl", "rb") as f:
 # dados contém dicionário com listas de cada sensor
 \end{verbatim}
 
-\section{Métricas de Validação}
-\label{sec:metricas-validacao}
-
-O sistema será validado através das seguintes métricas específicas para garantir o atendimento aos requisitos funcionais e de performance: latência média, jitter, packet loss, throughput de dados, FPS médio, estabilidade de transmissão, resolução efetiva, precisão de detecção de eventos, tempo de resposta PWM, realismo subjetivo, utilização CPU/RAM, temperatura operacional, estabilidade geral, precisão de calibração, drift térmico e taxa de amostragem efetiva.
-
-\subsection{Análise de Poder Estatístico}
-\label{subsec:poder-estatistico}
-
-Para garantir a robustez estatística dos resultados obtidos, foi realizada análise de poder estatístico baseada na metodologia proposta por Cohen (1988). O cálculo do tamanho da amostra necessário considerou os seguintes parâmetros: n = 90.000 pontos de telemetria coletados durante 15 minutos de operação contínua, superando significativamente o mínimo requerido de 384 amostras para população infinita com 95\% de confiança e margem de erro de 5\%, poder estatístico (1-$ \beta $) = 0.80, garantindo 80\% de probabilidade de detectar diferenças significativas quando elas realmente existem, conforme recomendado para pesquisas em engenharia, nível de significância $ \alpha $ = 0.05, estabelecendo 5\% de probabilidade de erro tipo I (rejeitar hipótese nula verdadeira), e effect size d = 0.5 (tamanho do efeito médio) para comparações entre sistema proposto e benchmarks do estado da arte, permitindo detectar melhorias práticas significativas.
-
-A análise demonstra que o tamanho da amostra coletada (n = 90.000) proporciona poder estatístico superior a 99\% para detectar diferenças com effect size $ \geq $ 0.2, validando estatisticamente as comparações realizadas com o estado da arte apresentadas nos resultados.
-
-\section{Etapas de Desenvolvimento}
-\label{sec:etapas-desenvolvimento}
-
-As etapas de desenvolvimento seguem respectivamente:
-
-\begin{alineascomnumero}
-	\item Modelagem, impressão e montagem do chassi do veículo teleoperado;
-	\item Testes de desempenho e comunicação entre o Raspberry Pi e o Cliente (PC);
-	\item Integração gradual dos sensores e atuadores do veículo teleoperado com o Raspberry Pi;
-	\item Testes de comunicação do veículo teleoperado completo com o PC\@;
-	\item Modelagem, impressão e montagem do simulador (volante e pedais);
-	\item Teste de atuadores e sensores de comando da direção e pedais para o PC via serial;
-	\item Integração gradual do simulador com o PC via serial;
-	\item Teste completo entre o veículo teleoperado e o simulador.
-\end{alineascomnumero}
-
 \section{Armazenamento de Logs e Validação}
 \label{sec:logs-validacao}
 
-Serão armazenados logs no PC (cliente) para validação das telemetrias entre corridas e assim analisar como na Fórmula 1 atual, usando bibliotecas do Python próprias para isso. Esses logs também serão úteis para analisar os sensores e assim melhorar a adaptabilidade do simulador para situações cada vez mais reais de corridas.
+O sistema de armazenamento de dados implementa salvamento automático periódico para garantir a preservação de informações de telemetria durante as sessões de operação. Os dados armazenados permitem validação das telemetrias entre corridas e análise posterior, de forma similar às equipes de Fórmula 1 que utilizam dados de sessões para otimização de desempenho.
 
-\section{Limitações e Considerações de Alcance}
-\label{sec:limitacoes-alcance}
+\subsection{Sistema de Auto-Save}
+\label{subsec:sistema-autosave}
 
-O alcance da rede WiFi é limitado ao range do roteador; porém, o uso de redes mesh torna possível a criação do projeto em escala 1:8 devido ao tamanho de pistas de corridas reais que não passarão de 600 metros de distância. Assim, um local aberto possibilita a criação de simuladores em tempo real, e também o uso de conexão 5G possibilita a melhoria de maior redução de latência.
+O cliente implementa um mecanismo de salvamento automático que opera a cada 20 segundos, exportando três categorias de dados: logs do console, leituras brutas de sensores e dados processados de telemetria. A escolha do intervalo de 20 segundos representa um equilíbrio entre frequência de salvamento (proteção contra perda de dados em caso de falha) e volume de arquivos gerados, resultando em aproximadamente 180 arquivos por hora de operação contínua.
 
-% TODO: Adicionar figura da arquitetura do sistema
-% A \autoref{fig:arquitetura-sistema} apresenta a arquitetura geral do sistema proposto, mostrando a comunicação entre o carrinho, o cliente PC e o cockpit através do protocolo UDP.
-% \begin{figure}[h!]
-%     \captionsetup{width=16cm}
-%     \Caption{\label{fig:arquitetura-sistema} Diagrama da arquitetura do sistema de controle remoto com force feedback}
-%     \UFCfig{}{
-%         \includegraphics[width=16cm]{figuras/arquitetura-sistema}
-%     }{
-%         \Fonte{elaborado pelo autor.}
-%     }
-% \end{figure}
+O sistema utiliza thresholds mínimos para evitar salvamento de arquivos vazios ou com dados insuficientes: 100 linhas de log, 1000 leituras de sensores (10 segundos a 100Hz) ou 100 pontos de telemetria (10 segundos a 10Hz). Após cada salvamento, os buffers internos são limpos automaticamente para liberar memória e reiniciar a coleta.
+
+\subsection{Formatos de Armazenamento}
+\label{subsec:formatos-armazenamento}
+
+A seleção dos formatos de armazenamento considerou velocidade de serialização, tamanho dos arquivos e facilidade de processamento posterior. A \autoref{tab:formatos-armazenamento} apresenta os formatos utilizados para cada tipo de dado.
+
+\begin{table}[!h]
+\captionsetup{width=16cm}
+\Caption{\label{tab:formatos-armazenamento} Formatos de armazenamento utilizados no sistema de auto-save}
+\IBGEtab{}{%
+	\begin{tabular}{p{3cm}p{2.5cm}p{4cm}p{5cm}}
+		\toprule
+		Tipo de Dado & Formato & Nomenclatura & Justificativa \\
+		\midrule \midrule
+		Logs do console & Texto (.txt) & \texttt{logs\_YYYYMMDD\_HHMMSS.txt} & Legibilidade humana, facilidade de inspeção \\
+		\midrule
+		Sensores brutos & Pickle (.pkl) & \texttt{sensors\_YYYYMMDD\_HHMMSS.pkl} & Velocidade 5--10$\times$ superior ao CSV \\
+		\midrule
+		Telemetria & Pickle (.pkl) & \texttt{telemetry\_YYYYMMDD\_HHMMSS.pkl} & Preservação de estruturas Python complexas \\
+		\bottomrule
+	\end{tabular}%
+}{%
+\Fonte{elaborado pelo autor.}%
+}
+\end{table}
+
+O formato Pickle foi escolhido para dados numéricos por oferecer serialização binária nativa do Python, com velocidade 5 a 10 vezes superior ao CSV para estruturas de dados complexas contendo listas e dicionários aninhados. Embora o Pickle não seja legível por humanos, a análise dos dados é realizada através de scripts Python que reconstroem as estruturas originais. Os arquivos de log mantêm formato texto para permitir inspeção manual rápida durante depuração.
+
+\subsection{Estrutura dos Dados Armazenados}
+\label{subsec:estrutura-dados-armazenados}
+
+Os arquivos de sensores contêm dicionários Python com listas de valores para cada canal do sensor BMI160 e do sistema de monitoramento de energia: \texttt{timestamp}, \texttt{bmi160\_accel\_x}, \texttt{bmi160\_accel\_y}, \texttt{bmi160\_accel\_z}, \texttt{bmi160\_gyro\_x}, \texttt{bmi160\_gyro\_y}, \texttt{bmi160\_gyro\_z}, \texttt{g\_force\_lateral}, \texttt{g\_force\_frontal}, \texttt{current\_motor}, \texttt{current\_servos}, \texttt{current\_rpi}, \texttt{power\_total} e \texttt{voltage\_rpi}. Cada lista contém valores correspondentes ao mesmo índice temporal, permitindo correlação entre diferentes grandezas.
+
+Os arquivos de telemetria armazenam dados processados para os gráficos da interface: \texttt{time}, \texttt{speed}, \texttt{throttle}, \texttt{brake}, \texttt{g\_lateral}, \texttt{g\_frontal} e metadados como \texttt{start\_time}, \texttt{points\_count} e \texttt{export\_time}. Esses dados representam valores já filtrados e normalizados, prontos para visualização.
+
+\subsection{Script de Análise de Sessões}
+\label{subsec:script-analise-sessoes}
+
+O script \texttt{analyze\_session.py} foi desenvolvido para processar os arquivos gerados pelo sistema de auto-save, oferecendo análise estatística e visualização gráfica das sessões de operação. O script suporta três modos de operação: análise combinada de todos os arquivos do diretório (padrão), análise apenas dos arquivos mais recentes e análise de timestamp específico.
+
+O processamento combina múltiplos arquivos Pickle em estruturas unificadas, concatenando as listas de cada canal para formar séries temporais contínuas. As estatísticas calculadas incluem duração total da sessão, velocidade máxima, média e mínima, tempo em aceleração total (\textit{full throttle}), tempo em frenagem, forças G laterais e frontais máximas, acelerações e velocidades angulares extremas, e consumo de energia quando disponível.
+
+A visualização gráfica utiliza a biblioteca Matplotlib com estilo visual inspirado nas telemetrias de Fórmula 1, apresentando gráficos de velocidade ao longo do tempo, utilização de pedais, forças G, distribuição de velocidade em histograma e diagrama G-G (\textit{scatter plot} de força lateral versus frontal). A análise de logs identifica padrões de erros, avisos, conexões e desconexões através de expressões regulares.
+
+O script também suporta exportação de relatório HTML formatado contendo todas as estatísticas e metadados da sessão, facilitando documentação e compartilhamento dos resultados experimentais. A \autoref{alg:analise-sessao} apresenta o fluxo principal do processamento.
+
+\begin{algorithm}[h!]
+	\SetSpacedAlgorithm
+	\caption{\label{alg:analise-sessao}Análise de sessão de telemetria}
+	\Entrada{diretório de dados, modo de operação}
+	\Saida{estatísticas, gráficos, relatório}
+	\Inicio{
+		// Localiza arquivos por padrão de nomenclatura\;
+		arquivos\_telemetria $\leftarrow$ glob("telemetry\_*.pkl")\;
+		arquivos\_sensores $\leftarrow$ glob("sensors\_*.pkl")\;
+		arquivos\_logs $\leftarrow$ glob("logs\_*.txt")\;
+		// Carrega e combina dados de múltiplos arquivos\;
+		dados\_combinados $\leftarrow$ dicionário vazio\;
+		\Para{cada arquivo em arquivos\_telemetria}{
+			dados $\leftarrow$ pickle.load(arquivo)\;
+			\Para{cada chave, valores em dados}{
+				dados\_combinados[chave].estender(valores)\;
+			}
+		}
+		// Calcula estatísticas com NumPy\;
+		velocidade $\leftarrow$ array(dados\_combinados["speed"])\;
+		estatisticas.velocidade\_max $\leftarrow$ max(velocidade)\;
+		estatisticas.velocidade\_media $\leftarrow$ media(velocidade)\;
+		// Gera gráficos estilo F1\;
+		plotar\_telemetria(dados\_combinados)\;
+		plotar\_sensores(dados\_sensores)\;
+		// Exporta relatório HTML\;
+		exportar\_html(estatisticas, analise\_logs)\;
+	}
+\end{algorithm}
+
+A leitura dos arquivos Pickle para análise externa pode ser realizada através do seguinte código Python:
+
+\begin{verbatim}
+import pickle
+with open("sensors_20241216_143000.pkl", "rb") as f:
+    dados = pickle.load(f)
+# dados contém dicionário com listas de cada sensor
+print(dados.keys())  # ['timestamp', 'bmi160_accel_x', ...]
+print(len(dados['timestamp']))  # Quantidade de amostras
+\end{verbatim}
+
+\subsection{Métricas de Validação Extraídas}
+\label{subsec:metricas-validacao}
+
+Os dados armazenados pelo sistema de auto-save permitem a extração de métricas específicas para validação do desempenho do sistema. A \autoref{tab:metricas-validacao} apresenta as métricas extraídas de cada categoria de dados, organizadas por subsistema avaliado.
+
+\begin{table}[!h]
+\captionsetup{width=16cm}
+\Caption{\label{tab:metricas-validacao} Métricas de validação extraídas dos dados armazenados}
+\IBGEtab{}{%
+	\begin{tabular}{p{3cm}p{4cm}p{4cm}p{4cm}}
+		\toprule
+		Subsistema & Métrica & Fonte de Dados & Cálculo \\
+		\midrule \midrule
+		\multirow{3}{*}{Comunicação} & Latência média & \texttt{timestamp} & Diferença entre envio e recepção \\
+		& Jitter & \texttt{timestamp} & Desvio padrão dos intervalos \\
+		& Packet loss & \texttt{logs\_*.txt} & Contagem de erros de recepção \\
+		\midrule
+		\multirow{3}{*}{Vídeo} & FPS efetivo & \texttt{telemetry\_*.pkl} & Frames por segundo médio \\
+		& Estabilidade & \texttt{telemetry\_*.pkl} & Variância do intervalo entre frames \\
+		& Throughput & \texttt{sensors\_*.pkl} & Bytes por segundo \\
+		\midrule
+		\multirow{3}{*}{Sensores} & Taxa de amostragem & \texttt{sensors\_*.pkl} & Amostras por segundo \\
+		& Drift térmico & \texttt{temperature} & Variação ao longo do tempo \\
+		& Ruído & \texttt{bmi160\_accel\_*} & Desvio padrão em repouso \\
+		\midrule
+		\multirow{3}{*}{Force Feedback} & Tempo de resposta & \texttt{timestamp} & Latência comando-atuação \\
+		& Precisão & \texttt{g\_force\_*} & Correlação sensor-feedback \\
+		& Estabilidade & \texttt{gyro\_z} & Variância em regime permanente \\
+		\midrule
+		\multirow{2}{*}{Energia} & Consumo médio & \texttt{power\_total} & Média de potência \\
+		& Pico de corrente & \texttt{current\_motor} & Valor máximo registrado \\
+		\bottomrule
+	\end{tabular}%
+}{%
+\Fonte{elaborado pelo autor.}%
+}
+\end{table}
+
+O script \texttt{analyze\_session.py} calcula automaticamente as estatísticas principais a partir dos dados armazenados. Para métricas de comunicação, o intervalo entre timestamps consecutivos permite estimar a latência efetiva do sistema, enquanto o desvio padrão desses intervalos caracteriza o jitter. A análise de logs por expressões regulares identifica eventos de erro, permitindo cálculo da taxa de perda de pacotes.
+
+Para validação estatística dos resultados, o volume de dados coletado pelo sistema de auto-save garante robustez. Considerando taxa de amostragem de 100Hz para sensores e sessões típicas de 15 minutos, cada sessão gera aproximadamente 90.000 pontos de telemetria. Esse volume supera significativamente o mínimo de 384 amostras requerido para população infinita com 95\% de confiança e margem de erro de 5\%, proporcionando poder estatístico superior a 99\% para detectar diferenças com tamanho de efeito médio nas comparações com o estado da arte.
 
 \section{Reprodutibilidade e Transparência Experimental}
 \label{sec:reprodutibilidade-transparencia}
@@ -987,9 +1123,37 @@ A garantia de reprodutibilidade científica constitui um pilar fundamental para 
 \subsection{Disponibilização de Código Fonte e Datasets}
 \label{subsec:codigo-datasets}
 
-Todo o código fonte desenvolvido para este projeto será disponibilizado publicamente sob licença MIT, incluindo os scripts de controle do Raspberry Pi 4, firmware do ESP32 para leitura de encoders e controle de force feedback, interface gráfica em Python/Tkinter e rotinas de análise estatística dos dados coletados. Conforme demonstrado por \citeonline{bobrovsky2023development}, a transparência no desenvolvimento de sistemas embarcados facilita a reprodução e melhoria contínua das soluções propostas.
+Todo o código fonte desenvolvido para este projeto está disponibilizado publicamente no repositório GitHub sob licença MIT, acessível em \url{https://github.com/inacio-dev/tcc}. O repositório contém a estrutura completa do projeto, organizada conforme a \autoref{tab:estrutura-repositorio}.
 
-Os datasets coletados durante as sessões experimentais, totalizando mais de 90.000 pontos de telemetria e 26.925 frames de vídeo, serão disponibilizados em formato estruturado JSON e CSV, acompanhados de metadados descritivos. Cada arquivo de dataset incluirá timestamps precisos em formato ISO 8601, identificadores únicos de sessão, condições experimentais documentadas e checksums MD5 para verificação de integridade. A estrutura de dados segue o padrão FAIR (Findable, Accessible, Interoperable, Reusable), garantindo máxima reutilização pelos pesquisadores.
+\begin{table}[!h]
+\captionsetup{width=16cm}
+\Caption{\label{tab:estrutura-repositorio} Estrutura do repositório de código fonte}
+\IBGEtab{}{%
+	\begin{tabular}{p{3.5cm}p{11cm}}
+		\toprule
+		Diretório & Conteúdo \\
+		\midrule \midrule
+		\texttt{raspberry/} & Scripts Python para controle do Raspberry Pi 4: captura de vídeo, leitura de sensores BMI160, controle de motor e servos, comunicação UDP \\
+		\midrule
+		\texttt{client/} & Interface gráfica em Python/Tkinter, recepção UDP, processamento de telemetria, sistema de auto-save e script de análise de sessões \\
+		\midrule
+		\texttt{esp32/} & Firmware C++ para ESP32: leitura de encoders, controle de force feedback, comunicação serial USB \\
+		\midrule
+		\texttt{exports/auto/} & Datasets de telemetria em formato Pickle (.pkl) e logs de sessões (.txt) \\
+		\midrule
+		\texttt{scripts/} & Rotinas de análise estatística e geração de gráficos \\
+		\midrule
+		\texttt{docs/} & Documentação técnica das decisões de projeto \\
+		\midrule
+		\texttt{monografia/} & Código fonte \LaTeX\ deste documento \\
+		\bottomrule
+	\end{tabular}%
+}{%
+\Fonte{elaborado pelo autor.}%
+}
+\end{table}
+
+Conforme demonstrado por \citeonline{bobrovsky2023development}, a transparência no desenvolvimento de sistemas embarcados facilita a reprodução e melhoria contínua das soluções propostas. Os datasets coletados durante as sessões experimentais, totalizando mais de 90.000 pontos de telemetria, estão disponíveis no diretório \texttt{exports/auto/} do repositório em formato Pickle, permitindo análise direta com o script \texttt{analyze\_session.py} incluso no projeto.
 
 \subsection{Protocolo Detalhado de Replicação}
 \label{subsec:protocolo-replicacao}
