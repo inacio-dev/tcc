@@ -1216,8 +1216,8 @@
 %%    Lista de Abreviaturas e Siglas   %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% Largura da lista de abreviaturas
-\setlength{\glsdescwidth}{\linewidth}
+% Largura da lista de abreviaturas e glossário (desconta a coluna do termo)
+\setlength{\glsdescwidth}{0.75\textwidth}
 
 \newcommand{\imprimirlistadeabreviaturasesiglas}{ %
 	\printglossary[type=\acronymtype,style=long,nonumberlist,title={Lista de Abreviaturas e Siglas\vspace{-0.3cm}}] %
@@ -1238,28 +1238,20 @@
 
 %% Glossario desenvolvido para a UFC
 \setlist{nosep}
+
+% Define largura da coluna de termos do glossário
+\newlength{\glsnamewidth}
+\setlength{\glsnamewidth}{3.5cm}
+
 \newglossarystyle{glossario-ufc}{%
-	%
+	\setglossarystyle{long}%
 	\renewenvironment{theglossary}%
-	{\vspace{-0.3cm}\begin{description}[leftmargin=0cm]\itemsep -1pt}{\end{description}}%
-	%
-	\renewcommand*{\glossaryheader}{}%
-	
-	% indicate what to do at the start of each logical group
-	
-	\renewcommand*{\glsgroupheading}[1]{%
-		\vspace{0cm}\item[{\glsgetgrouptitle{##1}}] \vspace{\onelineskip}		
-	}
-	%
-	\renewcommand*{\glsgroupskip}{}%
-	% Depois da palavra, colocar o ":" e no fim o ponto final "."
-	\renewcommand*{\glossaryentryfield}[5]{%
-		\item[\glstarget{##1}{##2}:] ##3.%
-	}%
+		{\begin{longtable}{@{}p{\glsnamewidth}p{\dimexpr\textwidth-\glsnamewidth-2\tabcolsep\relax}@{}}}%
+		{\end{longtable}}%
 }
 
 \newcommand{\imprimirglossario}{ %
-	\glossarystyle{glossario-uece} %	
+	\setglossarystyle{glossario-ufc} %
 	\printglossary[title=GLOSSÁRIO,toctitle=GLOSSÁRIO] %
 	\addcontentsline{toc}{chapter}{GLOSSÁRIO}
 }

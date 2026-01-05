@@ -1,0 +1,107 @@
+% ============================================================================
+% GLOSSÁRIO - Termos Técnicos
+% ============================================================================
+
+% --- Sistemas de Controle e Feedback ---
+\newglossaryentry{forcefeedback}{
+    name={Force Feedback},
+    description={Sistema de resposta tátil que aplica forças físicas ao dispositivo de controle (volante, joystick) para simular sensações reais como resistência da direção, vibrações do terreno e forças G. Tradução: retroalimentação de força}
+}
+
+\newglossaryentry{teleoperacao}{
+    name={Teleoperação},
+    description={Operação de um veículo, robô ou sistema à distância, onde o operador controla o equipamento remotamente através de interfaces de comando e recebe feedback visual e/ou tátil em tempo real}
+}
+
+\newglossaryentry{backemf}{
+    name={Back-EMF},
+    description={\textit{Back Electromotive Force} (Força Eletromotriz de Retorno). Tensão gerada por um motor elétrico quando seu eixo gira, seja por acionamento elétrico ou força mecânica externa, atuando como gerador}
+}
+
+% --- Sensores e Encoders ---
+\newglossaryentry{encoder}{
+    name={Encoder Rotacional},
+    description={Sensor eletromecânico que converte a posição angular ou movimento rotacional de um eixo em sinais elétricos digitais, permitindo medir posição, velocidade e direção de rotação}
+}
+
+\newglossaryentry{quadratura}{
+    name={Quadratura},
+    description={Método de codificação de encoders rotativos que utiliza dois canais (A e B) defasados em 90° elétricos, permitindo determinar tanto a posição quanto a direção de rotação}
+}
+
+% --- Circuitos e Eletrônica ---
+\newglossaryentry{ponteh}{
+    name={Ponte H},
+    description={Circuito eletrônico que permite controlar a direção de rotação de um motor DC através da inversão da polaridade da tensão aplicada, utilizando quatro transistores ou MOSFETs dispostos em configuração H}
+}
+
+\newglossaryentry{debounce}{
+    name={Debounce},
+    description={Técnica de software ou hardware para eliminar os múltiplos pulsos espúrios (ruído mecânico) gerados quando um botão ou chave mecânica é pressionado ou liberado}
+}
+
+% --- Programação e Dados ---
+\newglossaryentry{buffercircular}{
+    name={Buffer Circular},
+    description={Estrutura de dados em forma de fila circular onde, ao atingir a capacidade máxima, novos elementos sobrescrevem os mais antigos. Também conhecido como \textit{ring buffer} ou \textit{deque} com tamanho fixo}
+}
+
+\newglossaryentry{serializacao}{
+    name={Serialização},
+    description={Processo de conversão de estruturas de dados ou objetos em um formato que pode ser armazenado em arquivo ou transmitido pela rede, permitindo posterior reconstrução (desserialização)}
+}
+
+\newglossaryentry{threadsafe}{
+    name={Thread-safe},
+    description={Característica de código ou estrutura de dados que pode ser acessado simultaneamente por múltiplas threads de execução sem causar condições de corrida ou corrupção de dados}
+}
+
+\newglossaryentry{fullduplex}{
+    name={Full-duplex},
+    description={Modo de comunicação bidirecional simultânea, onde dados podem ser transmitidos e recebidos ao mesmo tempo pelo mesmo canal de comunicação}
+}
+
+% --- Redes e Comunicação ---
+\newglossaryentry{jitter}{
+    name={Jitter},
+    description={Variação no tempo de chegada de pacotes de dados em uma rede, medida como o desvio padrão da latência. Alto jitter causa irregularidade na recepção de dados em aplicações de tempo real}
+}
+
+\newglossaryentry{latencia}{
+    name={Latência},
+    description={Tempo decorrido entre o envio de uma mensagem e sua recepção no destino. Em sistemas de tempo real, latências baixas são essenciais para controle responsivo}
+}
+
+% --- Sensores e Medição ---
+\newglossaryentry{drifttermico}{
+    name={Drift Térmico},
+    description={Variação gradual nas leituras de um sensor causada por mudanças de temperatura, resultando em erro sistemático que aumenta ao longo do tempo de operação}
+}
+
+\newglossaryentry{forcag}{
+    name={Força G},
+    description={Unidade de aceleração equivalente à aceleração gravitacional terrestre (9,81 m/s²). Utilizada para expressar acelerações experimentadas por veículos e pilotos em curvas, frenagens e acelerações}
+}
+
+% --- Processamento de Imagem ---
+\newglossaryentry{laplaciano}{
+    name={Operador Laplaciano},
+    description={Operador de segunda derivada utilizado em processamento de imagens para detecção de bordas e aguçamento, calculando a soma das segundas derivadas parciais em relação a x e y}
+}
+
+\newglossaryentry{convolucao}{
+    name={Convolução},
+    description={Operação matemática fundamental em processamento de imagens onde uma máscara (kernel) é aplicada sobre cada pixel da imagem para produzir efeitos como suavização, aguçamento ou detecção de bordas}
+}
+
+% --- Impressão 3D ---
+\newglossaryentry{fatiador}{
+    name={Fatiador (Slicer)},
+    description={Software que converte modelos 3D em instruções de impressão (G-code), dividindo o objeto em camadas horizontais e calculando trajetórias de extrusão, preenchimento e suportes}
+}
+
+\newglossaryentry{overhang}{
+    name={Overhang},
+    description={Região de uma peça 3D que se projeta horizontalmente sem suporte inferior. Ângulos de overhang acima de 45° geralmente requerem estruturas de suporte durante a impressão}
+}
+

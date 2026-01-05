@@ -1,22 +1,11 @@
 \chapter{Metodologia}
 \label{chap:metodologia}
 
-Será realizado um desenvolvimento incremental e modular de um sistema completo de teleoperação de um veículo de Fórmula 1 com simulador (volante e pedais), sendo o veículo controlado via protocolo UDP. Utilizarei uma metodologia de prototipagem evolutiva, que busca o teste individual de cada componente antes da integração final. O projeto busca um objetivo semelhante ao artigo de \citeonline{shaik2025design}, conforme apresentado na fundamentação teórica.
+Será realizado um desenvolvimento incremental e modular de um sistema completo de \gls{teleoperacao} de um veículo de Fórmula 1 com simulador (volante e pedais), sendo o veículo controlado via protocolo \gls{UDP}. Utilizarei uma metodologia de prototipagem evolutiva, que busca o teste individual de cada componente antes da integração final. O projeto busca um objetivo semelhante ao artigo de \citeonline{shaik2025design}, conforme apresentado na fundamentação teórica.
 
-O projeto seguirá uma arquitetura de três camadas. A primeira corresponde ao veículo teleoperado, tendo como elemento principal o Raspberry Pi 4, responsável por receber mensagens de controle via UDP e enviar mensagens de vídeo e status de sensores. A segunda camada é o cliente (notebook ou PC), que receberá as mensagens do veículo, exibirá a interface de telemetria e encaminhará as mensagens de controle oriundas do simulador para o veículo. A terceira camada é o simulador baseado em ESP32, composto por volante com encoder rotativo, pedais de acelerador e freio, e botões de troca de marcha, responsável por capturar os comandos do usuário e transmiti-los ao cliente via comunicação serial USB. A integração de múltiplos sensores segue a abordagem de \citeonline{bobrovsky2023development}, visando um bom resultado de feedback ao usuário. A \autoref{fig:arquitetura-projeto} apresenta o diagrama da arquitetura proposta.
+O projeto seguirá uma arquitetura de três camadas. A primeira corresponde ao veículo teleoperado, tendo como elemento principal o Raspberry Pi 4, responsável por receber mensagens de controle via UDP e enviar mensagens de vídeo e status de sensores. A segunda camada é o cliente (PC), que receberá as mensagens do veículo, exibirá a interface de telemetria e encaminhará as mensagens de controle oriundas do simulador para o veículo. A terceira camada é o simulador baseado em ESP32, composto por volante com \gls{encoder}, pedais de acelerador e freio, e botões de troca de marcha, responsável por capturar os comandos do usuário e transmiti-los ao cliente via comunicação serial \gls{USB}. A integração de múltiplos sensores segue a abordagem de \citeonline{bobrovsky2023development}, visando um bom resultado de feedback ao usuário. A \autoref{fig:arquitetura-projeto} apresenta o diagrama da arquitetura proposta.
 
-As etapas de desenvolvimento seguem respectivamente:
-
-\begin{alineascomnumero}
-	\item Modelagem, impressão e montagem do chassi do veículo teleoperado;
-	\item Testes de desempenho e comunicação entre o Raspberry Pi e o Cliente (PC);
-	\item Integração gradual dos sensores e atuadores do veículo teleoperado com o Raspberry Pi;
-	\item Testes de comunicação do veículo teleoperado completo com o PC\@;
-	\item Modelagem, impressão e montagem do simulador (volante e pedais);
-	\item Teste de atuadores e sensores de comando da direção e pedais para o PC via serial;
-	\item Integração gradual do simulador com o PC via serial;
-	\item Teste completo entre o veículo teleoperado e o simulador.
-\end{alineascomnumero}
+O desenvolvimento inicia com a modelagem, impressão e montagem do chassi do veículo teleoperado, seguido por testes de desempenho e comunicação entre o Raspberry Pi e o cliente (PC). Na sequência, ocorre a integração gradual dos sensores e atuadores do veículo teleoperado com o Raspberry Pi e os testes de comunicação do veículo completo com o PC. A etapa seguinte compreende a modelagem, impressão e montagem do simulador (volante e pedais), além dos testes de atuadores e sensores de comando via serial. Por fim, realiza-se a integração gradual do simulador com o PC e o teste completo entre o veículo teleoperado e o simulador.
 
 \begin{figure}[!h]
 	\captionsetup{width=16cm}
@@ -31,7 +20,7 @@ As etapas de desenvolvimento seguem respectivamente:
 \section{Protocolo de Comunicação UDP}
 \label{sec:protocolo-udp}
 
-O UDP é um protocolo que lida com o alto envio de mensagens, muito utilizado para envio de streams e em jogos de computador. A arquitetura atual necessita de baixa latência, pois uma latência muito alta irá atrapalhar o controle em tempo real do veículo teleoperado, passando por um alto delay de comandos e prejudicando a experiência do usuário. Conforme demonstrado por \citeonline{lu2023udprt} na fundamentação teórica, protocolos baseados em UDP alcançam latências significativamente inferiores ao TCP em aplicações de tempo real, justificando o uso desse protocolo.
+O UDP é um protocolo que lida com o alto envio de mensagens, muito utilizado para envio de streams e em jogos de computador. A arquitetura atual necessita de baixa \gls{latencia}, pois uma latência muito alta irá atrapalhar o controle em tempo real do veículo teleoperado, passando por um alto delay de comandos e prejudicando a experiência do usuário. Conforme demonstrado por \citeonline{lu2023udprt} na fundamentação teórica, protocolos baseados em UDP alcançam latências significativamente inferiores ao \gls{TCP} em aplicações de tempo real, justificando o uso desse protocolo.
 
 \subsection{Evolução das Decisões de Arquitetura de Comunicação}
 \label{subsec:evolucao-decisoes-comunicacao}
@@ -44,7 +33,7 @@ A primeira configuração testada utilizou um Arduino Mega com módulo ESP8266 c
 
 \subsubsection{Testes com ESP32}
 
-Para melhorar o processamento, o Arduino Mega com ESP8266 foi substituído por um ESP32 DevKit V1, que possui processador dual-core mais potente apesar de menor quantidade de pinos GPIO. A latência reduziu para 40ms, representando melhoria de 33\% em relação à configuração anterior. Entretanto, esse valor ainda não atendia à meta de 10ms, considerando que a comunicação UDP entre servidor e cliente adicionaria latência adicional em cenários com servidores geograficamente distribuídos.
+Para melhorar o processamento, o Arduino Mega com ESP8266 foi substituído por um ESP32 DevKit V1, que possui processador dual-core mais potente apesar de menor quantidade de pinos \gls{GPIO}. A latência reduziu para 40ms, representando melhoria de 33\% em relação à configuração anterior. Entretanto, esse valor ainda não atendia à meta de 10ms, considerando que a comunicação UDP entre servidor e cliente adicionaria latência adicional em cenários com servidores geograficamente distribuídos.
 
 \subsubsection{Testes com Módulo NRF24L01}
 
@@ -52,7 +41,7 @@ Buscando comunicação mais rápida entre servidor e veículo, foram realizados 
 
 \subsubsection{Avaliação de Redes Mesh}
 
-Para estender o alcance além dos 800 metros do NRF24L01, foi avaliada a implementação de rede mesh. A análise indicou acréscimo de aproximadamente 2ms de latência para cada salto entre antenas intermediárias, além de introduzir erros na resposta de status do veículo. Uma otimização testada foi utilizar o payload de ACK (\textit{acknowledgment}) para retorno de status dos sensores. O ACK é uma confirmação de recebimento que o NRF24L01 envia automaticamente ao transmissor; ao anexar dados do sensor nessa confirmação, elimina-se a necessidade de alternar o módulo entre modos de transmissão e recepção, reduzindo latência. Contudo, essa abordagem tornou a implementação de mesh com NRF24L01 excessivamente complexa para o cronograma disponível.
+Para estender o alcance além dos 800 metros do NRF24L01, foi avaliada a implementação de rede mesh. A análise indicou acréscimo de aproximadamente 2ms de latência para cada salto entre antenas intermediárias, além de introduzir erros na resposta de status do veículo. Uma otimização testada foi utilizar o payload de \gls{ACK} para retorno de status dos sensores. O ACK é uma confirmação de recebimento que o NRF24L01 envia automaticamente ao transmissor; ao anexar dados do sensor nessa confirmação, elimina-se a necessidade de alternar o módulo entre modos de transmissão e recepção, reduzindo latência. Contudo, essa abordagem tornou a implementação de mesh com NRF24L01 excessivamente complexa para o cronograma disponível.
 
 O protocolo ESP-NOW foi considerado como alternativa para comunicação mesh entre dispositivos ESP32, porém foi descartado devido ao alcance limitado de aproximadamente 50 metros, significativamente inferior aos 800 metros do NRF24L01 com antena externa, além do custo mais elevado por unidade.
 
@@ -86,11 +75,11 @@ A análise comparativa dos testes, sumarizada na \autoref{tab:comparativo-comuni
 }
 \end{table}
 
-A comunicação via rádio NRF24L01, apesar de apresentar excelente latência (2ms) e alcance (800m), exigiria a implementação de um broker intermediário para traduzir os pacotes de rádio para o protocolo UDP do servidor. Essa camada adicional aumentaria a complexidade do sistema, introduziria novos pontos de falha e demandaria desenvolvimento de firmware específico para gerenciamento da comunicação bidirecional entre rádio e rede IP. Além disso, embora o NRF24L01 seja adequado para transmissão de comandos de controle (pacotes pequenos de dezenas de bytes), a transmissão de vídeo em tempo real seria inviável: o módulo opera com taxa máxima de 2 Mbps e payload limitado a 32 bytes por pacote, tornando a fragmentação e remontagem de frames MJPEG (10 a 50 KB cada) excessivamente complexa e propensa a erros. Implementar um protocolo confiável de transmissão de imagem sobre rádio demandaria esforço de desenvolvimento incompatível com o cronograma do projeto.
+A comunicação via rádio NRF24L01, apesar de apresentar excelente latência (2ms) e alcance (800m), exigiria a implementação de um broker intermediário para traduzir os pacotes de rádio para o protocolo UDP do servidor. Essa camada adicional aumentaria a complexidade do sistema, introduziria novos pontos de falha e demandaria desenvolvimento de firmware específico para gerenciamento da comunicação bidirecional entre rádio e rede IP. Além disso, embora o NRF24L01 seja adequado para transmissão de comandos de controle (pacotes pequenos de dezenas de bytes), a transmissão de vídeo em tempo real seria inviável: o módulo opera com taxa máxima de 2 Mbps e payload limitado a 32 bytes por pacote, tornando a fragmentação e remontagem de frames \gls{MJPEG} (10 a 50 KB cada) excessivamente complexa e propensa a erros. Implementar um protocolo confiável de transmissão de imagem sobre rádio demandaria esforço de desenvolvimento incompatível com o cronograma do projeto.
 
-A decisão de embarcar o Raspberry Pi 4 diretamente no veículo eliminou essas limitações, permitindo comunicação UDP nativa sobre WiFi. Com o Raspberry Pi embarcado, a captura de vídeo, codificação MJPEG e transmissão UDP ocorrem internamente no mesmo dispositivo, simplificando drasticamente a arquitetura. O Raspberry Pi atua simultaneamente como controlador do veículo e servidor UDP, processando vídeo da câmera OV5647, dados do sensor BMI160 e comandos de controle em uma única plataforma.
+A decisão de embarcar o Raspberry Pi 4 diretamente no veículo eliminou essas limitações, permitindo comunicação UDP nativa sobre WiFi. Com o Raspberry Pi embarcado, a captura de vídeo, codificação MJPEG e transmissão UDP ocorrem internamente no mesmo dispositivo, simplificando drasticamente a arquitetura. O Raspberry Pi atua simultaneamente como controlador do veículo e servidor UDP, processando vídeo da câmera OV5647, dados do sensor BMI160 e comandos de controle em uma única plataforma. Para simplificar a descoberta de dispositivos na rede local, foi adotado o protocolo mDNS, permitindo que o veículo seja acessado pelo nome \texttt{f1car.local} e o cliente por \texttt{f1client.local}, eliminando a necessidade de configuração manual de endereços IP.
 
-A arquitetura de comunicação utiliza três portas UDP separadas para otimizar o desempenho de cada tipo de dado, conforme detalhado na \autoref{tab:arquitetura-portas-udp}. Essa separação é necessária porque pacotes de vídeo grandes (50 KB) bloqueariam os pacotes pequenos de sensores (200 bytes) se compartilhassem a mesma porta, e o sistema de force feedback requer taxa consistente de 100Hz com latência inferior a 10ms para resposta tátil adequada no volante.
+A arquitetura de comunicação utiliza três portas UDP separadas para otimizar o desempenho de cada tipo de dado, conforme detalhado na \autoref{tab:arquitetura-portas-udp}. Essa separação é necessária porque pacotes de vídeo grandes (50 KB) bloqueariam os pacotes pequenos de sensores (200 bytes) se compartilhassem a mesma porta, e o sistema de \gls{forcefeedback} requer taxa consistente de 100Hz com latência inferior a 10ms para resposta tátil adequada no volante.
 
 \begin{table}[!h]
 \captionsetup{width=16cm}
@@ -160,9 +149,9 @@ O projeto atual foi validado em ambiente de teste com dimensões de 40 m $\times
 \section{Arquitetura do Veículo (Raspberry Pi 4)}
 \label{sec:arquitetura-veiculo}
 
-O Raspberry Pi 4 Model B com 8GB de RAM constitui o núcleo de processamento embarcado no veículo, responsável por todas as operações de controle, sensoriamento e comunicação. A escolha deste hardware foi motivada pela capacidade de processamento suficiente para codificação de vídeo MJPEG em tempo real, comunicação UDP nativa e controle de múltiplos periféricos via I2C, conforme validado nos testes de arquitetura descritos na \autoref{subsec:evolucao-decisoes-comunicacao}. O diagrama elétrico completo das conexões do Raspberry Pi 4 com todos os componentes do sistema está disponível no \autoref{apendice:diagrama-rpi}.
+O Raspberry Pi 4 Model B com 8GB de \gls{RAM} constitui o núcleo de processamento embarcado no veículo, responsável por todas as operações de controle, sensoriamento e comunicação. A escolha deste hardware foi motivada pela capacidade de processamento suficiente para codificação de vídeo MJPEG em tempo real, comunicação UDP nativa e controle de múltiplos periféricos via \gls{I2C}, conforme validado nos testes de arquitetura descritos na \autoref{subsec:evolucao-decisoes-comunicacao}. O diagrama elétrico completo das conexões do Raspberry Pi 4 com todos os componentes do sistema está disponível no \autoref{apendice:diagrama-rpi}.
 
-O software embarcado foi desenvolvido em Python 3.11.2 utilizando o editor Visual Studio Code, aproveitando bibliotecas nativas para controle de GPIO, comunicação I2C e captura de vídeo via interface CSI. A \autoref{tab:bibliotecas-rpi} apresenta as principais bibliotecas utilizadas no desenvolvimento do software embarcado.
+O software embarcado foi desenvolvido em Python 3.11.2 utilizando o editor Visual Studio Code, aproveitando bibliotecas nativas para controle de GPIO, comunicação I2C e captura de vídeo via interface \gls{CSI}. A \autoref{tab:bibliotecas-rpi} apresenta as principais bibliotecas utilizadas no desenvolvimento do software embarcado.
 
 \begin{table}[!h]
 \captionsetup{width=16cm}
@@ -174,9 +163,9 @@ O software embarcado foi desenvolvido em Python 3.11.2 utilizando o editor Visua
 \midrule
 picamera2 & Captura de vídeo via interface CSI com codificação MJPEG por hardware \\
 smbus2 & Comunicação I2C direta com sensores BMI160, ADS1115 e INA219 \\
-adafruit-circuitpython-pca9685 & Controle do driver PWM PCA9685 para acionamento de servos \\
+adafruit-circuitpython-pca9685 & Controle do driver \gls{PWM} PCA9685 para acionamento de servos \\
 adafruit-circuitpython-servokit & Abstração de alto nível para controle de servomotores \\
-RPi.GPIO & Controle de pinos GPIO para ponte H BTS7960 do motor DC \\
+RPi.GPIO & Controle de pinos GPIO para \gls{ponteh} BTS7960 do motor DC \\
 numpy & Processamento numérico de dados de sensores e cálculos de telemetria \\
 socket & Comunicação UDP nativa para transmissão de dados ao cliente \\
 \bottomrule
@@ -203,7 +192,7 @@ A \autoref{tab:componentes-veiculo} apresenta os componentes embarcados no veíc
 		\midrule
 		Câmera OV5647 & 5MP, 2592×1944 pixels, vídeo 1080p/30fps, interface CSI & Captura de vídeo em tempo real para transmissão via UDP \\
 		\midrule
-		Sensor BMI160 \cite{bosch2015bmi160} & IMU 6 eixos, ±4g/±500°/s, 16 bits, I2C, 100Hz sampling & Detecção de forças G, aceleração e velocidade angular para force feedback \\
+		Sensor BMI160 \cite{bosch2015bmi160} & \gls{IMU} 6 eixos, ±4g/±500°/s, 16 bits, I2C, 100Hz sampling & Detecção de \glspl{forcag}, aceleração e velocidade angular para force feedback \\
 		\midrule
 		Motor RC 775 & 24V, 12.000 RPM, com transmissão manual de 5 marchas & Propulsão principal do veículo com zonas de eficiência F1 \\
 		\midrule
@@ -213,7 +202,7 @@ A \autoref{tab:componentes-veiculo} apresenta os componentes embarcados no veíc
 		\midrule
 		PCA9685 PWM Driver \cite{nxp2015pca9685} & 16 canais, 12 bits, I2C, endereço \texttt{0x40} & Controle de servos (freio dianteiro, traseiro e direção) \\
 		\midrule
-		ADS1115 ADC \cite{ti2018ads1115} & 16 bits, 4 canais, I2C, endereço \texttt{0x48} & Monitoramento de corrente via sensores ACS758 \\
+		ADS1115 \gls{ADC} \cite{ti2018ads1115} & 16 bits, 4 canais, I2C, endereço \texttt{0x48} & Monitoramento de corrente via sensores ACS758 \\
 		\midrule
 		INA219 \cite{ti2015ina219} & Sensor corrente/tensão, I2C, endereço \texttt{0x41} & Monitoramento de energia do Raspberry Pi \\
 		\midrule
@@ -227,7 +216,7 @@ A \autoref{tab:componentes-veiculo} apresenta os componentes embarcados no veíc
 		\midrule
 		UBEC 15A & 6--12S entrada, 5.25V saída, 15A contínuo, 30A pico & Alimentação dos servos MG996R \\
 		\midrule
-		Bateria LiPo 3S & Turnigy Graphene 6000mAh, 11.1V, 75C descarga & Fonte de energia principal do veículo \\
+		Bateria \gls{LiPo} 3S & Turnigy Graphene 6000mAh, 11.1V, 75C descarga & Fonte de energia principal do veículo \\
 		\midrule
 		Caixa Diferencial HSP 1:10 & Modelo 94111/94123, relação 02051 & Transmissão diferencial para rodas traseiras \\
 		\midrule
@@ -235,7 +224,7 @@ A \autoref{tab:componentes-veiculo} apresenta os componentes embarcados no veíc
 		\midrule
 		Amortecedores RC 1:10 & Compatível Axial SCX10/TRX4, óleo ajustável & Suspensão do veículo com amortecimento ajustável \\
 		\midrule
-		Chassi FV01 & Escala 1:5 (modificada), impressão 3D em PLA, pneus de borracha & Estrutura do veículo com suspensão push rod e aerodinâmica funcional \\
+		Chassi FV01 & Escala 1:5 (modificada), impressão 3D em \gls{PLA}, pneus de borracha & Estrutura do veículo com suspensão push rod e aerodinâmica funcional \\
 		\bottomrule
 	\end{tabular}%
 }{%
@@ -250,7 +239,7 @@ O veículo utiliza o chassi FV01, um modelo de carro de Fórmula 1 projetado par
 
 O modelo apresenta características que o tornam adequado para teleoperação com feedback háptico. A suspensão push rod independente reproduz o comportamento de carros de F1 reais, permitindo detecção precisa de forças G pelo sensor BMI160. O diferencial operacional proporciona comportamento realista em curvas, enquanto a modularidade do projeto facilita manutenção e substituição de peças.
 
-A impressão das peças do chassi foi realizada utilizando o software fatiador Ultimaker Cura 5.11 \cite{ultimaker2024cura} com perfil de qualidade padrão. A \autoref{tab:config-impressao-3d} apresenta os principais parâmetros de impressão utilizados, selecionados para balancear resistência mecânica, tempo de impressão e consumo de material.
+A impressão das peças do chassi foi realizada em uma impressora Creality Ender 3 S1, equipada com extrusora direta Sprite de engrenagem dupla e nivelamento automático CR Touch de 16 pontos. A impressora possui volume de construção de 220 $\times$ 220 $\times$ 270 mm, resolução mínima de 0,05 mm e velocidade máxima de 150 mm/s, sendo compatível com diversos materiais como PLA, PETG, TPU e ABS\@. O fatiamento foi realizado utilizando o software Ultimaker Cura 5.11 \cite{ultimaker2024cura} com perfil de qualidade padrão. A \autoref{tab:config-impressao-3d} apresenta os principais parâmetros de impressão utilizados, selecionados para balancear resistência mecânica, tempo de impressão e consumo de material.
 
 \begin{table}[!h]
 \captionsetup{width=16cm}
@@ -319,7 +308,7 @@ O veículo incorpora múltiplos sensores para captura de dados em tempo real, tr
 
 \subsubsection{Câmera OV5647}
 
-A câmera OV5647 conectada via interface CSI captura vídeo em resolução 640x480 a 30 FPS. O stream de vídeo é codificado em MJPEG (Motion JPEG), onde cada frame é comprimido independentemente como imagem JPEG. Essa escolha foi motivada pela robustez contra perda de pacotes UDP: enquanto codecs como H.264 utilizam P-frames que dependem de frames anteriores (causando distorção em cascata quando há perda de pacotes), o MJPEG transmite frames independentes, limitando o impacto de perdas a um único frame. O trade-off é maior uso de banda (aproximadamente 4x mais que H.264), compensado pela qualidade de imagem consistente e simplicidade de decodificação via OpenCV.
+A câmera OV5647 conectada via interface CSI captura vídeo em resolução 640x480 a 30 \gls{FPS}. O stream de vídeo é codificado em MJPEG (Motion JPEG), onde cada frame é comprimido independentemente como imagem JPEG. Essa escolha foi motivada pela robustez contra perda de pacotes UDP: enquanto codecs como H.264 utilizam P-frames que dependem de frames anteriores (causando distorção em cascata quando há perda de pacotes), o MJPEG transmite frames independentes, limitando o impacto de perdas a um único frame. O trade-off é maior uso de banda (aproximadamente 4x mais que H.264), compensado pela qualidade de imagem consistente e simplicidade de decodificação via OpenCV.
 
 \subsubsection{Sensor IMU BMI160}
 
@@ -374,7 +363,7 @@ A direção utiliza servo MG996R no canal 2 do PCA9685, com rotação de 0° a 1
 \subsection{Proteção contra Força Eletromotriz de Retorno}
 \label{subsec:protecao-backemf-veiculo}
 
-Quando um motor DC gira, seja por acionamento elétrico ou por força mecânica externa, ele atua como gerador e produz uma tensão conhecida como força eletromotriz de retorno (\textit{back-EMF}). No contexto deste projeto, essa situação ocorre tanto no veículo (quando as rodas giram livremente com motor desligado) quanto no simulador (quando o operador gira o volante manualmente).
+Quando um motor DC gira, seja por acionamento elétrico ou por força mecânica externa, ele atua como gerador e produz uma tensão conhecida como \gls{backemf}. No contexto deste projeto, essa situação ocorre tanto no veículo (quando as rodas giram livremente com motor desligado) quanto no simulador (quando o operador gira o volante manualmente).
 
 O driver BTS7960 foi selecionado para ambos os sistemas, veículo e simulador, especificamente por possuir proteções integradas contra esse fenômeno. Conforme especificado no datasheet do fabricante \citeonline{infineon2013btn7960}, o circuito integrado BTN7960 (chip utilizado no módulo BTS7960) incorpora capacidade de \textit{active freewheeling} com frequência PWM de até 25 kHz, minimizando a dissipação de potência nos diodos integrados quando o motor opera como gerador. Além disso, o BTN7960 oferece proteção contra sobrecorrente, proteção térmica com desligamento automático em temperaturas elevadas e proteção contra curto-circuito.
 
@@ -388,7 +377,7 @@ Essa arquitetura de proteção elimina a necessidade de componentes externos adi
 \section{Arquitetura do Simulador (ESP32)}
 \label{sec:arquitetura-simulador}
 
-O ESP32 DevKit V1 com processador dual-core Xtensa LX6 a 240MHz constitui o controlador do simulador, responsável pela leitura de encoders, controle do motor de force feedback e comunicação serial com o cliente PC. A escolha do ESP32 sobre o Arduino Mega foi motivada pelo processamento superior, conforme demonstrado nos testes de latência da \autoref{subsec:evolucao-decisoes-comunicacao}.
+O ESP32 DevKit V1 com processador dual-core Xtensa LX6 a 240MHz constitui o controlador do simulador, responsável pela leitura de encoders, controle do motor de force feedback e comunicação serial com o cliente PC. A escolha do ESP32 sobre o Arduino Mega foi motivada pelo processamento superior, conforme demonstrado nos testes de latência da \autoref{subsec:evolucao-decisoes-comunicacao}. O diagrama elétrico completo das conexões do ESP32 com todos os componentes do simulador está disponível no \autoref{apendice:diagrama-esp32}.
 
 O firmware foi desenvolvido em C++ utilizando o Arduino IDE, aproveitando o framework Arduino para ESP32 que fornece abstrações para controle de GPIO, interrupções de hardware e comunicação serial. A \autoref{tab:bibliotecas-esp32} apresenta as bibliotecas utilizadas no desenvolvimento do firmware.
 
@@ -426,7 +415,7 @@ A \autoref{tab:componentes-simulador} apresenta os componentes do simulador de c
 		\midrule \midrule
 		ESP32 DevKit V1 \cite{espressif2024esp32} & Dual-core Xtensa LX6 @ 240MHz, 520KB SRAM, 4MB Flash, WiFi/Bluetooth & Controle de encoders, force feedback via BTS7960 e comunicação serial USB com cliente PC \\
 		\midrule
-		Encoder LPD3806-600BM (3x) & 600 PPR, saída A/B quadratura, 5--24V & Leitura de posição de acelerador, freio e direção \\
+		Encoder LPD3806-600BM (3x) & 600 \gls{PPR}, saída A/B \gls{quadratura}, 5--24V & Leitura de posição de acelerador, freio e direção \\
 		\midrule
 		Motor DC 775 & 24V, 12.000 RPM, controlado por BTS7960 & Geração de force feedback no volante \\
 		\midrule
@@ -437,6 +426,10 @@ A \autoref{tab:componentes-simulador} apresenta os componentes do simulador de c
 		Amortecedores RC 1:10 & Compatível Axial SCX10/TRX4, óleo ajustável & Amortecimento dos pedais de acelerador e freio \\
 		\midrule
 		Botões Push (2x) & Normalmente aberto, com resistor pull-up interno & Controle de troca de marchas (subir/descer) \\
+		\midrule
+		Fonte ATX 500W BRX & 500W bivolt manual, cooler 80mm, proteção contra curto-circuito, sobrecarga e superaquecimento & Alimentação principal do simulador \\
+		\midrule
+		Placa Breakout ATX 24 pinos & Saídas +3,3V, +5V, +12V, -12V e 5VSB, 6 portas USB 5V/2A, terminais 20A, interruptor de toque & Distribuição de energia para ESP32, encoders, motor e atuadores \\
 		\bottomrule
 	\end{tabular}%
 }{%
@@ -449,16 +442,14 @@ O volante do simulador utiliza uma réplica em escala real do volante da McLaren
 \subsection{Leitura de Encoders Rotacionais}
 \label{subsec:encoders-simulador}
 
-O simulador utiliza três encoders rotacionais LPD3806-600BM-G5-24C com resolução de 600 pulsos por revolução (PPR) e saída em quadratura (canais A e B). A leitura é realizada via interrupções de hardware nos pinos GPIO, garantindo captura precisa mesmo em rotações rápidas.
-
-O encoder de acelerador utiliza GPIO 25 (CLK) e GPIO 26 (DT) com pinos invertidos para correção de direção. O encoder de freio utiliza GPIO 27 (CLK) e GPIO 14 (DT). O encoder de direção utiliza GPIO 12 (CLK) e GPIO 13 (DT), também com pinos invertidos para correção de direção.
+O simulador utiliza três encoders rotacionais LPD3806-600BM-G5-24C com resolução de 600 pulsos por revolução (PPR) e saída em quadratura (canais A e B). A leitura é realizada via interrupções de hardware, garantindo captura precisa mesmo em rotações rápidas.
 
 Os valores dos encoders são normalizados para porcentagem (0--100\% para acelerador e freio) ou ângulo (-100\% a +100\% para direção) e transmitidos ao cliente a 100Hz via serial USB.
 
 \subsection{Controle de Marchas}
 \label{subsec:marchas-simulador}
 
-O sistema de marchas utiliza dois botões push conectados aos GPIO 32 (subir marcha) e GPIO 33 (descer marcha). A detecção é feita por polling com debounce de software, evitando acionamentos múltiplos. Eventos de troca de marcha são transmitidos ao cliente como mensagens \texttt{GEAR\_UP} e \texttt{GEAR\_DOWN}. O \autoref{alg:debounce-marchas} apresenta o algoritmo de leitura com debounce implementado.
+O sistema de marchas utiliza dois botões push para subir e descer marcha. A detecção é feita por polling com \gls{debounce} de software, evitando acionamentos múltiplos. Eventos de troca de marcha são transmitidos ao cliente como mensagens \texttt{GEAR\_UP} e \texttt{GEAR\_DOWN}. O \autoref{alg:debounce-marchas} apresenta o algoritmo de leitura com debounce implementado.
 
 \begin{algorithm}[h!]
 	\SetSpacedAlgorithm
@@ -500,7 +491,7 @@ A proteção contra back-EMF do BTS7960, descrita na \autoref{subsec:protecao-ba
 \subsection{Calibração de Encoders}
 \label{subsec:calibracao-simulador}
 
-O sistema de calibração permite ajuste dos valores mínimo, máximo e centro de cada encoder, armazenados na EEPROM do ESP32. O protocolo de calibração opera via serial:
+O sistema de calibração permite ajuste dos valores mínimo, máximo e centro de cada encoder, armazenados na \gls{EEPROM} do ESP32. O protocolo de calibração opera via serial:
 
 \begin{enumerate}
 	\item Cliente envia \texttt{CAL\_START:THROTTLE/BRAKE/STEERING}
@@ -515,7 +506,7 @@ A estrutura de dados na EEPROM utiliza magic number (\texttt{0xCAFE}) e checksum
 \subsection{Comunicação Serial USB}
 \label{subsec:serial-simulador}
 
-A comunicação com o cliente PC utiliza USB serial a 115200 baud, operando em modo full-duplex. O ESP32 transmite dados de encoders e eventos de marcha, enquanto recebe comandos de force feedback e calibração. A taxa de atualização de 100Hz (10ms) garante responsividade adequada para controle em tempo real.
+A comunicação com o cliente PC utiliza USB serial a 115200 baud, operando em modo \gls{fullduplex}. O ESP32 transmite dados de encoders e eventos de marcha, enquanto recebe comandos de force feedback e calibração. A taxa de atualização de 100Hz (10ms) garante responsividade adequada para controle em tempo real.
 
 % ============================================================================
 % ARQUITETURA DO CLIENTE (PC)
@@ -536,7 +527,7 @@ O cliente PC atua como hub central do sistema, recebendo dados do veículo via U
 tkinter & Interface gráfica nativa com suporte a widgets e canvas para vídeo \\
 opencv-python & Decodificação de frames MJPEG e aplicação de filtros de imagem \\
 numpy & Processamento numérico de dados de telemetria e operações matriciais \\
-cupy & Aceleração GPU para filtros PDI via CUDA (opcional) \\
+cupy & Aceleração GPU para filtros PDI via \gls{CUDA} (opcional) \\
 Pillow & Conversão de imagens OpenCV para formato compatível com Tkinter \\
 pyserial & Comunicação serial com ESP32 para recepção de dados do simulador \\
 socket & Comunicação UDP com Raspberry Pi para recepção de telemetria e vídeo \\
@@ -605,7 +596,7 @@ O painel de instrumentos exibe a porcentagem dentro da zona IDEAL de eficiência
 \subsection{Filtros de Processamento Digital de Imagens}
 \label{subsec:filtros-pdi}
 
-O cliente implementa um sistema de filtros de Processamento Digital de Imagens (PDI) combináveis, permitindo ao operador ativar múltiplos filtros simultaneamente via checkboxes na interface. Os filtros são aplicados em ordem otimizada para maximizar a qualidade visual do vídeo recebido do veículo.
+O cliente implementa um sistema de filtros de \gls{PDI} combináveis, permitindo ao operador ativar múltiplos filtros simultaneamente via checkboxes na interface. Os filtros são aplicados em ordem otimizada para maximizar a qualidade visual do vídeo recebido do veículo.
 
 A \autoref{tab:filtros-pdi} apresenta os filtros disponíveis no sistema, baseados em técnicas clássicas de processamento de imagens conforme \citeonline{gonzalez2010processamento}.
 
@@ -617,7 +608,7 @@ A \autoref{tab:filtros-pdi} apresenta os filtros disponíveis no sistema, basead
 \toprule
 \textbf{Filtro} & \textbf{Técnica} & \textbf{Descrição} \\
 \midrule
-Sharpen & Máscara Laplaciana 3×3 & Aguça bordas usando operador de segunda derivada \\
+Sharpen & Máscara \gls{laplaciano} 3×3 & Aguça bordas usando operador de segunda derivada \\
 Unsharp Mask & Subtração gaussiana & Realça detalhes subtraindo versão borrada da imagem \\
 High-Boost & Laplaciano ponderado & Aguçamento com preservação de baixas frequências \\
 CLAHE & Equalização adaptativa & Melhora contraste local com limite de amplificação \\
@@ -631,12 +622,12 @@ Brilho +/- & Ajuste HSV & Modifica canal V para ambientes claros/escuros \\
 }
 \end{table}
 
-O sistema suporta aceleração por GPU NVIDIA via biblioteca CuPy quando disponível, executando operações de convolução e transformações diretamente na placa de vídeo. Os filtros Sharpen, Unsharp Mask, High-Boost, Brilho e Super-Res utilizam GPU quando disponível, enquanto CLAHE e Bilateral executam em CPU devido à complexidade algorítmica. O fallback automático para CPU garante funcionamento em sistemas sem GPU dedicada.
+O sistema suporta aceleração por \gls{GPU} NVIDIA via biblioteca CuPy quando disponível, executando operações de \gls{convolucao} e transformações diretamente na placa de vídeo. Os filtros Sharpen, Unsharp Mask, High-Boost, Brilho e Super-Res utilizam GPU quando disponível, enquanto \gls{CLAHE} e Bilateral executam em \gls{CPU} devido à complexidade algorítmica. O fallback automático para CPU garante funcionamento em sistemas sem GPU dedicada.
 
 \subsection{Recepção e Processamento de Dados}
 \label{subsec:recepcao-cliente}
 
-O cliente opera threads separadas para recepção UDP (veículo) e serial (simulador), com filas thread-safe para transferência de dados à thread principal de interface. O filtro por IP garante que apenas pacotes do veículo configurado sejam processados, ignorando tráfego de rede não relacionado.
+O cliente opera threads separadas para recepção UDP (veículo) e serial (simulador), com filas \gls{threadsafe} para transferência de dados à thread principal de interface. O filtro por IP garante que apenas pacotes do veículo configurado sejam processados, ignorando tráfego de rede não relacionado.
 
 \subsection{Algoritmos de Cálculo de Force Feedback}
 \label{subsec:algoritmos-ff-cliente}
@@ -889,7 +880,7 @@ v_{final} = v(t) \times fator_{decaimento}
 \subsection{Sistema de Telemetria em Tempo Real}
 \label{subsec:telemetria-cliente}
 
-O sistema de telemetria exibe gráficos estilo Fórmula 1 em tempo real utilizando a biblioteca Matplotlib integrada ao Tkinter. Os dados são armazenados em buffers circulares (\textit{deque}) com capacidade máxima de 500 pontos, representando aproximadamente 50 segundos de histórico a 10Hz:
+O sistema de telemetria exibe gráficos estilo Fórmula 1 em tempo real utilizando a biblioteca Matplotlib integrada ao Tkinter. Os dados são armazenados em \glspl{buffercircular} (\textit{deque}) com capacidade máxima de 500 pontos, representando aproximadamente 50 segundos de histórico a 10Hz:
 
 \begin{algorithm}[h!]
 	\SetSpacedAlgorithm
@@ -925,7 +916,7 @@ O sistema de telemetria exibe gráficos estilo Fórmula 1 em tempo real utilizan
 \subsection{Sistema de Auto-Save e Exportação de Dados}
 \label{subsec:autosave-cliente}
 
-O sistema implementa salvamento automático periódico a cada 20 segundos, exportando logs, dados de sensores e telemetria em formato Pickle (binário Python), que oferece performance 5--10x superior ao CSV para serialização de estruturas de dados complexas:
+O sistema implementa salvamento automático periódico a cada 20 segundos, exportando logs, dados de sensores e telemetria em formato Pickle (binário Python), que oferece performance 5--10x superior ao CSV para \gls{serializacao} de estruturas de dados complexas:
 
 \begin{algorithm}[h!]
 	\SetSpacedAlgorithm
@@ -1087,7 +1078,7 @@ Os dados armazenados pelo sistema de auto-save permitem a extração de métrica
 		Subsistema & Métrica & Fonte de Dados & Cálculo \\
 		\midrule \midrule
 		\multirow{3}{*}{Comunicação} & Latência média & \texttt{timestamp} & Diferença entre envio e recepção \\
-		& Jitter & \texttt{timestamp} & Desvio padrão dos intervalos \\
+		& \Gls{jitter} & \texttt{timestamp} & Desvio padrão dos intervalos \\
 		& Packet loss & \texttt{logs\_*.txt} & Contagem de erros de recepção \\
 		\midrule
 		\multirow{3}{*}{Vídeo} & FPS efetivo & \texttt{telemetry\_*.pkl} & Frames por segundo médio \\
@@ -1095,7 +1086,7 @@ Os dados armazenados pelo sistema de auto-save permitem a extração de métrica
 		& Throughput & \texttt{sensors\_*.pkl} & Bytes por segundo \\
 		\midrule
 		\multirow{3}{*}{Sensores} & Taxa de amostragem & \texttt{sensors\_*.pkl} & Amostras por segundo \\
-		& Drift térmico & \texttt{temperature} & Variação ao longo do tempo \\
+		& \Gls{drifttermico} & \texttt{temperature} & Variação ao longo do tempo \\
 		& Ruído & \texttt{bmi160\_accel\_*} & Desvio padrão em repouso \\
 		\midrule
 		\multirow{3}{*}{Force Feedback} & Tempo de resposta & \texttt{timestamp} & Latência comando-atuação \\
@@ -1165,7 +1156,7 @@ As configurações de rede wireless seguem padrões reproduzíveis, especificand
 \subsection{Documentação de Configurações Ambientais}
 \label{subsec:configuracoes-ambientais}
 
-As configurações ambientais experimentais são registradas sistematicamente para garantir reprodutibilidade das condições de teste. O ambiente de rede é caracterizado através de medições de potência de sinal WiFi utilizando ferramentas como iwconfig e wavemon, documentando valores de RSSI (Received Signal Strength Indicator) em múltiplos pontos do ambiente experimental.
+As configurações ambientais experimentais são registradas sistematicamente para garantir reprodutibilidade das condições de teste. O ambiente de rede é caracterizado através de medições de potência de sinal WiFi utilizando ferramentas como iwconfig e wavemon, documentando valores de \gls{RSSI} em múltiplos pontos do ambiente experimental.
 
 As características do ambiente físico incluem dimensões precisas do local de teste (5m × 8m), materiais de construção das paredes (alvenaria com reboco), presença de obstáculos metálicos e fontes potenciais de interferência eletromagnética. O posicionamento relativo entre veículo teleoperado e estação de controle é documentado com coordenadas precisas, utilizando sistema de referência baseado em marcos físicos permanentes.
 

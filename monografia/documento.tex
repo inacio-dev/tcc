@@ -250,7 +250,7 @@
 	%\imprimirlistadequadros
 	\imprimirlistadealgoritmos{}
 	%\imprimirlistadecodigosfonte
-	%\imprimirlistadeabreviaturasesiglas
+	\imprimirlistadeabreviaturasesiglas
 	\imprimirlistadesimbolos{1-pre-textuais/lista-de-simbolos}
 	\imprimirsumario{}
 
@@ -258,22 +258,20 @@
 
 	%Elementos textuais
 	\textual{}
-	\input{2-textuais/1-introducao}
+	%\input{2-textuais/1-introducao}
 	\input{2-textuais/2-fundamentacao-teorica}
 	\input{2-textuais/3-metodologia}
-	\input{2-textuais/4-resultados}
-    \input{2-textuais/5-discussao}
-	\input{2-textuais/6-conclusao}
+	%\input{2-textuais/4-resultados}
+    %\input{2-textuais/5-discussao}
+	%\input{2-textuais/6-conclusao}
 
 	%Elementos pós-textuais
 	\bibliography{3-pos-textuais/referencias}
-        %\imprimirglossario
+    \imprimirglossario
 	\imprimirapendices
 		% Adicione aqui os apendices do seu trabalho
 		\input{3-pos-textuais/apendices/Diagrama - RPi}
-		% \input{3-pos-textuais/apendices/apendice-b}
-		% \input{3-pos-textuais/apendices/apendice-c}
-		% \input{3-pos-textuais/apendices/apendice-d}
+		\input{3-pos-textuais/apendices/Diagrama - ESP32}
 	%\imprimiranexos
 		% Adicione aqui os anexos do seu trabalho
 		% \input{3-pos-textuais/anexos/anexo-a}
