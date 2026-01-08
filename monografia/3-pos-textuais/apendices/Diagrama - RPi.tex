@@ -3,6 +3,64 @@
 
 Este apêndice apresenta o diagrama elétrico completo das conexões do Raspberry Pi 4 com os demais componentes do sistema: sensor BMI160, driver PCA9685, ADC ADS1115, sensor de corrente INA219, ponte H BTS7960 e demais periféricos. O diagrama está dividido em cinco partes para melhor visualização.
 
+\section*{Pinagem do Raspberry Pi 4}
+
+A \autoref{tab:pinagem-rpi} apresenta a pinagem completa do Raspberry Pi 4 utilizada no veículo teleoperado.
+
+\begin{table}[!h]
+\captionsetup{width=16cm}
+\Caption{\label{tab:pinagem-rpi} Mapeamento de pinos GPIO do Raspberry Pi 4 no veículo}
+\IBGEtab{}{%
+	\begin{tabular}{cccp{6cm}}
+		\toprule
+		GPIO & Componente & Sinal & Observação \\
+		\midrule \midrule
+		2 & Barramento I2C & SDA & Compartilhado: BMI160, PCA9685, ADS1115, INA219 \\
+		\midrule
+		3 & Barramento I2C & SCL & Compartilhado: BMI160, PCA9685, ADS1115, INA219 \\
+		\midrule
+		4 & DS18B20 & DATA & 1-Wire com pull-up 4,7k$\Omega$ \\
+		\midrule
+		18 & BTS7960 & RPWM & PWM motor horário \\
+		\midrule
+		27 & BTS7960 & LPWM & PWM motor anti-horário \\
+		\midrule
+		22 & BTS7960 & R\_EN & Enable lado direito \\
+		\midrule
+		23 & BTS7960 & L\_EN & Enable lado esquerdo \\
+		\midrule
+		CSI & Câmera OV5647 & Flat cable & Interface Camera Serial Interface \\
+		\bottomrule
+	\end{tabular}%
+}{%
+\Fonte{elaborado pelo autor.}%
+}
+\end{table}
+
+A \autoref{tab:enderecos-i2c-rpi} apresenta os endereços I2C dos dispositivos conectados ao barramento compartilhado.
+
+\begin{table}[!h]
+\captionsetup{width=16cm}
+\Caption{\label{tab:enderecos-i2c-rpi} Endereços I2C dos dispositivos no veículo}
+\IBGEtab{}{%
+	\begin{tabular}{ccp{8cm}}
+		\toprule
+		Endereço & Dispositivo & Função \\
+		\midrule \midrule
+		0x40 & PCA9685 & Driver PWM 16 canais para servos \\
+		\midrule
+		0x41 & INA219 & Sensor de corrente/tensão do Raspberry Pi (A0=VCC) \\
+		\midrule
+		0x48 & ADS1115 & ADC 16 bits para sensores ACS758 \\
+		\midrule
+		0x68 & BMI160 & IMU 6 eixos (acelerômetro/giroscópio) \\
+		\bottomrule
+	\end{tabular}%
+}{%
+\Fonte{elaborado pelo autor.}%
+}
+\end{table}
+
 \section*{Parte 1 - Alimentação Principal e Sensores de Corrente}
 
 Seção do diagrama mostrando a bateria LiPo Turnigy Grafeno 6000mAh 3S 150C, regulador step-down XL4015 5A, sensores de corrente ACS758 (50A e 100A) com filtros RC (1k$\Omega$ e 100nF), e conexão com a ponte H BTS7960B.

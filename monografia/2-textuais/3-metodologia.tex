@@ -1,7 +1,7 @@
 \chapter{Metodologia}
 \label{chap:metodologia}
 
-Será realizado um desenvolvimento incremental e modular de um sistema completo de \gls{teleoperacao} de um veículo de Fórmula 1 com simulador (volante e pedais), sendo o veículo controlado via protocolo \gls{UDP}. Utilizarei uma metodologia de prototipagem evolutiva, que busca o teste individual de cada componente antes da integração final. O projeto busca um objetivo semelhante ao artigo de \citeonline{shaik2025design}, conforme apresentado na fundamentação teórica.
+Será realizado um desenvolvimento incremental e modular de um sistema completo de \gls{teleoperacao} de um veículo de Fórmula 1 com simulador (volante e pedais), sendo o veículo controlado via protocolo \gls{UDP}. A metodologia adotada é a prototipagem evolutiva, que busca o teste individual de cada componente antes da integração final. O projeto busca um objetivo semelhante ao artigo de \citeonline{shaik2025design}, conforme apresentado na fundamentação teórica.
 
 O projeto seguirá uma arquitetura de três camadas. A primeira corresponde ao veículo teleoperado, tendo como elemento principal o Raspberry Pi 4, responsável por receber mensagens de controle via UDP e enviar mensagens de vídeo e status de sensores. A segunda camada é o cliente (PC), que receberá as mensagens do veículo, exibirá a interface de telemetria e encaminhará as mensagens de controle oriundas do simulador para o veículo. A terceira camada é o simulador baseado em ESP32, composto por volante com \gls{encoder}, pedais de acelerador e freio, e botões de troca de marcha, responsável por capturar os comandos do usuário e transmiti-los ao cliente via comunicação serial \gls{USB}. A integração de múltiplos sensores segue a abordagem de \citeonline{bobrovsky2023development}, visando um bom resultado de feedback ao usuário. A \autoref{fig:arquitetura-projeto} apresenta o diagrama da arquitetura proposta.
 
@@ -67,7 +67,7 @@ A análise comparativa dos testes, sumarizada na \autoref{tab:comparativo-comuni
 		\midrule
 		ESP-NOW (ESP32) & Similar ao WiFi & 50m & Custo elevado, alcance limitado \\
 		\midrule
-		\textbf{RPi 4 embarcado + UDP} & \textbf{1ms} & \textbf{WiFi local} & \textbf{Solução adotada} \\
+		\textbf{RPi 4 embarcado + UDP} & \textbf{$\sim$2ms} & \textbf{WiFi local} & \textbf{Solução adotada} \\
 		\bottomrule
 	\end{tabular}%
 }{%
@@ -141,7 +141,7 @@ A \autoref{tab:alcance-wifi-pistas} apresenta a análise de viabilidade de cober
 
 Para pistas de até 600 m (equivalente a circuitos compactos como Mônaco), um roteador WiFi comercial de alta potência (20 dBm) posicionado centralmente oferece cobertura adequada em ambiente aberto. Para pistas maiores, a implementação de redes mesh com múltiplos access points permite extensão do alcance, adicionando aproximadamente 2 ms de latência por salto entre nós da rede. Alternativamente, redes 5G oferecem cobertura ampla com latência potencialmente inferior, porém com maior custo de infraestrutura e dependência de operadoras.
 
-O projeto atual foi validado em ambiente de teste com dimensões de 40 m $\times$ 80 m, suficiente para circuitos de kart em escala 1:5. A extensão para pistas maiores requer planejamento de infraestrutura de rede conforme as dimensões do circuito desejado.
+O projeto atual foi validado em ambiente de teste com dimensões de 5 m $\times$ 8 m, suficiente para testes controlados em ambiente interno. A extensão para pistas maiores requer planejamento de infraestrutura de rede conforme as dimensões do circuito desejado.
 
 % ============================================================================
 % ARQUITETURA DO VEÍCULO (RASPBERRY PI 4)
@@ -190,11 +190,11 @@ A \autoref{tab:componentes-veiculo} apresenta os componentes embarcados no veíc
 		\midrule \midrule
 		Raspberry Pi 4 Model B & Broadcom BCM2711, Quad core Cortex-A72 64-bit @ 1.8GHz, 8GB RAM & Núcleo de controle e comunicação do veículo, servidor UDP, processamento de vídeo e controle de sensores \\
 		\midrule
-		Câmera OV5647 & 5MP, 2592×1944 pixels, vídeo 1080p/30fps, interface CSI & Captura de vídeo em tempo real para transmissão via UDP \\
+		Câmera OV5647 & 5MP, 2592×1944 pixels, vídeo até 1080p/30fps, interface CSI & Captura de vídeo em 640×480/30fps para transmissão via UDP \\
 		\midrule
 		Sensor BMI160 \cite{bosch2015bmi160} & \gls{IMU} 6 eixos, ±4g/±500°/s, 16 bits, I2C, 100Hz sampling & Detecção de \glspl{forcag}, aceleração e velocidade angular para force feedback \\
 		\midrule
-		Motor RC 775 & 24V, 12.000 RPM, com transmissão manual de 5 marchas & Propulsão principal do veículo com zonas de eficiência F1 \\
+		Motor DC 775 & 24V, 12.000 RPM, com transmissão manual de 5 marchas & Propulsão principal do veículo com zonas de eficiência F1 \\
 		\midrule
 		Ponte H BTS7960 \cite{infineon2013btn7960} & 5.5--27Vdc, corrente contínua 40A, proteção térmica integrada & Controle bidirecional de velocidade do motor de propulsão \\
 		\midrule
@@ -321,11 +321,11 @@ O sistema de monitoramento de energia utiliza sensores ACS758 (50A e 100A) conec
 \subsection{Controle de Propulsão e Direção}
 \label{subsec:propulsao-direcao-veiculo}
 
-O sistema de propulsão utiliza motor RC 775 de 24V controlado por ponte H BTS7960, enquanto direção e freios são acionados por servos MG996R através do driver PWM PCA9685 (endereço \texttt{0x40}).
+O sistema de propulsão utiliza motor DC 775 de 24V controlado por ponte H BTS7960, enquanto direção e freios são acionados por servos MG996R através do driver PWM PCA9685 (endereço \texttt{0x40}).
 
 \subsubsection{Motor de Propulsão}
 
-O motor RC 775 opera com transmissão manual de 5 marchas, simulando comportamento de veículo real. O controle de velocidade é realizado via PWM através do driver BTS7960. O sistema implementa zonas de eficiência inspiradas em veículos de Fórmula 1, onde cada marcha possui uma faixa ideal de operação em termos de PWM do motor. Operar fora dessa faixa resulta em penalização na taxa de aceleração, calculada conforme a equação:
+O motor DC 775 opera com transmissão manual de 5 marchas, simulando comportamento de veículo real. O controle de velocidade é realizado via PWM através do driver BTS7960. O sistema implementa zonas de eficiência inspiradas em veículos de Fórmula 1, onde cada marcha possui uma faixa ideal de operação em termos de PWM do motor. Operar fora dessa faixa resulta em penalização na taxa de aceleração, calculada conforme a equação:
 
 \begin{equation}
 \label{eq:taxa-aceleracao}
@@ -370,6 +370,17 @@ O driver BTS7960 foi selecionado para ambos os sistemas, veículo e simulador, e
 No veículo, uma proteção mecânica adicional foi implementada através de rolamento unidirecional no eixo de transmissão. Esse componente permite que as rodas girem livremente sem transmitir rotação reversa ao motor, reduzindo a geração de back-EMF quando o veículo está em movimento com motor desligado. No simulador, essa proteção mecânica não é aplicável porque o motor de force feedback necessita operar em ambas as direções para simular resistência no volante, dependendo exclusivamente das proteções eletrônicas do BTS7960.
 
 Essa arquitetura de proteção elimina a necessidade de componentes externos adicionais, como diodos flyback ou capacitores de supressão de transientes, simplificando o projeto eletrônico e aumentando a confiabilidade do sistema.
+
+\subsection{Arquitetura Multi-Thread}
+\label{subsec:multithread-veiculo}
+
+O software embarcado no Raspberry Pi foi refatorado de uma arquitetura sequencial para uma arquitetura multi-thread, permitindo que cada subsistema opere de forma independente e em sua taxa ideal de amostragem. Na arquitetura sequencial original, o loop principal executava todas as operações em sequência (captura de frame, leitura de sensores, transmissão de dados), resultando em latência acumulada onde o componente mais lento limitava todo o sistema.
+
+A arquitetura multi-thread implementada utiliza cinco threads principais: a thread de câmera opera a 30Hz para captura de frames da OV5647; a thread de sensores opera a 100Hz para leitura do BMI160 e envio direto pela porta UDP 9997; a thread de energia opera a 10Hz para monitoramento via ADS1115 e INA219; a thread de temperatura opera a 1Hz para leitura do DS18B20; e a thread de transmissão principal verifica dados a 120Hz, consolidando e enviando pacotes pela porta 9999 quando há novos frames disponíveis (efetivamente 30Hz). Essa separação permite que a captura de vídeo não atrase a leitura de sensores e vice-versa, reduzindo a latência de sensores de aproximadamente 33ms (espera por frame) para aproximadamente 10ms (envio direto pela porta dedicada).
+
+A comunicação entre threads utiliza filas \gls{threadsafe} (classe \texttt{Queue} do Python) para transferência de dados e locks (\texttt{threading.Lock}) para proteção de variáveis compartilhadas. Cada gerenciador de componente implementa seu próprio lock interno para garantir acesso seguro em ambiente concorrente. A thread de transmissão consolida os dados mais recentes de todas as threads de aquisição antes de cada envio, garantindo pacotes com informações sincronizadas.
+
+O tratamento de erros é isolado por thread, onde exceções em um subsistema não afetam os demais. Cada thread implementa tratamento de exceção com logging e continuação de execução, evitando que falhas temporárias (como timeout de I2C) interrompam todo o sistema. O shutdown coordenado define uma flag de parada, aguarda cada thread finalizar com timeout de 2 segundos, para componentes na ordem inversa de dependência e libera recursos de GPIO, I2C e sockets.
 
 % ============================================================================
 % ARQUITETURA DO SIMULADOR (ESP32)
@@ -420,8 +431,6 @@ A \autoref{tab:componentes-simulador} apresenta os componentes do simulador de c
 		Motor DC 775 & 24V, 12.000 RPM, controlado por BTS7960 & Geração de force feedback no volante \\
 		\midrule
 		Ponte H BTS7960 \cite{infineon2013btn7960} & 5.5--27Vdc, corrente contínua 40A, proteção térmica integrada & Controle bidirecional do motor de force feedback \\
-		\midrule
-		Atuadores Lineares DC & 12V, força 1000N, curso 250mm, velocidade 14mm/s & Simulação de movimentos da pista e força G \\
 		\midrule
 		Amortecedores RC 1:10 & Compatível Axial SCX10/TRX4, óleo ajustável & Amortecimento dos pedais de acelerador e freio \\
 		\midrule
@@ -491,17 +500,19 @@ A proteção contra back-EMF do BTS7960, descrita na \autoref{subsec:protecao-ba
 \subsection{Calibração de Encoders}
 \label{subsec:calibracao-simulador}
 
-O sistema de calibração permite ajuste dos valores mínimo, máximo e centro de cada encoder, armazenados na \gls{EEPROM} do ESP32. O protocolo de calibração opera via serial:
+A calibração dos encoders é necessária porque cada unidade pode apresentar variações de fábrica nos valores de contagem, e a montagem física no simulador pode resultar em posições de repouso diferentes das esperadas. O processo de calibração determina os limites operacionais de cada controle (valor mínimo quando totalmente solto, valor máximo quando totalmente pressionado) e, no caso da direção, o ponto central correspondente ao volante reto.
+
+Os valores calibrados são armazenados na \gls{EEPROM} do ESP32, uma memória não volátil que preserva os dados mesmo quando o dispositivo é desligado, eliminando a necessidade de recalibração a cada inicialização. O protocolo de calibração opera via comunicação serial entre o cliente PC e o ESP32:
 
 \begin{enumerate}
-	\item Cliente envia \texttt{CAL\_START:THROTTLE/BRAKE/STEERING}
-	\item ESP32 transmite valores brutos a 100Hz: \texttt{CAL\_THROTTLE:<valor>}
-	\item Operador move o controle para posições extremas
-	\item Cliente envia valores calibrados: \texttt{CAL\_SAVE:THROTTLE:min:max}
-	\item ESP32 confirma: \texttt{CAL\_COMPLETE:THROTTLE}
+	\item O cliente PC envia comando de início especificando o controle: \texttt{CAL\_START:THROTTLE}, \texttt{CAL\_START:BRAKE} ou \texttt{CAL\_START:STEERING}
+	\item O ESP32 entra em modo de calibração e transmite os valores brutos do encoder a 100Hz (exemplo: \texttt{CAL\_THROTTLE:2847}), permitindo que o cliente exiba a leitura em tempo real
+	\item O operador move fisicamente o controle para suas posições extremas (pedal totalmente solto e totalmente pressionado, ou volante totalmente à esquerda e à direita), enquanto o cliente registra os valores mínimo e máximo observados
+	\item O cliente envia os valores calibrados para armazenamento: \texttt{CAL\_SAVE:THROTTLE:min:max} para controles unipolares (acelerador e freio) ou \texttt{CAL\_SAVE:STEERING:left:center:right} para controle bipolar (direção)
+	\item O ESP32 armazena os valores na EEPROM e confirma o sucesso da operação: \texttt{CAL\_COMPLETE:THROTTLE}
 \end{enumerate}
 
-A estrutura de dados na EEPROM utiliza magic number (\texttt{0xCAFE}) e checksum para validação de integridade, com endereços separados para cada encoder (16 bytes cada).
+A estrutura de dados na EEPROM utiliza mecanismos de validação para detectar corrupção de dados ou ausência de calibração prévia. O magic number (\texttt{0xCAFE}) é um valor fixo gravado junto aos dados de calibração; se esse valor não for encontrado durante a leitura, o sistema identifica que a EEPROM não contém calibração válida e utiliza valores padrão. O checksum é uma soma de verificação calculada sobre os dados armazenados; caso o valor lido não corresponda ao checksum esperado, indica-se corrupção dos dados. Cada encoder possui área reservada de 16 bytes na EEPROM (endereços 0, 16 e 32 para acelerador, freio e direção, respectivamente), totalizando 48 bytes de armazenamento persistente.
 
 \subsection{Comunicação Serial USB}
 \label{subsec:serial-simulador}
@@ -604,17 +615,17 @@ A \autoref{tab:filtros-pdi} apresenta os filtros disponíveis no sistema, basead
 \captionsetup{width=16cm}
 \Caption{\label{tab:filtros-pdi} Filtros de processamento digital de imagens disponíveis no cliente}
 \IBGEtab{}{
-\begin{tabular}{p{3cm}p{4cm}p{7cm}}
+\begin{tabular}{p{2.5cm}p{3.5cm}p{6.5cm}c}
 \toprule
-\textbf{Filtro} & \textbf{Técnica} & \textbf{Descrição} \\
+\textbf{Filtro} & \textbf{Técnica} & \textbf{Descrição} & \textbf{GPU} \\
 \midrule
-Sharpen & Máscara \gls{laplaciano} 3×3 & Aguça bordas usando operador de segunda derivada \\
-Unsharp Mask & Subtração gaussiana & Realça detalhes subtraindo versão borrada da imagem \\
-High-Boost & Laplaciano ponderado & Aguçamento com preservação de baixas frequências \\
-CLAHE & Equalização adaptativa & Melhora contraste local com limite de amplificação \\
-Bilateral & Filtragem bilateral & Suaviza ruído preservando bordas \\
-Super-Res 2x & Supersampling & Anti-aliasing via upscale/downscale Lanczos \\
-Brilho +/- & Ajuste HSV & Modifica canal V para ambientes claros/escuros \\
+Sharpen & Máscara \gls{laplaciano} 3×3 & Aguça bordas usando operador de segunda derivada & Sim \\
+Unsharp Mask & Subtração gaussiana & Realça detalhes subtraindo versão borrada da imagem & Sim \\
+High-Boost & Laplaciano ponderado & Aguçamento com preservação de baixas frequências & Sim \\
+CLAHE & Equalização adaptativa & Melhora contraste local com limite de amplificação & Não \\
+Bilateral & Filtragem bilateral & Suaviza ruído preservando bordas & Não \\
+Super-Res 2x & Supersampling & Anti-aliasing via upscale/downscale Lanczos & Sim \\
+Brilho +/- & Ajuste HSV & Modifica canal V para ambientes claros/escuros & Sim \\
 \bottomrule
 \end{tabular}
 }{
@@ -622,12 +633,18 @@ Brilho +/- & Ajuste HSV & Modifica canal V para ambientes claros/escuros \\
 }
 \end{table}
 
-O sistema suporta aceleração por \gls{GPU} NVIDIA via biblioteca CuPy quando disponível, executando operações de \gls{convolucao} e transformações diretamente na placa de vídeo. Os filtros Sharpen, Unsharp Mask, High-Boost, Brilho e Super-Res utilizam GPU quando disponível, enquanto \gls{CLAHE} e Bilateral executam em \gls{CPU} devido à complexidade algorítmica. O fallback automático para CPU garante funcionamento em sistemas sem GPU dedicada.
+O sistema suporta aceleração por \gls{GPU} NVIDIA via biblioteca CuPy quando disponível, executando operações de \gls{convolucao} e transformações diretamente na placa de vídeo. Os filtros \gls{CLAHE} e Bilateral executam exclusivamente em \gls{CPU} devido à complexidade algorítmica que dificulta paralelização eficiente. O fallback automático para CPU garante funcionamento em sistemas sem GPU dedicada.
 
-\subsection{Recepção e Processamento de Dados}
+\subsection{Arquitetura Multi-Thread e Recepção de Dados}
 \label{subsec:recepcao-cliente}
 
-O cliente opera threads separadas para recepção UDP (veículo) e serial (simulador), com filas \gls{threadsafe} para transferência de dados à thread principal de interface. O filtro por IP garante que apenas pacotes do veículo configurado sejam processados, ignorando tráfego de rede não relacionado.
+O cliente PC implementa uma arquitetura multi-thread para garantir processamento paralelo e responsividade da interface gráfica. A separação em threads especializadas permite que operações de I/O (rede e serial) não bloqueiem a renderização de vídeo ou a atualização da interface.
+
+A thread principal executa o loop de eventos do Tkinter, responsável pela renderização da interface gráfica e atualização dos widgets em tempo real. A thread de rede opera como daemon e recebe pacotes UDP do veículo na porta 9999, decodificando frames MJPEG e dados de telemetria consolidados a aproximadamente 30Hz. A thread serial recebe dados dos encoders do simulador via USB a 100Hz, processando comandos de acelerador, freio, direção e troca de marchas. Adicionalmente, uma thread de sensores rápidos recebe exclusivamente dados do BMI160 na porta UDP 9997 a 100Hz, permitindo cálculo de force feedback com baixa latência.
+
+A comunicação entre threads utiliza filas \gls{threadsafe} (\texttt{queue.Queue}) para transferência de dados à thread principal. Filas separadas são mantidas para logs, status de conexão, dados de sensores e frames de vídeo. A thread principal consome essas filas periodicamente via callbacks do Tkinter (\texttt{root.after()}), garantindo que atualizações de interface ocorram apenas na thread principal conforme exigido pelo toolkit gráfico.
+
+O filtro por IP garante que apenas pacotes do veículo configurado sejam processados, ignorando tráfego de rede não relacionado. Essa arquitetura permite que o cliente mantenha taxa de atualização de interface de 30Hz para vídeo, 100Hz para dados de sensores e resposta imediata a comandos do operador, mesmo durante picos de processamento de filtros de imagem ou cálculos de force feedback.
 
 \subsection{Algoritmos de Cálculo de Force Feedback}
 \label{subsec:algoritmos-ff-cliente}
@@ -647,159 +664,60 @@ G_{frontal} = \frac{acelera\text{ç}\tilde{a}o_{linear\_X}}{9.81}
 
 \begin{equation}
 \label{eq:forca-g-lateral-cliente}
-G_{lateral} = \frac{velocidade_{angular\_Z} \times velocidade_{linear}}{9.81}
+G_{lateral} = \frac{acelera\text{ç}\tilde{a}o_{linear\_Y}}{9.81}
 \end{equation}
 
 \subsubsection{Algoritmos de Controle de Force Feedback}
-\label{sec:algoritmos-force-feedback}
+\label{subsubsec:algoritmos-force-feedback}
 
-Serão acumulados vários dados sobre os sensores para analisar todos os valores e assim descobrir os padrões para controle háptico dos atuadores; dessa forma, posso calibrar de forma mais parecida possível com o ambiente real. O giroscópio me permite calcular tanto a aceleração do veículo para os impulsos de força G lateral e frontal quanto calcular a posição do assoalho com relação à suspensão e emitir as vibrações do veículo, como segue de exemplo no artigo de \citeonline{dreger2024evaluation}, que investigaram diferentes designs de feedback para orientação em sistemas controlados por humanos, demonstrando que feedback em tempo real pode melhorar significativamente a precisão do operador sobre diferentes designs de feedback para orientação.
+O sistema utiliza os dados de aceleração linear do sensor BMI160 para calcular as forças G experimentadas pelo veículo. O acelerômetro fornece diretamente os valores de aceleração nos três eixos, permitindo cálculo preciso das forças G frontal (eixo X) e lateral (eixo Y). Essa abordagem segue o trabalho de \citeonline{dreger2024evaluation}, que demonstraram que feedback em tempo real melhora significativamente a precisão do operador.
 
-O algoritmo para cálculo das forças G considera os valores de aceleração linear e velocidade angular obtidos do sensor BMI160, aplicando normalização por G para obter valores em força gravitacional:
+O \autoref{alg:calcular-forcas-g} apresenta a implementação do cálculo de forças G. A \autoref{fig:ff-forcas-g} ilustra graficamente a relação entre aceleração e força G calculada.
+
+\begin{figure}[h!]
+	\centering
+	\includegraphics[width=0.95\linewidth]{figuras/ff_charts/ff_forcas_g.png}
+	\Caption{\label{fig:ff-forcas-g} Cálculo das forças G frontal e lateral a partir dos dados do acelerômetro}
+\end{figure}
 
 \begin{algorithm}[h!]
 	\SetSpacedAlgorithm
 	\caption{\label{alg:calcular-forcas-g}Cálculo das forças G}
-	\Entrada{accel\_x, gyro\_z, velocidade}
-	\Saida{g\_frontal, g\_lateral}
+	\Entrada{accel\_x, accel\_y, accel\_z}
+	\Saida{g\_frontal, g\_lateral, g\_vertical}
 	\Inicio{
-		// Leitura dos sensores\;
+		// Leitura dos sensores (valores em m/s²)\;
 		accel\_x $\leftarrow$ ler\_acelerometro\_x()\;
-		gyro\_z $\leftarrow$ ler\_giroscopio\_z()\;
+		accel\_y $\leftarrow$ ler\_acelerometro\_y()\;
+		accel\_z $\leftarrow$ ler\_acelerometro\_z()\;
 		// Cálculo das forças G\;
 		g\_frontal $\leftarrow$ accel\_x / 9.81\;
-		g\_lateral $\leftarrow$ (gyro\_z $\times$ velocidade) / 9.81\;
-		// Limitação de segurança\;
-		\Se{g\_frontal > 2.0}{g\_frontal $\leftarrow$ 2.0\;}
-		\Se{g\_lateral > 1.5}{g\_lateral $\leftarrow$ 1.5\;}
+		g\_lateral $\leftarrow$ accel\_y / 9.81\;
+		g\_vertical $\leftarrow$ (accel\_z - 9.81) / 9.81\;
 	}
 \end{algorithm}
 
-\subsubsection{Detecção de Vibrações}
+\subsubsection{Componentes do Force Feedback da Direção}
 
-Inclinações são movimentos lentos; vibrações são variações rápidas no sinal. Filtros temporais são utilizados onde médias de janelas pequenas capturam inclinações, e diferenças entre amostras capturam vibrações:
+O sistema de force feedback da direção combina três componentes principais, conforme ilustrado na \autoref{fig:ff-componentes}: força lateral (curvas), rotação yaw e mola de centralização. A força base é calculada como a soma dos três componentes, limitada a 100\%.
 
-\begin{algorithm}[h!]
-	\SetSpacedAlgorithm
-	\caption{\label{alg:detectar-vibracoes}Detecção de vibrações}
-	\Entrada{buffer\_accel[10]}
-	\Saida{media\_lenta, variacao\_rapida}
-	\Inicio{
-		// Calcular média (inclinação)\;
-		media\_lenta $\leftarrow$ 0\;
-		\Para{i de 0 até 9}{
-			media\_lenta $\leftarrow$ media\_lenta + buffer\_accel[i]\;
-		}
-		media\_lenta $\leftarrow$ media\_lenta / 10\;
-		// Calcular variação (vibração)\;
-		variacao\_rapida $\leftarrow$ abs(buffer\_accel[9] - buffer\_accel[8])\;
-		escreva("Inclinação: ", media\_lenta)\;
-		escreva("Vibração: ", variacao\_rapida)\;
-	}
-\end{algorithm}
+\begin{figure}[h!]
+	\centering
+	\includegraphics[width=\linewidth]{figuras/ff_charts/ff_componentes.png}
+	\Caption{\label{fig:ff-componentes} Componentes do force feedback da direção: lateral, yaw e centralização}
+\end{figure}
 
-\subsubsection{Controle dos Atuadores}
+O componente lateral representa a força experimentada pelo volante durante curvas, proporcional à força G lateral. O componente yaw captura a rotação do veículo em torno do eixo vertical, detectada pelo giroscópio. O componente de centralização simula a mola de retorno do sistema de direção, aplicando força proporcional ao ângulo de esterçamento para retornar o volante à posição central.
 
-O mapeamento linear multiplica força G por ganho e soma ao centro PWM (127) para posição neutra:
+A \autoref{fig:ff-cenarios} apresenta a contribuição de cada componente em cenários típicos de condução, desde reta em velocidade constante até curvas no limite de aderência.
 
-\begin{equation}
-\label{eq:pwm-saida}
-PWM_{saida} = PWM_{centro} + (For\text{ç}a_G \times Ganho_{calibra\text{ç}\tilde{a}o})
-\end{equation}
+\begin{figure}[h!]
+	\centering
+	\includegraphics[width=0.9\linewidth]{figuras/ff_charts/ff_cenarios.png}
+	\Caption{\label{fig:ff-cenarios} Contribuição dos componentes de force feedback por cenário de condução}
+\end{figure}
 
-\begin{algorithm}[h!]
-	\SetSpacedAlgorithm
-	\caption{\label{alg:controlar-atuadores}Controle dos atuadores}
-	\Entrada{g\_frontal, g\_lateral}
-	\Saida{pwm\_frontal, pwm\_lateral}
-	\Inicio{
-		PWM\_CENTRO $\leftarrow$ 127\;
-		GANHO $\leftarrow$ 80\;
-		// Conversão G para PWM\;
-		pwm\_frontal $\leftarrow$ PWM\_CENTRO + (g\_frontal $\times$ GANHO)\;
-		pwm\_lateral $\leftarrow$ PWM\_CENTRO + (g\_lateral $\times$ GANHO)\;
-		// Limitação PWM (0--255)\;
-		\Se{pwm\_frontal > 255}{pwm\_frontal $\leftarrow$ 255\;}
-		\Se{pwm\_frontal < 0}{pwm\_frontal $\leftarrow$ 0\;}
-		// Envio para atuadores\;
-		enviar\_pwm\_atuador(pwm\_frontal)\;
-	}
-\end{algorithm}
-
-\subsubsection{Suavização de Movimento}
-
-Para evitar movimentos bruscos, aplica-se transição gradual implementando resposta de primeira ordem para transições graduais:
-
-\begin{equation}
-\label{eq:suavizacao}
-PWM_{atual} = PWM_{atual} + (PWM_{target} - PWM_{atual}) \times Taxa_{suaviza\text{ç}\tilde{a}o}
-\end{equation}
-
-\begin{algorithm}[h!]
-	\SetSpacedAlgorithm
-	\caption{\label{alg:suavizar-movimento}Suavização de movimento}
-	\Entrada{pwm\_target, pwm\_atual}
-	\Saida{pwm\_atual atualizado}
-	\Inicio{
-		TAXA\_SUAVE $\leftarrow$ 0.3\;
-		// Transição suave em direção ao valor target\;
-		pwm\_atual $\leftarrow$ pwm\_atual + ((pwm\_target - pwm\_atual) $\times$ TAXA\_SUAVE)\;
-		enviar\_pwm\_atuador(pwm\_atual)\;
-	}
-\end{algorithm}
-
-\subsubsection{Geração de Vibrações}
-
-Vibração senoidal modulada pela intensidade detectada gera vibrações realistas usando função seno com frequência típica de 25Hz:
-
-\begin{equation}
-\label{eq:vibracao}
-Vibra\text{ç}\tilde{a}o = Amplitude \times \sin(2\pi \times Frequ\hat{e}ncia \times Tempo)
-\end{equation}
-
-\begin{algorithm}[h!]
-	\SetSpacedAlgorithm
-	\caption{\label{alg:gerar-vibracao}Geração de vibrações}
-	\Entrada{intensidade}
-	\Saida{vibracao aplicada}
-	\Inicio{
-		FREQ\_VIB $\leftarrow$ 25\;
-		LIMIAR $\leftarrow$ 0.1\;
-		\Se{intensidade > LIMIAR}{
-			amplitude $\leftarrow$ intensidade $\times$ 200\;
-			tempo $\leftarrow$ obter\_tempo\_segundos()\;
-			vibracao $\leftarrow$ amplitude $\times$ seno(2 $\times$ 3.14159 $\times$ FREQ\_VIB $\times$ tempo)\;
-			pwm\_atual $\leftarrow$ pwm\_atual + vibracao\;
-		}
-	}
-\end{algorithm}
-
-\subsubsection{Calibração Automática de Ganhos}
-
-Ajuste automático dos ganhos baseado na atividade detectada. A calibração adaptativa monitora atividade média e ajusta ganhos automaticamente para manter resposta adequada:
-
-\begin{algorithm}[h!]
-	\SetSpacedAlgorithm
-	\caption{\label{alg:calibracao-auto}Calibração automática}
-	\Entrada{media\_atividade}
-	\Saida{GANHO ajustado}
-	\Inicio{
-		GANHO $\leftarrow$ 80\;
-		// Análise da atividade média\;
-		\Se{media\_atividade > 0.5}{
-			GANHO $\leftarrow$ GANHO $\times$ 0.8\;
-			escreva("Reduzindo sensibilidade")\;
-		}
-		\SenaoSe{media\_atividade < 0.1}{
-			GANHO $\leftarrow$ GANHO $\times$ 1.2\;
-			escreva("Aumentando sensibilidade")\;
-		}
-	}
-\end{algorithm}
-
-\subsubsection{Algoritmo Completo de Force Feedback da Direção}
-
-O sistema de force feedback da direção combina três componentes principais: força lateral (curvas), rotação yaw e mola de centralização. O algoritmo é executado no cliente PC e envia comandos para o motor DC 775 do simulador via ESP32:
+O algoritmo é executado no cliente PC e envia comandos para o motor DC 775 do simulador via ESP32:
 
 \begin{algorithm}[h!]
 	\SetSpacedAlgorithm
@@ -833,9 +751,38 @@ O sistema de force feedback da direção combina três componentes principais: f
 	}
 \end{algorithm}
 
+\subsubsection{Parâmetros Ajustáveis de Force Feedback}
+
+O sistema permite ajuste em tempo real de quatro parâmetros que modificam a resposta do force feedback, conforme ilustrado na \autoref{fig:ff-parametros}. A sensibilidade (padrão 75\%) escala a intensidade geral da força. A fricção (padrão 30\%) adiciona resistência proporcional à velocidade angular do veículo, simulando o atrito dos pneus. O filtro (padrão 40\%) aplica suavização exponencial para eliminar oscilações de alta frequência. O damping (padrão 50\%) implementa média móvel para simular inércia mecânica do sistema de direção.
+
+\begin{figure}[h!]
+	\centering
+	\includegraphics[width=\linewidth]{figuras/ff_charts/ff_parametros.png}
+	\Caption{\label{fig:ff-parametros} Efeito dos parâmetros ajustáveis no force feedback}
+\end{figure}
+
+\subsubsection{Determinação da Direção do Force Feedback}
+
+A direção do force feedback é calculada combinando três componentes direcionais: centralização (força contrária ao ângulo de esterçamento), força lateral (proporcional à força G) e rotação yaw (velocidade angular). O valor resultante determina se a força será aplicada para esquerda, direita ou neutro, conforme ilustrado na \autoref{fig:ff-direcao}.
+
+\begin{figure}[h!]
+	\centering
+	\includegraphics[width=\linewidth]{figuras/ff_charts/ff_direcao.png}
+	\Caption{\label{fig:ff-direcao} Cálculo da direção do force feedback e mapa de zonas}
+\end{figure}
+
+\subsubsection{Mapeamento PWM do Motor}
+
+O comando de intensidade calculado (0-100\%) é transmitido via USB serial para o ESP32, que converte o valor para ciclo de trabalho PWM de 8 bits (0-255) através de mapeamento linear. A ponte H BTS7960 recebe o sinal PWM e aciona o motor DC 775 na direção correspondente.
+
+\begin{equation}
+\label{eq:pwm-saida}
+PWM = \frac{intensidade \times 255}{100}
+\end{equation}
+
 \subsubsection{Cálculo de Velocidade por Integração}
 
-A velocidade do veículo é estimada através da integração numérica da aceleração medida pelo sensor BMI160. Um fator de decaimento é aplicado para simular atrito e resistência do ar:
+A velocidade do veículo é estimada através da integração numérica da aceleração medida pelo sensor BMI160. Um fator de decaimento é aplicado para simular atrito e resistência do ar, conforme ilustrado na \autoref{fig:ff-velocidade}:
 
 \begin{equation}
 \label{eq:velocidade-integracao}
@@ -847,15 +794,21 @@ v(t) = v(t-1) + a \times \Delta t
 v_{final} = v(t) \times fator_{decaimento}
 \end{equation}
 
+\begin{figure}[h!]
+	\centering
+	\includegraphics[width=\linewidth]{figuras/ff_charts/ff_velocidade.png}
+	\Caption{\label{fig:ff-velocidade} Processo de integração de aceleração para estimativa de velocidade}
+\end{figure}
+
 \begin{algorithm}[h!]
 	\SetSpacedAlgorithm
 	\caption{\label{alg:calcular-velocidade}Cálculo de velocidade por integração}
 	\Entrada{accel\_x, accel\_y, tempo\_atual}
 	\Saida{velocidade\_total\_kmh}
 	\Inicio{
-		LIMIAR\_ACCEL $\leftarrow$ 0.1\;
-		FATOR\_DECAIMENTO $\leftarrow$ 0.995\;
-		LIMIAR\_VELOCIDADE $\leftarrow$ 0.01\;
+		LIMIAR\_ACCEL $\leftarrow$ 0.3\;
+		FATOR\_DECAIMENTO $\leftarrow$ 0.98\;
+		LIMIAR\_VELOCIDADE $\leftarrow$ 0.1\;
 		// Calcula delta time\;
 		dt $\leftarrow$ tempo\_atual - tempo\_anterior\;
 		tempo\_anterior $\leftarrow$ tempo\_atual\;
@@ -880,7 +833,7 @@ v_{final} = v(t) \times fator_{decaimento}
 \subsection{Sistema de Telemetria em Tempo Real}
 \label{subsec:telemetria-cliente}
 
-O sistema de telemetria exibe gráficos estilo Fórmula 1 em tempo real utilizando a biblioteca Matplotlib integrada ao Tkinter. Os dados são armazenados em \glspl{buffercircular} (\textit{deque}) com capacidade máxima de 500 pontos, representando aproximadamente 50 segundos de histórico a 10Hz:
+O sistema de telemetria exibe gráficos em tempo real com visual inspirado nas interfaces de engenharia de equipes de Fórmula 1, utilizando a biblioteca Matplotlib integrada ao framework gráfico Tkinter. Os dados de sensores são armazenados em \glspl{buffercircular} implementados com estruturas \textit{deque} do Python, com capacidade máxima de 500 pontos. Essa capacidade representa aproximadamente 50 segundos de histórico considerando a taxa de atualização de 10Hz, permitindo ao operador visualizar tendências recentes sem consumo excessivo de memória. O \autoref{alg:atualizar-telemetria} apresenta o processo de atualização dos gráficos.
 
 \begin{algorithm}[h!]
 	\SetSpacedAlgorithm
@@ -916,7 +869,7 @@ O sistema de telemetria exibe gráficos estilo Fórmula 1 em tempo real utilizan
 \subsection{Sistema de Auto-Save e Exportação de Dados}
 \label{subsec:autosave-cliente}
 
-O sistema implementa salvamento automático periódico a cada 20 segundos, exportando logs, dados de sensores e telemetria em formato Pickle (binário Python), que oferece performance 5--10x superior ao CSV para \gls{serializacao} de estruturas de dados complexas:
+O sistema implementa salvamento automático periódico para garantir a preservação dos dados coletados durante as sessões de operação. A cada 20 segundos, o sistema verifica se há quantidade suficiente de dados novos e, em caso positivo, exporta logs, dados de sensores e telemetria para arquivos no diretório \texttt{exports/auto/}. O formato Pickle (binário nativo do Python) foi escolhido por oferecer performance 5 a 10 vezes superior ao CSV para \gls{serializacao} de estruturas de dados complexas. Após cada salvamento, os buffers são limpos para evitar duplicação de dados em exportações subsequentes. O \autoref{alg:auto-save} apresenta a lógica de verificação e salvamento.
 
 \begin{algorithm}[h!]
 	\SetSpacedAlgorithm
@@ -924,9 +877,9 @@ O sistema implementa salvamento automático periódico a cada 20 segundos, expor
 	\Entrada{console, intervalo\_ms}
 	\Saida{arquivos\_salvos}
 	\Inicio{
-		MIN\_LOGS $\leftarrow$ 10\;
-		MIN\_SENSORES $\leftarrow$ 100\;
-		MIN\_TELEMETRIA $\leftarrow$ 50\;
+		MIN\_LOGS $\leftarrow$ 100\;
+		MIN\_SENSORES $\leftarrow$ 1000\;
+		MIN\_TELEMETRIA $\leftarrow$ 100\;
 		DIRETORIO $\leftarrow$ "exports/auto/"\;
 		// Verifica se há dados novos suficientes\;
 		qtd\_logs $\leftarrow$ contar\_linhas(console.log\_text)\;
@@ -957,26 +910,10 @@ O sistema implementa salvamento automático periódico a cada 20 segundos, expor
 	}
 \end{algorithm}
 
-A estrutura dos arquivos Pickle exportados permite fácil leitura posterior para análise:
-
-\begin{verbatim}
-import pickle
-with open("sensors_20241216_143000.pkl", "rb") as f:
-    dados = pickle.load(f)
-# dados contém dicionário com listas de cada sensor
-\end{verbatim}
-
 \section{Armazenamento de Logs e Validação}
 \label{sec:logs-validacao}
 
 O sistema de armazenamento de dados implementa salvamento automático periódico para garantir a preservação de informações de telemetria durante as sessões de operação. Os dados armazenados permitem validação das telemetrias entre corridas e análise posterior, de forma similar às equipes de Fórmula 1 que utilizam dados de sessões para otimização de desempenho.
-
-\subsection{Sistema de Auto-Save}
-\label{subsec:sistema-autosave}
-
-O cliente implementa um mecanismo de salvamento automático que opera a cada 20 segundos, exportando três categorias de dados: logs do console, leituras brutas de sensores e dados processados de telemetria. A escolha do intervalo de 20 segundos representa um equilíbrio entre frequência de salvamento (proteção contra perda de dados em caso de falha) e volume de arquivos gerados, resultando em aproximadamente 180 arquivos por hora de operação contínua.
-
-O sistema utiliza thresholds mínimos para evitar salvamento de arquivos vazios ou com dados insuficientes: 100 linhas de log, 1000 leituras de sensores (10 segundos a 100Hz) ou 100 pontos de telemetria (10 segundos a 10Hz). Após cada salvamento, os buffers internos são limpos automaticamente para liberar memória e reiniciar a coleta.
 
 \subsection{Formatos de Armazenamento}
 \label{subsec:formatos-armazenamento}
@@ -993,7 +930,7 @@ A seleção dos formatos de armazenamento considerou velocidade de serializaçã
 		\midrule \midrule
 		Logs do console & Texto (.txt) & \texttt{logs\_YYYYMMDD\_HHMMSS.txt} & Legibilidade humana, facilidade de inspeção \\
 		\midrule
-		Sensores brutos & Pickle (.pkl) & \texttt{sensors\_YYYYMMDD\_HHMMSS.pkl} & Velocidade 5--10$\times$ superior ao CSV \\
+		Sensores brutos & Pickle (.pkl) & \texttt{sensors\_YYYYMMDD\_HHMMSS.pkl} & Serialização binária eficiente \\
 		\midrule
 		Telemetria & Pickle (.pkl) & \texttt{telemetry\_YYYYMMDD\_HHMMSS.pkl} & Preservação de estruturas Python complexas \\
 		\bottomrule
@@ -1003,7 +940,7 @@ A seleção dos formatos de armazenamento considerou velocidade de serializaçã
 }
 \end{table}
 
-O formato Pickle foi escolhido para dados numéricos por oferecer serialização binária nativa do Python, com velocidade 5 a 10 vezes superior ao CSV para estruturas de dados complexas contendo listas e dicionários aninhados. Embora o Pickle não seja legível por humanos, a análise dos dados é realizada através de scripts Python que reconstroem as estruturas originais. Os arquivos de log mantêm formato texto para permitir inspeção manual rápida durante depuração.
+O formato Pickle foi escolhido para dados numéricos por oferecer serialização binária nativa do Python, preservando estruturas complexas contendo listas e dicionários aninhados. Embora o Pickle não seja legível por humanos, a análise dos dados é realizada através de scripts Python que reconstroem as estruturas originais. Os arquivos de log mantêm formato texto para permitir inspeção manual rápida durante depuração.
 
 \subsection{Estrutura dos Dados Armazenados}
 \label{subsec:estrutura-dados-armazenados}
