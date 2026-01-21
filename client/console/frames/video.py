@@ -14,23 +14,27 @@ except ImportError:
     FILTERS_AVAILABLE = False
 
 
-def create_video_frame(console):
+def create_video_frame(console, parent=None):
     """
     Cria frame para exibição do vídeo
 
     Args:
         console: Instância de ConsoleInterface
+        parent: Widget pai (opcional, default: console.right_column)
     """
+    if parent is None:
+        parent = console.right_column
+
     video_frame = ttk.LabelFrame(
-        console.right_column, text="Vídeo da Câmera", style="Dark.TLabelframe"
+        parent, text="Vídeo da Câmera", style="Dark.TLabelframe"
     )
     video_frame.pack(fill=tk.X, padx=5, pady=5)
 
-    # Frame interno para o vídeo (altura inicial para 480p)
-    # Altura será ajustada pelo camera_controls quando resolução mudar
-    console.video_container = tk.Frame(video_frame, bg="#1a1a1a", height=360)
+    # Frame interno para o vídeo
+    # Altura inicial para 480p (4:3), será ajustada quando resolução mudar
+    console.video_container = tk.Frame(video_frame, bg="#1a1a1a", height=480)
     console.video_container.pack(fill=tk.X, padx=5, pady=5)
-    console.video_container.pack_propagate(False)  # Manter altura fixa
+    console.video_container.pack_propagate(False)  # Manter altura controlada
 
     # Label para exibir o vídeo (será atualizado pelo video_display)
     console.video_label = tk.Label(

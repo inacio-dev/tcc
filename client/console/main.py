@@ -334,12 +334,16 @@ class ConsoleInterface:
         self.scrollable_frame.grid_columnconfigure(0, weight=1)
         self.scrollable_frame.grid_columnconfigure(1, weight=1)
 
-        # Criar frames principais para as duas colunas
+        # Row 0: Área do vídeo (centralizada, ocupa 2 colunas)
+        self.top_row = ttk.Frame(self.scrollable_frame, style="Dark.TLabelframe")
+        self.top_row.grid(row=0, column=0, columnspan=2, sticky="ew", padx=5, pady=5)
+
+        # Row 1: Duas colunas para o resto do conteúdo
         self.left_column = ttk.Frame(self.scrollable_frame, style="Dark.TLabelframe")
         self.right_column = ttk.Frame(self.scrollable_frame, style="Dark.TLabelframe")
 
-        self.left_column.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
-        self.right_column.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
+        self.left_column.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
+        self.right_column.grid(row=1, column=1, sticky="nsew", padx=5, pady=5)
 
         # Configurar scroll com mouse wheel (multiplataforma)
         self.main_canvas.bind("<MouseWheel>", self._on_mousewheel)
@@ -412,28 +416,36 @@ class ConsoleInterface:
 
     def create_widgets(self):
         """Cria todos os widgets da interface"""
+        # Área do topo (vídeo centralizado, largura total)
+        self.create_video_section()
+
         # Coluna Esquerda
         create_connection_status_frame(self)
         create_serial_port_selector_frame(self)
         create_instrument_panel(self)
+        create_client_system_frame(self)  # Sistema Cliente acima do RPi
         create_rpi_system_frame(self)
         create_bmi160_frame(self)
         create_force_feedback_frame(self)
         create_log_frame(self)
 
         # Coluna Direita
-        create_client_system_frame(self)  # Métricas do sistema cliente (acima do vídeo)
-        create_camera_controls_frame(self)  # Controles de câmera (resolução)
-        create_video_frame(self)
-        self.create_telemetry_frame()  # Gráficos F1 abaixo do vídeo
+        self.create_telemetry_frame()  # Gráficos F1
         self.create_slider_controls_frame()
         create_controls_frame(self)
         self.create_keyboard_controls_frame()
+
+    def create_video_section(self):
+        """Cria seção de vídeo centralizada no topo"""
+        create_camera_controls_frame(self, parent=self.top_row)
+        create_video_frame(self, parent=self.top_row)
 
         # Conecta video_display se já foi definido
         if hasattr(self, "video_display") and self.video_display:
             if hasattr(self.video_display, "set_tkinter_label"):
                 self.video_display.set_tkinter_label(self.video_label)
+            if hasattr(self.video_display, "set_tkinter_container"):
+                self.video_display.set_tkinter_container(self.video_container)
             if hasattr(self.video_display, "set_status_callback"):
                 self.video_display.set_status_callback(self.update_video_status)
 

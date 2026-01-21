@@ -6,15 +6,19 @@ import tkinter as tk
 from tkinter import ttk
 
 
-def create_client_system_frame(console):
+def create_client_system_frame(console, parent=None):
     """
     Cria frame com métricas do sistema cliente (notebook/PC)
 
     Args:
         console: Instância de ConsoleInterface
+        parent: Widget pai (opcional, default: console.right_column)
     """
+    if parent is None:
+        parent = console.right_column
+
     system_frame = ttk.LabelFrame(
-        console.right_column, text="Sistema Cliente", style="Dark.TLabelframe"
+        parent, text="Sistema Cliente", style="Dark.TLabelframe"
     )
     system_frame.pack(fill=tk.X, padx=5, pady=5)
 

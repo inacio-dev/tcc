@@ -59,10 +59,15 @@ class VideoDisplay:
 
         # Integração com Tkinter
         self.tkinter_label = None
+        self.tkinter_container = None  # Container para obter tamanho disponível
         self.status_callback = None
 
         # Filtro de imagem PDI (None = sem filtro)
         self.image_filter = None
+
+        # Resolução original do vídeo (para manter proporção)
+        self.original_width = 0
+        self.original_height = 0
 
         self._log("INFO", "VideoDisplay inicializado (MJPEG)")
 
@@ -77,6 +82,10 @@ class VideoDisplay:
         """Define o label Tkinter para exibir vídeo"""
         self.tkinter_label = label
         self._log("INFO", "Label Tkinter configurado")
+
+    def set_tkinter_container(self, container):
+        """Define o container Tkinter para obter tamanho disponível"""
+        self.tkinter_container = container
 
     def set_status_callback(self, callback):
         """Define callback para atualizar status do vídeo"""
@@ -109,12 +118,17 @@ class VideoDisplay:
                 return
 
             height, width = frame.shape[:2]
+            self.original_width = width
+            self.original_height = height
 
             # Conversão BGR→RGB
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
             # PIL Image
             pil_image = Image.fromarray(rgb_frame, mode="RGB")
+
+            # Escala para caber no container mantendo proporção
+            pil_image = self._scale_to_fit(pil_image)
 
             # PhotoImage
             photo = ImageTk.PhotoImage(image=pil_image)
@@ -131,6 +145,8 @@ class VideoDisplay:
             if self.status_callback and self.is_running:
                 status = {
                     "connected": True,
+                    "width": width,
+                    "height": height,
                     "resolution": f"{width}x{height}",
                     "fps": self.current_fps,
                     "codec": "MJPEG",
@@ -143,6 +159,56 @@ class VideoDisplay:
         except Exception:
             # Ignora erros durante shutdown
             pass
+
+    def _scale_to_fit(self, pil_image):
+        """
+        Escala a imagem para caber no container mantendo proporção
+
+        Args:
+            pil_image: Imagem PIL
+
+        Returns:
+            Imagem PIL redimensionada
+        """
+        try:
+            # Se não tem container, retorna imagem original
+            if not self.tkinter_container:
+                return pil_image
+
+            # Obtém tamanho do container
+            try:
+                container_width = self.tkinter_container.winfo_width()
+                container_height = self.tkinter_container.winfo_height()
+            except Exception:
+                return pil_image
+
+            # Container ainda não foi renderizado
+            if container_width <= 1 or container_height <= 1:
+                return pil_image
+
+            # Tamanho original da imagem
+            img_width, img_height = pil_image.size
+
+            # Calcula escala mantendo proporção
+            scale_w = container_width / img_width
+            scale_h = container_height / img_height
+            scale = min(scale_w, scale_h)
+
+            # Novo tamanho
+            new_width = int(img_width * scale)
+            new_height = int(img_height * scale)
+
+            # Redimensiona se necessário
+            if new_width != img_width or new_height != img_height:
+                pil_image = pil_image.resize(
+                    (new_width, new_height),
+                    Image.Resampling.LANCZOS
+                )
+
+            return pil_image
+
+        except Exception:
+            return pil_image
 
     def display_no_signal(self):
         """Exibe mensagem de 'Sem Sinal' no Tkinter"""
