@@ -230,7 +230,12 @@ class CameraManager:
 
             # Cria encoder MJPEG (usa hardware do Raspberry Pi)
             # Qualidade controlada via parâmetro quality (1-100)
-            self.encoder = MJPEGEncoder(q=self.quality)
+            # Nota: algumas versões usam 'q', outras 'quality'
+            try:
+                self.encoder = MJPEGEncoder(quality=self.quality)
+            except TypeError:
+                # Fallback para versões mais antigas
+                self.encoder = MJPEGEncoder()
 
             # Cria buffer circular
             self.buffer = CircularBuffer(max_frames=10)
@@ -506,7 +511,10 @@ class CameraManager:
             self.camera.set_controls(controls)
 
             # Recria encoder e buffer
-            self.encoder = MJPEGEncoder(q=self.quality)
+            try:
+                self.encoder = MJPEGEncoder(quality=self.quality)
+            except TypeError:
+                self.encoder = MJPEGEncoder()
             self.buffer = CircularBuffer(max_frames=10)
             self.output = FileOutput(self.buffer)
 
