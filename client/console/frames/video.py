@@ -26,8 +26,9 @@ def create_video_frame(console):
     )
     video_frame.pack(fill=tk.X, padx=5, pady=5)
 
-    # Frame interno para o vídeo (altura aumentada para resolução original da câmera)
-    console.video_container = tk.Frame(video_frame, bg="#1a1a1a", height=480)
+    # Frame interno para o vídeo (altura inicial para 480p)
+    # Altura será ajustada pelo camera_controls quando resolução mudar
+    console.video_container = tk.Frame(video_frame, bg="#1a1a1a", height=360)
     console.video_container.pack(fill=tk.X, padx=5, pady=5)
     console.video_container.pack_propagate(False)  # Manter altura fixa
 

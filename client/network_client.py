@@ -3,10 +3,15 @@
 network_client.py - Cliente de Rede UDP
 Responsável por receber pacotes UDP do Raspberry Pi
 
-FORMATO DO PACOTE RECEBIDO:
-==========================
+FORMATO DO PACOTE RECEBIDO (normal):
+===================================
 | 4 bytes    | 4 bytes     | N bytes    | M bytes      |
 | frame_size | sensor_size | frame_data | sensor_data  |
+
+FORMATO DO PACOTE RECEBIDO (fragmentado):
+========================================
+| 4 bytes    | 4 bytes  | 2 bytes     | 2 bytes      | N bytes    |
+| FRAG_MAGIC | frame_id | chunk_index | total_chunks | chunk_data |
 
 DADOS DOS SENSORES ESPERADOS:
 ============================
@@ -26,10 +31,16 @@ import socket
 import struct
 import threading
 import time
+from collections import defaultdict
 
 
 class NetworkClient:
     """Cliente de rede para comunicação UDP bidirecional"""
+
+    # Constantes de fragmentação (devem ser iguais ao servidor)
+    FRAG_MAGIC = 0x46524147  # "FRAG" em ASCII hex
+    FRAG_HEADER_SIZE = 12    # 4 (magic) + 4 (frame_id) + 2 (chunk_idx) + 2 (total_chunks)
+    FRAG_TIMEOUT = 1.0       # Timeout para descartar fragmentos incompletos (segundos)
 
     def __init__(
         self,
@@ -114,6 +125,12 @@ class NetworkClient:
         self.decode_errors = 0
         self.packet_errors = 0
         self.last_error_log = 0
+
+        # Buffer para reassembly de fragmentos
+        # Estrutura: {frame_id: {'chunks': {chunk_idx: data}, 'total': N, 'timestamp': time}}
+        self.fragment_buffer = {}
+        self.fragment_lock = threading.Lock()
+        self.last_fragment_cleanup = time.time()
 
     def _log(self, level, message):
         """Envia mensagem para fila de log"""
@@ -248,7 +265,8 @@ class NetworkClient:
 
     def parse_packet(self, packet):
         """
-        Analisa pacote UDP recebido
+        Analisa pacote UDP recebido.
+        Detecta automaticamente se é pacote normal ou fragmentado.
 
         Args:
             packet (bytes): Dados do pacote recebido
@@ -262,7 +280,12 @@ class NetworkClient:
                 self._log("ERROR", f"Pacote muito pequeno: {len(packet)} bytes")
                 return None, None
 
-            # Extrai tamanhos dos dados
+            # Verifica se é pacote fragmentado (magic number no início)
+            magic = struct.unpack("<I", packet[:4])[0]
+            if magic == self.FRAG_MAGIC:
+                return self._handle_fragment(packet)
+
+            # Pacote normal - extrai tamanhos dos dados
             frame_size, sensor_size = struct.unpack("<II", packet[:8])
 
             # Verifica se é sinal de término
@@ -318,6 +341,126 @@ class NetworkClient:
                 self.last_error_log = current_time
             self.packet_errors += 1
             return None, None
+
+    def _handle_fragment(self, packet):
+        """
+        Processa pacote fragmentado e reassembla quando completo.
+
+        Estrutura do fragmento:
+        | 4 bytes    | 4 bytes  | 2 bytes     | 2 bytes      | N bytes    |
+        | FRAG_MAGIC | frame_id | chunk_index | total_chunks | chunk_data |
+
+        Args:
+            packet (bytes): Pacote fragmentado
+
+        Returns:
+            tuple: (frame_data, sensor_data) quando completo, ou (None, None) se ainda aguardando
+        """
+        try:
+            if len(packet) < self.FRAG_HEADER_SIZE:
+                return None, None
+
+            # Extrai cabeçalho do fragmento
+            magic, frame_id, chunk_idx, total_chunks = struct.unpack("<IIHH", packet[:12])
+            chunk_data = packet[12:]
+
+            current_time = time.time()
+
+            with self.fragment_lock:
+                # Limpa fragmentos antigos periodicamente
+                if current_time - self.last_fragment_cleanup > 1.0:
+                    self._cleanup_old_fragments(current_time)
+                    self.last_fragment_cleanup = current_time
+
+                # Cria entrada para este frame se não existe
+                if frame_id not in self.fragment_buffer:
+                    self.fragment_buffer[frame_id] = {
+                        'chunks': {},
+                        'total': total_chunks,
+                        'timestamp': current_time
+                    }
+
+                # Armazena chunk
+                self.fragment_buffer[frame_id]['chunks'][chunk_idx] = chunk_data
+
+                # Verifica se temos todos os chunks
+                if len(self.fragment_buffer[frame_id]['chunks']) == total_chunks:
+                    # Reassembla o pacote completo
+                    complete_data = b''
+                    for i in range(total_chunks):
+                        if i in self.fragment_buffer[frame_id]['chunks']:
+                            complete_data += self.fragment_buffer[frame_id]['chunks'][i]
+                        else:
+                            # Falta um chunk - não deveria acontecer
+                            del self.fragment_buffer[frame_id]
+                            return None, None
+
+                    # Remove do buffer
+                    del self.fragment_buffer[frame_id]
+
+                    # Processa o pacote completo como pacote normal
+                    return self._parse_complete_packet(complete_data)
+
+            # Ainda aguardando mais chunks
+            return None, None
+
+        except Exception as e:
+            self._log("ERROR", f"Erro ao processar fragmento: {e}")
+            return None, None
+
+    def _parse_complete_packet(self, packet):
+        """
+        Analisa pacote completo (após reassembly de fragmentos).
+
+        Args:
+            packet (bytes): Pacote completo
+
+        Returns:
+            tuple: (frame_data, sensor_data)
+        """
+        try:
+            if len(packet) < 8:
+                return None, None
+
+            frame_size, sensor_size = struct.unpack("<II", packet[:8])
+
+            if frame_size == 0 and sensor_size == 0:
+                return "TERMINATE", None
+
+            frame_start = 8
+            frame_end = frame_start + frame_size
+            sensor_start = frame_end
+            sensor_end = sensor_start + sensor_size
+
+            expected_size = 8 + frame_size + sensor_size
+            if len(packet) < expected_size:
+                return None, None
+
+            frame_data = packet[frame_start:frame_end] if frame_size > 0 else None
+
+            sensor_data = None
+            if sensor_size > 0:
+                try:
+                    sensor_bytes = packet[sensor_start:sensor_end]
+                    sensor_json = sensor_bytes.decode("utf-8")
+                    sensor_data = json.loads(sensor_json)
+                except (json.JSONDecodeError, UnicodeDecodeError):
+                    pass
+
+            return frame_data, sensor_data
+
+        except Exception:
+            return None, None
+
+    def _cleanup_old_fragments(self, current_time):
+        """Remove fragmentos incompletos que expiraram"""
+        expired_frames = []
+        for frame_id, data in self.fragment_buffer.items():
+            if current_time - data['timestamp'] > self.FRAG_TIMEOUT:
+                expired_frames.append(frame_id)
+
+        for frame_id in expired_frames:
+            del self.fragment_buffer[frame_id]
 
     def parse_fast_sensor_packet(self, packet):
         """

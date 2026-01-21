@@ -5,6 +5,13 @@ camera_controls.py - Frame com controles de câmera (resolução, qualidade)
 import tkinter as tk
 from tkinter import ttk
 
+# Mapeamento de resolução para altura do display
+RESOLUTION_HEIGHTS = {
+    "480p": 360,   # 640x480 escalado
+    "720p": 405,   # 1280x720 escalado (mantendo proporção 16:9)
+    "1080p": 540,  # 1920x1080 escalado (mantendo proporção 16:9)
+}
+
 
 def create_camera_controls_frame(console):
     """
@@ -75,6 +82,9 @@ def _on_resolution_change(console, resolution):
         # Atualiza variável
         console.camera_resolution_var.set(resolution)
 
+        # Redimensiona o container de vídeo
+        _resize_video_container(console, resolution)
+
         # Envia comando para o Raspberry Pi
         if hasattr(console, "network_client") and console.network_client:
             success = console.network_client.send_control_command(
@@ -89,6 +99,23 @@ def _on_resolution_change(console, resolution):
 
     except Exception as e:
         console.log("ERROR", f"Erro ao alterar resolução: {e}")
+
+
+def _resize_video_container(console, resolution):
+    """
+    Redimensiona o container de vídeo baseado na resolução
+
+    Args:
+        console: Instância de ConsoleInterface
+        resolution: Resolução selecionada
+    """
+    try:
+        if hasattr(console, "video_container") and console.video_container:
+            new_height = RESOLUTION_HEIGHTS.get(resolution, 360)
+            console.video_container.config(height=new_height)
+            console.log("INFO", f"Display de vídeo redimensionado para {resolution}")
+    except Exception as e:
+        console.log("ERROR", f"Erro ao redimensionar vídeo: {e}")
 
 
 def _update_resolution_buttons(console, selected_resolution):

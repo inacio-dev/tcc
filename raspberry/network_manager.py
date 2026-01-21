@@ -3,6 +3,7 @@
 network_manager.py - Gerenciamento de Comunicação UDP - VERSÃO CORRIGIDA
 Responsável por transmitir vídeo + dados de sensores via UDP
 CORREÇÃO: Agora suporta tipos numpy (bool_, float64, etc.)
+CORREÇÃO: Suporta fragmentação automática para frames grandes (1080p)
 
 CONFIGURAÇÃO DE REDE:
 ====================
@@ -10,10 +11,15 @@ CONFIGURAÇÃO DE REDE:
 2. Configurar IP estático no RPi (recomendado)
 3. Abrir porta no firewall se necessário
 
-ESTRUTURA DO PACOTE UDP:
-=======================
+ESTRUTURA DO PACOTE UDP (normal):
+================================
 | 4 bytes    | 4 bytes     | N bytes    | M bytes      |
 | frame_size | sensor_size | frame_data | sensor_data  |
+
+ESTRUTURA DO PACOTE UDP (fragmentado):
+=====================================
+| 4 bytes | 4 bytes  | 2 bytes     | 2 bytes      | N bytes    |
+| 0xFRAG  | frame_id | chunk_index | total_chunks | chunk_data |
 
 PORTAS UTILIZADAS:
 =================
@@ -34,6 +40,11 @@ from logger import debug, error, info, warn
 
 class NetworkManager:
     """Gerencia comunicação UDP bidirecional para transmissão de dados"""
+
+    # Constantes de fragmentação
+    FRAG_MAGIC = 0x46524147  # "FRAG" em ASCII hex
+    MAX_PACKET_SIZE = 60000  # Tamanho máximo seguro para UDP (< 65507)
+    FRAG_HEADER_SIZE = 12    # 4 (magic) + 4 (frame_id) + 2 (chunk_idx) + 2 (total_chunks)
 
     def __init__(
         self,
@@ -79,6 +90,9 @@ class NetworkManager:
         self.send_errors = 0
         self.last_error_time = 0
         self.last_error_log = 0
+
+        # Contador de frames para fragmentação
+        self.frame_id_counter = 0
 
         # Threading para recepção de comandos
         self.command_thread = None
@@ -469,7 +483,8 @@ class NetworkManager:
 
     def send_packet(self, packet_data: bytes) -> bool:
         """
-        Envia pacote UDP para todos os clientes conectados
+        Envia pacote UDP para todos os clientes conectados.
+        Fragmenta automaticamente se o pacote for maior que MAX_PACKET_SIZE.
 
         Args:
             packet_data (bytes): Dados do pacote para envio
@@ -484,12 +499,19 @@ class NetworkManager:
         if not self.has_connected_clients():
             return False
 
+        # Verifica se precisa fragmentar
+        if len(packet_data) > self.MAX_PACKET_SIZE:
+            return self._send_fragmented(packet_data)
+        else:
+            return self._send_single_packet(packet_data)
+
+    def _send_single_packet(self, packet_data: bytes) -> bool:
+        """Envia um único pacote (sem fragmentação)"""
         success_count = 0
 
         with self.clients_lock:
             for client_ip, client_info in self.connected_clients.items():
                 try:
-                    # Envia pacote para cada cliente
                     self.send_socket.sendto(
                         packet_data, (client_ip, client_info["port"])
                     )
@@ -497,10 +519,72 @@ class NetworkManager:
                 except Exception as e:
                     warn(f"Erro ao enviar para {client_ip}: {e}", "NET", rate_limit=5.0)
 
-        # Atualiza estatísticas se enviou para pelo menos um cliente
         if success_count > 0:
             self.packets_sent += 1
             self.bytes_sent += len(packet_data)
+            self.last_send_time = time.time()
+            return True
+        else:
+            self.send_errors += 1
+            return False
+
+    def _send_fragmented(self, packet_data: bytes) -> bool:
+        """
+        Envia pacote fragmentado para todos os clientes.
+
+        Estrutura do fragmento:
+        | 4 bytes    | 4 bytes  | 2 bytes     | 2 bytes      | N bytes    |
+        | FRAG_MAGIC | frame_id | chunk_index | total_chunks | chunk_data |
+        """
+        # Incrementa contador de frame
+        self.frame_id_counter = (self.frame_id_counter + 1) % 0xFFFFFFFF
+        frame_id = self.frame_id_counter
+
+        # Calcula tamanho do chunk (dados úteis por fragmento)
+        chunk_size = self.MAX_PACKET_SIZE - self.FRAG_HEADER_SIZE
+        total_chunks = (len(packet_data) + chunk_size - 1) // chunk_size
+
+        success_count = 0
+        total_bytes = 0
+
+        with self.clients_lock:
+            for client_ip, client_info in self.connected_clients.items():
+                client_success = True
+
+                for chunk_idx in range(total_chunks):
+                    # Extrai chunk de dados
+                    start = chunk_idx * chunk_size
+                    end = min(start + chunk_size, len(packet_data))
+                    chunk_data = packet_data[start:end]
+
+                    # Monta cabeçalho do fragmento
+                    # I = unsigned int (4 bytes), H = unsigned short (2 bytes)
+                    header = struct.pack(
+                        "<IIHH",
+                        self.FRAG_MAGIC,
+                        frame_id,
+                        chunk_idx,
+                        total_chunks
+                    )
+
+                    fragment = header + chunk_data
+
+                    try:
+                        self.send_socket.sendto(
+                            fragment, (client_ip, client_info["port"])
+                        )
+                        total_bytes += len(fragment)
+                    except Exception as e:
+                        warn(f"Erro ao enviar fragmento {chunk_idx}/{total_chunks} para {client_ip}: {e}", "NET", rate_limit=5.0)
+                        client_success = False
+                        break
+
+                if client_success:
+                    success_count += 1
+
+        if success_count > 0:
+            self.packets_sent += total_chunks
+            self.bytes_sent += total_bytes
             self.last_send_time = time.time()
             return True
         else:
