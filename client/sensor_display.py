@@ -96,6 +96,35 @@ class SensorDisplay:
             "accel_range_g": 2,
             "gyro_range_dps": 250,
             "sample_rate": 100,
+            # Métricas do Sistema Raspberry Pi
+            # CPU
+            "rpi_cpu_usage_percent": 0.0,
+            "rpi_cpu_temp_c": 0.0,
+            "rpi_cpu_freq_mhz": 0,
+            "rpi_cpu_status": "NORMAL",
+            "rpi_cpu_temp_status": "NORMAL",
+            # Memória
+            "rpi_mem_total_mb": 0,
+            "rpi_mem_used_mb": 0,
+            "rpi_mem_free_mb": 0,
+            "rpi_mem_usage_percent": 0.0,
+            "rpi_mem_status": "NORMAL",
+            # Disco
+            "rpi_disk_total_gb": 0,
+            "rpi_disk_used_gb": 0,
+            "rpi_disk_free_gb": 0,
+            "rpi_disk_usage_percent": 0.0,
+            "rpi_disk_status": "NORMAL",
+            # Rede
+            "rpi_net_rx_mb": 0.0,
+            "rpi_net_tx_mb": 0.0,
+            "rpi_net_rx_rate_kbps": 0.0,
+            "rpi_net_tx_rate_kbps": 0.0,
+            "rpi_net_interface": "",
+            # Sistema
+            "rpi_uptime_formatted": "0m",
+            "rpi_load_1min": 0.0,
+            "rpi_hostname": "",
             # Dados derivados removidos - apenas dados reais dos sensores
             # Metadados
             "timestamp": 0,
@@ -221,6 +250,15 @@ class SensorDisplay:
                 # Outros
                 "velocidade",
                 "temperatura",
+                # Métricas do Sistema Raspberry Pi
+                "rpi_cpu_usage_percent",
+                "rpi_cpu_temp_c",
+                "rpi_cpu_freq_mhz",
+                "rpi_mem_usage_percent",
+                "rpi_disk_usage_percent",
+                "rpi_net_rx_rate_kbps",
+                "rpi_net_tx_rate_kbps",
+                "rpi_load_1min",
                 # Power Monitor (ADS1115 + INA219)
                 "current_rpi",
                 "current_servos",

@@ -105,13 +105,13 @@ def create_instrument_panel(console):
         font=("Arial", 14, "bold"),
     ).pack(side=tk.RIGHT)
 
-    # Temperatura - Painel adicional na linha inferior
+    # Temperatura DS18B20 - Painel adicional na linha inferior
     temp_frame = tk.Frame(instruments_inner, bg="#2c2c2c", relief=tk.RAISED, bd=2)
     temp_frame.pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=5)
 
     tk.Label(
         temp_frame,
-        text="TEMPERATURA",
+        text="TEMP DS18B20",
         bg="#2c2c2c",
         fg="white",
         font=("Arial", 10, "bold"),

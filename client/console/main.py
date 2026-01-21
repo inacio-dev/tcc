@@ -35,6 +35,7 @@ from .frames.bmi160 import create_bmi160_frame
 
 # Imports dos módulos locais
 from .frames.connection_status import create_connection_status_frame
+from .frames.rpi_system import create_rpi_system_frame
 from .frames.controls import create_controls_frame
 from .frames.force_feedback import create_force_feedback_frame
 from .frames.instrument_panel import create_instrument_panel
@@ -211,6 +212,35 @@ class ConsoleInterface:
             "temperature_f": tk.StringVar(value="--"),
             "temperature_k": tk.StringVar(value="--"),
             "thermal_status": tk.StringVar(value="NORMAL"),
+            # Métricas do Sistema Raspberry Pi
+            # CPU
+            "rpi_cpu_usage_percent": tk.StringVar(value="--"),
+            "rpi_cpu_temp_c": tk.StringVar(value="--"),
+            "rpi_cpu_freq_mhz": tk.StringVar(value="--"),
+            "rpi_cpu_status": tk.StringVar(value="NORMAL"),
+            "rpi_cpu_temp_status": tk.StringVar(value="NORMAL"),
+            # Memória
+            "rpi_mem_total_mb": tk.StringVar(value="--"),
+            "rpi_mem_used_mb": tk.StringVar(value="--"),
+            "rpi_mem_free_mb": tk.StringVar(value="--"),
+            "rpi_mem_usage_percent": tk.StringVar(value="--"),
+            "rpi_mem_status": tk.StringVar(value="NORMAL"),
+            # Disco
+            "rpi_disk_total_gb": tk.StringVar(value="--"),
+            "rpi_disk_used_gb": tk.StringVar(value="--"),
+            "rpi_disk_free_gb": tk.StringVar(value="--"),
+            "rpi_disk_usage_percent": tk.StringVar(value="--"),
+            "rpi_disk_status": tk.StringVar(value="NORMAL"),
+            # Rede
+            "rpi_net_rx_mb": tk.StringVar(value="--"),
+            "rpi_net_tx_mb": tk.StringVar(value="--"),
+            "rpi_net_rx_rate_kbps": tk.StringVar(value="--"),
+            "rpi_net_tx_rate_kbps": tk.StringVar(value="--"),
+            "rpi_net_interface": tk.StringVar(value="--"),
+            # Sistema
+            "rpi_uptime_formatted": tk.StringVar(value="--"),
+            "rpi_load_1min": tk.StringVar(value="--"),
+            "rpi_hostname": tk.StringVar(value="--"),
             # Monitoramento de Energia
             "current_rpi": tk.StringVar(value="--"),
             "current_servos": tk.StringVar(value="--"),
@@ -368,6 +398,7 @@ class ConsoleInterface:
         create_connection_status_frame(self)
         create_serial_port_selector_frame(self)
         create_instrument_panel(self)
+        create_rpi_system_frame(self)
         create_bmi160_frame(self)
         create_force_feedback_frame(self)
         create_log_frame(self)
@@ -607,11 +638,40 @@ class ConsoleInterface:
             "seat_vibration_intensity": "seat_vibration",
             "seat_tilt_x": "seat_tilt_x",
             "seat_tilt_y": "seat_tilt_y",
-            # Temperatura
+            # Temperatura DS18B20
             "temperature_c": "temperature_c",
             "temperature_f": "temperature_f",
             "temperature_k": "temperature_k",
             "thermal_status": "thermal_status",
+            # Métricas do Sistema Raspberry Pi
+            # CPU
+            "rpi_cpu_usage_percent": "rpi_cpu_usage_percent",
+            "rpi_cpu_temp_c": "rpi_cpu_temp_c",
+            "rpi_cpu_freq_mhz": "rpi_cpu_freq_mhz",
+            "rpi_cpu_status": "rpi_cpu_status",
+            "rpi_cpu_temp_status": "rpi_cpu_temp_status",
+            # Memória
+            "rpi_mem_total_mb": "rpi_mem_total_mb",
+            "rpi_mem_used_mb": "rpi_mem_used_mb",
+            "rpi_mem_free_mb": "rpi_mem_free_mb",
+            "rpi_mem_usage_percent": "rpi_mem_usage_percent",
+            "rpi_mem_status": "rpi_mem_status",
+            # Disco
+            "rpi_disk_total_gb": "rpi_disk_total_gb",
+            "rpi_disk_used_gb": "rpi_disk_used_gb",
+            "rpi_disk_free_gb": "rpi_disk_free_gb",
+            "rpi_disk_usage_percent": "rpi_disk_usage_percent",
+            "rpi_disk_status": "rpi_disk_status",
+            # Rede
+            "rpi_net_rx_mb": "rpi_net_rx_mb",
+            "rpi_net_tx_mb": "rpi_net_tx_mb",
+            "rpi_net_rx_rate_kbps": "rpi_net_rx_rate_kbps",
+            "rpi_net_tx_rate_kbps": "rpi_net_tx_rate_kbps",
+            "rpi_net_interface": "rpi_net_interface",
+            # Sistema
+            "rpi_uptime_formatted": "rpi_uptime_formatted",
+            "rpi_load_1min": "rpi_load_1min",
+            "rpi_hostname": "rpi_hostname",
             # Energia
             "current_rpi": "current_rpi",
             "current_servos": "current_servos",
@@ -654,7 +714,21 @@ class ConsoleInterface:
                     "g_force_vertical",
                 ]:
                     formatted_value = f"{value:+.3f}"
-                elif var_name in ["temperature_c", "temperature_f", "temperature_k"]:
+                elif var_name in ["temperature_c", "temperature_f", "temperature_k", "rpi_cpu_temp_c"]:
+                    formatted_value = f"{value:.1f}"
+                elif var_name in ["rpi_cpu_usage_percent", "rpi_mem_usage_percent", "rpi_disk_usage_percent"]:
+                    formatted_value = f"{value:.1f}"
+                elif var_name in ["rpi_net_rx_rate_kbps", "rpi_net_tx_rate_kbps"]:
+                    formatted_value = f"{value:.1f}"
+                elif var_name in ["rpi_load_1min"]:
+                    formatted_value = f"{value:.2f}"
+                elif var_name in ["rpi_cpu_freq_mhz"]:
+                    formatted_value = f"{value}"
+                elif var_name in ["rpi_mem_total_mb", "rpi_mem_used_mb", "rpi_mem_free_mb"]:
+                    formatted_value = f"{value}"
+                elif var_name in ["rpi_disk_total_gb", "rpi_disk_used_gb", "rpi_disk_free_gb"]:
+                    formatted_value = f"{value}"
+                elif var_name in ["rpi_net_rx_mb", "rpi_net_tx_mb"]:
                     formatted_value = f"{value:.1f}"
                 elif var_name in ["current_rpi", "current_servos", "current_motor"]:
                     formatted_value = f"{value:.2f}A"
@@ -682,9 +756,10 @@ class ConsoleInterface:
 
                 self.sensor_vars[var_name].set(formatted_value)
 
-        # Atualiza cores de temperatura e bateria
+        # Atualiza cores de temperatura, bateria e sistema RPi
         self._update_temperature_colors(sensor_data)
         self._update_battery_colors(sensor_data)
+        self._update_rpi_system_colors(sensor_data)
 
     def _update_battery_colors(self, sensor_data):
         """Atualiza as cores do display de bateria baseado na porcentagem de carga"""
@@ -725,16 +800,20 @@ class ConsoleInterface:
     def _update_temperature_colors(self, sensor_data):
         """Atualiza as cores do display de temperatura baseado no status térmico"""
         try:
+            color_mapping = {
+                "NORMAL": "#00ff88",
+                "WARM": "#88ff00",
+                "WARNING": "#ffaa00",
+                "THROTTLING": "#ff6600",
+                "CRITICAL": "#ff4444",
+                "CRITICAL_SHUTDOWN": "#ff0000",
+                "UNKNOWN": "#888888",
+                "ERROR": "#ff0000",
+            }
+
+            # Temperatura DS18B20
             if hasattr(self, "temp_display"):
                 thermal_status = sensor_data.get("thermal_status", "NORMAL")
-
-                color_mapping = {
-                    "NORMAL": "#00ff88",
-                    "WARNING": "#ffaa00",
-                    "CRITICAL": "#ff4444",
-                    "CRITICAL_SHUTDOWN": "#ff0000",
-                }
-
                 color = color_mapping.get(thermal_status, "#00ff88")
                 self.temp_display.config(fg=color)
 
@@ -745,8 +824,66 @@ class ConsoleInterface:
                         500, lambda: self.temp_display.config(fg=flash_color)
                     )
 
+            # Temperatura da CPU do Raspberry Pi
+            if hasattr(self, "rpi_cpu_temp_display"):
+                rpi_status = sensor_data.get("rpi_cpu_temp_status", "UNKNOWN")
+                color = color_mapping.get(rpi_status, "#00ff88")
+                self.rpi_cpu_temp_display.config(fg=color)
+
+                if rpi_status in ["CRITICAL", "THROTTLING"]:
+                    current_color = self.rpi_cpu_temp_display.cget("fg")
+                    flash_color = "#ffffff" if current_color != "#ffffff" else color
+                    self.root.after(
+                        500, lambda: self.rpi_cpu_temp_display.config(fg=flash_color)
+                    )
+
         except Exception as e:
             error(f"Erro ao atualizar cores de temperatura: {e}", "CONSOLE")
+
+    def _update_rpi_system_colors(self, sensor_data):
+        """Atualiza as cores dos displays de métricas do sistema RPi"""
+        try:
+            def get_usage_color(usage, warning=80, critical=95):
+                """Retorna cor baseada no uso percentual"""
+                if usage >= critical:
+                    return "#ff4444"  # Vermelho
+                elif usage >= warning:
+                    return "#ffaa00"  # Amarelo
+                else:
+                    return "#00ff88"  # Verde
+
+            # CPU Usage
+            if hasattr(self, "rpi_cpu_usage_display"):
+                cpu_usage = sensor_data.get("rpi_cpu_usage_percent", 0)
+                color = get_usage_color(cpu_usage)
+                self.rpi_cpu_usage_display.config(fg=color)
+
+            # Memória
+            if hasattr(self, "rpi_mem_display"):
+                mem_usage = sensor_data.get("rpi_mem_usage_percent", 0)
+                color = get_usage_color(mem_usage)
+                self.rpi_mem_display.config(fg=color)
+
+            # Disco
+            if hasattr(self, "rpi_disk_display"):
+                disk_usage = sensor_data.get("rpi_disk_usage_percent", 0)
+                color = get_usage_color(disk_usage)
+                self.rpi_disk_display.config(fg=color)
+
+            # Load Average (warning se > número de cores)
+            if hasattr(self, "rpi_load_display"):
+                load = sensor_data.get("rpi_load_1min", 0)
+                cores = sensor_data.get("rpi_cpu_cores", 4)
+                if load >= cores:
+                    color = "#ff4444"  # Vermelho - sistema sobrecarregado
+                elif load >= cores * 0.7:
+                    color = "#ffaa00"  # Amarelo - carga alta
+                else:
+                    color = "#ff9966"  # Normal (laranja claro)
+                self.rpi_load_display.config(fg=color)
+
+        except Exception as e:
+            error(f"Erro ao atualizar cores do sistema RPi: {e}", "CONSOLE")
 
     def _update_motor_display(self, sensor_data):
         """Atualiza o painel de instrumentos do motor"""

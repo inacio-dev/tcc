@@ -80,6 +80,7 @@ try:
     from motor_manager import MotorManager
     from network_manager import NetworkManager
     from power_monitor_manager import PowerMonitorManager
+    from rpi_system_monitor import RpiSystemMonitor
     from steering_manager import SteeringManager, SteeringMode
     from temperature_manager import TemperatureManager
 except ImportError as e:
@@ -138,6 +139,7 @@ class F1CarMultiThreadSystem:
         self.network_mgr: Optional[NetworkManager] = None
         self.temperature_mgr: Optional[TemperatureManager] = None
         self.power_mgr: Optional[PowerMonitorManager] = None
+        self.rpi_sys_mgr: Optional[RpiSystemMonitor] = None
 
         # === FILAS THREAD-SAFE ===
         self.frame_queue = queue.Queue(maxsize=2)  # Últimos 2 frames
@@ -151,6 +153,7 @@ class F1CarMultiThreadSystem:
         self.current_sensor_data = {}
         self.current_power_data = {}
         self.current_temp_data = {}
+        self.current_rpi_sys_data = {}  # Métricas do sistema Raspberry Pi (CPU, memória, disco, rede)
         self.current_motor_status = {}
         self.current_brake_status = {}
         self.current_steering_status = {}
@@ -184,6 +187,7 @@ class F1CarMultiThreadSystem:
             "network": "Offline",
             "temperature": "Offline",
             "power": "Offline",
+            "rpi_system": "Offline",
         }
 
         # Configuração de sinal para parada limpa
@@ -208,7 +212,7 @@ class F1CarMultiThreadSystem:
         )
 
         success_count = 0
-        total_components = 8
+        total_components = 9
 
         # 1. Rede (crítico - deve inicializar primeiro)
         debug("Inicializando rede UDP...", "MAIN")
@@ -317,6 +321,16 @@ class F1CarMultiThreadSystem:
         else:
             warn("Monitor de energia não inicializado", "MAIN")
 
+        # 9. Monitor de sistema do Raspberry Pi (CPU, memória, disco, rede)
+        debug("Inicializando monitor de sistema do RPi...", "MAIN")
+        self.rpi_sys_mgr = RpiSystemMonitor(sample_rate=1.0)  # 1Hz
+        if self.rpi_sys_mgr.initialize():
+            self.system_status["rpi_system"] = "Online"
+            success_count += 1
+            info("Monitor de sistema do RPi inicializado", "MAIN")
+        else:
+            warn("Monitor de sistema do RPi não inicializado", "MAIN")
+
         if success_count >= 2:
             info(
                 f"SISTEMA PRONTO - {success_count}/{total_components} componentes",
@@ -419,12 +433,13 @@ class F1CarMultiThreadSystem:
         debug("Thread de energia finalizada", "PWR")
 
     def _temp_thread_loop(self):
-        """Thread dedicada para temperatura (1Hz)"""
+        """Thread dedicada para temperatura (1Hz) - DS18B20 + métricas do sistema RPi"""
         debug("Thread de temperatura iniciada", "TEMP")
         interval = 1.0  # 1Hz
 
         while self.running:
             try:
+                # Temperatura do sensor DS18B20 (externo)
                 if (
                     self.temperature_mgr
                     and self.system_status["temperature"] == "Online"
@@ -433,6 +448,17 @@ class F1CarMultiThreadSystem:
 
                     with self.current_data_lock:
                         self.current_temp_data = temp_data
+
+                # Métricas do sistema Raspberry Pi (CPU, memória, disco, rede)
+                if (
+                    self.rpi_sys_mgr
+                    and self.system_status["rpi_system"] == "Online"
+                ):
+                    if self.rpi_sys_mgr.update():
+                        rpi_sys_data = self.rpi_sys_mgr.get_sensor_data()
+
+                        with self.current_data_lock:
+                            self.current_rpi_sys_data = rpi_sys_data
 
                 time.sleep(interval)
 
@@ -459,6 +485,7 @@ class F1CarMultiThreadSystem:
                     sensor_data = self.current_sensor_data.copy()
                     power_data = self.current_power_data.copy()
                     temp_data = self.current_temp_data.copy()
+                    rpi_sys_data = self.current_rpi_sys_data.copy()
 
                 # Atualiza status dos atuadores (não bloqueante)
                 motor_status = {}
@@ -481,6 +508,7 @@ class F1CarMultiThreadSystem:
                     **steering_status,
                     **temp_data,
                     **power_data,
+                    **rpi_sys_data,
                     "system_status": self.system_status.copy(),
                     "system_uptime": current_time - self.start_time,
                 }
@@ -579,7 +607,7 @@ class F1CarMultiThreadSystem:
 
         info(
             f"STATS: {elapsed:.0f}s | {fps:.1f}fps | {sensor_hz:.0f}Hz | "
-            f"{pps:.0f}pps | {components_online}/8 online",
+            f"{pps:.0f}pps | {components_online}/9 online",
             "STATS",
         )
 
@@ -664,6 +692,7 @@ class F1CarMultiThreadSystem:
             ("motor", self.motor_mgr),
             ("brakes", self.brake_mgr),
             ("power", self.power_mgr),
+            ("rpi_system", self.rpi_sys_mgr),
             ("temperature", self.temperature_mgr),
             ("sensors", self.bmi160_mgr),
             ("camera", self.camera_mgr),
