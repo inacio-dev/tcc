@@ -108,16 +108,46 @@ class CircularBuffer(io.BufferedIOBase):
 class CameraManager:
     """Gerencia a captura de vídeo da câmera OV5647 com MJPEG encoding"""
 
-    def __init__(self, resolution=(640, 480), frame_rate=30):
+    # Presets de resolução
+    RESOLUTION_PRESETS = {
+        "480p": (640, 480),      # VGA - leve
+        "720p": (1280, 720),     # HD - balanceado
+        "1080p": (1920, 1080),   # Full HD - alta qualidade
+    }
+
+    def __init__(
+        self,
+        resolution=(640, 480),
+        frame_rate=30,
+        quality=85,
+        sharpness=1.0,
+        contrast=1.0,
+        saturation=1.0,
+        brightness=0.0,
+        exposure_mode="auto",
+    ):
         """
         Inicializa o gerenciador da câmera
 
         Args:
             resolution (tuple): Resolução do vídeo (largura, altura)
             frame_rate (int): Taxa de frames por segundo
+            quality (int): Qualidade MJPEG 1-100 (padrão: 85)
+            sharpness (float): Nitidez 0.0-2.0 (padrão: 1.0)
+            contrast (float): Contraste 0.0-2.0 (padrão: 1.0)
+            saturation (float): Saturação 0.0-2.0 (padrão: 1.0)
+            brightness (float): Brilho -1.0 a 1.0 (padrão: 0.0)
+            exposure_mode (str): Modo de exposição (auto, short, long)
         """
         self.resolution = resolution
         self.frame_rate = frame_rate
+        self.quality = quality
+        self.sharpness = sharpness
+        self.contrast = contrast
+        self.saturation = saturation
+        self.brightness = brightness
+        self.exposure_mode = exposure_mode
+
         self.camera = None
         self.encoder = None
         self.buffer = None
@@ -168,19 +198,39 @@ class CameraManager:
             # Aplica configuração
             self.camera.configure(config)
 
-            # Configura frame rate
+            # Configura frame rate e controles de imagem
             try:
                 frame_duration = 1000000 // self.frame_rate  # microssegundos
-                self.camera.set_controls(
-                    {"FrameDurationLimits": (frame_duration, frame_duration)}
-                )
+                controls = {
+                    "FrameDurationLimits": (frame_duration, frame_duration),
+                }
+
+                # Controles de imagem (valores em escala libcamera)
+                # Sharpness: 0.0 = sem nitidez, 1.0 = normal, 2.0+ = mais nítido
+                if self.sharpness != 1.0:
+                    controls["Sharpness"] = self.sharpness
+
+                # Contrast: 0.0 = sem contraste, 1.0 = normal, 2.0 = alto contraste
+                if self.contrast != 1.0:
+                    controls["Contrast"] = self.contrast
+
+                # Saturation: 0.0 = preto e branco, 1.0 = normal, 2.0 = cores vivas
+                if self.saturation != 1.0:
+                    controls["Saturation"] = self.saturation
+
+                # Brightness: -1.0 a 1.0 (0.0 = normal)
+                if self.brightness != 0.0:
+                    controls["Brightness"] = self.brightness
+
+                self.camera.set_controls(controls)
                 print(f"  Frame rate: {self.frame_rate} FPS")
+                print(f"  Controles: sharpness={self.sharpness}, contrast={self.contrast}, saturation={self.saturation}")
             except Exception as e:
-                print(f"⚠ Aviso: FrameDurationLimits não configurado: {e}")
+                print(f"⚠ Aviso: Alguns controles não configurados: {e}")
 
             # Cria encoder MJPEG (usa hardware do Raspberry Pi)
-            # Qualidade é controlada via bitrate (None = automático baseado em resolução)
-            self.encoder = MJPEGEncoder()
+            # Qualidade controlada via parâmetro quality (1-100)
+            self.encoder = MJPEGEncoder(q=self.quality)
 
             # Cria buffer circular
             self.buffer = CircularBuffer(max_frames=10)
@@ -201,6 +251,7 @@ class CameraManager:
 
             print("✓ Câmera OV5647 inicializada com MJPEG encoder")
             print(f"  Resolução: {self.resolution[0]}x{self.resolution[1]}")
+            print(f"  Qualidade MJPEG: {self.quality}")
             print("  Encoder: MJPEG (hardware, cada frame é JPEG independente)")
 
             return True
@@ -325,6 +376,154 @@ class CameraManager:
                     stats["actual_fps"] = self.buffer.frame_count / elapsed
 
         return stats
+
+    def set_controls(self, sharpness=None, contrast=None, saturation=None, brightness=None):
+        """
+        Ajusta controles de imagem em tempo real
+
+        Args:
+            sharpness (float): Nitidez 0.0-2.0
+            contrast (float): Contraste 0.0-2.0
+            saturation (float): Saturação 0.0-2.0
+            brightness (float): Brilho -1.0 a 1.0
+        """
+        if not self.is_initialized or self.camera is None:
+            return False
+
+        try:
+            controls = {}
+
+            if sharpness is not None:
+                controls["Sharpness"] = sharpness
+                self.sharpness = sharpness
+
+            if contrast is not None:
+                controls["Contrast"] = contrast
+                self.contrast = contrast
+
+            if saturation is not None:
+                controls["Saturation"] = saturation
+                self.saturation = saturation
+
+            if brightness is not None:
+                controls["Brightness"] = brightness
+                self.brightness = brightness
+
+            if controls:
+                self.camera.set_controls(controls)
+                return True
+
+            return False
+
+        except Exception as e:
+            print(f"⚠ Erro ao ajustar controles: {e}")
+            return False
+
+    def get_current_settings(self):
+        """
+        Retorna configurações atuais da câmera
+
+        Returns:
+            dict: Configurações atuais
+        """
+        return {
+            "resolution": self.resolution,
+            "resolution_name": self._get_resolution_name(),
+            "frame_rate": self.frame_rate,
+            "quality": self.quality,
+            "sharpness": self.sharpness,
+            "contrast": self.contrast,
+            "saturation": self.saturation,
+            "brightness": self.brightness,
+        }
+
+    def _get_resolution_name(self):
+        """Retorna o nome do preset de resolução atual"""
+        for name, res in self.RESOLUTION_PRESETS.items():
+            if res == self.resolution:
+                return name
+        return f"{self.resolution[0]}x{self.resolution[1]}"
+
+    def set_resolution(self, resolution_name):
+        """
+        Muda a resolução da câmera (requer reinicialização)
+
+        Args:
+            resolution_name (str): Nome do preset ('480p', '720p', '1080p')
+
+        Returns:
+            bool: True se a resolução foi alterada com sucesso
+        """
+        if resolution_name not in self.RESOLUTION_PRESETS:
+            print(f"⚠ Resolução inválida: {resolution_name}")
+            print(f"   Opções válidas: {list(self.RESOLUTION_PRESETS.keys())}")
+            return False
+
+        new_resolution = self.RESOLUTION_PRESETS[resolution_name]
+
+        # Se a resolução já é a mesma, não faz nada
+        if new_resolution == self.resolution:
+            print(f"ℹ Resolução já é {resolution_name}")
+            return True
+
+        print(f"🔄 Mudando resolução para {resolution_name} ({new_resolution[0]}x{new_resolution[1]})...")
+
+        try:
+            # Para o encoder atual
+            if self.is_recording and self.camera:
+                self.camera.stop_encoder()
+                self.is_recording = False
+
+            # Para a câmera
+            if self.camera:
+                self.camera.stop()
+
+            # Atualiza resolução
+            self.resolution = new_resolution
+
+            # Reconfigura a câmera
+            config = self.camera.create_video_configuration(
+                main={"size": self.resolution, "format": "XBGR8888"},
+                encode="main",
+                buffer_count=4,
+            )
+            self.camera.configure(config)
+
+            # Reaplica controles
+            frame_duration = 1000000 // self.frame_rate
+            controls = {
+                "FrameDurationLimits": (frame_duration, frame_duration),
+            }
+            if self.sharpness != 1.0:
+                controls["Sharpness"] = self.sharpness
+            if self.contrast != 1.0:
+                controls["Contrast"] = self.contrast
+            if self.saturation != 1.0:
+                controls["Saturation"] = self.saturation
+            if self.brightness != 0.0:
+                controls["Brightness"] = self.brightness
+
+            self.camera.set_controls(controls)
+
+            # Recria encoder e buffer
+            self.encoder = MJPEGEncoder(q=self.quality)
+            self.buffer = CircularBuffer(max_frames=10)
+            self.output = FileOutput(self.buffer)
+
+            # Reinicia câmera e encoder
+            self.camera.start()
+            time.sleep(0.3)  # Aguarda estabilização
+            self.camera.start_encoder(self.encoder, self.output)
+            self.is_recording = True
+
+            print(f"✓ Resolução alterada para {resolution_name} ({new_resolution[0]}x{new_resolution[1]})")
+            return True
+
+        except Exception as e:
+            print(f"✗ Erro ao mudar resolução: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
 
     def cleanup(self):
         """Libera recursos da câmera e encoder"""

@@ -99,7 +99,13 @@ class F1CarMultiThreadSystem:
         self,
         target_ip: Optional[str] = None,
         target_port: int = 9999,
+        camera_resolution: tuple = (640, 480),
         camera_fps: int = 30,
+        camera_quality: int = 85,
+        camera_sharpness: float = 1.0,
+        camera_contrast: float = 1.0,
+        camera_saturation: float = 1.0,
+        camera_brightness: float = 0.0,
         sensor_rate: int = 100,
         brake_balance: float = 60.0,
         steering_mode: str = "sport",
@@ -110,7 +116,13 @@ class F1CarMultiThreadSystem:
         Args:
             target_ip: IP do PC cliente (None = descoberta automática)
             target_port: Porta UDP de destino
+            camera_resolution: Resolução da câmera (largura, altura)
             camera_fps: Taxa de frames da câmera
+            camera_quality: Qualidade MJPEG 1-100
+            camera_sharpness: Nitidez 0.0-2.0
+            camera_contrast: Contraste 0.0-2.0
+            camera_saturation: Saturação 0.0-2.0
+            camera_brightness: Brilho -1.0 a 1.0
             sensor_rate: Taxa de amostragem dos sensores (Hz)
             brake_balance: Balanço de freio 0-100%
             steering_mode: Modo de direção
@@ -118,7 +130,13 @@ class F1CarMultiThreadSystem:
         self.target_ip = target_ip
         self.target_port = target_port
         self.use_auto_discovery = target_ip is None
+        self.camera_resolution = camera_resolution
         self.camera_fps = camera_fps
+        self.camera_quality = camera_quality
+        self.camera_sharpness = camera_sharpness
+        self.camera_contrast = camera_contrast
+        self.camera_saturation = camera_saturation
+        self.camera_brightness = camera_brightness
         self.sensor_rate = sensor_rate
         self.brake_balance = brake_balance
 
@@ -232,7 +250,13 @@ class F1CarMultiThreadSystem:
         # 2. Câmera
         debug("Inicializando câmera...", "MAIN")
         self.camera_mgr = CameraManager(
-            resolution=(640, 480), frame_rate=self.camera_fps
+            resolution=self.camera_resolution,
+            frame_rate=self.camera_fps,
+            quality=self.camera_quality,
+            sharpness=self.camera_sharpness,
+            contrast=self.camera_contrast,
+            saturation=self.camera_saturation,
+            brightness=self.camera_brightness,
         )
         if self.camera_mgr.initialize():
             self.system_status["camera"] = "Online"
@@ -587,6 +611,41 @@ class F1CarMultiThreadSystem:
                         if self.motor_mgr.shift_gear_down():
                             info(f"Marcha: {self.motor_mgr.current_gear}", "CMD")
 
+                elif control_cmd.startswith("CAMERA_RESOLUTION:"):
+                    resolution = control_cmd[18:]  # e.g., "720p", "1080p", "480p"
+                    if self.camera_mgr:
+                        if self.camera_mgr.set_resolution(resolution):
+                            info(f"Resolução da câmera: {resolution}", "CMD")
+                        else:
+                            warn(f"Falha ao mudar resolução: {resolution}", "CMD")
+
+                elif control_cmd.startswith("CAMERA_QUALITY:"):
+                    quality = int(control_cmd[15:])
+                    if self.camera_mgr:
+                        # Atualiza a qualidade via recriação do encoder
+                        self.camera_mgr.quality = max(1, min(100, quality))
+                        info(f"Qualidade MJPEG: {quality}", "CMD")
+
+                elif control_cmd.startswith("CAMERA_CONTROLS:"):
+                    # Formato: CAMERA_CONTROLS:sharpness:contrast:saturation:brightness
+                    try:
+                        parts = control_cmd[16:].split(":")
+                        if len(parts) >= 4:
+                            sharpness = float(parts[0])
+                            contrast = float(parts[1])
+                            saturation = float(parts[2])
+                            brightness = float(parts[3])
+                            if self.camera_mgr:
+                                self.camera_mgr.set_controls(
+                                    sharpness=sharpness,
+                                    contrast=contrast,
+                                    saturation=saturation,
+                                    brightness=brightness
+                                )
+                                debug(f"Controles: sharp={sharpness}, cont={contrast}, sat={saturation}, bri={brightness}", "CMD")
+                    except ValueError:
+                        warn("Formato inválido para CAMERA_CONTROLS", "CMD")
+
         except Exception as e:
             error(f"Erro ao processar comando: {e}", "CMD")
 
@@ -737,9 +796,16 @@ def create_argument_parser():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Exemplos de uso:
-  python3 main.py                          # Descoberta automática
-  python3 main.py --fps 30 --sensor-rate 100
-  python3 main.py --debug                  # Modo verbose
+  python3 main.py                                    # Padrão (480p@30fps)
+  python3 main.py --resolution 720p --fps 60        # HD 720p a 60fps
+  python3 main.py --resolution 1080p --fps 30       # Full HD a 30fps
+  python3 main.py --quality 95 --sharpness 1.5      # Alta qualidade + nitidez
+  python3 main.py --debug                            # Modo verbose
+
+Presets de resolução:
+  480p  = 640x480   (leve, até 90fps)
+  720p  = 1280x720  (HD, até 60fps)
+  1080p = 1920x1080 (Full HD, até 30fps)
         """,
     )
 
@@ -747,9 +813,35 @@ Exemplos de uso:
     parser.add_argument(
         "--port", type=int, default=9999, help="Porta UDP (default: 9999)"
     )
+
+    # Configurações de câmera
+    parser.add_argument(
+        "--resolution",
+        type=str,
+        choices=["480p", "720p", "1080p"],
+        default="480p",
+        help="Resolução da câmera (default: 480p)",
+    )
     parser.add_argument(
         "--fps", type=int, default=30, help="FPS da câmera (default: 30)"
     )
+    parser.add_argument(
+        "--quality", type=int, default=85, help="Qualidade MJPEG 1-100 (default: 85)"
+    )
+    parser.add_argument(
+        "--sharpness", type=float, default=1.0, help="Nitidez 0.0-2.0 (default: 1.0)"
+    )
+    parser.add_argument(
+        "--contrast", type=float, default=1.0, help="Contraste 0.0-2.0 (default: 1.0)"
+    )
+    parser.add_argument(
+        "--saturation", type=float, default=1.0, help="Saturação 0.0-2.0 (default: 1.0)"
+    )
+    parser.add_argument(
+        "--brightness", type=float, default=0.0, help="Brilho -1.0 a 1.0 (default: 0.0)"
+    )
+
+    # Outras configurações
     parser.add_argument(
         "--sensor-rate", type=int, default=100, help="Taxa sensores Hz (default: 100)"
     )
@@ -780,20 +872,42 @@ def main():
 
     info("F1 CAR REMOTE CONTROL SYSTEM (Multi-Thread)", "STARTUP")
 
+    # Mapeamento de resolução
+    resolution_map = {
+        "480p": (640, 480),
+        "720p": (1280, 720),
+        "1080p": (1920, 1080),
+    }
+    resolution = resolution_map[args.resolution]
+
     # Validações
-    if not (1 <= args.fps <= 60):
-        error("FPS deve estar entre 1 e 60", "CONFIG")
+    max_fps = {"480p": 90, "720p": 60, "1080p": 30}[args.resolution]
+    if not (1 <= args.fps <= max_fps):
+        error(f"FPS deve estar entre 1 e {max_fps} para {args.resolution}", "CONFIG")
+        sys.exit(1)
+
+    if not (1 <= args.quality <= 100):
+        error("Qualidade deve estar entre 1 e 100", "CONFIG")
         sys.exit(1)
 
     if not (10 <= args.sensor_rate <= 1000):
         error("Taxa de sensores deve estar entre 10 e 1000 Hz", "CONFIG")
         sys.exit(1)
 
+    # Log configuração de câmera
+    info(f"Câmera: {args.resolution} @ {args.fps}fps, qualidade={args.quality}", "CONFIG")
+
     # Cria e inicia sistema
     system = F1CarMultiThreadSystem(
         target_ip=args.ip,
         target_port=args.port,
+        camera_resolution=resolution,
         camera_fps=args.fps,
+        camera_quality=args.quality,
+        camera_sharpness=args.sharpness,
+        camera_contrast=args.contrast,
+        camera_saturation=args.saturation,
+        camera_brightness=args.brightness,
         sensor_rate=args.sensor_rate,
         brake_balance=args.brake_balance,
         steering_mode=args.steering_mode,

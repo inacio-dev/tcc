@@ -31,9 +31,13 @@ from keyboard_controller import KeyboardController
 from simple_logger import debug, error
 from slider_controller import SliderController
 
+from client_system_monitor import ClientSystemMonitor
+
 from .frames.bmi160 import create_bmi160_frame
+from .frames.camera_controls import create_camera_controls_frame
 
 # Imports dos módulos locais
+from .frames.client_system import create_client_system_frame
 from .frames.connection_status import create_connection_status_frame
 from .frames.rpi_system import create_rpi_system_frame
 from .frames.controls import create_controls_frame
@@ -145,6 +149,10 @@ class ConsoleInterface:
         self.velocity_calculator = None
         self.auto_save_manager = None
         self.telemetry_plotter = None
+
+        # Monitor de sistema do cliente (notebook/PC)
+        self.client_system_monitor = ClientSystemMonitor(sample_rate=1.0)
+        self.client_vars = {}  # Variáveis Tkinter para métricas do cliente
 
     def create_tkinter_variables(self):
         """Cria variáveis do Tkinter"""
@@ -260,6 +268,16 @@ class ConsoleInterface:
             "timestamp": tk.StringVar(value="0"),
             "frame_count": tk.StringVar(value="0"),
             "readings_count": tk.StringVar(value="0"),
+        }
+
+        # Variáveis do sistema cliente (notebook/PC)
+        self.client_vars = {
+            "cpu_usage": tk.StringVar(value="--"),
+            "cpu_temp": tk.StringVar(value="--"),
+            "cpu_freq": tk.StringVar(value="--"),
+            "mem_usage": tk.StringVar(value="--"),
+            "net_rx": tk.StringVar(value="--"),
+            "net_tx": tk.StringVar(value="--"),
         }
 
         # Inicializa calculadores de lógica
@@ -404,6 +422,8 @@ class ConsoleInterface:
         create_log_frame(self)
 
         # Coluna Direita
+        create_client_system_frame(self)  # Métricas do sistema cliente (acima do vídeo)
+        create_camera_controls_frame(self)  # Controles de câmera (resolução)
         create_video_frame(self)
         self.create_telemetry_frame()  # Gráficos F1 abaixo do vídeo
         self.create_slider_controls_frame()
@@ -840,6 +860,82 @@ class ConsoleInterface:
         except Exception as e:
             error(f"Erro ao atualizar cores de temperatura: {e}", "CONSOLE")
 
+    def _update_client_system_data(self):
+        """Atualiza dados do sistema cliente e agenda próxima atualização"""
+        if not self.is_running:
+            return
+
+        try:
+            data = self.client_system_monitor.get_data()
+
+            # Atualiza variáveis Tkinter
+            if "client_cpu_usage_percent" in data:
+                self.client_vars["cpu_usage"].set(f"{data['client_cpu_usage_percent']:.1f}")
+                self._update_client_cpu_color(data["client_cpu_usage_percent"])
+
+            if "client_cpu_temp_c" in data and data["client_cpu_temp_c"] > 0:
+                self.client_vars["cpu_temp"].set(f"{data['client_cpu_temp_c']:.1f}")
+                self._update_client_temp_color(data["client_cpu_temp_c"])
+            else:
+                self.client_vars["cpu_temp"].set("--")
+
+            if "client_cpu_freq_mhz" in data and data["client_cpu_freq_mhz"] > 0:
+                self.client_vars["cpu_freq"].set(f"{data['client_cpu_freq_mhz']}")
+
+            if "client_mem_usage_percent" in data:
+                self.client_vars["mem_usage"].set(f"{data['client_mem_usage_percent']:.1f}")
+                self._update_client_mem_color(data["client_mem_usage_percent"])
+
+            if "client_net_rx_rate_kbps" in data:
+                self.client_vars["net_rx"].set(f"{data['client_net_rx_rate_kbps']:.1f}")
+
+            if "client_net_tx_rate_kbps" in data:
+                self.client_vars["net_tx"].set(f"{data['client_net_tx_rate_kbps']:.1f}")
+
+            # Salva dados no histórico do sensor_display
+            if self.sensor_display and hasattr(self.sensor_display, 'current_data'):
+                self.sensor_display.current_data.update(data)
+
+        except Exception as e:
+            error(f"Erro ao atualizar dados do cliente: {e}", "CONSOLE")
+
+        # Agenda próxima atualização (1 segundo)
+        if self.is_running:
+            self.root.after(1000, self._update_client_system_data)
+
+    def _update_client_cpu_color(self, usage):
+        """Atualiza cor do display de CPU do cliente"""
+        if hasattr(self, "client_cpu_display"):
+            if usage >= 95:
+                color = "#ff4444"
+            elif usage >= 80:
+                color = "#ffaa00"
+            else:
+                color = "#00ff88"
+            self.client_cpu_display.config(fg=color)
+
+    def _update_client_temp_color(self, temp):
+        """Atualiza cor do display de temperatura do cliente"""
+        if hasattr(self, "client_temp_display"):
+            if temp >= 90:
+                color = "#ff4444"
+            elif temp >= 75:
+                color = "#ffaa00"
+            else:
+                color = "#00ff88"
+            self.client_temp_display.config(fg=color)
+
+    def _update_client_mem_color(self, usage):
+        """Atualiza cor do display de memória do cliente"""
+        if hasattr(self, "client_mem_display"):
+            if usage >= 95:
+                color = "#ff4444"
+            elif usage >= 80:
+                color = "#ffaa00"
+            else:
+                color = "#00ff88"
+            self.client_mem_display.config(fg=color)
+
     def _update_rpi_system_colors(self, sensor_data):
         """Atualiza as cores dos displays de métricas do sistema RPi"""
         try:
@@ -980,6 +1076,10 @@ class ConsoleInterface:
             # Inicia gráficos de telemetria F1
             if self.telemetry_plotter:
                 self.telemetry_plotter.start(self.root)
+
+            # Inicia monitor de sistema do cliente
+            self.client_system_monitor.start()
+            self.root.after(1000, self._update_client_system_data)
 
             # Log inicial
             self.log("INFO", "Interface do console iniciada")
