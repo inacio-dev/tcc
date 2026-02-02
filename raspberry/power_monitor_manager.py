@@ -77,7 +77,7 @@ Cálculos:
 - Para obter tensão real: V_bateria = V_adc × 2
 
 INA219 (I2C):
-- Endereço I2C: 0x41 (A0=VCC para evitar conflito com PCA9685)
+- Endereço I2C: 0x40 (endereço padrão, PCA9685 usa 0x41 com A0 soldado)
 - Mede tensão (0-26V) e corrente (±3.2A) na entrada 5V do Raspberry Pi
 
 PINOUT INA219 (Pinos: VIN-, VIN+, VCC, GND, SCL, SDA):
@@ -214,9 +214,9 @@ class PowerMonitorManager:
     ADS1115_REG_CONFIG = 0x01
 
     # Configuração ADS1115
-    # OS=1 (start), MUX=100 (AIN0), PGA=001 (±4.096V), MODE=1 (single-shot)
+    # OS=1 (start), MUX=100 (AIN0), PGA=000 (±6.144V), MODE=1 (single-shot)
     # DR=100 (128SPS), COMP_MODE=0, COMP_POL=0, COMP_LAT=0, COMP_QUE=11
-    ADS1115_CONFIG_BASE = 0x8583  # Single-shot, ±4.096V, 128SPS
+    ADS1115_CONFIG_BASE = 0x8183  # Single-shot, ±6.144V, 128SPS
 
     # MUX bits para cada canal (bits 14:12)
     ADS1115_MUX_AIN0 = 0x4000  # Canal 0
@@ -240,8 +240,8 @@ class PowerMonitorManager:
     ACS758_100A_SENSITIVITY = 0.020  # 20 mV/A
     ACS758_VREF = 2.5  # VCC/2 @ 5V (tensão em 0A)
 
-    # Fator de escala ADS1115 (±4.096V, 16-bit signed)
-    ADS1115_SCALE = 4.096 / 32768.0  # V/LSB
+    # Fator de escala ADS1115 (±6.144V, 16-bit signed)
+    ADS1115_SCALE = 6.144 / 32768.0  # V/LSB
 
     # Divisor de tensão bateria (Canal A3)
     # Divisor 1:2 com R1=10kΩ, R2=10kΩ → V_bateria = V_adc × 2
