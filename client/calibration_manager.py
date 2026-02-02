@@ -43,7 +43,10 @@ class CalibrationManager:
         """
         self.serial_sender = serial_sender
         self.log_callback = log_callback
-        self.config_file = config_file
+
+        # Salva o arquivo dentro da pasta client (diretório deste arquivo)
+        client_dir = os.path.dirname(os.path.abspath(__file__))
+        self.config_file = os.path.join(client_dir, config_file)
 
         # Estado de calibração
         self.is_calibrating = False

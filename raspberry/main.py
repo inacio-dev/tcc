@@ -109,6 +109,7 @@ class F1CarMultiThreadSystem:
         sensor_rate: int = 100,
         brake_balance: float = 60.0,
         steering_mode: str = "sport",
+        calibrate_power: bool = False,
     ):
         """
         Inicializa o sistema multi-thread
@@ -126,6 +127,7 @@ class F1CarMultiThreadSystem:
             sensor_rate: Taxa de amostragem dos sensores (Hz)
             brake_balance: Balanço de freio 0-100%
             steering_mode: Modo de direção
+            calibrate_power: Se True, calibra sensores de corrente na inicialização
         """
         self.target_ip = target_ip
         self.target_port = target_port
@@ -147,6 +149,7 @@ class F1CarMultiThreadSystem:
             "parking": SteeringMode.PARKING,
         }
         self.steering_mode = steering_map.get(steering_mode, SteeringMode.SPORT)
+        self.calibrate_power = calibrate_power
 
         # === GERENCIADORES DE COMPONENTES ===
         self.camera_mgr: Optional[CameraManager] = None
@@ -342,6 +345,12 @@ class F1CarMultiThreadSystem:
             self.system_status["power"] = "Online"
             success_count += 1
             info("Monitor de energia inicializado", "MAIN")
+
+            # Calibração de sensores de corrente (se solicitado)
+            if self.calibrate_power:
+                info("CALIBRAÇÃO DE CORRENTE - Desligue motor e servos!", "POWER")
+                time.sleep(2)  # Aguarda usuário ler a mensagem
+                self.power_mgr.calibrate_zero_current(duration=3.0)
         else:
             warn("Monitor de energia não inicializado", "MAIN")
 
@@ -858,6 +867,11 @@ Presets de resolução:
         default="sport",
     )
     parser.add_argument("--debug", action="store_true", help="Modo debug")
+    parser.add_argument(
+        "--calibrate-power",
+        action="store_true",
+        help="Calibra sensores de corrente ACS758 (desligar cargas primeiro!)",
+    )
 
     return parser
 
@@ -911,6 +925,7 @@ def main():
         sensor_rate=args.sensor_rate,
         brake_balance=args.brake_balance,
         steering_mode=args.steering_mode,
+        calibrate_power=args.calibrate_power,
     )
 
     try:

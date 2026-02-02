@@ -192,9 +192,12 @@ FILTROS DE SOFTWARE (este módulo):
 3. Filtro de Mediana (rejeita spikes/outliers)
 """
 
+import json
+import os
 import threading
 import time
 from collections import deque
+from datetime import datetime
 from statistics import median
 from typing import Any, Dict, Optional
 
@@ -382,6 +385,11 @@ class PowerMonitorManager:
                 print(
                     f"  - INA219 (RPi 5V): {'Online' if self.ina219_available else 'Offline'}"
                 )
+
+                # Carrega calibração salva (se existir)
+                if self.ads1115_available:
+                    self.load_calibration()
+
                 return True
             else:
                 print("❌ Nenhum sensor de energia disponível")
@@ -822,6 +830,77 @@ class PowerMonitorManager:
             print(f"✓ Offset Motor: {self.offset_motor*1000:.2f} mV")
 
         print("✓ Calibração concluída!")
+
+        # Salva calibração em arquivo JSON
+        self.save_calibration()
+
+    def save_calibration(self, filename: str = None) -> bool:
+        """
+        Salva offsets de calibração em arquivo JSON
+
+        Args:
+            filename: Caminho do arquivo (padrão: power_calibration.json na pasta do módulo)
+
+        Returns:
+            bool: True se salvo com sucesso
+        """
+        if filename is None:
+            module_dir = os.path.dirname(os.path.abspath(__file__))
+            filename = os.path.join(module_dir, "power_calibration.json")
+
+        try:
+            data = {
+                "offset_rpi": self.offset_rpi,
+                "offset_servos": self.offset_servos,
+                "offset_motor": self.offset_motor,
+                "last_calibration": datetime.now().isoformat(),
+                "version": "1.0",
+            }
+
+            with open(filename, "w") as f:
+                json.dump(data, f, indent=4)
+
+            print(f"✓ Calibração salva em: {filename}")
+            return True
+
+        except Exception as e:
+            print(f"⚠ Erro ao salvar calibração: {e}")
+            return False
+
+    def load_calibration(self, filename: str = None) -> bool:
+        """
+        Carrega offsets de calibração de arquivo JSON
+
+        Args:
+            filename: Caminho do arquivo (padrão: power_calibration.json na pasta do módulo)
+
+        Returns:
+            bool: True se carregado com sucesso
+        """
+        if filename is None:
+            module_dir = os.path.dirname(os.path.abspath(__file__))
+            filename = os.path.join(module_dir, "power_calibration.json")
+
+        try:
+            if not os.path.exists(filename):
+                print("ℹ Nenhuma calibração salva encontrada. Usando valores padrão.")
+                return False
+
+            with open(filename, "r") as f:
+                data = json.load(f)
+
+            self.offset_rpi = data.get("offset_rpi", 0.0)
+            self.offset_servos = data.get("offset_servos", 0.0)
+            self.offset_motor = data.get("offset_motor", 0.0)
+            last_cal = data.get("last_calibration", "desconhecido")
+
+            print(f"✓ Calibração carregada (última: {last_cal})")
+            print(f"  Offsets: RPi={self.offset_rpi*1000:.1f}mV, Servos={self.offset_servos*1000:.1f}mV, Motor={self.offset_motor*1000:.1f}mV")
+            return True
+
+        except Exception as e:
+            print(f"⚠ Erro ao carregar calibração: {e}")
+            return False
 
     def get_sensor_data(self) -> Dict[str, Any]:
         """
