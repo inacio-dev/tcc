@@ -131,7 +131,7 @@ class SteeringManager:
     STEERING_CHANNEL = 2  # Canal 2 do PCA9685
 
     # Endereço I2C do PCA9685 (compartilhado com brake_manager)
-    PCA9685_I2C_ADDRESS = 0x40  # Endereço padrão do PCA9685
+    PCA9685_I2C_ADDRESS = 0x41  # PCA9685 com A0 soldado (evita conflito com INA219 em 0x40)
 
     # Características do servo MG996R
     PWM_FREQUENCY = 50  # 50Hz para servos

@@ -287,7 +287,7 @@ class F1CarMultiThreadSystem:
         self.brake_mgr = BrakeManager(
             front_channel=0,
             rear_channel=1,
-            pca9685_address=0x40,
+            pca9685_address=0x41,
             brake_balance=self.brake_balance,
             max_brake_force=100.0,
             response_time=0.1,
@@ -313,7 +313,7 @@ class F1CarMultiThreadSystem:
         debug("Inicializando direção...", "MAIN")
         self.steering_mgr = SteeringManager(
             steering_channel=2,
-            pca9685_address=0x40,
+            pca9685_address=0x41,
             steering_sensitivity=1.2,
             max_steering_angle=90.0,
             steering_mode=self.steering_mode,

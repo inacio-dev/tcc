@@ -108,12 +108,12 @@ MAPA DE ENDEREÇOS I2C DO PROJETO (Verificado - Sem Conflitos):
 ==============================================================
 | Dispositivo      | Endereço | Configuração    | Função                |
 |------------------|----------|-----------------|------------------------|
-| PCA9685 (PWM)    | 0x40     | Padrão          | Controle de servos     |
-| INA219 (Corrente)| 0x41     | A0=VCC          | Medição corrente RPi   |
+| INA219 (Corrente)| 0x40     | Padrão          | Medição corrente RPi   |
+| PCA9685 (PWM)    | 0x41     | A0 soldado      | Controle de servos     |
 | ADS1115 (ADC)    | 0x48     | ADDR→GND        | Leitura ACS758/bateria |
 | BMI160 (IMU)     | 0x68     | SAO/SDO→GND     | Acelerômetro/giroscópio|
 
-Nota: O INA219 usa A0=VCC (0x41) para evitar conflito com o PCA9685 (0x40).
+Nota: O PCA9685 usa A0 soldado (0x41) para evitar conflito com o INA219 (0x40).
       Todos os dispositivos compartilham o mesmo barramento I2C (GPIO2/GPIO3).
 
 Comando para verificar dispositivos I2C conectados:
@@ -207,7 +207,7 @@ class PowerMonitorManager:
 
     # Endereços I2C
     ADS1115_ADDRESS = 0x48  # ADDR → GND
-    INA219_ADDRESS = 0x41  # A0=VCC para evitar conflito com PCA9685 (0x40)
+    INA219_ADDRESS = 0x40  # Endereço padrão (PCA9685 usa 0x41 com A0 soldado)
 
     # Registradores ADS1115
     ADS1115_REG_CONVERSION = 0x00
