@@ -729,6 +729,15 @@ class PowerMonitorManager:
                 if not self.ema_initialized and success:
                     self.ema_initialized = True
 
+                # DEBUG: Log de todos os canais ADS1115 (remover depois)
+                if self.readings_count % 100 == 0:  # A cada 10 segundos (10Hz * 100)
+                    v0 = self.raw_rpi * self.ADS1115_SCALE
+                    v1 = self.raw_servos * self.ADS1115_SCALE
+                    v2 = self.raw_motor * self.ADS1115_SCALE
+                    v3 = self.raw_battery * self.ADS1115_SCALE
+                    print(f"[DEBUG ADS1115] raw: A0={self.raw_rpi}, A1={self.raw_servos}, A2={self.raw_motor}, A3={self.raw_battery}")
+                    print(f"[DEBUG ADS1115] volt: A0={v0:.3f}V, A1={v1:.3f}V, A2={v2:.3f}V, A3={v3:.3f}V (bat={v3*2:.2f}V)")
+
             except Exception as e:
                 self.errors_count += 1
                 if self.errors_count % 50 == 0:
