@@ -74,19 +74,54 @@ Este arquivo contém as especificações técnicas de todos os módulos utilizad
 
 ---
 
-## Conversor ADC ADS1115
+## Arduino Pro Micro (ATmega32U4)
 
 | Especificação | Valor |
 |---------------|-------|
-| Chip | ADS1115 |
-| Resolução | 16 bits |
-| Tensão de Operação | 2V a 5.5V DC |
-| Interface | I2C (4 endereços de 7 bits) |
-| Canais | 4 simples ou 2 diferenciais |
-| Taxa de Amostragem | 8 a 860 SPS (programável) |
-| Consumo | 150 µA (modo contínuo) |
-| Recursos | Oscilador interno, PGA, comparador programável |
-| Dimensões | 28 x 17 x 2.5 mm |
+| MCU | ATmega32U4 @ 16MHz |
+| Tensão de Operação | 5V |
+| USB | Nativo (CDC, sem conversor FTDI) |
+| ADC | 10 bits (0-1023), referência AVCC |
+| Canais Analógicos | 12 (A0-A3, A6-A10, D4, D6, D8, D12) |
+| EEPROM | 1024 bytes |
+| Flash | 32 KB (4 KB bootloader) |
+| SRAM | 2.5 KB |
+| Dimensões | 33 x 18 mm |
+
+**Função no projeto:** Unidade dedicada de aquisição de energia. Lê tensão da
+bateria (divisor de tensão) e correntes de 2x ACS758 via ADC interno com
+leitura ratiométrica (mesma referência 5V) e envia dados processados via
+USB Serial para o Raspberry Pi 4.
+
+**Pinout utilizado:**
+
+| Pino | Função | Conexão |
+|------|--------|---------|
+| A0 | ADC Canal 0 | Divisor de tensão da bateria 3S LiPo (R1=20kΩ, R2=10kΩ) |
+| A1 | ADC Canal 1 | ACS758 50A OUT (Corrente Servos/UBEC) |
+| A2 | ADC Canal 2 | ACS758 100A OUT (Corrente Motor DC 775) |
+| VCC | Alimentação 5V | VCC dos 2x ACS758 |
+| GND | Terra | GND dos 2x ACS758 + GND divisor + GND comum |
+| USB | Serial CDC | USB do Raspberry Pi 4 |
+
+**Divisor de tensão da bateria (A0):**
+```
+Bateria (+) ─── R1 (20kΩ) ───┬─── Pro Micro A0
+                              │
+                         R2 (10kΩ)
+                              │
+                             GND
+
+Razão: R2 / (R1 + R2) = 10k / 30k = 1/3
+V_bateria = V_adc × 3
+Bat. cheia (12.6V) → ADC = 4.2V (seguro, < 5V)
+```
+
+**Protocolo serial (115200 baud):**
+```
+Pro Micro → RPi: PWR:<v_bat>,<i_servos>,<i_motor>\n
+RPi → Pro Micro: CAL\n (recalibração dos ACS758)
+```
 
 ---
 
@@ -120,35 +155,6 @@ Este arquivo contém as especificações técnicas de todos os módulos utilizad
 | Conectores | 6 pinos (passo 0.1") |
 
 ---
-
-## Divisor de Tensão para Bateria
-
-| Especificação | Valor |
-|---------------|-------|
-| Função | Medir tensão da bateria via ADS1115 A3 |
-| R1 (superior) | 10kΩ ±1% |
-| R2 (inferior) | 10kΩ ±1% |
-| Razão do Divisor | 1:2 (V_adc = V_bat × 0.5) |
-| Tensão Máxima Bateria | 12.6V (3S LiPo carregada) |
-| Tensão no ADC (máx) | 6.3V (dentro do range ±6.144V) |
-| Tensão Mínima Bateria | 9.0V (3S LiPo descarregada) |
-| Tensão no ADC (mín) | 4.5V |
-| Corrente pelo Divisor | 0.63mA @ 12.6V (desprezível) |
-| Potência Dissipada | 7.9mW (desprezível) |
-
-**Circuito:**
-```
-Bateria (+) ─── R1 (10kΩ) ───┬─── ADS1115 A3
-                             │
-                        R2 (10kΩ)
-                             │
-                            GND
-```
-
-**Cálculo de Tensão Real:**
-```
-V_bateria = V_adc × 2
-```
 
 ---
 

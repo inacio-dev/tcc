@@ -44,10 +44,10 @@ ENDEREÇO I2C UTILIZADO NESTE PROJETO:
 
 MAPA DE ENDEREÇOS I2C DO PROJETO (sem conflitos):
 =================================================
-  - 0x40 : PCA9685 (PWM Driver - servos)
-  - 0x41 : INA219 (Sensor de corrente RPi) - A0=VCC
-  - 0x48 : ADS1115 (ADC - sensores de corrente)
+  - 0x40 : INA219 (Sensor de corrente RPi) - Padrão
+  - 0x41 : PCA9685 (PWM Driver - servos) - A0 soldado
   - 0x68 : BMI160 (IMU - este sensor) ← ENDEREÇO ATUAL
+  Nota: ACS758 agora lidos via Arduino Pro Micro (USB Serial)
 
 CARACTERÍSTICAS BMI160 (Datasheet Bosch):
 =========================================

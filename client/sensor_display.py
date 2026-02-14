@@ -323,13 +323,13 @@ class SensorDisplay:
                 "rpi_load_5min",
                 "rpi_load_15min",
                 "rpi_uptime_seconds",
-                # ===== Power Monitor (ADS1115 + INA219) =====
+                # ===== Power Monitor (Pro Micro + INA219) =====
+                "voltage_battery",
+                "battery_percentage",
                 "current_rpi",
                 "current_servos",
                 "current_motor",
                 "voltage_rpi",
-                "voltage_battery",
-                "battery_percentage",
                 "power_rpi",
                 "power_motor",
                 "power_servos",

@@ -7,7 +7,7 @@ ARQUITETURA DE THREADS:
 =======================
 ├── Thread Câmera (30Hz)      - Captura frames independente
 ├── Thread Sensores (100Hz)   - Lê BMI160 em alta taxa
-├── Thread Energia (10Hz)     - Monitora ADS1115 + INA219
+├── Thread Energia (10Hz)     - Monitora Pro Micro (serial) + INA219 (I2C)
 ├── Thread Temperatura (1Hz)  - Lê DS18B20
 ├── Thread TX Rede (120Hz)    - Consolida e transmite dados
 └── Thread RX Comandos        - Recebe comandos (daemon no NetworkManager)
@@ -338,7 +338,7 @@ class F1CarMultiThreadSystem:
         else:
             warn("Sensor de temperatura não inicializado", "MAIN")
 
-        # 8. Monitor de energia
+        # 8. Monitor de energia (Pro Micro USB Serial + INA219 I2C)
         debug("Inicializando monitor de energia...", "MAIN")
         self.power_mgr = PowerMonitorManager(sample_rate=10, buffer_size=20)
         if self.power_mgr.initialize():
@@ -350,7 +350,7 @@ class F1CarMultiThreadSystem:
             if self.calibrate_power:
                 info("CALIBRAÇÃO DE CORRENTE - Desligue motor e servos!", "POWER")
                 time.sleep(2)  # Aguarda usuário ler a mensagem
-                self.power_mgr.calibrate_zero_current(duration=3.0)
+                self.power_mgr.calibrate_current_sensors()
         else:
             warn("Monitor de energia não inicializado", "MAIN")
 

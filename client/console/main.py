@@ -39,6 +39,7 @@ from .frames.camera_controls import create_camera_controls_frame
 # Imports dos módulos locais
 from .frames.client_system import create_client_system_frame
 from .frames.connection_status import create_connection_status_frame
+from .frames.energy_panel import create_energy_panel
 from .frames.rpi_system import create_rpi_system_frame
 from .frames.controls import create_controls_frame
 from .frames.force_feedback import create_force_feedback_frame
@@ -250,12 +251,12 @@ class ConsoleInterface:
             "rpi_load_1min": tk.StringVar(value="--"),
             "rpi_hostname": tk.StringVar(value="--"),
             # Monitoramento de Energia
+            "voltage_battery": tk.StringVar(value="--"),
+            "battery_percentage": tk.StringVar(value="--"),
             "current_rpi": tk.StringVar(value="--"),
             "current_servos": tk.StringVar(value="--"),
             "current_motor": tk.StringVar(value="--"),
             "voltage_rpi": tk.StringVar(value="--"),
-            "voltage_battery": tk.StringVar(value="--"),
-            "battery_percentage": tk.StringVar(value="--"),
             "power_rpi": tk.StringVar(value="--"),
             "power_servos": tk.StringVar(value="--"),
             "power_motor": tk.StringVar(value="--"),
@@ -423,6 +424,7 @@ class ConsoleInterface:
         create_connection_status_frame(self)
         create_serial_port_selector_frame(self)
         create_instrument_panel(self)
+        create_energy_panel(self)
         create_client_system_frame(self)  # Sistema Cliente acima do RPi
         create_rpi_system_frame(self)
         create_bmi160_frame(self)
@@ -705,12 +707,12 @@ class ConsoleInterface:
             "rpi_load_1min": "rpi_load_1min",
             "rpi_hostname": "rpi_hostname",
             # Energia
+            "voltage_battery": "voltage_battery",
+            "battery_percentage": "battery_percentage",
             "current_rpi": "current_rpi",
             "current_servos": "current_servos",
             "current_motor": "current_motor",
             "voltage_rpi": "voltage_rpi",
-            "voltage_battery": "voltage_battery",
-            "battery_percentage": "battery_percentage",
             "power_rpi": "power_rpi",
             "power_servos": "power_servos",
             "power_motor": "power_motor",
@@ -762,12 +764,14 @@ class ConsoleInterface:
                     formatted_value = f"{value}"
                 elif var_name in ["rpi_net_rx_mb", "rpi_net_tx_mb"]:
                     formatted_value = f"{value:.1f}"
-                elif var_name in ["current_rpi", "current_servos", "current_motor"]:
-                    formatted_value = f"{value:.2f}A"
-                elif var_name in ["voltage_rpi", "voltage_battery"]:
+                elif var_name in ["voltage_battery"]:
                     formatted_value = f"{value:.2f}V"
                 elif var_name in ["battery_percentage"]:
-                    formatted_value = f"{value:.0f}%"
+                    formatted_value = f"{value:.1f}%"
+                elif var_name in ["current_rpi", "current_servos", "current_motor"]:
+                    formatted_value = f"{value:.2f}A"
+                elif var_name in ["voltage_rpi"]:
+                    formatted_value = f"{value:.2f}V"
                 elif var_name in [
                     "power_rpi",
                     "power_servos",
@@ -792,42 +796,6 @@ class ConsoleInterface:
         self._update_temperature_colors(sensor_data)
         self._update_battery_colors(sensor_data)
         self._update_rpi_system_colors(sensor_data)
-
-    def _update_battery_colors(self, sensor_data):
-        """Atualiza as cores do display de bateria baseado na porcentagem de carga"""
-        try:
-            if hasattr(self, "battery_voltage_display") and hasattr(
-                self, "battery_pct_display"
-            ):
-                battery_pct = sensor_data.get("battery_percentage", 100)
-
-                # Cores baseadas na porcentagem
-                # >50% = verde, 25-50% = amarelo, <25% = vermelho
-                if battery_pct > 50:
-                    color = "#00ff00"  # Verde
-                elif battery_pct > 25:
-                    color = "#ffaa00"  # Amarelo/Laranja
-                elif battery_pct > 10:
-                    color = "#ff4444"  # Vermelho
-                else:
-                    color = "#ff0000"  # Vermelho intenso (crítico)
-
-                self.battery_voltage_display.config(fg=color)
-                self.battery_pct_display.config(fg=color)
-
-                # Pisca em vermelho se bateria crítica (<10%)
-                if battery_pct <= 10:
-                    current_color = self.battery_voltage_display.cget("fg")
-                    flash_color = "#ffffff" if current_color != "#ffffff" else color
-                    self.root.after(
-                        500, lambda: self.battery_voltage_display.config(fg=flash_color)
-                    )
-                    self.root.after(
-                        500, lambda: self.battery_pct_display.config(fg=flash_color)
-                    )
-
-        except Exception as e:
-            error(f"Erro ao atualizar cores de bateria: {e}", "CONSOLE")
 
     def _update_temperature_colors(self, sensor_data):
         """Atualiza as cores do display de temperatura baseado no status térmico"""
@@ -871,6 +839,36 @@ class ConsoleInterface:
 
         except Exception as e:
             error(f"Erro ao atualizar cores de temperatura: {e}", "CONSOLE")
+
+    def _update_battery_colors(self, sensor_data):
+        """Atualiza cores do display de bateria baseado na porcentagem"""
+        try:
+            if hasattr(self, "battery_voltage_display"):
+                pct = sensor_data.get("battery_percentage", 0)
+                if pct <= 15:
+                    color = "#ff4444"  # Vermelho - crítico
+                elif pct <= 30:
+                    color = "#ff6600"  # Laranja - baixo
+                elif pct <= 50:
+                    color = "#ffaa00"  # Amarelo
+                else:
+                    color = "#00ff88"  # Verde - OK
+                self.battery_voltage_display.config(fg=color)
+
+            if hasattr(self, "battery_pct_display"):
+                pct = sensor_data.get("battery_percentage", 0)
+                if pct <= 15:
+                    color = "#ff4444"
+                elif pct <= 30:
+                    color = "#ff6600"
+                elif pct <= 50:
+                    color = "#ffaa00"
+                else:
+                    color = "#00ff88"
+                self.battery_pct_display.config(fg=color)
+
+        except Exception as e:
+            error(f"Erro ao atualizar cores da bateria: {e}", "CONSOLE")
 
     def _update_client_system_data(self):
         """Atualiza dados do sistema cliente e agenda próxima atualização"""

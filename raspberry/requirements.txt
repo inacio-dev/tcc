@@ -31,16 +31,19 @@ adafruit-circuitpython-servokit
 # ----------------------------------------------------------------------------
 # SENSORES I2C
 # ----------------------------------------------------------------------------
-# SMBus2 para comunicacao I2C direta (BMI160, ADS1115, INA219)
+# SMBus2 para comunicacao I2C direta (BMI160, INA219)
 smbus2
+
+# PySerial para comunicacao com Arduino Pro Micro (sensores de corrente ACS758)
+pyserial
 
 # ----------------------------------------------------------------------------
 # NOTAS
 # ----------------------------------------------------------------------------
 # Os seguintes componentes usam smbus2 diretamente (sem bibliotecas Adafruit):
 # - BMI160 IMU (bmi160_manager.py)
-# - ADS1115 ADC (power_monitor_manager.py)
 # - INA219 Current Sensor (power_monitor_manager.py)
 #
-# Isso reduz dependencias e da controle total sobre os registradores I2C.
+# Sensores de corrente ACS758 sao lidos pelo Arduino Pro Micro via USB Serial.
+# O Pro Micro envia dados processados para o RPi via pyserial.
 # ============================================================================
