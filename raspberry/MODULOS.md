@@ -302,6 +302,20 @@ A corrente flui: XL4015 → VIN+ → VIN- → USB Breakout → RPi
 | Dimensões | 37 x 18 mm |
 | Peso | 8.8g |
 
+**Configuração: High-side (fio positivo)**
+
+```
+Bateria (+) ─── IP+ ─── IP- ─── Ponte H BTS7960 (+) ─── Motor DC 775
+```
+
+**Conexão de sinal:**
+
+| Pino | Conexão |
+|------|---------|
+| VCC | 5V do Pro Micro |
+| GND | GND do Pro Micro |
+| OUT | Filtro RC (1kΩ + 100nF) → Pro Micro A2 |
+
 ---
 
 ## Sensor de Corrente ACS758 50A
@@ -319,6 +333,20 @@ A corrente flui: XL4015 → VIN+ → VIN- → USB Breakout → RPi
 | Temperatura | -40°C a +150°C |
 | Dimensões | 37 x 18 mm |
 | Peso | 8.8g |
+
+**Configuração: High-side (fio positivo)**
+
+```
+Bateria (+) ─── IP+ ─── IP- ─── UBEC IN (+) ─── Servos PCA9685
+```
+
+**Conexão de sinal:**
+
+| Pino | Conexão |
+|------|---------|
+| VCC | 5V do Pro Micro |
+| GND | GND do Pro Micro |
+| OUT | Filtro RC (1kΩ + 100nF) → Pro Micro A1 |
 
 ---
 

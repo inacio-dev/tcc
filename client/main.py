@@ -37,16 +37,16 @@ import time
 # Importa nossos módulos
 try:
     from console import ConsoleInterface
+    from g923_manager import G923Manager
     from network_client import NetworkClient
     from sensor_display import SensorDisplay
-    from serial_receiver_manager import SerialReceiverManager
     from simple_logger import debug, error, info
     from video_display import VideoDisplay
 except ImportError as e:
     print(f"❌ ERRO: Não foi possível importar módulos necessários: {e}")
     print("\nVerifique se os arquivos estão na mesma pasta:")
     print("  - network_client.py, video_display.py, sensor_display.py")
-    print("  - console/, serial_receiver_manager.py, simple_logger.py, main.py")
+    print("  - console/, g923_manager.py, simple_logger.py, main.py")
     sys.exit(1)
 
 # Filas para comunicação entre threads
@@ -89,7 +89,7 @@ class F1ClientApplication:
         self.video_display = None
         self.sensor_display = None
         self.console_interface = None
-        self.serial_receiver = None
+        self.g923_manager = None
 
         # Controle de execução
         self.running = False
@@ -98,50 +98,27 @@ class F1ClientApplication:
         self.network_thread = None
         self.console_thread = None
         self.video_thread = None
-        self.serial_thread = None
 
         # Estatísticas
         self.start_time = time.time()
 
-    def handle_serial_command(self, command_type: str, value: str):
+    def handle_g923_command(self, command_type: str, value: str):
         """
-        Trata comandos recebidos do ESP32 via serial
-        Encaminha para o Raspberry Pi via network client ou trata calibração
+        Trata comandos recebidos do G923 via evdev
+        Encaminha para o Raspberry Pi via network client
 
         Args:
-            command_type: Tipo do comando (THROTTLE, BRAKE, STEERING, GEAR_UP, GEAR_DOWN, CAL_*)
+            command_type: Tipo do comando (THROTTLE, BRAKE, STEERING, GEAR_UP, GEAR_DOWN)
             value: Valor do comando (vazio para GEAR_UP/GEAR_DOWN)
         """
         try:
-            # Trata comandos de calibração
-            if command_type.startswith("CAL_"):
-                if command_type in ["CAL_THROTTLE", "CAL_BRAKE", "CAL_STEERING"]:
-                    # Atualiza valor bruto de calibração no slider controller
-                    if self.console_interface and hasattr(
-                        self.console_interface, "slider_controller"
-                    ):
-                        component = command_type.split("_")[
-                            1
-                        ]  # Extrai THROTTLE/BRAKE/STEERING
-                        raw_value = int(value)
-                        self.console_interface.slider_controller.update_calibration_raw_value(
-                            component, raw_value
-                        )
-                elif command_type == "CAL_COMPLETE":
-                    # Notificação de calibração completa
-                    log_queue.put(("INFO", f"Calibração completa: {value}"))
-                return
-
-            # Trata comandos de controle normais
             if self.network_client:
                 if command_type in ["THROTTLE", "BRAKE", "STEERING"]:
-                    # Envia comando de controle com valor
                     self.network_client.send_control_command(command_type, float(value))
                 elif command_type in ["GEAR_UP", "GEAR_DOWN"]:
-                    # Envia comando de marcha (mesmo que teclado - usa valor 1.0)
                     self.network_client.send_control_command(command_type, 1.0)
         except Exception as e:
-            error(f"Erro ao encaminhar comando serial: {e}", "SERIAL")
+            error(f"Erro ao encaminhar comando G923: {e}", "G923")
 
     def initialize_components(self):
         """Inicializa todos os componentes do sistema"""
@@ -163,12 +140,10 @@ class F1ClientApplication:
                 video_queue=video_queue,
             )
 
-            # 1.5. Inicializa receptor serial do Arduino Mega
-            debug("Inicializando receptor serial Arduino Mega...", "CLIENT")
-            self.serial_receiver = SerialReceiverManager(
-                port=None,  # Auto-detect
-                baud_rate=115200,
-                command_callback=self.handle_serial_command,
+            # 1.5. Inicializa gerenciador do G923
+            debug("Inicializando G923 Manager...", "CLIENT")
+            self.g923_manager = G923Manager(
+                command_callback=self.handle_g923_command,
                 log_callback=lambda level, msg: log_queue.put((level, msg)),
             )
 
@@ -195,19 +170,9 @@ class F1ClientApplication:
             # Conecta network client com console para envio de comandos
             self.console_interface.set_network_client(self.network_client)
 
-            # 4.5. Conecta serial receiver com console para seleção manual de porta
-            debug("Conectando serial receiver com interface...", "CLIENT")
-            self.console_interface.set_serial_receiver(self.serial_receiver)
-
-            # 4.6. Conecta serial sender com slider controller para calibração
-            debug("Conectando serial sender com slider controller...", "CLIENT")
-            if (
-                hasattr(self.console_interface, "slider_controller")
-                and self.serial_receiver
-            ):
-                self.console_interface.slider_controller.set_serial_sender(
-                    lambda cmd: self.serial_receiver.send_command(cmd)
-                )
+            # 4.5. Conecta G923 manager com console
+            debug("Conectando G923 manager com interface...", "CLIENT")
+            self.console_interface.set_g923_manager(self.g923_manager)
 
             # 5. Conecta video display com console para exibição integrada
             debug("Conectando vídeo com interface...", "CLIENT")
@@ -238,19 +203,16 @@ class F1ClientApplication:
             self.video_thread.start()
             log_queue.put(("INFO", "Thread de vídeo iniciada"))
 
-    def start_serial_thread(self):
-        """Inicia thread de recepção serial do ESP32"""
-        if self.serial_receiver:
-            # Não auto-conecta mais - o usuário deve selecionar a porta manualmente na interface
-            log_queue.put(
-                (
-                    "INFO",
-                    "Serial receiver inicializado - aguardando seleção manual de porta",
+    def start_g923(self):
+        """Inicia leitura do G923 (auto-detecta e conecta)"""
+        if self.g923_manager:
+            if self.g923_manager.find_device():
+                self.g923_manager.start()
+                log_queue.put(("INFO", "G923 conectado e ativo"))
+            else:
+                log_queue.put(
+                    ("WARN", "G923 não encontrado - use sliders ou teclado como fallback")
                 )
-            )
-            log_queue.put(
-                ("INFO", "Use o seletor de porta ESP32 na interface para conectar")
-            )
 
     def start_console_thread(self):
         """Inicia thread do console (interface principal)"""
@@ -283,8 +245,8 @@ class F1ClientApplication:
             self.start_video_thread()
             time.sleep(0.1)  # Pequena pausa
 
-            # Inicia recepção serial do Arduino Mega (opcional - não bloqueia se não conectado)
-            self.start_serial_thread()
+            # Inicia G923 (opcional - não bloqueia se não conectado)
+            self.start_g923()
             time.sleep(0.1)  # Pequena pausa
 
             # Console por último (thread principal)
@@ -338,11 +300,11 @@ class F1ClientApplication:
                 pass
 
         try:
-            if hasattr(self, "serial_receiver") and self.serial_receiver:
-                self.serial_receiver.stop()
+            if hasattr(self, "g923_manager") and self.g923_manager:
+                self.g923_manager.stop()
         except Exception as e:
             try:
-                debug(f"Erro ao parar serial: {e}", "CLIENT")
+                debug(f"Erro ao parar G923: {e}", "CLIENT")
             except Exception:
                 pass
 
@@ -380,8 +342,6 @@ class F1ClientApplication:
                 threads_to_wait.append(("network", self.network_thread))
             if self.video_thread and self.video_thread.is_alive():
                 threads_to_wait.append(("video", self.video_thread))
-            if self.serial_thread and self.serial_thread.is_alive():
-                threads_to_wait.append(("serial", self.serial_thread))
 
             # Aguarda cada thread com timeout
             for name, thread in threads_to_wait:
@@ -452,7 +412,7 @@ class F1ClientApplication:
             self.console_interface = None
             self.video_display = None
             self.network_client = None
-            self.serial_receiver = None
+            self.g923_manager = None
 
             # Força garbage collection múltiplas vezes
             import gc

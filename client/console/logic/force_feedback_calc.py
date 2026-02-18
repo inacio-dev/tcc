@@ -174,22 +174,15 @@ class ForceFeedbackCalculator:
 
     def send_ff_command(self, intensity: float, direction: str):
         """
-        Envia comando de Force Feedback para o ESP32 via serial
+        Envia comando de Force Feedback para o G923 via evdev
 
         Args:
             intensity: Intensidade da força (0-100%)
             direction: Direção da força ("left", "right", "neutral")
-
-        Formato: FF_MOTOR:direction:intensity
         """
         try:
-            direction_upper = direction.upper()
-            intensity_int = int(intensity)
-            command = f"FF_MOTOR:{direction_upper}:{intensity_int}"
-
-            if hasattr(self.console, "serial_manager") and self.console.serial_manager:
-                self.console.serial_manager.send_command(command)
-
+            if hasattr(self.console, "g923_manager") and self.console.g923_manager:
+                self.console.g923_manager.apply_force_feedback(intensity, direction)
         except Exception:
             # Não loga erro para não poluir o console (alta frequência)
             pass

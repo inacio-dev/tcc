@@ -94,14 +94,17 @@
  *
  *   Frequência de corte: fc = 1/(2π×1k×100n) ≈ 1.6 kHz
  *
- * PARTE DE POTÊNCIA (ACS758 em série com a carga):
- * ================================================
+ * PARTE DE POTÊNCIA (ACS758 em série, high-side):
+ * ===============================================
  *
- *   Fonte (+) ─── IP+ do ACS ─── IP- do ACS ─── Carga (+)
- *   Carga (-) ─── Fonte (-)
+ *   ACS758 100A (Motor DC 775):
+ *     Bateria (+) ─── IP+ ─── IP- ─── Ponte H BTS7960 (+) ─── Motor
  *
- *   O sensor DEVE ficar em SÉRIE com a carga.
- *   Neste projeto, os ACS758 medem pelo lado GND (low-side).
+ *   ACS758 50A (Servos/UBEC):
+ *     Bateria (+) ─── IP+ ─── IP- ─── UBEC IN (+) ─── Servos PCA9685
+ *
+ *   Os sensores ficam no fio POSITIVO (high-side), entre a bateria e cada carga.
+ *   O GND comum do sistema permanece intacto (não é interrompido).
  *
  * PROTOCOLO SERIAL (USB, 115200 baud):
  * ====================================

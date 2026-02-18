@@ -114,6 +114,9 @@ class PowerMonitorManager:
     SERIAL_RECONNECT_INTERVAL = 5.0  # Tentativa de reconexão (segundos)
     SERIAL_DATA_TIMEOUT = 3.0  # Sem dados = desconectado (segundos)
 
+    # Device ID estável do Pro Micro (não muda com a porta USB)
+    PRO_MICRO_DEVICE_ID = "usb-Arduino_LLC_Arduino_Micro-if00"
+
     def __init__(
         self,
         sample_rate: int = 10,
@@ -275,25 +278,34 @@ class PowerMonitorManager:
         Detecta a porta serial do Arduino Pro Micro
 
         Busca em ordem:
-        1. /dev/serial/by-id/ (mais estável, não muda com reconexão)
-        2. pyserial list_ports por VID/PID
-        3. Fallback /dev/ttyACM0
+        1. /dev/serial/by-id/ pelo Device ID exato (estável entre portas USB)
+        2. /dev/serial/by-id/ por nome genérico "arduino"
+        3. pyserial list_ports por VID/PID
+        4. Fallback /dev/ttyACM0
         """
-        # 1. Busca por /dev/serial/by-id/
+        by_id_path = "/dev/serial/by-id/"
+
+        # 1. Device ID exato (mais confiável)
         try:
-            by_id_path = "/dev/serial/by-id/"
-            if os.path.exists(by_id_path):
-                for link in os.listdir(by_id_path):
-                    link_lower = link.lower()
-                    if "arduino" in link_lower or "usb-arduino" in link_lower:
-                        full_path = os.path.join(by_id_path, link)
-                        real_path = os.path.realpath(full_path)
-                        print(f"  Pro Micro encontrado via by-id: {real_path}")
-                        return real_path
+            exact_path = os.path.join(by_id_path, self.PRO_MICRO_DEVICE_ID)
+            if os.path.exists(exact_path):
+                print(f"  Pro Micro encontrado via device ID: {exact_path}")
+                return exact_path
         except Exception:
             pass
 
-        # 2. Busca por VID/PID via pyserial
+        # 2. Busca genérica por /dev/serial/by-id/ contendo "arduino"
+        try:
+            if os.path.exists(by_id_path):
+                for link in os.listdir(by_id_path):
+                    if "arduino" in link.lower():
+                        full_path = os.path.join(by_id_path, link)
+                        print(f"  Pro Micro encontrado via by-id: {full_path}")
+                        return full_path
+        except Exception:
+            pass
+
+        # 3. Busca por VID/PID via pyserial
         try:
             import serial.tools.list_ports
             # VIDs conhecidos para Pro Micro / Leonardo
@@ -305,7 +317,7 @@ class PowerMonitorManager:
         except ImportError:
             pass
 
-        # 3. Fallback: primeiro /dev/ttyACM*
+        # 4. Fallback: primeiro /dev/ttyACM*
         acm_ports = sorted(glob.glob("/dev/ttyACM*"))
         if acm_ports:
             print(f"  Pro Micro (fallback): {acm_ports[0]}")

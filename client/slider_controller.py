@@ -2,34 +2,36 @@
 """
 slider_controller.py - Controlador de Sliders para F1 Car
 Gerencia controles analógicos de acelerador, freio e direção via sliders
-Inclui sistema de calibração para encoders incrementais ESP32
+Inclui sistema de calibração para eixos do G923
 """
 
+import json
+import os
 import threading
 import time
 import tkinter as tk
 import tkinter.ttk as ttk
-from typing import Callable
+from datetime import datetime
+from typing import Callable, Optional
 
-from calibration_manager import CalibrationManager
 from simple_logger import debug, error, info, warn
 
 
 class SliderController:
     """Gerenciador de controles analógicos (sliders) para acelerador, freio e direção"""
 
-    def __init__(self, network_client=None, log_callback=None, serial_sender=None):
+    def __init__(self, network_client=None, log_callback=None, g923_manager=None):
         """
         Inicializa o controlador de sliders
 
         Args:
             network_client: Cliente de rede para enviar comandos
             log_callback: Função de callback para logging na interface
-            serial_sender: Função para enviar comandos seriais ao ESP32
+            g923_manager: Instância do G923Manager para calibração
         """
         self.network_client = network_client
         self.log_callback = log_callback
-        self.serial_sender = serial_sender
+        self.g923_manager = g923_manager
 
         # Estado dos controles
         self.throttle_value = 0.0  # 0-100%
@@ -44,10 +46,12 @@ class SliderController:
         self.brake_label = None
         self.steering_label = None
 
-        # Calibration manager
-        self.calibration_manager = CalibrationManager(
-            serial_sender=self._send_serial_command, log_callback=log_callback
-        )
+        # Estado de calibração (inline, sem CalibrationManager separado)
+        self._cal_active = False
+        self._cal_component = None  # "THROTTLE", "BRAKE", "STEERING"
+        self._cal_raw_min = None
+        self._cal_raw_max = None
+        self._cal_raw_current = 0
 
         # Widgets de calibração
         self.cal_throttle_btn = None
@@ -57,6 +61,10 @@ class SliderController:
         self.cal_raw_value_label = None
         self.cal_save_btn = None
         self.cal_cancel_btn = None
+
+        # Arquivo de calibração
+        client_dir = os.path.dirname(os.path.abspath(__file__))
+        self._cal_config_file = os.path.join(client_dir, "g923_calibration.json")
 
         # Controle de envio
         self.is_active = False
@@ -76,10 +84,19 @@ class SliderController:
         self.commands_sent = 0
         self.start_time = time.time()
 
+        # Carrega calibração salva e aplica ao G923Manager
+        self._load_calibration()
+
     def set_network_client(self, network_client):
         """Define o cliente de rede para envio de comandos"""
         self.network_client = network_client
         debug("Network client configurado no SliderController", "SLIDERS")
+
+    def set_g923_manager(self, g923_manager):
+        """Define o G923Manager para calibração"""
+        self.g923_manager = g923_manager
+        # Aplica calibração salva ao novo manager
+        self._apply_saved_calibration()
 
     def _log(self, level: str, message: str):
         """Log com fallback"""
@@ -253,9 +270,9 @@ class SliderController:
         )
         instructions.pack(pady=5)
 
-        # === CALIBRAÇÃO DE ENCODERS ===
+        # === CALIBRAÇÃO DO G923 ===
         calibration_frame = ttk.LabelFrame(
-            control_frame, text="🎯 Calibração de Encoders", style="Dark.TLabelframe"
+            control_frame, text="🎯 Calibração G923", style="Dark.TLabelframe"
         )
         calibration_frame.pack(fill=tk.X, padx=10, pady=10)
 
@@ -315,7 +332,7 @@ class SliderController:
         )
         self.cal_status_label.pack(pady=5, fill=tk.X)
 
-        # Valor bruto do encoder
+        # Valor bruto do eixo
         self.cal_raw_value_label = tk.Label(
             cal_inner,
             text="Valor bruto: --",
@@ -542,58 +559,112 @@ class SliderController:
                 self._log("ERROR", f"Erro no loop de envio: {e}")
                 time.sleep(0.1)
 
-    # ===== CALIBRATION METHODS =====
+    # ===== G923 CALIBRATION METHODS =====
 
-    def _send_serial_command(self, command: str) -> bool:
-        """
-        Envia comando serial para o ESP32
-
-        Args:
-            command: Comando a ser enviado
-
-        Returns:
-            bool: True se enviado com sucesso
-        """
-        if self.serial_sender:
-            return self.serial_sender(command)
-        else:
-            self._log("WARN", "Serial sender não disponível para calibração")
-            return False
+    def _get_raw_value(self, component: str) -> int:
+        """Lê valor bruto atual do eixo G923"""
+        if not self.g923_manager:
+            return 0
+        if component == "THROTTLE":
+            return self.g923_manager._raw_throttle
+        elif component == "BRAKE":
+            return self.g923_manager._raw_brake
+        elif component == "STEERING":
+            return self.g923_manager._raw_steering
+        return 0
 
     def _start_calibration(self, component: str):
-        """Inicia calibração de um componente"""
-        success = self.calibration_manager.start_calibration(component)
+        """Inicia calibração de um eixo do G923"""
+        if self._cal_active:
+            self._log("WARN", "Calibração já em andamento!")
+            return
 
-        if success:
-            # Atualiza UI
-            self._update_calibration_ui()
+        if not self.g923_manager or not self.g923_manager.is_connected():
+            self._log("WARN", "G923 não conectado! Conecte o volante antes de calibrar.")
+            if self.cal_status_label:
+                self.cal_status_label.config(
+                    text="G923 não conectado! Conecte o volante primeiro.",
+                    fg="#ff4444",
+                )
+            return
 
-            # Desabilita botões de calibração
-            self.cal_throttle_btn.config(state=tk.DISABLED)
-            self.cal_brake_btn.config(state=tk.DISABLED)
-            self.cal_steering_btn.config(state=tk.DISABLED)
+        self._cal_active = True
+        self._cal_component = component
+        self._cal_raw_min = None
+        self._cal_raw_max = None
+        self._cal_raw_current = 0
 
-            # Habilita botões de ação
-            self.cal_save_btn.config(state=tk.NORMAL)
-            self.cal_cancel_btn.config(state=tk.NORMAL)
+        # Atualiza UI
+        self._update_calibration_ui()
 
-            # Inicia atualização contínua
-            self._schedule_calibration_update()
+        # Desabilita botões de calibração
+        self.cal_throttle_btn.config(state=tk.DISABLED)
+        self.cal_brake_btn.config(state=tk.DISABLED)
+        self.cal_steering_btn.config(state=tk.DISABLED)
+
+        # Habilita botões de ação
+        self.cal_save_btn.config(state=tk.NORMAL)
+        self.cal_cancel_btn.config(state=tk.NORMAL)
+
+        # Inicia polling de valores brutos
+        self._schedule_calibration_update()
+
+        self._log("INFO", f"Calibração G923 iniciada: {component}")
 
     def _save_calibration(self):
-        """Salva calibração atual"""
-        success = self.calibration_manager.save_calibration()
+        """Salva calibração e aplica ao G923Manager"""
+        if not self._cal_active:
+            return
 
-        if success:
-            self._finish_calibration()
+        component = self._cal_component
+
+        # Valida dados
+        if self._cal_raw_min is None or self._cal_raw_max is None:
+            self._log("ERROR", "Dados incompletos! Mova o eixo pelo range completo.")
+            return
+
+        if self._cal_raw_min >= self._cal_raw_max:
+            self._log(
+                "ERROR",
+                f"Calibração inválida! Min ({self._cal_raw_min}) >= Max ({self._cal_raw_max})",
+            )
+            return
+
+        # Aplica ao G923Manager
+        if self.g923_manager:
+            if component == "THROTTLE":
+                self.g923_manager._throttle_min = self._cal_raw_min
+                self.g923_manager._throttle_max = self._cal_raw_max
+            elif component == "BRAKE":
+                self.g923_manager._brake_min = self._cal_raw_min
+                self.g923_manager._brake_max = self._cal_raw_max
+            elif component == "STEERING":
+                self.g923_manager._steer_min = self._cal_raw_min
+                self.g923_manager._steer_max = self._cal_raw_max
+
+        # Salva em arquivo JSON
+        self._save_calibration_file(component)
+
+        self._log(
+            "INFO",
+            f"Calibração G923 salva: {component} = [{self._cal_raw_min}, {self._cal_raw_max}]",
+        )
+
+        self._finish_calibration()
 
     def _cancel_calibration(self):
         """Cancela calibração atual"""
-        self.calibration_manager.cancel_calibration()
+        if self._cal_active:
+            self._log("INFO", f"Calibração cancelada: {self._cal_component}")
         self._finish_calibration()
 
     def _finish_calibration(self):
         """Finaliza modo de calibração"""
+        self._cal_active = False
+        self._cal_component = None
+        self._cal_raw_min = None
+        self._cal_raw_max = None
+
         # Reabilita botões de calibração
         self.cal_throttle_btn.config(state=tk.NORMAL)
         self.cal_brake_btn.config(state=tk.NORMAL)
@@ -604,12 +675,14 @@ class SliderController:
         self.cal_cancel_btn.config(state=tk.DISABLED)
 
         # Atualiza UI
-        self.cal_status_label.config(text="Nenhuma calibração em andamento")
+        self.cal_status_label.config(
+            text="Nenhuma calibração em andamento", fg="#cccccc"
+        )
         self.cal_raw_value_label.config(text="Valor bruto: --")
 
     def _schedule_calibration_update(self):
         """Agenda próxima atualização da UI de calibração"""
-        if self.calibration_manager.is_calibrating:
+        if self._cal_active:
             self._update_calibration_ui()
             # Agenda próxima atualização (50ms = 20Hz)
             if (
@@ -620,38 +693,128 @@ class SliderController:
 
     def _update_calibration_ui(self):
         """Atualiza UI de calibração com status atual"""
-        status = self.calibration_manager.get_calibration_status()
+        if not self._cal_active:
+            return
 
-        if status["is_calibrating"]:
-            # Atualiza instruções
-            instructions = status["instructions"]
-            self.cal_status_label.config(text=instructions, fg="#ffaa00")
+        component = self._cal_component
 
-            # Atualiza valor bruto
-            raw_current = status["raw_current"]
-            raw_min = status["raw_min"]
-            raw_max = status["raw_max"]
+        # Lê valor bruto atual do G923
+        raw_value = self._get_raw_value(component)
+        self._cal_raw_current = raw_value
 
-            value_text = f"Valor bruto: {raw_current}"
-            if raw_min is not None and raw_max is not None:
-                value_text += (
-                    f"  [Min: {raw_min}, Max: {raw_max}, Range: {raw_max - raw_min}]"
-                )
+        # Auto-detecta min/max
+        if self._cal_raw_min is None or raw_value < self._cal_raw_min:
+            self._cal_raw_min = raw_value
+        if self._cal_raw_max is None or raw_value > self._cal_raw_max:
+            self._cal_raw_max = raw_value
 
-            self.cal_raw_value_label.config(text=value_text)
+        # Instruções
+        if component == "THROTTLE":
+            instructions = (
+                "Calibração do Acelerador G923:\n"
+                "1. SOLTE completamente o pedal (posição 0%)\n"
+                "2. PRESSIONE totalmente o pedal (posição 100%)\n"
+                "3. Clique em 'Salvar' quando terminar"
+            )
+        elif component == "BRAKE":
+            instructions = (
+                "Calibração do Freio G923:\n"
+                "1. SOLTE completamente o pedal (posição 0%)\n"
+                "2. PRESSIONE totalmente o pedal (posição 100%)\n"
+                "3. Clique em 'Salvar' quando terminar"
+            )
+        elif component == "STEERING":
+            instructions = (
+                "Calibração da Direção G923:\n"
+                "1. Gire TOTALMENTE para a ESQUERDA\n"
+                "2. Gire TOTALMENTE para a DIREITA\n"
+                "3. Clique em 'Salvar' quando terminar"
+            )
+        else:
+            instructions = ""
 
-    def update_calibration_raw_value(self, component: str, raw_value: int):
-        """
-        Atualiza valor bruto do encoder durante calibração
+        self.cal_status_label.config(text=instructions, fg="#ffaa00")
 
-        Args:
-            component: Componente sendo calibrado (THROTTLE, BRAKE, STEERING)
-            raw_value: Valor bruto do encoder
-        """
-        self.calibration_manager.update_raw_value(component, raw_value)
+        # Valor bruto com min/max
+        value_text = f"Valor bruto: {raw_value}"
+        if self._cal_raw_min is not None and self._cal_raw_max is not None:
+            cal_range = self._cal_raw_max - self._cal_raw_min
+            value_text += (
+                f"  [Min: {self._cal_raw_min}, Max: {self._cal_raw_max}, "
+                f"Range: {cal_range}]"
+            )
 
-    def set_serial_sender(self, serial_sender: Callable[[str], bool]):
-        """Define função para enviar comandos seriais"""
-        self.serial_sender = serial_sender
-        if hasattr(self, "calibration_manager"):
-            self.calibration_manager.serial_sender = self._send_serial_command
+        self.cal_raw_value_label.config(text=value_text)
+
+    def _save_calibration_file(self, component: str):
+        """Salva calibração em arquivo JSON"""
+        try:
+            # Carrega dados existentes
+            cal_data = {}
+            if os.path.exists(self._cal_config_file):
+                with open(self._cal_config_file, "r") as f:
+                    cal_data = json.load(f)
+
+            # Atualiza componente
+            if "calibration_data" not in cal_data:
+                cal_data["calibration_data"] = {}
+
+            cal_data["calibration_data"][component] = {
+                "min": self._cal_raw_min,
+                "max": self._cal_raw_max,
+            }
+            cal_data["last_updated"] = datetime.now().isoformat()
+            cal_data["device"] = "G923"
+
+            with open(self._cal_config_file, "w") as f:
+                json.dump(cal_data, f, indent=4)
+
+            self._log("INFO", f"Calibração salva em: {self._cal_config_file}")
+
+        except Exception as e:
+            self._log("ERROR", f"Erro ao salvar calibração: {e}")
+
+    def _load_calibration(self):
+        """Carrega calibração salva do arquivo JSON"""
+        try:
+            if not os.path.exists(self._cal_config_file):
+                return
+
+            with open(self._cal_config_file, "r") as f:
+                cal_data = json.load(f)
+
+            self._saved_cal_data = cal_data.get("calibration_data", {})
+            last_updated = cal_data.get("last_updated", "desconhecido")
+            self._log(
+                "INFO",
+                f"Calibração G923 carregada ({last_updated})",
+            )
+
+            # Aplica ao G923Manager se já estiver disponível
+            self._apply_saved_calibration()
+
+        except Exception as e:
+            self._log("ERROR", f"Erro ao carregar calibração: {e}")
+            self._saved_cal_data = {}
+
+    def _apply_saved_calibration(self):
+        """Aplica calibração salva ao G923Manager"""
+        if not self.g923_manager or not hasattr(self, "_saved_cal_data"):
+            return
+
+        cal = self._saved_cal_data
+
+        if "THROTTLE" in cal:
+            self.g923_manager._throttle_min = cal["THROTTLE"]["min"]
+            self.g923_manager._throttle_max = cal["THROTTLE"]["max"]
+
+        if "BRAKE" in cal:
+            self.g923_manager._brake_min = cal["BRAKE"]["min"]
+            self.g923_manager._brake_max = cal["BRAKE"]["max"]
+
+        if "STEERING" in cal:
+            self.g923_manager._steer_min = cal["STEERING"]["min"]
+            self.g923_manager._steer_max = cal["STEERING"]["max"]
+
+        if cal:
+            self._log("INFO", "Calibração aplicada ao G923")

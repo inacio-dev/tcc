@@ -33,7 +33,7 @@ F1-style remote-controlled car with complete telemetry system using Raspberry Pi
 - `brake_manager.py`: Dual servo brake (front/rear)
 - `steering_manager.py`: Direct servo steering (0°-180°)
 - `network_manager.py`: UDP transmission
-- `power_monitor_manager.py`: Energy monitoring (ADS1115 + INA219)
+- `power_monitor_manager.py`: Energy monitoring (Pro Micro USB + INA219)
 
 **Client Side (`client/`):**
 
@@ -71,16 +71,16 @@ F1-style remote-controlled car with complete telemetry system using Raspberry Pi
 
 - Camera OV5647 → CSI slot
 - BMI160 (I2C) → GPIO2/3 (SDA/SCL), Address: 0x68
-- PCA9685 PWM (I2C) → GPIO2/3 (shared), Address: 0x40
-- ADS1115 ADC (I2C) → GPIO2/3 (shared), Address: 0x48
-- INA219 (I2C) → GPIO2/3 (shared), Address: 0x41 (A0=VCC)
+- INA219 (I2C) → GPIO2/3 (shared), Address: 0x40 (padrão)
+- PCA9685 PWM (I2C) → GPIO2/3 (shared), Address: 0x41 (A0 soldado)
+- Arduino Pro Micro → USB Serial (115200 baud)
 - Motor BTS7960: RPWM→GPIO18, LPWM→GPIO27, R_EN→GPIO22, L_EN→GPIO23
 
-**Power Monitoring (ADS1115 channels):**
+**Power Monitoring (Pro Micro channels):**
 
-- A0: ACS758 50A → XL4015 current (Raspberry Pi)
-- A1: ACS758 50A → UBEC current (Servos)
-- A2: ACS758 100A → Motor DC 775 current
+- A0: Divisor de tensão 20kΩ/10kΩ → Tensão bateria 3S LiPo
+- A1: ACS758 50A → UBEC current (Servos) - high-side
+- A2: ACS758 100A → Motor DC 775 current - high-side
 
 **ESP32 DevKit V1 Pinout:**
 
@@ -394,7 +394,7 @@ Examples:
 ### PCA9685 PWM Driver
 
 - 16-channel, 12-bit resolution (4096 steps)
-- I2C address: 0x40
+- I2C address: 0x41 (A0 soldado, evita conflito com INA219 em 0x40)
 - F1 Car channels: 0 (front brake), 1 (rear brake), 2 (steering)
 
 ### BTS7960 H-Bridge

@@ -45,7 +45,7 @@ from .frames.controls import create_controls_frame
 from .frames.force_feedback import create_force_feedback_frame
 from .frames.instrument_panel import create_instrument_panel
 from .frames.log import create_log_frame
-from .frames.serial_port import create_serial_port_selector_frame
+from .frames.g923_status import create_g923_status_frame
 from .frames.telemetry_plotter import F1TelemetryPlotter
 from .frames.video import create_video_frame
 from .logic.auto_save import AutoSaveManager
@@ -107,8 +107,8 @@ class ConsoleInterface:
         # Controlador de sliders
         self.slider_controller = SliderController(log_callback=self.log)
 
-        # Serial receiver manager (será definido externamente)
-        self.serial_receiver = None
+        # G923 manager (será definido externamente)
+        self.g923_manager = None
 
         # Variáveis de status da conexão
         self.connection_var = None
@@ -180,11 +180,8 @@ class ConsoleInterface:
         self.throttle_var = tk.StringVar(value="0.0")
         self.speed_var = tk.StringVar(value="0.0")
 
-        # Serial Port Selector
-        self.serial_port_var = tk.StringVar(value="")
-        self.serial_status_var = tk.StringVar(value="Desconectado")
-        self.serial_ports_list = []
-        self.port_device_map = {}
+        # G923 Status
+        self.g923_status_var = tk.StringVar(value="Desconectado")
 
         # Dados dos sensores BMI160
         self.sensor_vars = {
@@ -366,12 +363,16 @@ class ConsoleInterface:
             return "break"
 
         try:
-            if hasattr(event, "delta"):
-                delta = int(-1 * (event.delta / 120))
-            elif hasattr(event, "num"):
-                delta = -1 if event.num == 4 else 1
-            else:
+            # Linux: Button-4 (scroll up) e Button-5 (scroll down)
+            if event.num == 4:
+                delta = -1
+            elif event.num == 5:
                 delta = 1
+            # Windows/macOS: MouseWheel com event.delta
+            elif event.delta:
+                delta = int(-1 * (event.delta / 120))
+            else:
+                return "break"
 
             self.main_canvas.yview_scroll(delta * 3, "units")
         except Exception:
@@ -422,7 +423,7 @@ class ConsoleInterface:
 
         # Coluna Esquerda
         create_connection_status_frame(self)
-        create_serial_port_selector_frame(self)
+        create_g923_status_frame(self)
         create_instrument_panel(self)
         create_energy_panel(self)
         create_client_system_frame(self)  # Sistema Cliente acima do RPi
@@ -493,83 +494,18 @@ class ConsoleInterface:
             else:
                 self.video_resolution_var.set("N/A")
 
-    def set_serial_receiver(self, serial_receiver):
-        """Define o serial receiver manager"""
-        self.serial_receiver = serial_receiver
-
-    def _refresh_serial_ports(self):
-        """Atualiza lista de portas seriais disponíveis"""
-        try:
-            if self.serial_receiver:
-                ports = self.serial_receiver.list_available_ports()
-                self.serial_ports_list = [port[1] for port in ports]
-                self.port_device_map = {port[1]: port[0] for port in ports}
-
-                self.port_combobox["values"] = self.serial_ports_list
-
-                if self.serial_ports_list and not self.serial_port_var.get():
-                    self.serial_port_var.set(self.serial_ports_list[0])
-
-                self.log(
-                    "INFO", f"Encontradas {len(self.serial_ports_list)} portas seriais"
-                )
+    def set_g923_manager(self, g923_manager):
+        """Define o G923 manager"""
+        self.g923_manager = g923_manager
+        # Passa ao slider_controller para calibração
+        if hasattr(self, "slider_controller") and self.slider_controller:
+            self.slider_controller.set_g923_manager(g923_manager)
+        # Atualiza status na interface (só se as variáveis já foram criadas)
+        if hasattr(self, "g923_status_var") and self.g923_status_var:
+            if g923_manager and g923_manager.is_connected():
+                self.g923_status_var.set(f"Conectado - {g923_manager.device_name}")
             else:
-                self.log("WARN", "Serial receiver não inicializado")
-        except Exception as e:
-            self.log("ERROR", f"Erro ao atualizar portas seriais: {e}")
-
-    def _connect_serial(self):
-        """Conecta à porta serial selecionada"""
-        try:
-            if not self.serial_receiver:
-                self.log("ERROR", "Serial receiver não inicializado")
-                return
-
-            selected_desc = self.serial_port_var.get()
-            if not selected_desc:
-                self.log("WARN", "Nenhuma porta serial selecionada")
-                return
-
-            port_device = self.port_device_map.get(selected_desc)
-            if not port_device:
-                self.log("ERROR", f"Porta serial inválida: {selected_desc}")
-                return
-
-            self.log("INFO", f"Conectando à porta {port_device}...")
-            success = self.serial_receiver.connect_to_port(port_device)
-
-            if success:
-                if not self.serial_receiver.is_running:
-                    self.serial_receiver.start()
-
-                self.serial_status_var.set(f"Conectado - {port_device}")
-                self.connect_btn.config(state=tk.DISABLED)
-                self.disconnect_btn.config(state=tk.NORMAL)
-                self.port_combobox.config(state=tk.DISABLED)
-                self.log("INFO", f"Conectado à porta {port_device}")
-            else:
-                self.serial_status_var.set("Falha na conexão")
-                self.log("ERROR", f"Falha ao conectar à porta {port_device}")
-
-        except Exception as e:
-            self.log("ERROR", f"Erro ao conectar: {e}")
-            self.serial_status_var.set("Erro")
-
-    def _disconnect_serial(self):
-        """Desconecta da porta serial"""
-        try:
-            if self.serial_receiver:
-                self.log("INFO", "Desconectando porta serial...")
-                self.serial_receiver.stop()
-
-                self.serial_status_var.set("Desconectado")
-                self.connect_btn.config(state=tk.NORMAL)
-                self.disconnect_btn.config(state=tk.DISABLED)
-                self.port_combobox.config(state="readonly")
-                self.log("INFO", "Porta serial desconectada")
-
-        except Exception as e:
-            self.log("ERROR", f"Erro ao desconectar: {e}")
+                self.g923_status_var.set("Desconectado")
 
     def log(self, level, message):
         """Adiciona mensagem ao log"""
@@ -636,7 +572,7 @@ class ConsoleInterface:
         ff_direction = sensor_data.get("steering_feedback_direction", "neutral")
         self.ff_calculator.update_ff_leds(ff_intensity, ff_direction)
 
-        # Enviar comando FF para ESP32 via serial
+        # Enviar comando FF para G923 via evdev
         self.ff_calculator.send_ff_command(ff_intensity, ff_direction)
 
         # Atualizar dados do motor

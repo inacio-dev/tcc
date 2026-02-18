@@ -19,8 +19,11 @@ numpy>=1.24.0
 # Pillow para processamento de imagem (Tkinter)
 Pillow>=10.0.0
 
-# PySerial para comunicacao serial com ESP32 (simulador)
+# PySerial para comunicacao serial com ESP32 (simulador - legado)
 pyserial>=3.5
+
+# evdev para leitura do volante Logitech G923 e force feedback
+evdev>=1.7.0
 
 # NOTA: PyAV (av) foi removido pois não usamos mais H.264
 # O sistema utiliza apenas MJPEG para transmissão de vídeo

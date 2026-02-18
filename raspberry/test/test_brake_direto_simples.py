@@ -17,7 +17,7 @@ print("Canal 0: Freio frontal | Canal 1: Freio traseiro")
 try:
     # Inicializar PCA9685
     i2c = busio.I2C(board.SCL, board.SDA)
-    pca = PCA9685(i2c, address=0x40)
+    pca = PCA9685(i2c, address=0x41)
     pca.frequency = 50
     print("✓ PCA9685 inicializado @ 50Hz")
 
