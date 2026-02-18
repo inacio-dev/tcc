@@ -18,7 +18,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-F1-style remote-controlled car with complete telemetry system using Raspberry Pi 4 (8GB RAM), ESP32 cockpit, and client application. Captures video, sensor data, and vehicle control via UDP.
+F1-style remote-controlled car with complete telemetry system using Raspberry Pi 4 (8GB RAM), Logitech G923 racing wheel, and client application. Captures video, sensor data, and vehicle control via UDP.
 
 ## Architecture
 
@@ -39,33 +39,21 @@ F1-style remote-controlled car with complete telemetry system using Raspberry Pi
 
 - `main.py`: Main orchestrator
 - `network_client.py`: UDP receiver (filters by configured IP)
-- `serial_receiver_manager.py`: ESP32 cockpit receiver
+- `g923_manager.py`: Logitech G923 wheel input (evdev) + force feedback
 - `video_display.py`: MJPEG video rendering (OpenCV)
 - `console_interface.py`: UI with instrument panel + auto-save
 - `sensor_display.py`: Sensor data processing + history
 - `keyboard_controller.py`: Async keyboard input
-- `calibration_manager.py`: Encoder calibration
-- `slider_controller.py`: Control sliders + calibration UI
-
-**ESP32 Cockpit (`esp32/`):**
-
-- `esp32.ino`: Dual-core orchestrator
-- `throttle_manager.h/cpp`: LPD3806-600BM-G5-24C encoder (600 PPR)
-- `brake_manager.h/cpp`: LPD3806-600BM-G5-24C encoder
-- `steering_manager.h/cpp`: LPD3806-600BM-G5-24C encoder
-- `gear_manager.h/cpp`: Push button gear controls
-- `serial_sender_manager.h/cpp`: USB serial transmission
-- `ff_motor_manager.h/cpp`: BTS7960 force feedback motor
-- `encoder_calibration.h/cpp`: Generic calibration with EEPROM
+- `slider_controller.py`: Control sliders + G923 axis calibration
 
 ### Hardware Configuration
 
 **Current Setup:**
 
 - **Vehicle**: Raspberry Pi 4B (8GB), OV5647 camera, BMI160 IMU, RC 775 motor, 3x MG996R servos
-- **Cockpit**: ESP32 DevKit V1 (240MHz dual-core), 3x rotary encoders (600 PPR), 2x buttons, BTS7960 H-bridge
+- **Simulador**: Logitech G923 racing wheel (steering 900°, pedals, paddle shifters, force feedback nativo via evdev)
+- **Monitoramento de energia**: Arduino Pro Micro (ATmega32U4) via USB Serial + INA219 I2C
 - **Network**: mDNS (RPi: `f1car.local`, Client: `f1client.local`)
-- **Serial**: ESP32→Client via USB (115200 baud, 100Hz)
 
 **Raspberry Pi 4 Pinout:**
 
@@ -82,13 +70,22 @@ F1-style remote-controlled car with complete telemetry system using Raspberry Pi
 - A1: ACS758 50A → UBEC current (Servos) - high-side
 - A2: ACS758 100A → Motor DC 775 current - high-side
 
-**ESP32 DevKit V1 Pinout:**
+**Arduino Pro Micro (ATmega32U4) Pinout:**
 
-- **Throttle Encoder**: GPIO 25 (CLK), GPIO 26 (DT) - **PINS SWAPPED**
-- **Brake Encoder**: GPIO 27 (CLK), GPIO 14 (DT)
-- **Steering Encoder**: GPIO 12 (CLK), GPIO 13 (DT) - **PINS SWAPPED**
-- **Gear Buttons**: GPIO 32 (UP), GPIO 33 (DOWN)
-- **Force Feedback Motor (BTS7960)**: GPIO 16 (RPWM), GPIO 17 (LPWM), GPIO 18 (R_EN), GPIO 19 (L_EN)
+- A0: Divisor de tensão (20kΩ/10kΩ) → Tensão bateria 3S LiPo
+- A1: ACS758 50A OUT → Corrente Servos/UBEC (high-side)
+- A2: ACS758 100A OUT → Corrente Motor DC 775 (high-side)
+- VCC: 5V para ACS758 (ratiométrico)
+- USB: Serial CDC → Raspberry Pi 4
+
+**Logitech G923 (evdev Linux):**
+
+- ABS_X → Steering (volante, ~0-65535) → mapeia para -100 a +100
+- ABS_RZ → Throttle (acelerador, invertido) → mapeia para 0 a 100
+- ABS_Z → Brake (freio, invertido) → mapeia para 0 a 100
+- BTN_GEAR_UP (711) → Paddle direito → GEAR_UP
+- BTN_GEAR_DOWN (710) → Paddle esquerdo → GEAR_DOWN
+- FF_CONSTANT → Force feedback direcional via evdev
 
 ## Network Configuration (mDNS)
 
@@ -155,14 +152,17 @@ pip install -r requirements.txt
 **Client:**
 
 ```bash
-pip install opencv-python numpy pyserial Pillow av
+cd client
+python3 -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
+# Permissão para evdev (G923): sudo usermod -a -G input $USER
 ```
 
-**ESP32:**
+**Arduino Pro Micro:**
 
 ```bash
-# Arduino IDE: Add ESP32 board support → Upload esp32.ino
-# PlatformIO: platformio run --target upload
+# Arduino IDE: Board → Arduino Micro → Upload pro_micro/pro_micro.ino
+# Conectar via USB ao Raspberry Pi (detectado como /dev/serial/by-id/usb-Arduino_LLC_Arduino_Micro-if00)
 ```
 
 ### Running the System
@@ -179,6 +179,7 @@ cd client && python3 main.py --port 9999
 
 - **opencv-python**: Video processing and MJPEG decoding
 - **numpy**: Sensor computations
+- **evdev**: G923 input reading + force feedback (Linux)
 - **picamera2**: Raspberry Pi camera
 - **Pillow**: Image processing
 - **smbus2**: I2C communication
@@ -207,52 +208,39 @@ cd client && python3 main.py --port 9999
 
 - W/↑: Throttle 100%, S/↓: Brake 100%, A/←: Left, D/→: Right, M: Gear Up, N: Gear Down
 
-**2. ESP32 Cockpit (Primary):**
+**2. Logitech G923 (Primary):**
 
-- 3x rotary encoders (throttle, brake, steering)
-- 2x push buttons (gear up/down)
-- 100Hz update rate via USB serial
-- Hardware interrupts on all GPIOs
+- Steering wheel 900° rotation
+- Progressive throttle/brake pedals
+- Paddle shifters (gear up/down)
+- Native force feedback via evdev FF_CONSTANT
+- Auto-detection via evdev (busca "G923" ou "Driving Force" em /dev/input/event*)
 
-## ESP32 Cockpit Integration
+## G923 Integration
 
-### Encoder Calibration System
+### Axis Calibration System
 
-**Protocol:**
+- User clicks "Calibrar" for a specific axis (Throttle, Brake, Steering)
+- Moves the axis through its full physical range
+- System records raw min/max from evdev values
+- On save: updates G923Manager ranges + persists to `g923_calibration.json`
+- Calibration loaded and applied automatically on startup
 
-- Client → ESP32: `CAL_START:THROTTLE/BRAKE/STEERING`
-- ESP32 → Client: `CAL_THROTTLE/BRAKE/STEERING:<raw_value>` (100Hz)
-- Client → ESP32: `CAL_SAVE:THROTTLE:min:max` or `CAL_SAVE:STEERING:left:center:right`
-- ESP32 → Client: `CAL_COMPLETE:<component>` or `CAL_ERROR:<component>`
+### G923 to Interface Synchronization
 
-**EEPROM Structure:**
+**IMPORTANT**: g923_manager must update client interface in real-time via command_callback:
 
-```cpp
-struct CalibrationData {
-    uint16_t magic;      // 0xCAFE
-    int32_t min_value;
-    int32_t max_value;
-    int32_t center_value; // bipolar only
-    uint8_t checksum;
-};
-// Addresses: THROTTLE=0, BRAKE=16, STEERING=32 (16 bytes each)
-```
-
-### Serial to Interface Synchronization
-
-**IMPORTANT**: serial_receiver_manager must update client interface in real-time:
-
-- ESP32 `THROTTLE:50` → update throttle slider to 50%
-- ESP32 `BRAKE:75` → update brake slider to 75%
-- ESP32 `STEERING:-30` → update steering indicator to -30%
-- ESP32 `GEAR_UP/DOWN` → update gear display
+- G923 steering → command_callback("STEERING", "-30") → update interface
+- G923 throttle → command_callback("THROTTLE", "75") → update interface
+- G923 brake → command_callback("BRAKE", "50") → update interface
+- G923 paddle → command_callback("GEAR_UP"/"GEAR_DOWN", "") → update gear display
 
 ## Force Feedback System
 
 ### Architecture
 
 ```
-BMI160 (RPi) → UDP → Client Calculation → USB Serial → ESP32 FF Manager → BTS7960 → DC Motor
+BMI160 (RPi) → UDP → Client Calculation → evdev FF_CONSTANT → G923 Motor
 ```
 
 ### Force Components
@@ -278,15 +266,13 @@ base_steering_ff = min(lateral_component + yaw_component + centering_component, 
 - **Filter** (default 40%): Noise removal (EMA smoothing)
 - **Damping** (default 50%): Mechanical inertia
 
-### Serial Protocol
+### evdev FF Protocol
 
-```
-Format: FF_MOTOR:direction:intensity
-
-Examples:
-  FF_MOTOR:LEFT:45      - 45% force counter-clockwise
-  FF_MOTOR:RIGHT:80     - 80% force clockwise
-  FF_MOTOR:NEUTRAL:0    - Release wheel
+```python
+# g923_manager.apply_force_feedback(intensity, direction)
+# intensity: 0-100% | direction: "left", "right", "neutral"
+# Uses FF_CONSTANT effect with direction 0x4000 (left) or 0xC000 (right)
+# Effect uploaded once, updated in real-time via upload_effect()
 ```
 
 ## Important Files
@@ -351,13 +337,11 @@ Examples:
 
 - `raspberry/main.py`: Primary application
 - `raspberry/bmi160_manager.py`: IMU sensor manager
-- `raspberry/power_monitor_manager.py`: Energy monitoring (ADS1115 + INA219)
+- `raspberry/power_monitor_manager.py`: Energy monitoring (Pro Micro USB + INA219 I2C)
 
-**ESP32:**
+**Arduino Pro Micro (`pro_micro/`):**
 
-- `esp32/esp32.ino`: Dual-core orchestrator
-- `esp32/encoder_calibration.h/cpp`: Generic calibration
-- `esp32/ff_motor_manager.h/cpp`: Force feedback control
+- `pro_micro.ino`: ADC reading (bateria + 2x ACS758) + USB Serial to RPi
 
 ## Configuration
 
@@ -397,12 +381,12 @@ Examples:
 - I2C address: 0x41 (A0 soldado, evita conflito com INA219 em 0x40)
 - F1 Car channels: 0 (front brake), 1 (rear brake), 2 (steering)
 
-### BTS7960 H-Bridge
+### BTS7960 H-Bridge (Motor principal no veículo)
 
 - 43A continuous current capacity
 - Operating voltage: 6V-27V
 - PWM control: 1kHz, 8-bit
-- ESP32 pinout: GPIO 16/17 (RPWM/LPWM), GPIO 18/19 (R_EN/L_EN)
+- RPi pinout: RPWM→GPIO18, LPWM→GPIO27, R_EN→GPIO22, L_EN→GPIO23
 
 ## Code Optimization
 

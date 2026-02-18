@@ -3,9 +3,9 @@
 
 Será realizado um desenvolvimento incremental e modular de um sistema completo de \gls{teleoperacao} de um veículo de Fórmula 1 com simulador (volante e pedais), sendo o veículo controlado via protocolo \gls{UDP}. A metodologia adotada é a prototipagem evolutiva, que busca o teste individual de cada componente antes da integração final. O projeto busca um objetivo semelhante ao artigo de \citeonline{shaik2025design}, conforme apresentado na fundamentação teórica.
 
-O projeto seguirá uma arquitetura de três camadas. A primeira corresponde ao veículo teleoperado, tendo como elemento principal o Raspberry Pi 4, responsável por receber mensagens de controle via UDP e enviar mensagens de vídeo e status de sensores. A segunda camada é o cliente (PC), que receberá as mensagens do veículo, exibirá a interface de telemetria e encaminhará as mensagens de controle oriundas do simulador para o veículo. A terceira camada é o simulador baseado em ESP32, composto por volante com \gls{encoder}, pedais de acelerador e freio, e botões de troca de marcha, responsável por capturar os comandos do usuário e transmiti-los ao cliente via comunicação serial \gls{USB}. A integração de múltiplos sensores segue a abordagem de \citeonline{bobrovsky2023development}, visando um bom resultado de feedback ao usuário. A \autoref{fig:arquitetura-projeto} apresenta o diagrama da arquitetura proposta.
+O projeto seguirá uma arquitetura de três camadas. A primeira corresponde ao veículo teleoperado, tendo como elemento principal o Raspberry Pi 4, responsável por receber mensagens de controle via UDP e enviar mensagens de vídeo e status de sensores. A segunda camada é o cliente (PC), que receberá as mensagens do veículo, exibirá a interface de telemetria e encaminhará as mensagens de controle oriundas do simulador para o veículo. A terceira camada é o simulador Logitech G923, um volante profissional com rotação de 900°, pedais progressivos (acelerador e freio), paddle shifters para troca de marchas e motor de force feedback integrado, conectado diretamente ao cliente PC via \gls{USB} e acessado através da biblioteca evdev no Linux. A integração de múltiplos sensores segue a abordagem de \citeonline{bobrovsky2023development}, visando um bom resultado de feedback ao usuário. A \autoref{fig:arquitetura-projeto} apresenta o diagrama da arquitetura proposta.
 
-O desenvolvimento inicia com a modelagem, impressão e montagem do chassi do veículo teleoperado, seguido por testes de desempenho e comunicação entre o Raspberry Pi e o cliente (PC). Na sequência, ocorre a integração gradual dos sensores e atuadores do veículo teleoperado com o Raspberry Pi e os testes de comunicação do veículo completo com o PC. A etapa seguinte compreende a modelagem, impressão e montagem do simulador (volante e pedais), além dos testes de atuadores e sensores de comando via serial. Por fim, realiza-se a integração gradual do simulador com o PC e o teste completo entre o veículo teleoperado e o simulador.
+O desenvolvimento inicia com a modelagem, impressão e montagem do chassi do veículo teleoperado, seguido por testes de desempenho e comunicação entre o Raspberry Pi e o cliente (PC). Na sequência, ocorre a integração gradual dos sensores e atuadores do veículo teleoperado com o Raspberry Pi e os testes de comunicação do veículo completo com o PC. A etapa seguinte compreende a integração do simulador Logitech G923 com o cliente PC, incluindo o mapeamento de eixos analógicos, leitura de botões e configuração do force feedback via evdev. Por fim, realiza-se o teste completo de comunicação entre o veículo teleoperado e o simulador.
 
 \begin{figure}[!h]
 	\captionsetup{width=16cm}
@@ -45,9 +45,9 @@ Para estender o alcance além dos 800 metros do NRF24L01, foi avaliada a impleme
 
 O protocolo ESP-NOW foi considerado como alternativa para comunicação mesh entre dispositivos ESP32, porém foi descartado devido ao alcance limitado de aproximadamente 50 metros, significativamente inferior aos 800 metros do NRF24L01 com antena externa, além do custo mais elevado por unidade.
 
-\subsubsection{Decisão Final: Arquitetura UDP com Raspberry Pi e ESP32}
+\subsubsection{Decisão Final: Arquitetura UDP com Raspberry Pi e Logitech G923}
 
-A análise comparativa dos testes, sumarizada na \autoref{tab:comparativo-comunicacao}, conduziu à definição da arquitetura final baseada em três pilares: protocolo UDP, Raspberry Pi 4 embarcado no veículo e ESP32 no simulador. O princípio norteador foi manter o sistema simples e funcional.
+A análise comparativa dos testes, sumarizada na \autoref{tab:comparativo-comunicacao}, conduziu à definição da arquitetura final baseada em três pilares: protocolo UDP, Raspberry Pi 4 embarcado no veículo e simulador Logitech G923. O princípio norteador foi manter o sistema simples e funcional.
 
 \begin{table}[!h]
 \captionsetup{width=16cm}
@@ -101,7 +101,7 @@ A arquitetura de comunicação utiliza três portas UDP separadas para otimizar 
 }
 \end{table}
 
-Para o simulador, o ESP32 DevKit V1 foi mantido devido ao seu processamento superior em relação ao Arduino Mega, com dual-core de 240MHz contra single-core de 16MHz. O firmware opera com taxa de atualização de 100Hz (intervalo de 10ms entre transmissões), permitindo leitura simultânea de três encoders rotacionais, processamento de comandos de force feedback e comunicação serial USB a 115200 baud com o cliente PC sem perda de dados. O processamento é distribuído entre os dois núcleos: o Core 0 executa a leitura de encoders e controle do motor de force feedback com alta prioridade, enquanto o Core 1 gerencia a comunicação serial. A comunicação serial USB entre ESP32 e cliente elimina a necessidade de protocolos wireless adicionais no simulador, garantindo conexão estável e determinística.
+Para o simulador, optou-se pelo volante Logitech G923, um dispositivo \gls{USB} \gls{HID} profissional que integra volante com rotação de 900°, pedais progressivos, paddle shifters e motor de force feedback em um único periférico. O G923 é acessado no Linux através da biblioteca evdev, que permite leitura dos eixos analógicos (\texttt{ABS\_X} para direção, \texttt{ABS\_RZ} para acelerador e \texttt{ABS\_Z} para freio) e botões digitais (paddle shifters para troca de marchas) a taxas superiores a 100Hz, além de upload de efeitos de force feedback do tipo \texttt{FF\_CONSTANT} diretamente ao motor integrado do volante. Essa abordagem elimina a necessidade de firmware customizado, encoders e ponte H externa, simplificando significativamente a arquitetura do simulador.
 
 Essa arquitetura resultou em um sistema com apenas dois saltos de comunicação (Veículo $\leftrightarrow$ Cliente $\leftrightarrow$ Simulador), maximizando a confiabilidade e minimizando a latência total do loop de controle.
 
@@ -162,7 +162,8 @@ O software embarcado foi desenvolvido em Python 3.11.2 utilizando o editor Visua
 \textbf{Biblioteca} & \textbf{Função} \\
 \midrule
 picamera2 & Captura de vídeo via interface CSI com codificação MJPEG por hardware \\
-smbus2 & Comunicação I2C direta com sensores BMI160, ADS1115 e INA219 \\
+smbus2 & Comunicação I2C direta com sensores BMI160 e INA219 \\
+pyserial & Comunicação serial USB com Arduino Pro Micro para monitoramento de energia \\
 adafruit-circuitpython-pca9685 & Controle do driver \gls{PWM} PCA9685 para acionamento de servos \\
 adafruit-circuitpython-servokit & Abstração de alto nível para controle de servomotores \\
 RPi.GPIO & Controle de pinos GPIO para \gls{ponteh} BTS7960 do motor DC \\
@@ -202,15 +203,15 @@ A \autoref{tab:componentes-veiculo} apresenta os componentes embarcados no veíc
 		\midrule
 		PCA9685 PWM Driver \cite{nxp2015pca9685} & 16 canais, 12 bits, I2C, endereço \texttt{0x40} & Controle de servos (freio dianteiro, traseiro e direção) \\
 		\midrule
-		ADS1115 \gls{ADC} \cite{ti2018ads1115} & 16 bits, 4 canais, I2C, endereço \texttt{0x48} & Monitoramento de corrente via sensores ACS758 \\
+		Arduino Pro Micro & ATmega32U4, 16MHz, ADC 10 bits, USB nativo & Leitura de sensores ACS758 e tensão da bateria via USB serial \\
 		\midrule
 		INA219 \cite{ti2015ina219} & Sensor corrente/tensão, I2C, endereço \texttt{0x41} & Monitoramento de energia do Raspberry Pi \\
 		\midrule
 		Sensor DS18B20 \cite{maxim2019ds18b20} & Digital 1-Wire, $-55$°C a $+125$°C, precisão $\pm0{,}5$°C & Monitoramento de temperatura do motor e eletrônica \\
 		\midrule
-		ACS758 100A \cite{allegro2018acs758} & Sensor Hall, sensibilidade 20mV/A, largura de banda 120kHz & Medição de corrente do motor DC 775 via ADS1115 \\
+		ACS758 100A \cite{allegro2018acs758} & Sensor Hall, sensibilidade 20mV/A, largura de banda 120kHz & Medição de corrente do motor DC 775 via Arduino Pro Micro \\
 		\midrule
-		ACS758 50A (2x) \cite{allegro2018acs758} & Sensor Hall, sensibilidade 40mV/A, largura de banda 120kHz & Medição de corrente do Raspberry Pi e servos via ADS1115 \\
+		ACS758 50A \cite{allegro2018acs758} & Sensor Hall, sensibilidade 40mV/A, largura de banda 120kHz & Medição de corrente dos servos via Arduino Pro Micro \\
 		\midrule
 		Regulador XL4015 \cite{xlsemi2017xl4015} & Step-down 8--36V para 1.25--32V, 5A, eficiência 96\% & Alimentação 5V do Raspberry Pi a partir da bateria \\
 		\midrule
@@ -316,7 +317,13 @@ O sensor inercial BMI160 conectado via barramento I2C (endereço \texttt{0x68}) 
 
 \subsubsection{Monitoramento de Energia}
 
-O sistema de monitoramento de energia utiliza sensores ACS758 (50A e 100A) conectados ao ADC ADS1115 (endereço \texttt{0x48}) para medição de corrente, e sensor INA219 (endereço \texttt{0x41}) para monitoramento de tensão e corrente do Raspberry Pi. Esses dados permitem análise de consumo energético e detecção de anomalias durante operação.
+O sistema de monitoramento de energia utiliza uma arquitetura híbrida com dois subsistemas complementares: um Arduino Pro Micro (ATmega32U4) dedicado à leitura dos sensores de corrente ACS758 e tensão da bateria, e um sensor INA219 (endereço I2C \texttt{0x41}) para monitoramento de corrente e tensão do Raspberry Pi.
+
+Inicialmente, o projeto utilizava um ADC externo ADS1115 (16 bits, I2C) conectado diretamente ao Raspberry Pi para leitura dos sensores ACS758. Essa abordagem apresentava três limitações fundamentais. A primeira era a incompatibilidade de referência de tensão: os ACS758 possuem saída ratiométrica (ponto zero em VCC/2), porém o ADS1115 opera com referência interna própria (PGA configurável), incapaz de acompanhar variações na alimentação dos sensores. Na prática, uma queda de 5,00V para 4,90V no VCC dos ACS758 deslocava o offset zero em 50mV, introduzindo erro de 2,5A no sensor de 100A (sensibilidade de 20mV/A). A segunda limitação era o congestionamento do barramento I2C, compartilhado com BMI160 (100Hz), PCA9685 e INA219, onde cada ciclo de leitura do ADS1115 (três canais multiplexados) ocupava aproximadamente 25ms do barramento. A terceira era a ausência de canal disponível para medição da tensão da bateria.
+
+A migração para o Arduino Pro Micro resolveu essas limitações através de medição ratiométrica: como o Pro Micro e os ACS758 compartilham a mesma alimentação de 5V, qualquer variação de tensão afeta o ADC e os sensores igualmente, cancelando automaticamente o erro. O Pro Micro realiza oversampling de 50 amostras por leitura em cada canal analógico, reduzindo o ruído por um fator de $\sqrt{50} \approx 7$. Os dados são transmitidos ao Raspberry Pi via USB serial dedicado a 115200 baud no formato \texttt{PWR:<v\_bat>,<i\_servos>,<i\_motor>} a 10Hz, liberando completamente o barramento I2C para os demais sensores. A tensão da bateria LiPo 3S é medida através de um divisor resistivo (20k$\Omega$/10k$\Omega$) no pino A0, com razão de 1:3 que mantém a tensão no ADC dentro da faixa segura de 0--5V. Os valores de calibração (offset zero de cada ACS758) são armazenados na EEPROM do ATmega32U4, persistindo entre reinicializações.
+
+O sensor INA219 permanece no barramento I2C para monitoramento do Raspberry Pi, pois opera na faixa de corrente de 0--3,2A com resolução de 0,8mA, muito superior à precisão dos ACS758 nessa faixa. Cada saída dos sensores ACS758 possui um filtro RC de hardware (1k$\Omega$ + 100nF, frequência de corte de 1,6kHz) para remoção de ruído eletromagnético do motor e chaveamento da ponte H antes da amostragem pelo ADC.
 
 \subsection{Controle de Propulsão e Direção}
 \label{subsec:propulsao-direcao-veiculo}
@@ -363,11 +370,11 @@ A direção utiliza servo MG996R no canal 2 do PCA9685, com rotação de 0° a 1
 \subsection{Proteção contra Força Eletromotriz de Retorno}
 \label{subsec:protecao-backemf-veiculo}
 
-Quando um motor DC gira, seja por acionamento elétrico ou por força mecânica externa, ele atua como gerador e produz uma tensão conhecida como \gls{backemf}. No contexto deste projeto, essa situação ocorre tanto no veículo (quando as rodas giram livremente com motor desligado) quanto no simulador (quando o operador gira o volante manualmente).
+Quando um motor DC gira, seja por acionamento elétrico ou por força mecânica externa, ele atua como gerador e produz uma tensão conhecida como \gls{backemf}. No contexto deste projeto, essa situação ocorre no veículo quando as rodas giram livremente com o motor desligado.
 
-O driver BTS7960 foi selecionado para ambos os sistemas, veículo e simulador, especificamente por possuir proteções integradas contra esse fenômeno. Conforme especificado no datasheet do fabricante \citeonline{infineon2013btn7960}, o circuito integrado BTN7960 (chip utilizado no módulo BTS7960) incorpora capacidade de \textit{active freewheeling} com frequência PWM de até 25 kHz, minimizando a dissipação de potência nos diodos integrados quando o motor opera como gerador. Além disso, o BTN7960 oferece proteção contra sobrecorrente, proteção térmica com desligamento automático em temperaturas elevadas e proteção contra curto-circuito.
+O driver BTS7960 foi selecionado para o sistema de propulsão do veículo especificamente por possuir proteções integradas contra esse fenômeno. Conforme especificado no datasheet do fabricante \citeonline{infineon2013btn7960}, o circuito integrado BTN7960 (chip utilizado no módulo BTS7960) incorpora capacidade de \textit{active freewheeling} com frequência PWM de até 25 kHz, minimizando a dissipação de potência nos diodos integrados quando o motor opera como gerador. Além disso, o BTN7960 oferece proteção contra sobrecorrente, proteção térmica com desligamento automático em temperaturas elevadas e proteção contra curto-circuito.
 
-No veículo, uma proteção mecânica adicional foi implementada através de rolamento unidirecional no eixo de transmissão. Esse componente permite que as rodas girem livremente sem transmitir rotação reversa ao motor, reduzindo a geração de back-EMF quando o veículo está em movimento com motor desligado. No simulador, essa proteção mecânica não é aplicável porque o motor de force feedback necessita operar em ambas as direções para simular resistência no volante, dependendo exclusivamente das proteções eletrônicas do BTS7960.
+No veículo, uma proteção mecânica adicional foi implementada através de rolamento unidirecional no eixo de transmissão. Esse componente permite que as rodas girem livremente sem transmitir rotação reversa ao motor, reduzindo a geração de back-EMF quando o veículo está em movimento com motor desligado.
 
 Essa arquitetura de proteção elimina a necessidade de componentes externos adicionais, como diodos flyback ou capacitores de supressão de transientes, simplificando o projeto eletrônico e aumentando a confiabilidade do sistema.
 
@@ -376,34 +383,41 @@ Essa arquitetura de proteção elimina a necessidade de componentes externos adi
 
 O software embarcado no Raspberry Pi foi refatorado de uma arquitetura sequencial para uma arquitetura multi-thread, permitindo que cada subsistema opere de forma independente e em sua taxa ideal de amostragem. Na arquitetura sequencial original, o loop principal executava todas as operações em sequência (captura de frame, leitura de sensores, transmissão de dados), resultando em latência acumulada onde o componente mais lento limitava todo o sistema.
 
-A arquitetura multi-thread implementada utiliza cinco threads principais: a thread de câmera opera a 30Hz para captura de frames da OV5647; a thread de sensores opera a 100Hz para leitura do BMI160 e envio direto pela porta UDP 9997; a thread de energia opera a 10Hz para monitoramento via ADS1115 e INA219; a thread de temperatura opera a 1Hz para leitura do DS18B20; e a thread de transmissão principal verifica dados a 120Hz, consolidando e enviando pacotes pela porta 9999 quando há novos frames disponíveis (efetivamente 30Hz). Essa separação permite que a captura de vídeo não atrase a leitura de sensores e vice-versa, reduzindo a latência de sensores de aproximadamente 33ms (espera por frame) para aproximadamente 10ms (envio direto pela porta dedicada).
+A arquitetura multi-thread implementada utiliza cinco threads principais: a thread de câmera opera a 30Hz para captura de frames da OV5647; a thread de sensores opera a 100Hz para leitura do BMI160 e envio direto pela porta UDP 9997; a thread de energia opera a 10Hz para monitoramento via Arduino Pro Micro (USB serial) e INA219 (I2C); a thread de temperatura opera a 1Hz para leitura do DS18B20; e a thread de transmissão principal verifica dados a 120Hz, consolidando e enviando pacotes pela porta 9999 quando há novos frames disponíveis (efetivamente 30Hz). Essa separação permite que a captura de vídeo não atrase a leitura de sensores e vice-versa, reduzindo a latência de sensores de aproximadamente 33ms (espera por frame) para aproximadamente 10ms (envio direto pela porta dedicada).
 
 A comunicação entre threads utiliza filas \gls{threadsafe} (classe \texttt{Queue} do Python) para transferência de dados e locks (\texttt{threading.Lock}) para proteção de variáveis compartilhadas. Cada gerenciador de componente implementa seu próprio lock interno para garantir acesso seguro em ambiente concorrente. A thread de transmissão consolida os dados mais recentes de todas as threads de aquisição antes de cada envio, garantindo pacotes com informações sincronizadas.
 
 O tratamento de erros é isolado por thread, onde exceções em um subsistema não afetam os demais. Cada thread implementa tratamento de exceção com logging e continuação de execução, evitando que falhas temporárias (como timeout de I2C) interrompam todo o sistema. O shutdown coordenado define uma flag de parada, aguarda cada thread finalizar com timeout de 2 segundos, para componentes na ordem inversa de dependência e libera recursos de GPIO, I2C e sockets.
 
 % ============================================================================
-% ARQUITETURA DO SIMULADOR (ESP32)
+% ARQUITETURA DO SIMULADOR (LOGITECH G923)
 % ============================================================================
-\section{Arquitetura do Simulador (ESP32)}
+\section{Arquitetura do Simulador (Logitech G923)}
 \label{sec:arquitetura-simulador}
 
-O ESP32 DevKit V1 com processador dual-core Xtensa LX6 a 240MHz constitui o controlador do simulador, responsável pela leitura de encoders, controle do motor de force feedback e comunicação serial com o cliente PC. A escolha do ESP32 sobre o Arduino Mega foi motivada pelo processamento superior, conforme demonstrado nos testes de latência da \autoref{subsec:evolucao-decisoes-comunicacao}. O diagrama elétrico completo das conexões do ESP32 com todos os componentes do simulador está disponível no \autoref{apendice:diagrama-esp32}.
+O simulador utiliza o volante Logitech G923, um dispositivo profissional de simulação que integra volante com rotação de 900°, pedais progressivos de acelerador e freio, paddle shifters para troca de marchas e motor de force feedback com sistema TRUEFORCE, em um único periférico USB, conforme ilustrado na \autoref{fig:g923-volante}. A escolha do G923 em substituição ao simulador customizado baseado em ESP32 com encoders rotacionais foi motivada pela superior precisão dos sensores internos, force feedback nativo sem necessidade de ponte H externa, e eliminação de firmware customizado e calibração manual de encoders. O G923 é reconhecido pelo sistema operacional Linux como dispositivo de entrada padrão, acessível através da interface evdev do kernel.
 
-O firmware foi desenvolvido em C++ utilizando o Arduino IDE, aproveitando o framework Arduino para ESP32 que fornece abstrações para controle de GPIO, interrupções de hardware e comunicação serial. A \autoref{tab:bibliotecas-esp32} apresenta as bibliotecas utilizadas no desenvolvimento do firmware.
+\begin{figure}[!ht]
+	\captionsetup{width=16cm}
+	\Caption{\label{fig:g923-volante} Volante de corrida Logitech G923 TRUEFORCE com pedais progressivos}
+	\UFCfig{}{
+		\includegraphics[width=10cm]{figuras/g923}
+	}{
+		\Fonte{\citeonline{logitech2024g923}.}
+	}
+\end{figure}
+
+O software de interface com o G923 foi desenvolvido em Python utilizando a biblioteca evdev, que fornece acesso direto aos eventos de entrada do kernel Linux sem necessidade de drivers proprietários. A \autoref{tab:bibliotecas-g923} apresenta as bibliotecas utilizadas na integração do simulador.
 
 \begin{table}[!h]
 \captionsetup{width=16cm}
-\Caption{\label{tab:bibliotecas-esp32} Bibliotecas C++ utilizadas no ESP32}
+\Caption{\label{tab:bibliotecas-g923} Bibliotecas Python utilizadas na integração do G923}
 \IBGEtab{}{
 \begin{tabular}{p{4cm}p{10.5cm}}
 \toprule
 \textbf{Biblioteca} & \textbf{Função} \\
 \midrule
-Arduino.h & Framework base com abstrações para GPIO, PWM e temporização \\
-EEPROM.h & Armazenamento persistente de dados de calibração dos encoders \\
-FreeRTOS & Sistema operacional de tempo real para execução dual-core \\
-HardwareSerial & Comunicação serial USB com o cliente PC a 115200 baud \\
+evdev & Interface com dispositivos de entrada Linux: leitura de eixos, botões e upload de efeitos de force feedback \\
 \bottomrule
 \end{tabular}
 }{
@@ -411,34 +425,30 @@ HardwareSerial & Comunicação serial USB com o cliente PC a 115200 baud \\
 }
 \end{table}
 
-\subsection{Especificações dos Componentes do Simulador}
+\subsection{Especificações do Simulador}
 \label{subsec:componentes-simulador}
 
-A \autoref{tab:componentes-simulador} apresenta os componentes do simulador de controle, responsáveis pela interface física com o operador e geração de feedback háptico.
+A \autoref{tab:componentes-simulador} apresenta as especificações do simulador Logitech G923 e seus periféricos.
 
 \begin{table}[!h]
 \captionsetup{width=16cm}
-\Caption{\label{tab:componentes-simulador} Especificações dos componentes do simulador de controle}
+\Caption{\label{tab:componentes-simulador} Especificações do simulador Logitech G923}
 \IBGEtab{}{%
 	\begin{tabular}{p{3.5cm}p{6cm}p{6cm}}
 		\toprule
 		Componente & Especificação & Função no Sistema \\
 		\midrule \midrule
-		ESP32 DevKit V1 \cite{espressif2024esp32} & Dual-core Xtensa LX6 @ 240MHz, 520KB SRAM, 4MB Flash, WiFi/Bluetooth & Controle de encoders, force feedback via BTS7960 e comunicação serial USB com cliente PC \\
+		Logitech G923 & Volante 900°, TRUEFORCE, USB \gls{HID}, pedais progressivos & Captura de comandos do operador e geração de force feedback \\
 		\midrule
-		Encoder LPD3806-600BM (3x) & 600 \gls{PPR}, saída A/B \gls{quadratura}, 5--24V & Leitura de posição de acelerador, freio e direção \\
+		Volante & Rotação 900° (lock-to-lock), sensor Hall de posição & Controle de direção com resolução de 16 bits \\
 		\midrule
-		Motor DC 775 & 24V, 12.000 RPM, controlado por BTS7960 & Geração de force feedback no volante \\
+		Pedal Acelerador & Sensor potenciométrico progressivo, 0--255 & Controle de aceleração do veículo \\
 		\midrule
-		Ponte H BTS7960 \cite{infineon2013btn7960} & 5.5--27Vdc, corrente contínua 40A, proteção térmica integrada & Controle bidirecional do motor de force feedback \\
+		Pedal Freio & Sensor potenciométrico progressivo, 0--255 & Controle de frenagem do veículo \\
 		\midrule
-		Amortecedores RC 1:10 & Compatível Axial SCX10/TRX4, óleo ajustável & Amortecimento dos pedais de acelerador e freio \\
+		Paddle Shifters & 2 alavancas metálicas atrás do volante & Troca de marchas (subir/descer) \\
 		\midrule
-		Botões Push (2x) & Normalmente aberto, com resistor pull-up interno & Controle de troca de marchas (subir/descer) \\
-		\midrule
-		Fonte ATX 500W BRX & 500W bivolt manual, cooler 80mm, proteção contra curto-circuito, sobrecarga e superaquecimento & Alimentação principal do simulador \\
-		\midrule
-		Placa Breakout ATX 24 pinos & Saídas +3,3V, +5V, +12V, -12V e 5VSB, 6 portas USB 5V/2A, terminais 20A, interruptor de toque & Distribuição de energia para ESP32, encoders, motor e atuadores \\
+		Motor Force Feedback & Motor DC integrado com sistema TRUEFORCE & Geração de force feedback via efeitos \texttt{FF\_CONSTANT} \\
 		\bottomrule
 	\end{tabular}%
 }{%
@@ -446,78 +456,46 @@ A \autoref{tab:componentes-simulador} apresenta os componentes do simulador de c
 }
 \end{table}
 
-O volante do simulador utiliza uma réplica em escala real do volante da McLaren MP4-30 de 2015, modelo 3D composto por 129 peças impressas em PLA, projetado por \citeonline{nacho3d2020volante}. A estrutura foi adaptada para acomodar o encoder rotacional de direção e o motor DC 775 de force feedback, mantendo a ergonomia e aparência característica dos volantes de Fórmula 1.
+\subsection{Leitura de Eixos e Botões via evdev}
+\label{subsec:leitura-g923}
 
-\subsection{Leitura de Encoders Rotacionais}
-\label{subsec:encoders-simulador}
+A leitura dos dados do G923 é realizada através da interface evdev do kernel Linux. O dispositivo é detectado automaticamente pela busca em \texttt{/dev/input/event*} por dispositivos cujo nome contém ``G923'' e que possuem as capabilities \texttt{EV\_ABS} (eixos analógicos) e \texttt{EV\_FF} (force feedback). A \autoref{tab:mapeamento-eixos-g923} apresenta o mapeamento dos eixos do G923 para os comandos de controle do veículo.
 
-O simulador utiliza três encoders rotacionais LPD3806-600BM-G5-24C com resolução de 600 pulsos por revolução (PPR) e saída em quadratura (canais A e B). A leitura é realizada via interrupções de hardware, garantindo captura precisa mesmo em rotações rápidas.
+\begin{table}[!h]
+\captionsetup{width=16cm}
+\Caption{\label{tab:mapeamento-eixos-g923} Mapeamento de eixos e botões do G923 para comandos de controle}
+\IBGEtab{}{%
+	\begin{tabular}{p{3.5cm}p{3cm}p{3.5cm}p{5cm}}
+		\toprule
+		Evento evdev & Faixa Bruta & Comando & Normalização \\
+		\midrule \midrule
+		\texttt{ABS\_X} & 0 a 65535 & STEERING & $-100\%$ a $+100\%$ (linear) \\
+		\midrule
+		\texttt{ABS\_RZ} & 0 a 255 & THROTTLE & $0\%$ a $100\%$ (invertido) \\
+		\midrule
+		\texttt{ABS\_Z} & 0 a 255 & BRAKE & $0\%$ a $100\%$ (invertido) \\
+		\midrule
+		\texttt{BTN\_GEAR\_UP} & 0 ou 1 & GEAR\_UP & Evento na transição 0$\rightarrow$1 \\
+		\midrule
+		\texttt{BTN\_GEAR\_DOWN} & 0 ou 1 & GEAR\_DOWN & Evento na transição 0$\rightarrow$1 \\
+		\bottomrule
+	\end{tabular}%
+}{%
+\Fonte{elaborado pelo autor.}%
+}
+\end{table}
 
-Os valores dos encoders são normalizados para porcentagem (0--100\% para acelerador e freio) ou ângulo (-100\% a +100\% para direção) e transmitidos ao cliente a 100Hz via serial USB.
+Os valores dos eixos são normalizados para a faixa padrão do sistema: $-100\%$ a $+100\%$ para direção e $0\%$ a $100\%$ para acelerador e freio. Os pedais utilizam normalização invertida porque o valor bruto 0 corresponde ao pedal totalmente pressionado no G923. A leitura opera em thread dedicada com loop assíncrono, processando eventos do kernel em tempo real e invocando callbacks para atualização dos controles do veículo.
 
-\subsection{Controle de Marchas}
-\label{subsec:marchas-simulador}
-
-O sistema de marchas utiliza dois botões push para subir e descer marcha. A detecção é feita por polling com \gls{debounce} de software, evitando acionamentos múltiplos. Eventos de troca de marcha são transmitidos ao cliente como mensagens \texttt{GEAR\_UP} e \texttt{GEAR\_DOWN}. O \autoref{alg:debounce-marchas} apresenta o algoritmo de leitura com debounce implementado.
-
-\begin{algorithm}[h!]
-	\SetSpacedAlgorithm
-	\caption{\label{alg:debounce-marchas}Leitura de botão com debounce}
-	\Entrada{pino, estado\_anterior, tempo\_anterior}
-	\Saida{pressionado}
-	\Inicio{
-		leitura $\leftarrow$ digitalRead(pino)\;
-		pressionado $\leftarrow$ falso\;
-		tempo\_atual $\leftarrow$ millis()\;
-		// Verifica se o estado do botão mudou\;
-		\Se{leitura $\neq$ estado\_anterior}{
-			// Verifica se passou o tempo de debounce (50ms)\;
-			\Se{(tempo\_atual - tempo\_anterior) > 50}{
-				// Detecta transição HIGH $\rightarrow$ LOW (pressão)\;
-				\Se{leitura = LOW \textbf{e} estado\_anterior = HIGH}{
-					pressionado $\leftarrow$ verdadeiro\;
-				}
-				estado\_anterior $\leftarrow$ leitura\;
-			}
-			tempo\_anterior $\leftarrow$ tempo\_atual\;
-		}
-	}
-\end{algorithm}
-
-\subsection{Sistema de Force Feedback}
+\subsection{Sistema de Force Feedback via evdev}
 \label{subsec:ff-simulador}
 
-O motor DC 775 de 24V do volante é controlado por ponte H BTS7960, recebendo comandos de intensidade e direção do cliente PC via serial USB. O protocolo de comunicação utiliza formato texto:
+O force feedback do G923 é controlado através da interface \texttt{FF\_CONSTANT} do kernel Linux. Ao iniciar a conexão, o software realiza upload de um efeito de força constante ao dispositivo, que permanece ativo durante toda a sessão. A intensidade e direção da força são atualizadas em tempo real pelo cliente PC com base nos dados do sensor BMI160 do veículo, sem necessidade de recriar o efeito a cada atualização. O efeito \texttt{FF\_CONSTANT} aplica uma força direcional contínua ao motor do volante, onde valores positivos e negativos correspondem às direções horária e anti-horária respectivamente.
 
-\begin{verbatim}
-FF_MOTOR:ESQUERDA:45    - 45% de força anti-horária
-FF_MOTOR:DIREITA:80     - 80% de força horária
-FF_MOTOR:NEUTRO:0       - Libera o volante
-\end{verbatim}
-
-A proteção contra back-EMF do BTS7960, descrita na \autoref{subsec:protecao-backemf-veiculo}, também se aplica ao motor de force feedback, permitindo que o operador gire o volante livremente quando o motor não está acionado.
-
-\subsection{Calibração de Encoders}
+\subsection{Calibração de Eixos}
 \label{subsec:calibracao-simulador}
 
-A calibração dos encoders é necessária porque cada unidade pode apresentar variações de fábrica nos valores de contagem, e a montagem física no simulador pode resultar em posições de repouso diferentes das esperadas. O processo de calibração determina os limites operacionais de cada controle (valor mínimo quando totalmente solto, valor máximo quando totalmente pressionado) e, no caso da direção, o ponto central correspondente ao volante reto.
-
-Os valores calibrados são armazenados na \gls{EEPROM} do ESP32, uma memória não volátil que preserva os dados mesmo quando o dispositivo é desligado, eliminando a necessidade de recalibração a cada inicialização. O protocolo de calibração opera via comunicação serial entre o cliente PC e o ESP32:
-
-\begin{enumerate}
-	\item O cliente PC envia comando de início especificando o controle: \texttt{CAL\_START:THROTTLE}, \texttt{CAL\_START:BRAKE} ou \texttt{CAL\_START:STEERING}
-	\item O ESP32 entra em modo de calibração e transmite os valores brutos do encoder a 100Hz (exemplo: \texttt{CAL\_THROTTLE:2847}), permitindo que o cliente exiba a leitura em tempo real
-	\item O operador move fisicamente o controle para suas posições extremas (pedal totalmente solto e totalmente pressionado, ou volante totalmente à esquerda e à direita), enquanto o cliente registra os valores mínimo e máximo observados
-	\item O cliente envia os valores calibrados para armazenamento: \texttt{CAL\_SAVE:THROTTLE:min:max} para controles unipolares (acelerador e freio) ou \texttt{CAL\_SAVE:STEERING:left:center:right} para controle bipolar (direção)
-	\item O ESP32 armazena os valores na EEPROM e confirma o sucesso da operação: \texttt{CAL\_COMPLETE:THROTTLE}
-\end{enumerate}
-
-A estrutura de dados na EEPROM utiliza mecanismos de validação para detectar corrupção de dados ou ausência de calibração prévia. O magic number (\texttt{0xCAFE}) é um valor fixo gravado junto aos dados de calibração; se esse valor não for encontrado durante a leitura, o sistema identifica que a EEPROM não contém calibração válida e utiliza valores padrão. O checksum é uma soma de verificação calculada sobre os dados armazenados; caso o valor lido não corresponda ao checksum esperado, indica-se corrupção dos dados. Cada encoder possui área reservada de 16 bytes na EEPROM (endereços 0, 16 e 32 para acelerador, freio e direção, respectivamente), totalizando 48 bytes de armazenamento persistente.
-
-\subsection{Comunicação Serial USB}
-\label{subsec:serial-simulador}
-
-A comunicação com o cliente PC utiliza USB serial a 115200 baud, operando em modo \gls{fullduplex}. O ESP32 transmite dados de encoders e eventos de marcha, enquanto recebe comandos de force feedback e calibração. A taxa de atualização de 100Hz (10ms) garante responsividade adequada para controle em tempo real.
+Embora o G923 possua calibração interna de fábrica, o software do cliente implementa um sistema de calibração adicional para permitir ajuste fino dos limites operacionais de cada eixo. O processo de calibração registra os valores mínimo e máximo observados durante movimentação completa de cada controle, armazenando os resultados em arquivo JSON persistente (\texttt{g923\_calibration.json}). Os valores calibrados são aplicados automaticamente na inicialização seguinte, ajustando as faixas de normalização para compensar eventuais variações do dispositivo.
 
 % ============================================================================
 % ARQUITETURA DO CLIENTE (PC)
@@ -540,7 +518,7 @@ opencv-python & Decodificação de frames MJPEG e aplicação de filtros de imag
 numpy & Processamento numérico de dados de telemetria e operações matriciais \\
 cupy & Aceleração GPU para filtros PDI via \gls{CUDA} (opcional) \\
 Pillow & Conversão de imagens OpenCV para formato compatível com Tkinter \\
-pyserial & Comunicação serial com ESP32 para recepção de dados do simulador \\
+evdev & Interface com o simulador Logitech G923 via dispositivos de entrada Linux \\
 socket & Comunicação UDP com Raspberry Pi para recepção de telemetria e vídeo \\
 matplotlib & Renderização de gráficos de telemetria em tempo real \\
 \bottomrule
@@ -577,7 +555,7 @@ A \autoref{tab:componentes-cliente} apresenta as especificações do computador 
 		\midrule
 		Sistema Operacional & Arch Linux, Kernel 6.18.2-arch2-1 & Ambiente de desenvolvimento com baixa latência e controle total do sistema \\
 		\midrule
-		Conectividade & WiFi 6 (802.11ax), USB 3.0 & Comunicação UDP com veículo e serial USB com simulador ESP32 \\
+		Conectividade & WiFi 6 (802.11ax), USB 3.0 & Comunicação UDP com veículo e USB com simulador Logitech G923 \\
 		\bottomrule
 	\end{tabular}%
 }{%
@@ -600,7 +578,7 @@ A interface gráfica utiliza layout de duas colunas: telemetria à esquerda e v�
 	}
 \end{figure}
 
-A coluna esquerda apresenta o status da conexão UDP e serial, painel de instrumentos com zona de eficiência, marcha atual, informações de energia, bateria e temperatura, dados brutos e físicos do sensor BMI160, forças G calculadas, velocidade estimada e componentes do cálculo de force feedback. A coluna direita exibe o vídeo da câmera em tempo real, filtros de processamento de imagem e gráficos de telemetria F1.
+A coluna esquerda apresenta o status da conexão UDP e do simulador G923, painel de instrumentos com zona de eficiência, marcha atual, informações de energia, bateria e temperatura, dados brutos e físicos do sensor BMI160, forças G calculadas, velocidade estimada e componentes do cálculo de force feedback. A coluna direita exibe o vídeo da câmera em tempo real, filtros de processamento de imagem e gráficos de telemetria F1.
 
 O painel de instrumentos exibe a porcentagem dentro da zona IDEAL de eficiência, marcha atual, posição do acelerador e velocidade estimada, atualizados em tempo real conforme dados recebidos do veículo e simulador. A visualização de vídeo utiliza OpenCV para decodificação MJPEG e Pillow para renderização no canvas Tkinter.
 
@@ -638,9 +616,9 @@ O sistema suporta aceleração por \gls{GPU} NVIDIA via biblioteca CuPy quando d
 \subsection{Arquitetura Multi-Thread e Recepção de Dados}
 \label{subsec:recepcao-cliente}
 
-O cliente PC implementa uma arquitetura multi-thread para garantir processamento paralelo e responsividade da interface gráfica. A separação em threads especializadas permite que operações de I/O (rede e serial) não bloqueiem a renderização de vídeo ou a atualização da interface.
+O cliente PC implementa uma arquitetura multi-thread para garantir processamento paralelo e responsividade da interface gráfica. A separação em threads especializadas permite que operações de I/O (rede e evdev) não bloqueiem a renderização de vídeo ou a atualização da interface.
 
-A thread principal executa o loop de eventos do Tkinter, responsável pela renderização da interface gráfica e atualização dos widgets em tempo real. A thread de rede opera como daemon e recebe pacotes UDP do veículo na porta 9999, decodificando frames MJPEG e dados de telemetria consolidados a aproximadamente 30Hz. A thread serial recebe dados dos encoders do simulador via USB a 100Hz, processando comandos de acelerador, freio, direção e troca de marchas. Adicionalmente, uma thread de sensores rápidos recebe exclusivamente dados do BMI160 na porta UDP 9997 a 100Hz, permitindo cálculo de force feedback com baixa latência.
+A thread principal executa o loop de eventos do Tkinter, responsável pela renderização da interface gráfica e atualização dos widgets em tempo real. A thread de rede opera como daemon e recebe pacotes UDP do veículo na porta 9999, decodificando frames MJPEG e dados de telemetria consolidados a aproximadamente 30Hz. A thread do G923 recebe dados dos eixos do simulador Logitech G923 via evdev, processando comandos de acelerador, freio, direção e troca de marchas em tempo real. Adicionalmente, uma thread de sensores rápidos recebe exclusivamente dados do BMI160 na porta UDP 9997 a 100Hz, permitindo cálculo de force feedback com baixa latência.
 
 A comunicação entre threads utiliza filas \gls{threadsafe} (\texttt{queue.Queue}) para transferência de dados à thread principal. Filas separadas são mantidas para logs, status de conexão, dados de sensores e frames de vídeo. A thread principal consome essas filas periodicamente via callbacks do Tkinter (\texttt{root.after()}), garantindo que atualizações de interface ocorram apenas na thread principal conforme exigido pelo toolkit gráfico.
 
@@ -717,7 +695,7 @@ A \autoref{fig:ff-cenarios} apresenta a contribuição de cada componente em cen
 	\Caption{\label{fig:ff-cenarios} Contribuição dos componentes de force feedback por cenário de condução}
 \end{figure}
 
-O algoritmo é executado no cliente PC e envia comandos para o motor DC 775 do simulador via ESP32:
+O algoritmo é executado no cliente PC e envia comandos de force feedback diretamente ao motor integrado do simulador Logitech G923 via efeito \texttt{FF\_CONSTANT} do evdev:
 
 \begin{algorithm}[h!]
 	\SetSpacedAlgorithm
@@ -773,7 +751,7 @@ A direção do force feedback é calculada combinando três componentes direcion
 
 \subsubsection{Mapeamento PWM do Motor}
 
-O comando de intensidade calculado (0-100\%) é transmitido via USB serial para o ESP32, que converte o valor para ciclo de trabalho PWM de 8 bits (0-255) através de mapeamento linear. A ponte H BTS7960 recebe o sinal PWM e aciona o motor DC 775 na direção correspondente.
+O comando de intensidade calculado (0-100\%) é convertido para a faixa de intensidade do efeito \texttt{FF\_CONSTANT} do evdev (0 a 65535) e aplicado diretamente ao motor integrado do G923. A direção da força é determinada pelo sinal do valor: positivo para força horária e negativo para anti-horária.
 
 \begin{equation}
 \label{eq:pwm-saida}
@@ -1063,9 +1041,9 @@ Todo o código fonte desenvolvido para este projeto está disponibilizado public
 		\midrule \midrule
 		\texttt{raspberry/} & Scripts Python para controle do Raspberry Pi 4: captura de vídeo, leitura de sensores BMI160, controle de motor e servos, comunicação UDP \\
 		\midrule
-		\texttt{client/} & Interface gráfica em Python/Tkinter, recepção UDP, processamento de telemetria, sistema de auto-save e script de análise de sessões \\
+		\texttt{client/} & Interface gráfica em Python/Tkinter, recepção UDP, integração com G923 via evdev, processamento de telemetria e sistema de auto-save \\
 		\midrule
-		\texttt{esp32/} & Firmware C++ para ESP32: leitura de encoders, controle de force feedback, comunicação serial USB \\
+		\texttt{pro\_micro/} & Firmware Arduino para Pro Micro: leitura de sensores ACS758, tensão da bateria e comunicação serial USB \\
 		\midrule
 		\texttt{exports/auto/} & Datasets de telemetria em formato Pickle (.pkl) e logs de sessões (.txt) \\
 		\midrule

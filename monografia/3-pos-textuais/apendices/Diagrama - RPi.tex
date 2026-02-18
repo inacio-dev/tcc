@@ -1,7 +1,7 @@
 \chapter{Diagrama Elétrico do Raspberry Pi}
 \label{apendice:diagrama-rpi}
 
-Este apêndice apresenta o diagrama elétrico completo das conexões do Raspberry Pi 4 com os demais componentes do sistema: sensor BMI160, driver PCA9685, ADC ADS1115, sensor de corrente INA219, ponte H BTS7960 e demais periféricos. O diagrama está dividido em cinco partes para melhor visualização.
+Este apêndice apresenta o diagrama elétrico completo das conexões do Raspberry Pi 4 com os demais componentes do sistema: sensor BMI160, driver PCA9685, sensor de corrente INA219, ponte H BTS7960, Arduino Pro Micro para monitoramento de energia e demais periféricos.
 
 \section*{Pinagem do Raspberry Pi 4}
 
@@ -15,9 +15,9 @@ A \autoref{tab:pinagem-rpi} apresenta a pinagem completa do Raspberry Pi 4 utili
 		\toprule
 		GPIO & Componente & Sinal & Observação \\
 		\midrule \midrule
-		2 & Barramento I2C & SDA & Compartilhado: BMI160, PCA9685, ADS1115, INA219 \\
+		2 & Barramento I2C & SDA & Compartilhado: BMI160, PCA9685, INA219 \\
 		\midrule
-		3 & Barramento I2C & SCL & Compartilhado: BMI160, PCA9685, ADS1115, INA219 \\
+		3 & Barramento I2C & SCL & Compartilhado: BMI160, PCA9685, INA219 \\
 		\midrule
 		4 & DS18B20 & DATA & 1-Wire com pull-up 4,7k$\Omega$ \\
 		\midrule
@@ -30,6 +30,8 @@ A \autoref{tab:pinagem-rpi} apresenta a pinagem completa do Raspberry Pi 4 utili
 		23 & BTS7960 & L\_EN & Enable lado esquerdo \\
 		\midrule
 		CSI & Câmera OV5647 & Flat cable & Interface Camera Serial Interface \\
+		\midrule
+		USB & Arduino Pro Micro & Serial & 115200 baud, monitoramento de energia \\
 		\bottomrule
 	\end{tabular}%
 }{%
@@ -51,8 +53,6 @@ A \autoref{tab:enderecos-i2c-rpi} apresenta os endereços I2C dos dispositivos c
 		\midrule
 		0x41 & INA219 & Sensor de corrente/tensão do Raspberry Pi (A0=VCC) \\
 		\midrule
-		0x48 & ADS1115 & ADC 16 bits para sensores ACS758 \\
-		\midrule
 		0x68 & BMI160 & IMU 6 eixos (acelerômetro/giroscópio) \\
 		\bottomrule
 	\end{tabular}%
@@ -61,50 +61,20 @@ A \autoref{tab:enderecos-i2c-rpi} apresenta os endereços I2C dos dispositivos c
 }
 \end{table}
 
-\section*{Parte 1 - Alimentação Principal e Sensores de Corrente}
+\section*{Diagrama de Alimentação e Sensores de Corrente}
 
-Seção do diagrama mostrando a bateria LiPo Turnigy Grafeno 6000mAh 3S 150C, regulador step-down XL4015 5A, sensores de corrente ACS758 (50A e 100A) com filtros RC (1k$\Omega$ e 100nF), e conexão com a ponte H BTS7960B.
+Diagrama mostrando a bateria LiPo Turnigy Grafeno 6000mAh 3S 150C, regulador step-down XL4015 5A, sensores de corrente ACS758 (50A e 100A) com filtros RC (1k$\Omega$ e 100nF), divisor de tensão (20k$\Omega$/10k$\Omega$), Arduino Pro Micro para aquisição de dados via USB serial, UBEC 15A para alimentação dos servos, driver PWM PCA9685, ponte H BTS7960B e motor DC 775.
 
 \begin{center}
-\includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figuras/diagrama-rpi-1}
+\includegraphics[width=\textwidth,height=0.85\textheight,keepaspectratio]{figuras/diagrama-rpi-1}
 \end{center}
 
 \newpage
 
-\section*{Parte 2 - UBEC, Driver PWM e Motor de Propulsão}
+\section*{Raspberry Pi, Sensores e Comunicação}
 
-Seção do diagrama mostrando o UBEC 15A para alimentação dos servos, driver PWM PCA9685 de 16 canais conectado ao Raspberry Pi 4 via I2C (GPIO2/GPIO3), sensor de corrente ACS758 50A para monitoramento dos servos, motor DC 775 e ponte H BTS7960B.
-
-\begin{center}
-\includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figuras/diagrama-rpi-2}
-\end{center}
-
-\newpage
-
-\section*{Parte 3 - ADC e Monitoramento de Corrente}
-
-Seção do diagrama mostrando a ponte H BTS7960B, sensores de corrente ACS758 (100A para motor e 50A para Raspberry Pi), regulador XL4015, ADC ADS1115 de 16 bits conectado via I2C, e filtros RC para condicionamento dos sinais analógicos.
+Diagrama mostrando o Raspberry Pi 4 Modelo B como elemento central, sensor ACS758 50A conectado ao Arduino Pro Micro via pino A1, driver PWM PCA9685 de 16 canais com pino OE, UBEC 15A, sensor de corrente e tensão INA219 I2C, módulo USB-C breakout com resistores de 5,1k$\Omega$ para negociação de energia, câmera OV5647 conectada via cabo flat CSI, sensor de temperatura DS18B20 com resistor pull-up de 4,7k$\Omega$ e sensor IMU GY-BMI160 conectado via I2C.
 
 \begin{center}
-\includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figuras/diagrama-rpi-3}
-\end{center}
-
-\newpage
-
-\section*{Parte 4 - Alimentação USB-C e Sensor INA219}
-
-Seção do diagrama mostrando a chave ON/OFF, sensor de corrente e tensão INA219 I2C, módulo USB-C breakout com resistores de 5,1k$\Omega$ para negociação de energia, divisores de tensão com resistores de 10k$\Omega$, e conexão de alimentação com o Raspberry Pi 4.
-
-\begin{center}
-\includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figuras/diagrama-rpi-4}
-\end{center}
-
-\newpage
-
-\section*{Parte 5 - Raspberry Pi e Sensores}
-
-Seção do diagrama mostrando o Raspberry Pi 4 Modelo B como elemento central, ADC ADS1115 conectado via I2C, câmera OV5647 conectada via cabo flat CSI, sensor de temperatura DS18B20 com resistor pull-up de 4,7k$\Omega$, sensor IMU GY-BMI160 conectado via I2C, e módulo USB-C breakout.
-
-\begin{center}
-\includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figuras/diagrama-rpi-5}
+\includegraphics[width=\textwidth,height=0.85\textheight,keepaspectratio]{figuras/diagrama-rpi-2}
 \end{center}

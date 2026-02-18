@@ -8,8 +8,9 @@ Universidade Federal do Ceará (UFC)
 Sistema completo de controle remoto para veículo RC estilo Fórmula 1 com interface háptica (force feedback), comunicação UDP de baixa latência e telemetria em tempo real. O projeto integra:
 
 - **Veículo RC** controlado por Raspberry Pi 4 com câmera e sensores IMU
-- **Cockpit físico** com volante, pedais e force feedback via ESP32
+- **Simulador** com volante Logitech G923 (steering 900°, pedais progressivos, force feedback nativo)
 - **Aplicação cliente** em Python para visualização e controle
+- **Monitoramento de energia** via Arduino Pro Micro (tensão + corrente) e INA219
 
 ### Principais Resultados
 
@@ -24,13 +25,14 @@ Sistema completo de controle remoto para veículo RC estilo Fórmula 1 com inter
 ## Arquitetura do Sistema
 
 ```
-┌─────────────────┐     UDP      ┌─────────────────┐    Serial    ┌─────────────────┐
-│  Raspberry Pi 4 │◄────────────►│   Cliente PC    │◄────────────►│  ESP32 Cockpit  │
-│                 │   9999/9998  │                 │   115200     │                 │
-│  - Câmera       │              │  - Interface    │              │  - Encoders     │
-│  - BMI160 IMU   │              │  - Vídeo        │              │  - Botões       │
-│  - Motores      │              │  - Telemetria   │              │  - Force FB     │
-│  - Servos       │              │  - Controle     │              │  - BTS7960      │
+┌─────────────────┐     UDP      ┌─────────────────┐     USB      ┌─────────────────┐
+│  Raspberry Pi 4 │◄────────────►│   Cliente PC    │◄────────────►│  Logitech G923  │
+│                 │   9999/9998  │                 │    evdev     │                 │
+│  - Câmera       │              │  - Interface    │              │  - Volante 900° │
+│  - BMI160 IMU   │              │  - Vídeo        │              │  - Pedais       │
+│  - Motor DC 775 │              │  - Telemetria   │              │  - Paddle shift │
+│  - 3x Servos    │              │  - Controle     │              │  - Force FB     │
+│  - Pro Micro    │              │  - G923 Manager │              │                 │
 └─────────────────┘              └─────────────────┘              └─────────────────┘
 ```
 
@@ -45,27 +47,26 @@ tcc/
 │   ├── motor_manager.py
 │   ├── steering_manager.py
 │   ├── brake_manager.py
-│   └── network_manager.py
+│   ├── network_manager.py
+│   └── power_monitor_manager.py
 │
 ├── client/             # Aplicação cliente (PC)
 │   ├── main.py         # Aplicação principal
-│   ├── console_interface.py
+│   ├── g923_manager.py # Logitech G923 (evdev + force feedback)
+│   ├── console/        # Interface gráfica (Tkinter)
 │   ├── video_display.py
 │   ├── sensor_display.py
-│   └── serial_receiver_manager.py
+│   └── slider_controller.py
 │
-├── esp32/              # Firmware do cockpit
-│   ├── esp32.ino       # Orquestrador dual-core
-│   ├── throttle_manager.h/cpp
-│   ├── brake_manager.h/cpp
-│   ├── steering_manager.h/cpp
-│   └── ff_motor_manager.h/cpp
+├── pro_micro/          # Arduino Pro Micro (monitoramento de energia)
+│   └── pro_micro.ino   # ADC: bateria + 2x ACS758 → USB Serial
 │
 ├── monografia/         # Documentação acadêmica (LaTeX)
 │   ├── documento.tex   # Arquivo principal
 │   ├── 2-textuais/     # Capítulos
 │   └── lib/            # Template UFCTeX
 │
+├── docs/               # Documentação técnica
 ├── datasheets/         # Datasheets dos componentes
 └── exports/            # Dados exportados (telemetria)
 ```
@@ -76,15 +77,20 @@ tcc/
 - Raspberry Pi 4 Model B (4GB+ RAM)
 - Câmera OV5647 (5MP, interface CSI)
 - Sensor IMU BMI160 (I2C)
-- Motor DC RS550 12V + Ponte H BTS7960
+- Motor DC RC 775 + Ponte H BTS7960
 - 3x Servo MG996R (direção + freios)
 - Driver PWM PCA9685
 
-### Cockpit
-- ESP32 DevKit V1
-- 3x Encoder rotativo LPD3806-600BM (600 PPR)
-- 2x Push buttons (marchas)
-- Motor DC 775 24V + Ponte H BTS7960 (force feedback)
+### Monitoramento de Energia
+- Arduino Pro Micro (ATmega32U4, USB nativo)
+- 2x ACS758 Hall-effect current sensor (50A + 100A, high-side)
+- Divisor de tensão 20kΩ/10kΩ (bateria 3S LiPo)
+- INA219 (corrente do Raspberry Pi, I2C direto)
+
+### Simulador
+- Logitech G923 Racing Wheel (USB)
+- Volante 900°, pedais progressivos, paddle shifters
+- Force feedback nativo via Linux evdev
 
 ### Rede
 - Roteador WiFi 2.4GHz
@@ -114,19 +120,24 @@ sudo systemctl restart avahi-daemon
 ### Cliente (Linux)
 
 ```bash
-# Instalar dependências
-pip install opencv-python numpy pyserial Pillow av
+cd client
+python3 -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
+
+# Permissão para leitura do G923 via evdev
+sudo usermod -a -G input $USER
+# (logout/login necessário para aplicar)
 
 # Configurar mDNS (Arch Linux)
 sudo pacman -S avahi nss-mdns
 sudo systemctl enable --now avahi-daemon
 ```
 
-### ESP32
+### Arduino Pro Micro
 
-1. Instalar Arduino IDE ou PlatformIO
-2. Adicionar suporte à placa ESP32
-3. Fazer upload do código em `esp32/esp32.ino`
+1. Arduino IDE: Board → Arduino Micro
+2. Upload `pro_micro/pro_micro.ino`
+3. Conectar via USB ao Raspberry Pi (detectado automaticamente)
 
 ### Monografia (LaTeX)
 
@@ -145,55 +156,69 @@ make compile
 ### Iniciar o Sistema
 
 ```bash
-# 1. Raspberry Pi
+# 1. Raspberry Pi (+ Pro Micro conectado via USB)
 cd raspberry && python3 main.py
 
-# 2. Cliente PC
-cd client && python3 main.py --port 9999
+# 2. Cliente PC (+ G923 conectado via USB)
+cd client && source venv/bin/activate && python3 main.py --port 9999
 
-# 3. ESP32 conectado via USB será detectado automaticamente
+# G923 e Pro Micro são detectados automaticamente
 ```
 
 ### Controles
 
 | Entrada | Ação |
 |---------|------|
-| W / ↑ | Acelerar |
-| S / ↓ | Frear |
-| A / ← | Virar esquerda |
-| D / → | Virar direita |
-| M | Marcha acima |
-| N | Marcha abaixo |
+| G923 Volante | Direção (-100 a +100) |
+| G923 Acelerador | Throttle (0-100%) |
+| G923 Freio | Brake (0-100%) |
+| G923 Paddle R | Marcha acima |
+| G923 Paddle L | Marcha abaixo |
+| W / ↑ | Acelerar (teclado) |
+| S / ↓ | Frear (teclado) |
+| A / ← | Virar esquerda (teclado) |
+| D / → | Virar direita (teclado) |
+| M | Marcha acima (teclado) |
+| N | Marcha abaixo (teclado) |
 
-O cockpit físico (ESP32) tem prioridade sobre o teclado quando conectado.
+O G923 tem prioridade sobre o teclado quando conectado.
 
 ## Protocolo de Comunicação
 
 ### UDP (Raspberry Pi ↔ Cliente)
 
-- **Porta 9999**: Dados (vídeo H.264 + telemetria JSON)
+- **Porta 9999**: Dados (vídeo MJPEG + telemetria JSON)
 - **Porta 9998**: Comandos de controle
 
-### Serial (ESP32 → Cliente)
+### G923 → Cliente (evdev)
 
 ```
-THROTTLE:<0-100>      # Posição do acelerador
-BRAKE:<0-100>         # Posição do freio
-STEERING:<-100 a 100> # Posição do volante
-GEAR_UP / GEAR_DOWN   # Troca de marchas
+ABS_X     → STEERING (-100 a +100)
+ABS_RZ    → THROTTLE (0-100%)
+ABS_Z     → BRAKE (0-100%)
+BTN_GEAR_UP   → GEAR_UP
+BTN_GEAR_DOWN → GEAR_DOWN
 ```
 
-### Force Feedback (Cliente → ESP32)
+### Force Feedback (Cliente → G923)
+
+```python
+g923_manager.apply_force_feedback(intensity, direction)
+# intensity: 0-100% | direction: "left", "right", "neutral"
+# Usa FF_CONSTANT via evdev (efeito contínuo atualizado em tempo real)
+```
+
+### Serial (Pro Micro → Raspberry Pi)
 
 ```
-FF_MOTOR:LEFT:<0-100>    # Força anti-horária
-FF_MOTOR:RIGHT:<0-100>   # Força horária
-FF_MOTOR:NEUTRAL:0       # Liberar volante
+PWR:<v_bat>,<i_servos>,<i_motor>   # Tensão (V) e correntes (A) a 10Hz
+CAL                                 # Solicitar recalibração dos ACS758
 ```
 
 ## Documentação
 
 - `CLAUDE.md` - Guia técnico completo para desenvolvimento
+- `docs/MONITORAMENTO_ENERGIA.md` - Arquitetura do sistema de energia (Pro Micro + INA219)
 - `raspberry/MODULOS.md` - Especificações dos módulos de hardware
 - `raspberry/DIAGRAMA.drawio.pdf` - Diagrama elétrico completo
 - `datasheets/` - Datasheets dos componentes
@@ -217,4 +242,4 @@ Template LaTeX baseado no UFCTeX/abnTeX2 (LPPL License).
 
 Inácio Medeiros
 Engenharia da Computação - UFC
-2025
+2026
