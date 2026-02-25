@@ -190,6 +190,18 @@ def create_force_feedback_frame(console):
         "Controla a intensidade da resposta aos eventos in-game",
     )
 
+    # Slider 5: Max Force (Limite do motor)
+    _create_ff_slider(
+        params_inner,
+        console,
+        "Max Force (Limite Motor):",
+        "max_force_value_label",
+        console.ff_max_force_var,
+        console._on_ff_max_force_change,
+        "#ff4444",
+        "Limite máximo de força no motor G923 (30%+ pode travar o volante!)",
+    )
+
 
 def _create_ff_slider(
     parent, console, label_text, label_attr, variable, callback, color, description

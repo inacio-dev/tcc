@@ -66,6 +66,9 @@ class SliderController:
         client_dir = os.path.dirname(os.path.abspath(__file__))
         self._cal_config_file = os.path.join(client_dir, "g923_calibration.json")
 
+        # Flag para evitar envio duplo quando G923 atualiza sliders
+        self._updating_from_g923 = False
+
         # Controle de envio
         self.is_active = False
         self.send_thread = None
@@ -97,6 +100,26 @@ class SliderController:
         self.g923_manager = g923_manager
         # Aplica calibração salva ao novo manager
         self._apply_saved_calibration()
+
+    def update_from_g923(self):
+        """Atualiza sliders com valores atuais do G923 (chamar do Tkinter thread)"""
+        if not self.g923_manager or not self.g923_manager.is_connected():
+            return
+
+        self._updating_from_g923 = True
+        try:
+            steering = self.g923_manager._steering
+            throttle = self.g923_manager._throttle
+            brake = self.g923_manager._brake
+
+            if self.steering_slider and abs(steering - self.steering_value) >= 1:
+                self.steering_slider.set(steering)
+            if self.throttle_slider and abs(throttle - self.throttle_value) >= 1:
+                self.throttle_slider.set(throttle)
+            if self.brake_slider and abs(brake - self.brake_value) >= 1:
+                self.brake_slider.set(brake)
+        finally:
+            self._updating_from_g923 = False
 
     def _log(self, level: str, message: str):
         """Log com fallback"""
@@ -376,22 +399,23 @@ class SliderController:
 
         return control_frame
 
+    def _g923_connected(self) -> bool:
+        """Verifica se G923 está conectado (sliders viram só visuais)"""
+        return self.g923_manager is not None and self.g923_manager.is_connected()
+
     def _on_throttle_change(self, value):
         """Callback para mudança no slider de acelerador"""
         try:
-            old_throttle = self.throttle_value
             self.throttle_value = float(value)
             self.throttle_label.config(
                 text=f"🚀 Acelerador: {self.throttle_value:.0f}%"
             )
 
-            # CORREÇÃO: Envia comando em thread separada para não travar UI
+            # G923 conectado → slider é só visual, envio é pelo handle_g923_command
+            if self._updating_from_g923 or self._g923_connected():
+                return
+
             if self.network_client:
-                self._log(
-                    "DEBUG",
-                    f"🚀 Acelerador: {old_throttle:.0f}% → {self.throttle_value:.0f}%",
-                )
-                # Thread separada para envio de rede (não bloqueia UI)
                 threading.Thread(
                     target=self._send_command_async,
                     args=("THROTTLE", self.throttle_value),
@@ -404,16 +428,14 @@ class SliderController:
     def _on_brake_change(self, value):
         """Callback para mudança no slider de freio"""
         try:
-            old_brake = self.brake_value
             self.brake_value = float(value)
             self.brake_label.config(text=f"🛑 Freio: {self.brake_value:.0f}%")
 
-            # CORREÇÃO: Envia comando em thread separada para não travar UI
+            # G923 conectado → slider é só visual
+            if self._updating_from_g923 or self._g923_connected():
+                return
+
             if self.network_client:
-                self._log(
-                    "DEBUG", f"🛑 Freio: {old_brake:.0f}% → {self.brake_value:.0f}%"
-                )
-                # Thread separada para envio de rede (não bloqueia UI)
                 threading.Thread(
                     target=self._send_command_async,
                     args=("BRAKE", self.brake_value),
@@ -426,10 +448,8 @@ class SliderController:
     def _on_steering_change(self, value):
         """Callback para mudança no slider de direção"""
         try:
-            old_steering = self.steering_value
             self.steering_value = float(value)
 
-            # Atualiza label com direção
             if self.steering_value == 0:
                 direction_text = "🏎️ Direção: 0° (Centro)"
             elif self.steering_value < 0:
@@ -441,13 +461,11 @@ class SliderController:
 
             self.steering_label.config(text=direction_text)
 
-            # CORREÇÃO: Envia comando imediatamente quando muda
+            # G923 conectado → slider é só visual
+            if self._updating_from_g923 or self._g923_connected():
+                return
+
             if self.network_client:
-                self._log(
-                    "DEBUG",
-                    f"🏎️ Direção: {old_steering:.0f}° → {self.steering_value:.0f}°",
-                )
-                # Thread separada para envio de rede (não bloqueia UI)
                 threading.Thread(
                     target=self._send_command_async,
                     args=("STEERING", self.steering_value),
@@ -532,9 +550,14 @@ class SliderController:
             pass
 
     def _send_loop(self):
-        """Loop principal para envio contínuo de comandos"""
+        """Loop principal para envio contínuo de comandos (só sem G923)"""
         while self.is_active:
             try:
+                # G923 conectado → não envia, handle_g923_command cuida disso
+                if self._g923_connected():
+                    time.sleep(0.1)
+                    continue
+
                 with self.lock:
                     # Envia throttle se mudou significativamente
                     if (

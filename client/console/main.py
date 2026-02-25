@@ -58,6 +58,7 @@ from .utils.constants import (
     FF_FILTER_DEFAULT,
     FF_FRICTION_DEFAULT,
     FF_SENSITIVITY_DEFAULT,
+    FF_MAX_FORCE_DEFAULT,
     MAX_LOG_LINES,
     UPDATE_INTERVAL,
 )
@@ -173,6 +174,7 @@ class ConsoleInterface:
         self.ff_friction_var = tk.DoubleVar(value=FF_FRICTION_DEFAULT)
         self.ff_filter_var = tk.DoubleVar(value=FF_FILTER_DEFAULT)
         self.ff_sensitivity_var = tk.DoubleVar(value=FF_SENSITIVITY_DEFAULT)
+        self.ff_max_force_var = tk.DoubleVar(value=FF_MAX_FORCE_DEFAULT)
 
         # Instrumentos do motor
         self.rpm_var = tk.StringVar(value="0")
@@ -500,6 +502,9 @@ class ConsoleInterface:
         # Passa ao slider_controller para calibração
         if hasattr(self, "slider_controller") and self.slider_controller:
             self.slider_controller.set_g923_manager(g923_manager)
+        # Aplica limite de força do slider
+        if g923_manager and hasattr(self, "ff_max_force_var") and self.ff_max_force_var:
+            g923_manager.set_ff_max_percent(self.ff_max_force_var.get())
         # Atualiza status na interface (só se as variáveis já foram criadas)
         if hasattr(self, "g923_status_var") and self.g923_status_var:
             if g923_manager and g923_manager.is_connected():
@@ -965,6 +970,18 @@ class ConsoleInterface:
                     sensor_data = self.sensor_display.get_display_data()
                     self.update_sensor_data(sensor_data)
 
+            # Atualizar status e sliders do G923
+            if hasattr(self, "g923_manager") and self.g923_manager:
+                if self.g923_manager.is_connected():
+                    self.g923_status_var.set(f"Conectado - {self.g923_manager.device_name}")
+                    # Sincroniza sliders com valores do G923
+                    if hasattr(self, "slider_controller") and self.slider_controller:
+                        self.slider_controller.update_from_g923()
+                    # FF local: centering spring + friction (funciona sem RPi)
+                    self._apply_local_ff()
+                else:
+                    self.g923_status_var.set("Desconectado")
+
         except Exception as e:
             error(f"Erro ao processar filas: {e}", "CONSOLE")
 
@@ -1220,6 +1237,83 @@ class ConsoleInterface:
             debug(f"Sensitivity alterado: {sensitivity:.0f}%", "FF")
         except Exception as e:
             error(f"Erro ao alterar sensitivity: {e}", "FF")
+
+    def _apply_local_ff(self):
+        """
+        Aplica FF local baseado apenas no steering do G923 (sem dados do RPi).
+        Centering spring: puxa o volante de volta ao centro.
+        Friction: resistência proporcional à velocidade de rotação.
+        Quando dados do RPi chegam, update_sensor_data() sobrescreve com cálculo completo.
+        """
+        try:
+            if not hasattr(self, "g923_manager") or not self.g923_manager:
+                return
+            if not self.g923_manager.is_connected():
+                return
+
+            steering = self.g923_manager._steering  # -100 a +100
+
+            # Parâmetros dos sliders
+            sensitivity = self.ff_sensitivity_var.get() / 100.0
+            friction = self.ff_friction_var.get() / 100.0
+            damping = self.ff_damping_var.get() / 100.0
+            filter_strength = self.ff_filter_var.get() / 100.0
+
+            # Centering spring: força proporcional ao ângulo (0-40%)
+            centering = abs(steering) / 100.0 * 40.0
+
+            # Friction: resistência básica simulando grip (0-15%)
+            friction_force = friction * 15.0
+
+            # Combina e aplica sensibilidade
+            base_ff = min(centering + friction_force, 100.0) * sensitivity
+
+            # Suavização (filter)
+            if not hasattr(self, "_local_ff_filtered"):
+                self._local_ff_filtered = 0.0
+            base_ff = base_ff * (1.0 - filter_strength) + self._local_ff_filtered * filter_strength
+            self._local_ff_filtered = base_ff
+
+            # Damping
+            if not hasattr(self, "_local_ff_last"):
+                self._local_ff_last = 0.0
+            base_ff = base_ff * (1.0 - damping) + self._local_ff_last * damping
+            self._local_ff_last = base_ff
+
+            final_ff = max(0.0, min(100.0, base_ff))
+
+            # Direção: centering puxa para o lado oposto ao steering
+            if steering > 5:
+                direction = "left"
+            elif steering < -5:
+                direction = "right"
+            else:
+                direction = "neutral"
+
+            if final_ff < 3.0:
+                direction = "neutral"
+
+            # Aplica no G923
+            self.g923_manager.apply_force_feedback(final_ff, direction)
+
+            # Atualiza LEDs na UI
+            if self.ff_calculator:
+                self.ff_calculator.update_ff_leds(final_ff, direction)
+
+        except Exception:
+            pass
+
+    def _on_ff_max_force_change(self, value):
+        """Callback quando o slider de força máxima muda"""
+        try:
+            max_force = float(value)
+            self.max_force_value_label.config(text=f"{max_force:.0f}%")
+            # Aplica diretamente ao G923Manager
+            if hasattr(self, "g923_manager") and self.g923_manager:
+                self.g923_manager.set_ff_max_percent(max_force)
+            debug(f"FF Max Force alterado: {max_force:.0f}%", "FF")
+        except Exception as e:
+            error(f"Erro ao alterar max force: {e}", "FF")
 
     def set_network_client(self, network_client):
         """Define o cliente de rede para envio de comandos"""

@@ -27,6 +27,7 @@ FF_DAMPING_DEFAULT = 50.0
 FF_FRICTION_DEFAULT = 30.0
 FF_FILTER_DEFAULT = 40.0
 FF_SENSITIVITY_DEFAULT = 75.0
+FF_MAX_FORCE_DEFAULT = 15.0  # Limite máximo de força no motor (% do max do G923)
 
 # Valores padrão de controle
 BRAKE_BALANCE_DEFAULT = 60.0  # 60% dianteiro

@@ -23,6 +23,25 @@ Pillow>=10.0.0
 pyserial>=3.5
 
 # evdev para leitura do volante Logitech G923 e force feedback
+# ============================================================================
+# SETUP DO G923 (Linux):
+#
+# 1. Instalar usb_modeswitch (necessario para G923 versao Xbox 046d:c26d):
+#    Arch Linux: sudo pacman -S usb_modeswitch
+#    Ubuntu/Debian: sudo apt install usb-modeswitch
+#
+# 2. Trocar G923 do modo Xbox GIP para HID (rodar apos plugar o volante):
+#    sudo usb_modeswitch -v 046d -p c26d -M 0f00010142 -C 0x03 -m 01 -r 81
+#    (PID muda de c26d para c26e e o dispositivo aparece em /dev/input/event*)
+#
+# 3. Adicionar usuario ao grupo 'input' para acessar /dev/input/event*:
+#    sudo usermod -a -G input $USER
+#    (requer logout/login para aplicar)
+#
+# 4. Verificar deteccao:
+#    python3 -c "import evdev; [print(evdev.InputDevice(d).name) for d in evdev.list_devices()]"
+#    Deve aparecer: "Logitech G923 Racing Wheel for Xbox One and PC"
+# ============================================================================
 evdev>=1.7.0
 
 # NOTA: PyAV (av) foi removido pois não usamos mais H.264

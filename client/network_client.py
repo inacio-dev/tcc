@@ -232,8 +232,7 @@ class NetworkClient:
         Returns:
             bool: True se enviado com sucesso
         """
-        if not self.raspberry_pi_ip:
-            self._log("WARN", "Raspberry Pi não descoberto ainda")
+        if not self.raspberry_pi_ip or not self.is_connected_to_rpi:
             return False
 
         try:
@@ -258,10 +257,7 @@ class NetworkClient:
             bool: True se enviado com sucesso
         """
         command = f"CONTROL:{control_type}:{value}"
-        success = self.send_command_to_rpi(command)
-        if success:
-            self._log("INFO", f"✅ Comando enviado: {control_type}:{value}")
-        return success
+        return self.send_command_to_rpi(command)
 
     def parse_packet(self, packet):
         """
@@ -589,11 +585,11 @@ class NetworkClient:
         self._log("INFO", f"Vídeo: {self.rpi_ip}:{self.port}")
         self._log("INFO", f"Sensores: {self.rpi_ip}:{self.sensor_port}")
 
-        # Modo fixo - configura Raspberry Pi IP diretamente
+        # Configura endereço do RPi mas NÃO marca como conectado ainda
+        # Conexão real só é confirmada quando recebemos pacotes
         if self.rpi_ip:
             self.raspberry_pi_ip = self.rpi_ip
-            self.is_connected_to_rpi = True
-            self._log("INFO", f"Raspberry Pi configurado: {self.raspberry_pi_ip}")
+            self._log("INFO", f"Raspberry Pi configurado: {self.raspberry_pi_ip} (aguardando conexão)")
 
         # Inicia thread de sensores rápidos
         self.sensor_thread = threading.Thread(
@@ -612,13 +608,13 @@ class NetworkClient:
                     if self.rpi_ip and addr[0] != self.rpi_ip:
                         continue  # Ignora pacotes de outros IPs
 
-                    # Se é a primeira vez que recebemos dados deste endereço
-                    if not self.raspberry_pi_ip:
+                    # Confirma conexão no primeiro pacote recebido
+                    if not self.is_connected_to_rpi:
                         self.raspberry_pi_ip = addr[0]
                         self.is_connected_to_rpi = True
                         self._log(
                             "INFO",
-                            f"🔗 Raspberry Pi descoberto: {self.raspberry_pi_ip}",
+                            f"🔗 Raspberry Pi conectado: {self.raspberry_pi_ip}",
                         )
                         self._log("INFO", "✅ Conexão estabelecida!")
 

@@ -102,23 +102,49 @@ class F1ClientApplication:
         # Estatísticas
         self.start_time = time.time()
 
+        # Logging throttle para G923 (evita spam no console)
+        self._g923_last_log_time = 0.0
+        self._g923_log_interval = 1.0  # Log a cada 1 segundo no máximo
+
     def handle_g923_command(self, command_type: str, value: str):
         """
         Trata comandos recebidos do G923 via evdev
-        Encaminha para o Raspberry Pi via network client
+        Encaminha para o Raspberry Pi via network client (só se RPi conectado)
 
         Args:
             command_type: Tipo do comando (THROTTLE, BRAKE, STEERING, GEAR_UP, GEAR_DOWN)
             value: Valor do comando (vazio para GEAR_UP/GEAR_DOWN)
         """
         try:
-            if self.network_client:
+            # Log throttled dos eixos (1x por segundo para não poluir console)
+            now = time.time()
+            if command_type in ["THROTTLE", "BRAKE", "STEERING"]:
+                if now - self._g923_last_log_time >= self._g923_log_interval:
+                    self._g923_last_log_time = now
+                    g923 = self.g923_manager
+                    if g923:
+                        log_queue.put((
+                            "DEBUG",
+                            f"G923: DIR={g923._steering:+4d}° "
+                            f"ACEL={g923._throttle:3d}% "
+                            f"FREIO={g923._brake:3d}%",
+                        ))
+            elif command_type in ["GEAR_UP", "GEAR_DOWN"]:
+                log_queue.put(("INFO", f"G923: {command_type}"))
+
+            # Só envia pela rede se RPi confirmado (recebeu pelo menos 1 pacote)
+            # Sem esta verificação, sendto("f1car.local") bloqueia no mDNS
+            # e trava a thread de input do G923 por segundos
+            if (
+                self.network_client
+                and self.network_client.packets_received > 0
+            ):
                 if command_type in ["THROTTLE", "BRAKE", "STEERING"]:
                     self.network_client.send_control_command(command_type, float(value))
                 elif command_type in ["GEAR_UP", "GEAR_DOWN"]:
                     self.network_client.send_control_command(command_type, 1.0)
         except Exception as e:
-            error(f"Erro ao encaminhar comando G923: {e}", "G923")
+            log_queue.put(("WARN", f"Falha ao enviar comando: {command_type}:{value}"))
 
     def initialize_components(self):
         """Inicializa todos os componentes do sistema"""

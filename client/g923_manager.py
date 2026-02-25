@@ -7,17 +7,17 @@ force feedback via efeitos FF_CONSTANT do Linux.
 
 Substitui o ESP32 como dispositivo de entrada do simulador.
 
-MAPEAMENTO DE EIXOS (Linux evdev):
-===================================
-- ABS_X  → Steering (volante)
-- ABS_Y  → Clutch (embreagem) - não usado
-- ABS_Z  → Brake (freio)
-- ABS_RZ → Throttle (acelerador)
+MAPEAMENTO DE EIXOS (Linux evdev - G923 versão Xbox):
+======================================================
+- ABS_X  → Steering (volante, 0-65535)
+- ABS_Y  → Throttle (acelerador, 0-255, invertido)
+- ABS_Z  → Brake (freio, 0-255, invertido)
+- ABS_RZ → Não usado nesta versão (code=5, sem pedal físico)
 
-MAPEAMENTO DE BOTÕES:
-=====================
-- BTN_GEAR_DOWN (710) → Paddle esquerdo → GEAR_DOWN
-- BTN_GEAR_UP (711)   → Paddle direito  → GEAR_UP
+MAPEAMENTO DE BOTÕES (G923 versão Xbox):
+=========================================
+- BTN_PINKIE (293) → Paddle esquerdo → GEAR_DOWN
+- BTN_TOP2 (292)   → Paddle direito  → GEAR_UP
 
 FORCE FEEDBACK:
 ===============
@@ -53,23 +53,30 @@ class G923Manager:
     # Nomes conhecidos do G923 no Linux
     DEVICE_NAMES = ["G923", "Driving Force", "Logitech G923"]
 
-    # Mapeamento de eixos
+    # Mapeamento de eixos (G923 versão Xbox)
+    # ATENÇÃO: ABS_Y é o acelerador, NÃO embreagem nesta versão
     ABS_STEERING = ecodes.ABS_X if EVDEV_AVAILABLE else 0
-    ABS_THROTTLE = ecodes.ABS_RZ if EVDEV_AVAILABLE else 5
+    ABS_THROTTLE = ecodes.ABS_Y if EVDEV_AVAILABLE else 1
     ABS_BRAKE = ecodes.ABS_Z if EVDEV_AVAILABLE else 2
 
-    # Botões dos paddle shifters
-    BTN_PADDLE_DOWN = 710  # BTN_GEAR_DOWN
-    BTN_PADDLE_UP = 711  # BTN_GEAR_UP
+    # Botões dos paddle shifters (G923 versão Xbox)
+    BTN_PADDLE_DOWN = 293  # BTN_PINKIE - paddle esquerdo
+    BTN_PADDLE_UP = 292  # BTN_TOP2 - paddle direito
 
     # Deadzone para evitar ruído nos pedais
     PEDAL_DEADZONE = 3  # Percentual (0-100)
     STEERING_DEADZONE = 1  # Percentual (-100 a +100)
 
+    # Limite padrão de force feedback (% do max do motor)
+    # 30% já trava o volante no G923, então 15% é um bom padrão para uso real
+    # Alterável via set_ff_max_percent() ou parâmetro ff_max_percent no construtor
+    FF_MAX_PERCENT_DEFAULT = 15
+
     def __init__(
         self,
         command_callback: Optional[Callable[[str, str], None]] = None,
         log_callback: Optional[Callable[[str, str], None]] = None,
+        ff_max_percent: Optional[float] = None,
     ):
         """
         Inicializa gerenciador do G923
@@ -78,9 +85,12 @@ class G923Manager:
             command_callback: Função callback(tipo_comando, valor) — mesmo
                               formato do SerialReceiverManager
             log_callback: Função callback(nível, mensagem) para logs
+            ff_max_percent: Limite máximo do force feedback (0-100%).
+                            Default: 15%. Valores acima de 30% podem travar o volante.
         """
         self.command_callback = command_callback
         self.log_callback = log_callback
+        self.ff_max_percent = ff_max_percent if ff_max_percent is not None else self.FF_MAX_PERCENT_DEFAULT
 
         # Dispositivo evdev
         self.device: Optional[InputDevice] = None
@@ -233,19 +243,20 @@ class G923Manager:
     def _init_force_feedback(self):
         """Inicializa efeito de force feedback FF_CONSTANT"""
         try:
+            # Define ganho global FF no máximo
+            self.device.write(ecodes.EV_FF, ecodes.FF_GAIN, 0xFFFF)
+
             # Cria efeito FF_CONSTANT com força 0 (neutro)
-            # Estrutura: ff_effect com tipo FF_CONSTANT
             effect = ff.Effect(
                 ecodes.FF_CONSTANT,
                 -1,  # id = -1 para novo efeito
                 0,  # direction (será atualizado)
                 ff.Trigger(0, 0),
                 ff.Replay(0xFFFF, 0),  # duração infinita, sem delay
-                ff.EffectType(ff_constant_ef=ff.Constant(0, ff.Envelope(0, 0, 0, 0))),
+                ff.EffectType(ff_constant_effect=ff.Constant(0, ff.Envelope(0, 0, 0, 0))),
             )
 
-            self.device.upload_effect(effect)
-            self._ff_effect_id = effect.id
+            self._ff_effect_id = self.device.upload_effect(effect)
 
             # Inicia o efeito (roda continuamente)
             self.device.write(ecodes.EV_FF, self._ff_effect_id, 1)
@@ -269,15 +280,15 @@ class G923Manager:
 
         with self._ff_lock:
             try:
-                # Converte intensidade 0-100% para magnitude -32767 a +32767
-                magnitude = int((intensity / 100.0) * 32767)
+                # Converte intensidade 0-100% para level do evdev
+                # Limita ao ff_max_percent para proteger o volante
+                clamped = min(intensity, 100.0) * (self.ff_max_percent / 100.0)
+                level = int((clamped / 100.0) * 32767)
 
-                if direction == "left":
-                    magnitude = -magnitude
-                elif direction == "neutral":
-                    magnitude = 0
+                if direction == "neutral":
+                    level = 0
 
-                # direction em unidades evdev (0 = baixo, 0x4000 = esquerda, 0x8000 = cima, 0xC000 = direita)
+                # direction em unidades evdev
                 if direction == "left":
                     ff_direction = 0x4000
                 elif direction == "right":
@@ -285,7 +296,7 @@ class G923Manager:
                 else:
                     ff_direction = 0
 
-                # Atualiza efeito existente
+                # Atualiza efeito existente (level sempre positivo, direction controla o lado)
                 effect = ff.Effect(
                     ecodes.FF_CONSTANT,
                     self._ff_effect_id,
@@ -293,8 +304,8 @@ class G923Manager:
                     ff.Trigger(0, 0),
                     ff.Replay(0xFFFF, 0),
                     ff.EffectType(
-                        ff_constant_ef=ff.Constant(
-                            abs(magnitude), ff.Envelope(0, 0, 0, 0)
+                        ff_constant_effect=ff.Constant(
+                            level, ff.Envelope(0, 0, 0, 0)
                         )
                     ),
                 )
@@ -453,8 +464,18 @@ class G923Manager:
         self.last_command_time = time.time()
 
     # ================================================================
-    # STATUS
+    # STATUS E CONFIGURAÇÃO
     # ================================================================
+
+    def set_ff_max_percent(self, percent: float):
+        """
+        Altera o limite máximo do force feedback em tempo real
+
+        Args:
+            percent: 0-100%. Valores acima de 30% podem travar o volante.
+        """
+        self.ff_max_percent = max(0.0, min(100.0, percent))
+        self._log("INFO", f"FF max alterado para {self.ff_max_percent:.0f}%")
 
     def is_connected(self) -> bool:
         """Verifica se o G923 está conectado e ativo"""
@@ -471,6 +492,7 @@ class G923Manager:
             "errors": self.errors,
             "last_command_time": self.last_command_time,
             "ff_active": self._ff_effect_id >= 0,
+            "ff_max_percent": self.ff_max_percent,
             "steering": self._steering,
             "throttle": self._throttle,
             "brake": self._brake,
