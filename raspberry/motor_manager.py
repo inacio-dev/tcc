@@ -146,7 +146,7 @@ class MotorManager:
         self.efficiency_zone = "IDEAL"  # IDEAL, SUBOPTIMAL, POOR
         self.zone_acceleration_rate = 1.0  # Multiplicador de aceleração baseado na zona
         self.base_acceleration_time = (
-            5.0  # Tempo base para atingir zona ideal (5s - mais lento)
+            8.0  # Tempo base para atingir zona ideal (8s - suave)
         )
         self.last_zone_check = time.time()
 
@@ -445,19 +445,7 @@ class MotorManager:
                 if self.motor_direction == MotorDirection.STOP:
                     self.motor_direction = MotorDirection.FORWARD
 
-                # PWM mínimo para motor se mexer (baseado nos testes)
-                min_motor_pwm = 15.0
-                if throttle_percent > 0 and throttle_percent < min_motor_pwm:
-                    # Mapeia 1-100% para 15-100% (PWM útil)
-                    self.target_pwm = min_motor_pwm + (throttle_percent / 100.0) * (
-                        100.0 - min_motor_pwm
-                    )
-                else:
-                    self.target_pwm = throttle_percent
-            else:
-                self.target_pwm = throttle_percent
-
-            # Calcula PWM inteligente baseado na marcha e velocidade
+            # Calcula PWM inteligente baseado na marcha (já limita por marcha)
             intelligent_pwm = self._calculate_intelligent_pwm(throttle_percent)
 
             # Define target PWM para a thread aplicar gradualmente
@@ -490,18 +478,22 @@ class MotorManager:
         # Limitadores dinâmicos por marcha
         # 1ª e 2ª dividem 0-30% | 3ª e 4ª dividem 30-90% | 5ª pega 70-100%
         gear_limiters = {
-            1: 15,  # 1ª marcha: máximo 15% (marcha lenta)
-            2: 30,  # 2ª marcha: máximo 30% (aceleração inicial)
-            3: 60,  # 3ª marcha: máximo 60% (velocidade média)
-            4: 90,  # 4ª marcha: máximo 90% (velocidade alta, não máxima)
-            5: 100,  # 5ª marcha: máximo 100% (velocidade pura)
+            1: 8,   # 1ª marcha: máximo 8% (marcha lenta)
+            2: 15,  # 2ª marcha: máximo 15% (aceleração inicial)
+            3: 30,  # 3ª marcha: máximo 30% (velocidade média)
+            4: 50,  # 4ª marcha: máximo 50% (velocidade alta)
+            5: 70,  # 5ª marcha: máximo 70% (velocidade máxima segura)
         }
 
         # Obter limitador da marcha atual
         max_pwm = gear_limiters.get(self.current_gear, 40)
 
-        # Mapeia throttle (0-100%) para (0-limitador%), arredonda para baixo
-        final_pwm = int((throttle_percent / 100.0) * max_pwm)
+        # Mapeia throttle (0-100%) para (0-limitador%)
+        final_pwm = (throttle_percent / 100.0) * max_pwm
+
+        # Abaixo de 1% corta para 0 (evita motor ligado em 0.1% sem girar)
+        if final_pwm < 1.0:
+            return 0
 
         return final_pwm
 
