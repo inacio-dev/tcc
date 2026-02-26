@@ -245,13 +245,13 @@ class NetworkClient:
             self._log("ERROR", f"Erro ao enviar comando '{command}': {e}")
             return False
 
-    def send_control_command(self, control_type: str, value: float) -> bool:
+    def send_control_command(self, control_type: str, value) -> bool:
         """
         Envia comando de controle para o Raspberry Pi
 
         Args:
-            control_type: Tipo do controle (THROTTLE, BRAKE, STEERING, GEAR_UP, GEAR_DOWN)
-            value: Valor do controle
+            control_type: Tipo do controle (STATE, GEAR_UP, GEAR_DOWN, etc.)
+            value: Valor do controle (float ou string)
 
         Returns:
             bool: True se enviado com sucesso

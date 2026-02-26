@@ -586,7 +586,21 @@ class F1CarMultiThreadSystem:
             if command.startswith("CONTROL:"):
                 control_cmd = command[8:]
 
-                if control_cmd.startswith("BRAKE_BALANCE:"):
+                if control_cmd.startswith("STATE:"):
+                    # Pacote unificado: STATE:steering,throttle,brake
+                    parts = control_cmd[6:].split(",")
+                    if len(parts) == 3:
+                        steering = float(parts[0])
+                        throttle = float(parts[1])
+                        brake = float(parts[2])
+                        if self.steering_mgr:
+                            self.steering_mgr.set_steering_input(steering)
+                        if self.motor_mgr:
+                            self.motor_mgr.set_throttle(throttle)
+                        if self.brake_mgr:
+                            self.brake_mgr.apply_brake(brake)
+
+                elif control_cmd.startswith("BRAKE_BALANCE:"):
                     balance = float(control_cmd[14:])
                     if self.brake_mgr:
                         self.brake_mgr.set_brake_balance(balance)

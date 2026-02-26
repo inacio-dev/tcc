@@ -202,6 +202,7 @@ class SteeringManager:
         self.max_angle_reached = 0.0
         self.start_time = time.time()
         self.last_movement_time = 0.0
+        self._last_log_time = 0.0
 
     def initialize(self) -> bool:
         """
@@ -283,8 +284,6 @@ class SteeringManager:
             print("⚠ Sistema de direção não inicializado")
             return
 
-        print(f"🏎️ DIREÇÃO: {steering_input:.1f}% recebido")
-
         # Garante range válido
         steering_input = max(-100.0, min(100.0, steering_input))
 
@@ -311,15 +310,15 @@ class SteeringManager:
                 # COMANDO DIRETO - igual ao test_steering_direto_simples.py
                 self.steering_servo.angle = final_angle
 
-                print(
-                    f"🎯 Target: {target_angle:.1f}° → Servo: {final_angle:.1f}° (input: {steering_input:.1f}%)"
-                )
+                # Log rate limited a cada 1s
+                now = time.time()
+                if now - self._last_log_time >= 1.0 and abs(steering_input) > 0:
+                    self._last_log_time = now
+                    print(
+                        f"🎯 Direção: {steering_input:.1f}% → {final_angle:.1f}°"
+                    )
             else:
                 print("⚠️ Servo não inicializado!")
-
-            print(
-                f"🎯 Target angle definido: {target_angle:.1f}° (input: {steering_input:.1f}%)"
-            )
 
             # Atualiza estatísticas
             if abs(steering_input) > 5:  # Movimento significativo

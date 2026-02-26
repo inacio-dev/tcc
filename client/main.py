@@ -112,13 +112,13 @@ class F1ClientApplication:
         Encaminha para o Raspberry Pi via network client (só se RPi conectado)
 
         Args:
-            command_type: Tipo do comando (THROTTLE, BRAKE, STEERING, GEAR_UP, GEAR_DOWN)
-            value: Valor do comando (vazio para GEAR_UP/GEAR_DOWN)
+            command_type: Tipo do comando (STATE, GEAR_UP, GEAR_DOWN)
+            value: Para STATE: "steering,throttle,brake". Vazio para GEAR.
         """
         try:
-            # Log throttled dos eixos (1x por segundo para não poluir console)
+            # Log throttled (1x por segundo para não poluir console)
             now = time.time()
-            if command_type in ["THROTTLE", "BRAKE", "STEERING"]:
+            if command_type == "STATE":
                 if now - self._g923_last_log_time >= self._g923_log_interval:
                     self._g923_last_log_time = now
                     g923 = self.g923_manager
@@ -139,8 +139,9 @@ class F1ClientApplication:
                 self.network_client
                 and self.network_client.packets_received > 0
             ):
-                if command_type in ["THROTTLE", "BRAKE", "STEERING"]:
-                    self.network_client.send_control_command(command_type, float(value))
+                if command_type == "STATE":
+                    # Pacote unificado: CONTROL:STATE:steering,throttle,brake
+                    self.network_client.send_control_command(command_type, value)
                 elif command_type in ["GEAR_UP", "GEAR_DOWN"]:
                     self.network_client.send_control_command(command_type, 1.0)
         except Exception as e:

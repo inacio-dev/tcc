@@ -199,6 +199,7 @@ class BrakeManager:
         self.total_brake_time = 0.0
         self.last_brake_time = 0.0
         self.start_time = time.time()
+        self._last_log_time = 0.0
 
     def initialize(self) -> bool:
         """
@@ -306,8 +307,6 @@ class BrakeManager:
             print("⚠ Sistema de freios não inicializado")
             return
 
-        print(f"🛑 FREIO: {brake_input:.1f}% recebido")
-
         # Garante que o input está no range válido
         brake_input = max(0.0, min(100.0, brake_input))
 
@@ -324,10 +323,12 @@ class BrakeManager:
                     self.brake_applications += 1
                 self.last_brake_time = current_time
 
-            # Debug
-            if brake_input > 10:  # Log apenas freadas significativas
+            # Log rate limited a cada 1s
+            now = time.time()
+            if now - self._last_log_time >= 1.0 and brake_input > 0:
+                self._last_log_time = now
                 print(
-                    f"🔧 Freio aplicado: {brake_input:.1f}% "
+                    f"🛑 Freio: {brake_input:.1f}% "
                     f"(Diant: {self.front_brake_force:.1f}%, "
                     f"Tras: {self.rear_brake_force:.1f}%)"
                 )

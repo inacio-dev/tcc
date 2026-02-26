@@ -160,6 +160,10 @@ class G923Manager:
         self._endstop_active = False
         self._ff_lock = threading.Lock()
 
+        # Rate limiting — envio contínuo a 100Hz (10ms entre envios)
+        self._SEND_INTERVAL = 0.01  # 10ms = 100Hz
+        self._last_state_send = 0.0  # Timestamp do último envio STATE
+
         # Estatísticas
         self.commands_sent = 0
         self.last_command_time = 0.0
@@ -772,10 +776,12 @@ class G923Manager:
 
         while self._running:
             try:
-                # Lê evento com timeout para permitir checagem de _running
+                # Lê todos os eventos pendentes (non-blocking)
                 event = self.device.read_one()
 
                 if event is None:
+                    # Sem eventos — envia estado atual (rate limiter a 100Hz)
+                    self._send_current_state()
                     time.sleep(0.001)  # 1ms - evita busy loop
                     continue
 
@@ -797,8 +803,24 @@ class G923Manager:
 
         self._log("INFO", "Loop de input G923 parado")
 
+    def _send_current_state(self):
+        """Envia estado unificado (steering,throttle,brake) a 100Hz"""
+        now = time.time()
+        if now - self._last_state_send < self._SEND_INTERVAL:
+            return
+        self._last_state_send = now
+
+        if self.command_callback:
+            # Comando unificado: STATE:steering,throttle,brake
+            self.command_callback(
+                "STATE", f"{self._steering},{self._throttle},{self._brake}"
+            )
+        self.commands_sent += 1
+        self.last_command_time = now
+
     def _handle_axis(self, code: int, value: int):
-        """Processa evento de eixo (steering, throttle, brake)"""
+        """Processa evento de eixo — atualiza estado interno apenas.
+        O envio contínuo a 100Hz é feito por _send_current_state()."""
 
         if code == self.ABS_STEERING:
             self._raw_steering = value
@@ -808,10 +830,6 @@ class G923Manager:
             if half_range > 0:
                 normalized = (value - center) / half_range * 100.0
                 self._steering = max(-100, min(100, int(normalized)))
-
-            if abs(self._steering - self._last_steering) >= self.STEERING_DEADZONE:
-                self._last_steering = self._steering
-                self._send_callback("STEERING", str(self._steering))
 
             # Batente virtual — trava nos limites calibrados
             self._update_endstop()
@@ -824,10 +842,6 @@ class G923Manager:
                 normalized = (self._throttle_max - value) / total_range * 100.0
                 self._throttle = max(0, min(100, int(normalized)))
 
-            if abs(self._throttle - self._last_throttle) >= self.PEDAL_DEADZONE:
-                self._last_throttle = self._throttle
-                self._send_callback("THROTTLE", str(self._throttle))
-
         elif code == self.ABS_BRAKE:
             self._raw_brake = value
             # Mapeia para 0-100 (invertido: 0=pressionado, max=solto)
@@ -835,10 +849,6 @@ class G923Manager:
             if total_range > 0:
                 normalized = (self._brake_max - value) / total_range * 100.0
                 self._brake = max(0, min(100, int(normalized)))
-
-            if abs(self._brake - self._last_brake) >= self.PEDAL_DEADZONE:
-                self._last_brake = self._brake
-                self._send_callback("BRAKE", str(self._brake))
 
     def _handle_button(self, code: int, value: int):
         """Processa evento de botão (paddle shifters)"""
@@ -851,7 +861,7 @@ class G923Manager:
             self._send_callback("GEAR_DOWN", "")
 
     def _send_callback(self, command_type: str, value: str):
-        """Envia comando via callback"""
+        """Envia comando via callback (usado para GEAR_UP/GEAR_DOWN)"""
         if self.command_callback:
             self.command_callback(command_type, value)
         self.commands_sent += 1

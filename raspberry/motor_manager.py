@@ -167,6 +167,7 @@ class MotorManager:
         self.engine_starts = 0
         self.last_update_time = time.time()
         self.start_time = time.time()
+        self._last_throttle_log = 0.0
 
         # Limitadores de segurança
         self.temperature_limit = 85.0  # °C simulado
@@ -451,10 +452,13 @@ class MotorManager:
             # Define target PWM para a thread aplicar gradualmente
             self.target_pwm = intelligent_pwm
 
-        # Debug temporário para verificar comandos
-        print(
-            f"🚗 THROTTLE: {throttle_percent}% → PWM target: {intelligent_pwm:.1f}% (marcha: {self.current_gear}ª)"
-        )
+        # Debug — rate limited a cada 1s para não spammar
+        now = time.time()
+        if now - self._last_throttle_log >= 1.0 and throttle_percent > 0:
+            self._last_throttle_log = now
+            print(
+                f"🚗 THROTTLE: {throttle_percent}% → PWM target: {intelligent_pwm:.1f}% (marcha: {self.current_gear}ª)"
+            )
 
         # Log removido daqui - será feito no main.py com todos os dados
 
