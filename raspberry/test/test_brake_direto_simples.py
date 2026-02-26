@@ -12,7 +12,7 @@ from adafruit_motor import servo
 
 print("🛑 === TESTE DIRETO FREIOS (0° a 180°) ===")
 print("Range completo do MG996R com servo.angle")
-print("Canal 0: Freio frontal | Canal 1: Freio traseiro")
+print("Canal 4: Freio frontal | Canal 8: Freio traseiro")
 
 try:
     # Inicializar PCA9685
@@ -23,16 +23,16 @@ try:
 
     # Configurar servos - igual ao que funcionou
     front_brake_servo = servo.Servo(
-        pca.channels[0],        # Canal 0 (freio frontal)
+        pca.channels[4],        # Canal 4 (freio frontal)
         min_pulse=1000,         # 1ms
         max_pulse=2000,         # 2ms
     )
     rear_brake_servo = servo.Servo(
-        pca.channels[1],        # Canal 1 (freio traseiro)
+        pca.channels[8],        # Canal 8 (freio traseiro)
         min_pulse=1000,         # 1ms
         max_pulse=2000,         # 2ms
     )
-    print("✓ Servos de freio configurados nos canais 0 e 1")
+    print("✓ Servos de freio configurados nos canais 4 e 8")
 
     print("\n=== TESTE DE FREIOS INDIVIDUAIS ===")
 

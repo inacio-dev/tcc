@@ -189,7 +189,7 @@ cd client && python3 main.py --port 9999
 ## Hardware Control
 
 - **Motor**: RC 775 with 5-speed manual transmission, F1-style efficiency zones
-- **Servos**: PCA9685-based (Channel 0: front brake, 1: rear brake, 2: steering)
+- **Servos**: PCA9685-based (Channel 0: steering, 4: front brake, 8: rear brake)
 - **Brake Balance**: Default 60% front / 40% rear
 - **BMI160**: 100Hz sampling, event detection (curves, braking, impacts)
 
@@ -386,7 +386,7 @@ Idle (sempre ativo): spring 5%, friction 3%, inertia 5%, periodic 25Hz/3%
 
 - 16-channel, 12-bit resolution (4096 steps)
 - I2C address: 0x41 (A0 soldado, evita conflito com INA219 em 0x40)
-- F1 Car channels: 0 (front brake), 1 (rear brake), 2 (steering)
+- F1 Car channels: 0 (steering), 4 (front brake), 8 (rear brake)
 
 ### BTS7960 H-Bridge (Motor principal no veículo)
 

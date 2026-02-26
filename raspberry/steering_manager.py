@@ -29,7 +29,7 @@ Diagrama de conexão PCA9685:
 Servo Direção -> PCA9685
   - VCC (Vermelho)  -> V+ do PCA9685 (alimentado pelo UBEC)
   - GND (Marrom)    -> GND
-  - Signal (Laranja)-> Canal 2 do PCA9685
+  - Signal (Laranja)-> Canal 0 do PCA9685
 
 ALIMENTAÇÃO DOS SERVOS - UBEC 15A:
 ==================================
@@ -64,10 +64,10 @@ CARACTERÍSTICAS UBEC 15A:
 
 MAPEAMENTO COMPLETO DOS CANAIS PCA9685:
 ======================================
-Canal 0: Freio frontal (brake_manager.py)
-Canal 1: Freio traseiro (brake_manager.py)
-Canal 2: Direção (steering_manager.py) <-- ESTE ARQUIVO
-Canais 3-15: Disponíveis para expansão
+Canal 0: Direção (steering_manager.py) <-- ESTE ARQUIVO
+Canal 4: Freio frontal (brake_manager.py)
+Canal 8: Freio traseiro (brake_manager.py)
+Demais canais: Disponíveis para expansão
 
 CARACTERÍSTICAS MG996R (DIREÇÃO):
 =================================
@@ -128,7 +128,7 @@ class SteeringManager:
     # ================== CONFIGURAÇÕES FÍSICAS ==================
 
     # Canal PCA9685 do servo de direção
-    STEERING_CHANNEL = 2  # Canal 2 do PCA9685
+    STEERING_CHANNEL = 0  # Canal 0 do PCA9685
 
     # Endereço I2C do PCA9685 (compartilhado com brake_manager)
     PCA9685_I2C_ADDRESS = 0x41  # PCA9685 com A0 soldado (evita conflito com INA219 em 0x40)

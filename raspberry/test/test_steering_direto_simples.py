@@ -23,11 +23,11 @@ try:
 
     # Configurar servo - igual ao que funcionou
     steering_servo = servo.Servo(
-        pca.channels[2],        # Canal 2 (direção)
+        pca.channels[0],        # Canal 0 (direção)
         min_pulse=1000,         # 1ms
         max_pulse=2000,         # 2ms
     )
-    print("✓ Servo direção configurado no canal 2")
+    print("✓ Servo direção configurado no canal 0")
 
     print("\n=== TESTE DE MOVIMENTOS DIRETOS ===")
 
