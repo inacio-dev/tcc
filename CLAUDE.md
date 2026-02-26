@@ -213,7 +213,7 @@ cd client && python3 main.py --port 9999
 - Steering wheel 900° rotation
 - Progressive throttle/brake pedals
 - Paddle shifters (gear up/down)
-- Native force feedback via evdev FF_CONSTANT
+- 7-effect force feedback via evdev (spring/damper/friction/inertia + constant + rumble + periodic)
 - Auto-detection via evdev (busca "G923" ou "Driving Force" em /dev/input/event*)
 
 ## G923 Integration
@@ -237,42 +237,49 @@ cd client && python3 main.py --port 9999
 
 ## Force Feedback System
 
-### Architecture
+### Architecture (7-Effect Multi-Effect)
 
 ```
-BMI160 (RPi) → UDP → Client Calculation → evdev FF_CONSTANT → G923 Motor
+Condition effects (kernel ~1kHz):
+  FF_SPRING    ← centering (Sensitivity slider, mín 5%)
+  FF_DAMPER    ← amortecimento (Damping slider)
+  FF_FRICTION  ← grip do pneu (Friction slider, mín 3%)
+  FF_INERTIA   ← peso do volante (auto: velocidade/throttle, 5-80%)
+
+Force effects (software, a cada pacote BMI160):
+  FF_CONSTANT  ← G lateral + yaw → empurra volante
+
+Vibration effects:
+  FF_RUMBLE    ← impactos/estrada (accel_z + accel_x → strong + weak motor)
+  FF_PERIODIC  ← engine RPM (throttle → 25-50Hz sine wave)
+
+Idle (sempre ativo): spring 5%, friction 3%, inertia 5%, periodic 25Hz/3%
 ```
 
-### Force Components
+### Adjustable Parameters → Hardware Effects
 
-```python
-# Component 1: Lateral G-forces (0-100%)
-lateral_component = min(abs(g_force_lateral) * 50, 100)
-
-# Component 2: Yaw rotation (0-50%)
-yaw_component = min(abs(gyro_z) / 60.0 * 50, 50)
-
-# Component 3: Centering spring (0-40%)
-centering_component = abs(steering_value) / 100.0 * 40
-
-# Combined
-base_steering_ff = min(lateral_component + yaw_component + centering_component, 100)
-```
-
-### Adjustable Parameters
-
-- **Sensitivity** (default 75%): Overall force magnitude
-- **Friction** (default 30%): Tire friction simulation
-- **Filter** (default 40%): Noise removal (EMA smoothing)
-- **Damping** (default 50%): Mechanical inertia
+- **Sensitivity** (default 75%): FF_SPRING coefficient + FF_CONSTANT multiplier
+- **Friction** (default 30%): FF_FRICTION coefficient (mín 3%)
+- **Damping** (default 50%): FF_DAMPER coefficient
+- **Filter** (default 40%): Software EMA on FF_CONSTANT only
+- **Max Force** (default 15%): FF_GAIN global (limits ALL 7 effects)
 
 ### evdev FF Protocol
 
 ```python
-# g923_manager.apply_force_feedback(intensity, direction)
-# intensity: 0-100% | direction: "left", "right", "neutral"
-# Uses FF_CONSTANT effect with direction 0x4000 (left) or 0xC000 (right)
-# Effect uploaded once, updated in real-time via upload_effect()
+# Condition effects (slider-based):
+# g923_manager.update_spring(pct)    → FF_SPRING (mín 5%)
+# g923_manager.update_damper(pct)    → FF_DAMPER
+# g923_manager.update_friction(pct)  → FF_FRICTION (mín 3%)
+
+# Dynamic effects (sensor-based, updated per BMI160 packet):
+# g923_manager.apply_constant_force(intensity, direction) → FF_CONSTANT
+# g923_manager.update_rumble(strong_pct, weak_pct)        → FF_RUMBLE
+# g923_manager.update_periodic(period_ms, magnitude_pct)  → FF_PERIODIC
+# g923_manager.update_inertia(coefficient_pct)             → FF_INERTIA
+
+# Global safety limit:
+# g923_manager.set_ff_max_percent(pct) → FF_GAIN (0-0xFFFF)
 ```
 
 ## Important Files

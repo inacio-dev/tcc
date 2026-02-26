@@ -3,7 +3,7 @@
 g923_manager.py - Gerenciador do Volante Logitech G923
 
 Lê inputs do volante G923 (steering, pedais, botões) via evdev e aplica
-force feedback via efeitos FF_CONSTANT do Linux.
+force feedback via múltiplos efeitos FF do Linux.
 
 Substitui o ESP32 como dispositivo de entrada do simulador.
 
@@ -19,10 +19,26 @@ MAPEAMENTO DE BOTÕES (G923 versão Xbox):
 - BTN_PINKIE (293) → Paddle esquerdo → GEAR_DOWN
 - BTN_TOP2 (292)   → Paddle direito  → GEAR_UP
 
-FORCE FEEDBACK:
-===============
-- FF_CONSTANT: Força direcional para simular G lateral, centering spring e damping
-- Efeito uploaded uma vez, atualizado em tempo real via update()
+FORCE FEEDBACK (Multi-efeito):
+==============================
+8 efeitos simultâneos no hardware (63 slots disponíveis):
+
+Condition effects (kernel ~1kHz):
+- FF_SPRING:   Centering spring — kernel calcula baseado na posição do volante
+- FF_DAMPER:   Damping — resistência proporcional à velocidade do volante
+- FF_FRICTION: Friction — resistência constante ao movimento (grip do pneu)
+- FF_INERTIA:  Inertia — peso do volante (aumenta com velocidade)
+
+Force effects (software):
+- FF_CONSTANT: Forças dinâmicas do BMI160 — G lateral + yaw
+- FF_CONSTANT: Batente virtual — trava nos limites calibrados da direção (~1kHz)
+
+Vibration effects (hardware):
+- FF_RUMBLE:   Vibração de impactos/estrada (strong + weak motor)
+- FF_PERIODIC: Vibração senoidal do motor (frequência = RPM)
+
+Controle global via FF_GAIN (limita todos os efeitos simultaneamente).
+Força mínima sempre ativa (simula peso mecânico do volante).
 
 DETECÇÃO:
 =========
@@ -33,7 +49,6 @@ Busca em /dev/input/event* por dispositivo com nome contendo "G923" ou
 @date 2026-02-18
 """
 
-import struct
 import threading
 import time
 from typing import Callable, Optional
@@ -68,9 +83,18 @@ class G923Manager:
     STEERING_DEADZONE = 1  # Percentual (-100 a +100)
 
     # Limite padrão de force feedback (% do max do motor)
-    # 30% já trava o volante no G923, então 15% é um bom padrão para uso real
+    # 25% já trava o volante no G923, então 15% é um bom padrão para uso real
     # Alterável via set_ff_max_percent() ou parâmetro ff_max_percent no construtor
     FF_MAX_PERCENT_DEFAULT = 15
+
+    # Força mínima sempre ativa (simula peso mecânico do volante/eixo)
+    # Mesmo com sliders em 0%, esses valores mínimos garantem realismo
+    MIN_SPRING_PCT = 5.0    # Centering mínimo (peso do eixo de direção)
+    MIN_FRICTION_PCT = 3.0  # Atrito mínimo (resistência mecânica)
+
+    # Batente virtual da direção (endstop)
+    # Margem em % do range calibrado onde o endstop começa a atuar
+    ENDSTOP_MARGIN_PCT = 5.0
 
     def __init__(
         self,
@@ -86,7 +110,7 @@ class G923Manager:
                               formato do SerialReceiverManager
             log_callback: Função callback(nível, mensagem) para logs
             ff_max_percent: Limite máximo do force feedback (0-100%).
-                            Default: 15%. Valores acima de 30% podem travar o volante.
+                            Default: 15%. Valores acima de 25% podem travar o volante.
         """
         self.command_callback = command_callback
         self.log_callback = log_callback
@@ -124,8 +148,16 @@ class G923Manager:
         self._brake_min = 0
         self._brake_max = 255
 
-        # Force feedback
-        self._ff_effect_id = -1
+        # Force feedback — 8 efeitos simultâneos
+        self._ff_spring_id = -1
+        self._ff_damper_id = -1
+        self._ff_friction_id = -1
+        self._ff_inertia_id = -1
+        self._ff_constant_id = -1
+        self._ff_rumble_id = -1
+        self._ff_periodic_id = -1
+        self._ff_endstop_id = -1
+        self._endstop_active = False
         self._ff_lock = threading.Lock()
 
         # Estatísticas
@@ -237,58 +269,304 @@ class G923Manager:
                 )
 
     # ================================================================
-    # FORCE FEEDBACK
+    # FORCE FEEDBACK (Multi-efeito)
     # ================================================================
 
     def _init_force_feedback(self):
-        """Inicializa efeito de force feedback FF_CONSTANT"""
+        """Inicializa 8 efeitos FF simultâneos no hardware do G923"""
         try:
-            # Define ganho global FF no máximo
-            self.device.write(ecodes.EV_FF, ecodes.FF_GAIN, 0xFFFF)
+            # FF_GAIN controla o limite global (slider Max Force)
+            gain = int(self.ff_max_percent / 100.0 * 0xFFFF)
+            self.device.write(ecodes.EV_FF, ecodes.FF_GAIN, gain)
 
-            # Cria efeito FF_CONSTANT com força 0 (neutro)
-            effect = ff.Effect(
-                ecodes.FF_CONSTANT,
-                -1,  # id = -1 para novo efeito
-                0,  # direction (será atualizado)
-                ff.Trigger(0, 0),
-                ff.Replay(0xFFFF, 0),  # duração infinita, sem delay
-                ff.EffectType(ff_constant_effect=ff.Constant(0, ff.Envelope(0, 0, 0, 0))),
+            # Efeito 1: FF_SPRING — centering spring (kernel calcula baseado na posição)
+            self._ff_spring_id = self._upload_condition_effect(
+                ecodes.FF_SPRING, coeff=16384, saturation=16384
             )
 
-            self._ff_effect_id = self.device.upload_effect(effect)
+            # Efeito 2: FF_DAMPER — resistência proporcional à velocidade do volante
+            self._ff_damper_id = self._upload_condition_effect(
+                ecodes.FF_DAMPER, coeff=16384, saturation=16384
+            )
 
-            # Inicia o efeito (roda continuamente)
-            self.device.write(ecodes.EV_FF, self._ff_effect_id, 1)
+            # Efeito 3: FF_FRICTION — resistência constante ao movimento (grip do pneu)
+            self._ff_friction_id = self._upload_condition_effect(
+                ecodes.FF_FRICTION, coeff=8000, saturation=8000
+            )
 
-            self._log("INFO", f"Force feedback inicializado (effect_id={self._ff_effect_id})")
+            # Efeito 4: FF_INERTIA — peso do volante (aumenta com velocidade)
+            self._ff_inertia_id = self._upload_condition_effect(
+                ecodes.FF_INERTIA, coeff=4000, saturation=8000
+            )
+
+            # Efeito 5: FF_CONSTANT — forças dinâmicas do BMI160 (G lateral + yaw)
+            self._ff_constant_id = self._upload_constant_effect()
+
+            # Efeito 6: FF_RUMBLE — vibração de impactos/estrada (strong + weak motor)
+            self._ff_rumble_id = self._upload_rumble_effect(0, 0)
+
+            # Efeito 7: FF_PERIODIC — vibração senoidal do motor (engine RPM)
+            self._ff_periodic_id = self._upload_periodic_effect(100, 0)
+
+            # Efeito 8: FF_CONSTANT (endstop) — batente virtual da direção
+            self._ff_endstop_id = self._upload_constant_effect()
+
+            active = sum(1 for eid in [
+                self._ff_spring_id, self._ff_damper_id,
+                self._ff_friction_id, self._ff_inertia_id,
+                self._ff_constant_id, self._ff_rumble_id,
+                self._ff_periodic_id, self._ff_endstop_id,
+            ] if eid >= 0)
+            self._log(
+                "INFO",
+                f"Force feedback multi-efeito: {active}/8 ativos "
+                f"(gain={self.ff_max_percent:.0f}%)",
+            )
 
         except Exception as e:
             self._log("WARN", f"Erro ao inicializar force feedback: {e}")
-            self._ff_effect_id = -1
 
-    def apply_force_feedback(self, intensity: float, direction: str):
+    def _upload_condition_effect(self, effect_type: int, coeff: int, saturation: int) -> int:
         """
-        Aplica force feedback no volante G923
+        Cria e ativa um efeito condicional (spring/damper/friction).
+
+        Args:
+            effect_type: ecodes.FF_SPRING, FF_DAMPER ou FF_FRICTION
+            coeff: Coeficiente de força (0-32767)
+            saturation: Saturação máxima (0-32767)
+
+        Returns:
+            Effect ID ou -1 se falhar
+        """
+        try:
+            cond = (ff.Condition * 2)(
+                ff.Condition(saturation, saturation, coeff, coeff, 0, 0),
+                ff.Condition(0, 0, 0, 0, 0, 0),  # eixo Y ignorado para volante
+            )
+            effect = ff.Effect(
+                effect_type, -1, 0,
+                ff.Trigger(0, 0),
+                ff.Replay(0xFFFF, 0),
+                ff.EffectType(ff_condition_effect=cond),
+            )
+            eid = self.device.upload_effect(effect)
+            self.device.write(ecodes.EV_FF, eid, 1)
+            return eid
+        except Exception as e:
+            self._log("WARN", f"Erro ao criar efeito FF type={effect_type}: {e}")
+            return -1
+
+    def _upload_constant_effect(self) -> int:
+        """Cria e ativa efeito FF_CONSTANT com força 0 (neutro)"""
+        try:
+            effect = ff.Effect(
+                ecodes.FF_CONSTANT, -1, 0,
+                ff.Trigger(0, 0),
+                ff.Replay(0xFFFF, 0),
+                ff.EffectType(
+                    ff_constant_effect=ff.Constant(0, ff.Envelope(0, 0, 0, 0))
+                ),
+            )
+            eid = self.device.upload_effect(effect)
+            self.device.write(ecodes.EV_FF, eid, 1)
+            return eid
+        except Exception as e:
+            self._log("WARN", f"Erro ao criar efeito FF_CONSTANT: {e}")
+            return -1
+
+    def _upload_rumble_effect(self, strong: int, weak: int) -> int:
+        """
+        Cria e ativa efeito FF_RUMBLE (vibração com dois motores).
+
+        Args:
+            strong: Magnitude do motor forte (0-65535) — impactos
+            weak: Magnitude do motor fraco (0-65535) — vibração contínua
+        """
+        try:
+            effect = ff.Effect(
+                ecodes.FF_RUMBLE, -1, 0,
+                ff.Trigger(0, 0),
+                ff.Replay(0xFFFF, 0),
+                ff.EffectType(ff_rumble_effect=ff.Rumble(strong, weak)),
+            )
+            eid = self.device.upload_effect(effect)
+            self.device.write(ecodes.EV_FF, eid, 1)
+            return eid
+        except Exception as e:
+            self._log("WARN", f"Erro ao criar efeito FF_RUMBLE: {e}")
+            return -1
+
+    def _upload_periodic_effect(self, period_ms: int, magnitude: int) -> int:
+        """
+        Cria e ativa efeito FF_PERIODIC (onda senoidal — engine RPM).
+
+        Args:
+            period_ms: Período da onda em ms (40=25Hz idle, 20=50Hz high RPM)
+            magnitude: Magnitude da vibração (0-32767)
+        """
+        try:
+            per = ff.Periodic(
+                ecodes.FF_SINE, max(1, period_ms), magnitude, 0, 0,
+                ff.Envelope(0, 0, 0, 0),
+            )
+            effect = ff.Effect(
+                ecodes.FF_PERIODIC, -1, 0,
+                ff.Trigger(0, 0),
+                ff.Replay(0xFFFF, 0),
+                ff.EffectType(ff_periodic_effect=per),
+            )
+            eid = self.device.upload_effect(effect)
+            self.device.write(ecodes.EV_FF, eid, 1)
+            return eid
+        except Exception as e:
+            self._log("WARN", f"Erro ao criar efeito FF_PERIODIC: {e}")
+            return -1
+
+    def _update_condition_effect(self, effect_id: int, effect_type: int,
+                                  coeff: int, saturation: int):
+        """Atualiza coeficientes de um efeito condicional existente"""
+        if effect_id < 0 or not self.device:
+            return
+        try:
+            cond = (ff.Condition * 2)(
+                ff.Condition(saturation, saturation, coeff, coeff, 0, 0),
+                ff.Condition(0, 0, 0, 0, 0, 0),
+            )
+            effect = ff.Effect(
+                effect_type, effect_id, 0,
+                ff.Trigger(0, 0),
+                ff.Replay(0xFFFF, 0),
+                ff.EffectType(ff_condition_effect=cond),
+            )
+            self.device.upload_effect(effect)
+        except Exception:
+            pass
+
+    def update_spring(self, coefficient_pct: float):
+        """
+        Atualiza FF_SPRING (centering spring).
+        Força mínima de MIN_SPRING_PCT para simular peso mecânico.
+
+        Args:
+            coefficient_pct: 0-100%. Controla a rigidez da mola de centralização.
+        """
+        with self._ff_lock:
+            pct = max(self.MIN_SPRING_PCT, min(100, coefficient_pct))
+            coeff = int(pct / 100.0 * 32767)
+            self._update_condition_effect(
+                self._ff_spring_id, ecodes.FF_SPRING, coeff, coeff
+            )
+
+    def update_damper(self, coefficient_pct: float):
+        """
+        Atualiza FF_DAMPER (amortecimento).
+
+        Args:
+            coefficient_pct: 0-100%. Resistência proporcional à velocidade do volante.
+        """
+        with self._ff_lock:
+            coeff = int(max(0, min(100, coefficient_pct)) / 100.0 * 32767)
+            self._update_condition_effect(
+                self._ff_damper_id, ecodes.FF_DAMPER, coeff, coeff
+            )
+
+    def update_friction(self, coefficient_pct: float):
+        """
+        Atualiza FF_FRICTION (atrito/grip do pneu).
+        Força mínima de MIN_FRICTION_PCT para simular resistência mecânica.
+
+        Args:
+            coefficient_pct: 0-100%. Resistência constante ao movimento.
+        """
+        with self._ff_lock:
+            pct = max(self.MIN_FRICTION_PCT, min(100, coefficient_pct))
+            coeff = int(pct / 100.0 * 32767)
+            self._update_condition_effect(
+                self._ff_friction_id, ecodes.FF_FRICTION, coeff, coeff
+            )
+
+    def update_inertia(self, coefficient_pct: float):
+        """
+        Atualiza FF_INERTIA (peso do volante — aumenta com velocidade).
+
+        Args:
+            coefficient_pct: 0-100%. Resistência baseada na aceleração angular do volante.
+        """
+        with self._ff_lock:
+            coeff = int(max(0, min(100, coefficient_pct)) / 100.0 * 32767)
+            self._update_condition_effect(
+                self._ff_inertia_id, ecodes.FF_INERTIA, coeff, coeff
+            )
+
+    def update_rumble(self, strong_pct: float, weak_pct: float):
+        """
+        Atualiza FF_RUMBLE (vibração de impactos/estrada).
+
+        Args:
+            strong_pct: Motor forte 0-100% (impactos bruscos, bumps)
+            weak_pct: Motor fraco 0-100% (vibração contínua, textura da estrada)
+        """
+        if self._ff_rumble_id < 0 or not self.device:
+            return
+        with self._ff_lock:
+            try:
+                strong = int(max(0, min(100, strong_pct)) / 100.0 * 65535)
+                weak = int(max(0, min(100, weak_pct)) / 100.0 * 65535)
+                effect = ff.Effect(
+                    ecodes.FF_RUMBLE, self._ff_rumble_id, 0,
+                    ff.Trigger(0, 0),
+                    ff.Replay(0xFFFF, 0),
+                    ff.EffectType(ff_rumble_effect=ff.Rumble(strong, weak)),
+                )
+                self.device.upload_effect(effect)
+            except Exception:
+                pass
+
+    def update_periodic(self, period_ms: int, magnitude_pct: float):
+        """
+        Atualiza FF_PERIODIC (vibração senoidal — engine RPM).
+
+        Args:
+            period_ms: Período em ms (40=25Hz idle, 20=50Hz high RPM)
+            magnitude_pct: Magnitude 0-100%
+        """
+        if self._ff_periodic_id < 0 or not self.device:
+            return
+        with self._ff_lock:
+            try:
+                mag = int(max(0, min(100, magnitude_pct)) / 100.0 * 32767)
+                per = ff.Periodic(
+                    ecodes.FF_SINE, max(1, period_ms), mag, 0, 0,
+                    ff.Envelope(0, 0, 0, 0),
+                )
+                effect = ff.Effect(
+                    ecodes.FF_PERIODIC, self._ff_periodic_id, 0,
+                    ff.Trigger(0, 0),
+                    ff.Replay(0xFFFF, 0),
+                    ff.EffectType(ff_periodic_effect=per),
+                )
+                self.device.upload_effect(effect)
+            except Exception:
+                pass
+
+    def apply_constant_force(self, intensity: float, direction: str):
+        """
+        Atualiza FF_CONSTANT (forças dinâmicas do BMI160).
 
         Args:
             intensity: Intensidade da força (0-100%)
             direction: Direção ("left", "right", "neutral")
         """
-        if self._ff_effect_id < 0 or not self.device:
+        if self._ff_constant_id < 0 or not self.device:
             return
 
         with self._ff_lock:
             try:
-                # Converte intensidade 0-100% para level do evdev
-                # Limita ao ff_max_percent para proteger o volante
-                clamped = min(intensity, 100.0) * (self.ff_max_percent / 100.0)
-                level = int((clamped / 100.0) * 32767)
+                level = int(max(0, min(100, intensity)) / 100.0 * 32767)
 
                 if direction == "neutral":
                     level = 0
 
-                # direction em unidades evdev
                 if direction == "left":
                     ff_direction = 0x4000
                 elif direction == "right":
@@ -296,10 +574,9 @@ class G923Manager:
                 else:
                     ff_direction = 0
 
-                # Atualiza efeito existente (level sempre positivo, direction controla o lado)
                 effect = ff.Effect(
                     ecodes.FF_CONSTANT,
-                    self._ff_effect_id,
+                    self._ff_constant_id,
                     ff_direction,
                     ff.Trigger(0, 0),
                     ff.Replay(0xFFFF, 0),
@@ -309,21 +586,135 @@ class G923Manager:
                         )
                     ),
                 )
-
                 self.device.upload_effect(effect)
 
             except Exception:
-                pass  # Não loga em alta frequência
+                pass
 
-    def _stop_force_feedback(self):
-        """Para e remove efeito de force feedback"""
-        if self._ff_effect_id >= 0 and self.device:
+    def apply_force_feedback(self, intensity: float, direction: str):
+        """Wrapper de compatibilidade — chama apply_constant_force"""
+        self.apply_constant_force(intensity, direction)
+
+    def _update_endstop(self):
+        """
+        Batente virtual da direção — trava o volante nos limites calibrados.
+
+        Quando o volante chega perto do limite (dentro de ENDSTOP_MARGIN_PCT),
+        uma força crescente empurra de volta ao centro. No limite ou além,
+        aplica força máxima (32767).
+
+        Chamado a cada evento de steering (~1000Hz).
+        """
+        if self._ff_endstop_id < 0 or not self.device:
+            return
+
+        raw = self._raw_steering
+        total_range = self._steer_max - self._steer_min
+        if total_range <= 0:
+            return
+
+        margin = total_range * (self.ENDSTOP_MARGIN_PCT / 100.0)
+        in_zone = (raw < self._steer_min + margin) or (raw > self._steer_max - margin)
+
+        # Só faz upload quando entra/sai da zona (evita spam de uploads)
+        if not in_zone and not self._endstop_active:
+            return
+
+        level = 0
+        ff_direction = 0
+
+        if raw <= self._steer_min:
+            # Além do limite esquerdo: força máxima empurrando para direita
+            level = 32767
+            ff_direction = 0xC000
+        elif raw < self._steer_min + margin:
+            # Zona de endstop esquerda: força proporcional à proximidade do limite
+            proportion = 1.0 - ((raw - self._steer_min) / margin)
+            level = int(proportion * 32767)
+            ff_direction = 0xC000
+        elif raw >= self._steer_max:
+            # Além do limite direito: força máxima empurrando para esquerda
+            level = 32767
+            ff_direction = 0x4000
+        elif raw > self._steer_max - margin:
+            # Zona de endstop direita: força proporcional à proximidade do limite
+            proportion = 1.0 - ((self._steer_max - raw) / margin)
+            level = int(proportion * 32767)
+            ff_direction = 0x4000
+
+        self._endstop_active = level > 0
+
+        with self._ff_lock:
             try:
-                self.device.write(ecodes.EV_FF, self._ff_effect_id, 0)
-                self.device.erase_effect(self._ff_effect_id)
+                effect = ff.Effect(
+                    ecodes.FF_CONSTANT,
+                    self._ff_endstop_id,
+                    ff_direction,
+                    ff.Trigger(0, 0),
+                    ff.Replay(0xFFFF, 0),
+                    ff.EffectType(
+                        ff_constant_effect=ff.Constant(
+                            level, ff.Envelope(0, 0, 0, 0)
+                        )
+                    ),
+                )
+                self.device.upload_effect(effect)
             except Exception:
                 pass
-            self._ff_effect_id = -1
+
+    def disable_endstop(self):
+        """Desativa endstop temporariamente (ex: durante calibração)"""
+        if self._ff_endstop_id >= 0 and self.device:
+            with self._ff_lock:
+                try:
+                    self.device.write(ecodes.EV_FF, self._ff_endstop_id, 0)
+                    self.device.erase_effect(self._ff_endstop_id)
+                except Exception:
+                    pass
+                self._ff_endstop_id = -1
+                self._endstop_active = False
+            self._log("INFO", "Endstop desativado")
+
+    def enable_endstop(self):
+        """Reativa endstop após calibração"""
+        if self._ff_endstop_id >= 0 or not self.device:
+            return
+        try:
+            eid = self._upload_constant_effect()
+            if eid >= 0:
+                self._ff_endstop_id = eid
+                self._log("INFO", "Endstop reativado")
+        except Exception as e:
+            self._log("WARN", f"Falha ao reativar endstop: {e}")
+
+    def _stop_force_feedback(self):
+        """Para e remove todos os 8 efeitos de force feedback"""
+        effect_ids = [
+            ("spring", self._ff_spring_id),
+            ("damper", self._ff_damper_id),
+            ("friction", self._ff_friction_id),
+            ("inertia", self._ff_inertia_id),
+            ("constant", self._ff_constant_id),
+            ("rumble", self._ff_rumble_id),
+            ("periodic", self._ff_periodic_id),
+            ("endstop", self._ff_endstop_id),
+        ]
+        for name, eid in effect_ids:
+            if eid >= 0 and self.device:
+                try:
+                    self.device.write(ecodes.EV_FF, eid, 0)
+                    self.device.erase_effect(eid)
+                except Exception:
+                    pass
+        self._ff_spring_id = -1
+        self._ff_damper_id = -1
+        self._ff_friction_id = -1
+        self._ff_inertia_id = -1
+        self._ff_constant_id = -1
+        self._ff_rumble_id = -1
+        self._ff_periodic_id = -1
+        self._ff_endstop_id = -1
+        self._endstop_active = False
 
     # ================================================================
     # LEITURA DE INPUTS
@@ -422,6 +813,9 @@ class G923Manager:
                 self._last_steering = self._steering
                 self._send_callback("STEERING", str(self._steering))
 
+            # Batente virtual — trava nos limites calibrados
+            self._update_endstop()
+
         elif code == self.ABS_THROTTLE:
             self._raw_throttle = value
             # Mapeia para 0-100 (invertido: 0=pressionado, max=solto)
@@ -469,13 +863,19 @@ class G923Manager:
 
     def set_ff_max_percent(self, percent: float):
         """
-        Altera o limite máximo do force feedback em tempo real
+        Altera FF_GAIN global (limita todos os efeitos no hardware).
 
         Args:
-            percent: 0-100%. Valores acima de 30% podem travar o volante.
+            percent: 0-100%. Valores acima de 25% podem travar o volante.
         """
         self.ff_max_percent = max(0.0, min(100.0, percent))
-        self._log("INFO", f"FF max alterado para {self.ff_max_percent:.0f}%")
+        if self.device:
+            try:
+                gain = int(self.ff_max_percent / 100.0 * 0xFFFF)
+                self.device.write(ecodes.EV_FF, ecodes.FF_GAIN, gain)
+            except Exception:
+                pass
+        self._log("INFO", f"FF_GAIN alterado para {self.ff_max_percent:.0f}%")
 
     def is_connected(self) -> bool:
         """Verifica se o G923 está conectado e ativo"""
@@ -491,7 +891,17 @@ class G923Manager:
             "commands_sent": self.commands_sent,
             "errors": self.errors,
             "last_command_time": self.last_command_time,
-            "ff_active": self._ff_effect_id >= 0,
+            "ff_active": self._ff_constant_id >= 0,
+            "ff_effects": {
+                "spring": self._ff_spring_id >= 0,
+                "damper": self._ff_damper_id >= 0,
+                "friction": self._ff_friction_id >= 0,
+                "inertia": self._ff_inertia_id >= 0,
+                "constant": self._ff_constant_id >= 0,
+                "rumble": self._ff_rumble_id >= 0,
+                "periodic": self._ff_periodic_id >= 0,
+                "endstop": self._ff_endstop_id >= 0,
+            },
             "ff_max_percent": self.ff_max_percent,
             "steering": self._steering,
             "throttle": self._throttle,

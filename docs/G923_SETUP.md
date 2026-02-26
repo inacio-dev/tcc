@@ -330,11 +330,10 @@ G923 (USB HID, ~1000Hz poll)
 
 RPi BMI160 ──► UDP:9999 ──► client ──► ff_calculator.calculate_g_forces_and_ff()
                                             │
-                                            ▼
-                                    g923_manager.apply_force_feedback()
-                                            │
-                                            ▼
-                                    evdev FF_CONSTANT → G923 motor
+                                            ├─► g923_manager.apply_constant_force()  → FF_CONSTANT
+                                            ├─► g923_manager.update_rumble()          → FF_RUMBLE
+                                            ├─► g923_manager.update_periodic()        → FF_PERIODIC
+                                            └─► g923_manager.update_inertia()         → FF_INERTIA
 ```
 
 ### Proteção contra envio de rede sem RPi conectado
@@ -406,104 +405,188 @@ As marchas vêm exclusivamente do RPi via campo `current_gear` nos dados de sens
 
 ## Force Feedback Local (sem RPi)
 
-### Motivação
+### Comportamento com multi-efeito
 
-O sistema de FF completo depende de dados de sensor do RPi (aceleração lateral, giroscópio). Porém, quando o RPi não está conectado, o volante deve ainda assim oferecer feedback básico para o usuário sentir resistência ao girar a direção.
+Com a arquitetura multi-efeito, o FF local funciona automaticamente via efeitos de hardware:
 
-### Implementação: `_apply_local_ff()`
+- **FF_SPRING**: Centering baseado na posição do volante — mínimo 5% sempre ativo (peso mecânico)
+- **FF_DAMPER**: Resistência baseado na velocidade — funciona sem nenhum dado externo
+- **FF_FRICTION**: Resistência constante — mínimo 3% sempre ativo (atrito mecânico)
+- **FF_INERTIA**: Peso base do volante (5% idle) — aumenta com velocidade quando RPi conectado
+- **FF_PERIODIC**: Vibração idle do motor (25Hz, 3%) — sempre ligada, aumenta com throttle
+- **FF_RUMBLE**: Desligado sem RPi (sem dados de accel_z para detectar bumps)
+- **FF_CONSTANT**: Zerado sem RPi (sem dados de G lateral + yaw)
 
-Método em `console/main.py` executado a cada 100ms no loop `process_queues()`:
-
-```python
-def _apply_local_ff(self):
-    steering = self.g923_manager._steering  # -100 a +100
-
-    # Centering spring: proporcional ao ângulo (0-40%)
-    centering = abs(steering) / 100.0 * 40.0
-
-    # Friction: resistência básica simulando grip (0-15%)
-    friction_force = friction * 15.0
-
-    # Combina e aplica sensibilidade
-    base_ff = min(centering + friction_force, 100.0) * sensitivity
-
-    # Suavização exponencial (filter)
-    base_ff = base_ff * (1 - filter) + filtered * filter
-
-    # Damping (média móvel)
-    base_ff = base_ff * (1 - damping) + last * damping
-
-    # Direção: centering puxa para o lado oposto ao steering
-    if steering > 5: direction = "left"     # Puxa de volta ao centro
-    elif steering < -5: direction = "right"
-    else: direction = "neutral"
-```
-
-### Parâmetros dos sliders que afetam o FF local
-
-Todos os 5 sliders do painel de Force Feedback afetam o cálculo local:
-
-| Slider | Default | Efeito no FF local |
-|--------|---------|---------------------|
-| Sensitivity | 75% | Multiplica a força total |
-| Friction | 30% | Adiciona resistência base (grip do pneu) |
-| Filter | 40% | Suavização exponencial (EMA) — remove vibrações |
-| Damping | 50% | Média móvel — simula inércia mecânica |
-| Max Force | 15% | Limite máximo do motor G923 (safety cap) |
+O método `_apply_local_ff()` em `console/main.py` chama `ff_calculator.update_hardware_effects()` periodicamente para manter os coeficientes sincronizados com os sliders.
 
 ### Transição local → RPi
 
-Quando dados do RPi chegam (`update_sensor_data()`), o `ForceFeedbackCalculator` sobrescreve o FF local com o cálculo completo que inclui:
-- Força lateral G (aceleração do BMI160)
-- Rotação yaw (giroscópio do BMI160)
-- Centering spring (ângulo da direção)
-- Parâmetros de todos os sliders
+Quando dados do RPi chegam, `calculate_g_forces_and_ff()` atualiza o FF_CONSTANT com forças dinâmicas (G lateral + yaw). Os efeitos de hardware (spring/damper/friction) continuam rodando independentemente.
 
-### Max Force (Limite do Motor)
+## Arquitetura Multi-Efeito (Force Feedback)
 
-Slider adicionado para segurança. O G923 tem um motor potente e intensidades acima de ~30% podem travar o volante (forçar demais).
+### Motivação
 
-- **Default**: 15% (`FF_MAX_FORCE_DEFAULT` em `constants.py`)
-- **Callback**: `_on_ff_max_force_change()` em `console/main.py`
-- **Aplicação**: Chama `g923_manager.set_ff_max_percent(value)` que limita a intensidade antes de enviar ao evdev
+A versão anterior usava apenas FF_CONSTANT e calculava spring, damping e friction em software Python a ~10Hz. O G923 suporta 15 tipos de efeito com 63 slots simultâneos. Efeitos condicionais (FF_SPRING, FF_DAMPER, FF_FRICTION) rodam no firmware do volante a ~1kHz — muito mais suaves e realistas.
 
-```python
-# console/main.py
-def _on_ff_max_force_change(self, value):
-    if hasattr(self, "g923_manager") and self.g923_manager:
-        self.g923_manager.set_ff_max_percent(float(value))
-    self.max_force_value_label.config(text=f"{int(float(value))}%")
+### 7 efeitos simultâneos
 
-# g923_manager.py
-def apply_force_feedback(self, intensity, direction):
-    # intensity limitada por ff_max_percent antes de converter para level evdev
-    capped = min(intensity, self.ff_max_percent)
-    level = int(capped / 100.0 * 32767)
-    # ... upload_effect FF_CONSTANT com level
+```
+Condition effects (kernel ~1kHz):
+  Slot 0: FF_SPRING    ← centering spring (posição do volante), mínimo 5%
+  Slot 1: FF_DAMPER    ← amortecimento (velocidade do volante)
+  Slot 2: FF_FRICTION  ← atrito constante (grip do pneu), mínimo 3%
+  Slot 3: FF_INERTIA   ← peso do volante (aumenta com velocidade)
+
+Force effects (software, a cada pacote):
+  Slot 4: FF_CONSTANT  ← forças dinâmicas do BMI160 (G lateral + yaw)
+
+Vibration effects (hardware):
+  Slot 5: FF_RUMBLE    ← vibração de impactos/estrada (strong + weak motor)
+  Slot 6: FF_PERIODIC  ← vibração senoidal do motor (freq = RPM via throttle)
 ```
 
-## Protocolo evdev FF_CONSTANT (detalhes de implementação)
+### Controle global: FF_GAIN
 
-### Conversão intensity → level
+O slider "Max Force" controla o `FF_GAIN` do evdev, que é um multiplicador global que limita TODOS os efeitos simultaneamente:
 
 ```python
-# g923_manager.py
-# intensity: 0-100% (do calculador FF)
-# ff_max_percent: limite configurável (default 15%)
-# level: 0-32767 (signed int16, enviado ao kernel)
-
-capped_intensity = min(intensity, self.ff_max_percent)
-level = int(capped_intensity / 100.0 * 32767)
-
-# direction: 0x4000 (esquerda), 0xC000 (direita)
-# Se direction == "left": direction_hex = 0x4000
-# Se direction == "right": direction_hex = 0xC000
-# Se direction == "neutral": level = 0
+# g923_manager.set_ff_max_percent(percent)
+gain = int(percent / 100.0 * 0xFFFF)
+device.write(ecodes.EV_FF, ecodes.FF_GAIN, gain)
+# Default: 15% — valores acima de 25% travam o volante
 ```
 
-### Ciclo de vida do efeito
+### Mapeamento dos sliders para efeitos hardware
 
-1. **Inicialização** (`start()`): Upload efeito FF_CONSTANT com `id=-1` → kernel retorna `effect_id`
-2. **Play**: `write(EV_FF, effect_id, 1)` — ativa o efeito continuamente
-3. **Atualização em tempo real**: Re-upload com mesmo `effect_id` — altera level/direction sem parar o efeito
-4. **Cleanup** (`stop()`): `write(EV_FF, effect_id, 0)` → `erase_effect(effect_id)` → remove do kernel
+| Slider | Default | Efeito evdev | Função |
+|--------|---------|-------------|--------|
+| Sensitivity | 75% | FF_SPRING coeff + FF_CONSTANT multiplier | Centering + intensidade geral |
+| Friction | 30% | FF_FRICTION coeff (mín 3%) | Resistência constante (grip do pneu) |
+| Damping | 50% | FF_DAMPER coeff | Resistência proporcional à velocidade |
+| Filter | 40% | Software EMA no FF_CONSTANT | Suaviza ruído dos sensores BMI160 |
+| Max Force | 15% | FF_GAIN global | Limite de TODOS os 7 efeitos |
+
+Efeitos automáticos (sem slider — calculados pelo contexto):
+
+| Efeito | Fonte | Cálculo |
+|--------|-------|---------|
+| FF_INERTIA | Velocidade + throttle | 5% idle → 80% em alta velocidade |
+| FF_RUMBLE (strong) | accel_z + accel_x | Impactos bruscos + frenagem forte |
+| FF_RUMBLE (weak) | accel_z | Textura contínua da estrada |
+| FF_PERIODIC | Throttle | 25Hz/3% idle → 50Hz/30% em full throttle |
+
+### Efeitos condicionais (FF_SPRING, FF_DAMPER, FF_FRICTION)
+
+Estrutura evdev para efeitos condicionais:
+
+```python
+from evdev import ff, ecodes
+
+# ff.Condition(right_sat, left_sat, right_coeff, left_coeff, deadband, center)
+# Valores: 0-32767
+
+# Array de 2 condições: [eixo X, eixo Y]. Para volante, só X importa.
+cond = (ff.Condition * 2)(
+    ff.Condition(16384, 16384, 16384, 16384, 0, 0),  # eixo X (steering)
+    ff.Condition(0, 0, 0, 0, 0, 0),                   # eixo Y (ignorado)
+)
+
+effect = ff.Effect(
+    ecodes.FF_SPRING,  # ou FF_DAMPER, FF_FRICTION
+    -1,  # id=-1 para novo efeito
+    0,   # direction (não usado em condicionais)
+    ff.Trigger(0, 0),
+    ff.Replay(0xFFFF, 0),  # duração infinita
+    ff.EffectType(ff_condition_effect=cond),
+)
+
+# IMPORTANTE: nome do campo deve ser ff_condition_effect (não ff_condition_ef)
+eid = device.upload_effect(effect)
+device.write(ecodes.EV_FF, eid, 1)  # Ativa
+
+# Atualizar coeficiente em tempo real (mesmo eid):
+new_cond = (ff.Condition * 2)(
+    ff.Condition(new_sat, new_sat, new_coeff, new_coeff, 0, 0),
+    ff.Condition(0, 0, 0, 0, 0, 0),
+)
+new_effect = ff.Effect(
+    ecodes.FF_SPRING, eid, 0,  # reutiliza eid
+    ff.Trigger(0, 0), ff.Replay(0xFFFF, 0),
+    ff.EffectType(ff_condition_effect=new_cond),
+)
+device.upload_effect(new_effect)  # Atualiza sem parar
+```
+
+### FF_CONSTANT (forças dinâmicas)
+
+Usado apenas para forças calculadas a partir de sensores do RPi:
+
+```python
+# intensity: 0-100% (G lateral + yaw do BMI160)
+# FF_GAIN já limita globalmente, então level vai direto
+level = int(intensity / 100.0 * 32767)
+
+# direction: 0x4000 (esquerda), 0xC000 (direita), 0 (neutro)
+effect = ff.Effect(
+    ecodes.FF_CONSTANT, constant_eid, ff_direction,
+    ff.Trigger(0, 0), ff.Replay(0xFFFF, 0),
+    ff.EffectType(ff_constant_effect=ff.Constant(level, ff.Envelope(0, 0, 0, 0))),
+)
+device.upload_effect(effect)
+```
+
+### Ciclo de vida dos efeitos
+
+1. **Inicialização** (`_init_force_feedback()`):
+   - Define FF_GAIN baseado no slider Max Force
+   - Upload 7 efeitos (spring, damper, friction, inertia, constant, rumble, periodic) com `id=-1`
+   - Ativa todos: `write(EV_FF, eid, 1)`
+2. **Atualização de sliders**: Re-upload condition effects com mesmo `eid`
+3. **Atualização de sensor data**: Re-upload FF_CONSTANT + FF_RUMBLE + FF_PERIODIC + FF_INERTIA
+4. **Idle (sem RPi)**: Spring/friction com mínimos, periodic idle (25Hz/3%), inertia base (5%)
+5. **Cleanup** (`_stop_force_feedback()`): `write(EV_FF, eid, 0)` + `erase_effect(eid)` para cada um
+
+### Fluxo de dados completo
+
+```
+G923 (firmware ~1kHz) — condition effects:
+  ├─ FF_SPRING:   kernel lê posição → centering (Sensitivity slider, mín 5%)
+  ├─ FF_DAMPER:   kernel lê velocidade → resistência (Damping slider)
+  ├─ FF_FRICTION: kernel aplica resistência constante (Friction slider, mín 3%)
+  ├─ FF_INERTIA:  kernel lê aceleração angular → peso (auto: velocidade/throttle)
+  └─ FF_GAIN:     multiplica todos os 7 efeitos (Max Force slider, default 15%)
+
+BMI160 (RPi, 100Hz) → UDP → Client → ff_calculator.calculate_g_forces_and_ff():
+  ├─ FF_CONSTANT: G lateral + yaw → empurra volante (sensitivity × filter EMA)
+  ├─ FF_RUMBLE:   |accel_z - 9.81| → strong (impactos) + weak (estrada)
+  ├─ FF_PERIODIC: throttle → freq 25-50Hz, magnitude 3-30% (engine RPM)
+  └─ FF_INERTIA:  velocidade + throttle → 5-80% (peso dinâmico do volante)
+
+Idle (sem RPi, sem dados):
+  ├─ FF_SPRING:   mínimo 5% (peso mecânico do eixo de direção)
+  ├─ FF_FRICTION: mínimo 3% (atrito mecânico)
+  ├─ FF_INERTIA:  base 5% (peso do volante parado)
+  ├─ FF_PERIODIC: 25Hz / 3% (motor em idle)
+  └─ FF_CONSTANT/RUMBLE: desligados (sem dados de sensor)
+
+Slider callbacks (imediato):
+  ├─ Sensitivity → g923_manager.update_spring(value)
+  ├─ Friction    → g923_manager.update_friction(value)
+  ├─ Damping     → g923_manager.update_damper(value)
+  ├─ Filter      → apenas software (EMA no FF_CONSTANT)
+  └─ Max Force   → g923_manager.set_ff_max_percent(value) → FF_GAIN
+```
+
+### Seleção inteligente de efeitos por contexto
+
+O calculador (`force_feedback_calc.py`) seleciona automaticamente quais efeitos ativar e com qual intensidade baseado no estado atual do veículo:
+
+| Contexto | FF_CONSTANT | FF_RUMBLE | FF_PERIODIC | FF_INERTIA |
+|----------|-------------|-----------|-------------|------------|
+| Idle (motor ligado) | 0% | 0% | 25Hz/3% | 5% |
+| Acelerando | G lateral | estrada | ↑ freq/mag | ↑ com velocidade |
+| Curva | G lat + yaw | estrada | throttle | velocidade |
+| Frenagem forte | G frontal | strong ↑ | throttle | mantém |
+| Bump/impacto | — | strong ↑↑ | — | — |
+| Alta velocidade | normal | estrada | throttle | 50-80% |

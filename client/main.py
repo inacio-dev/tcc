@@ -233,6 +233,11 @@ class F1ClientApplication:
         """Inicia leitura do G923 (auto-detecta e conecta)"""
         if self.g923_manager:
             if self.g923_manager.find_device():
+                # Reaplicar calibração após find_device (que sobrescreve ranges com evdev)
+                if hasattr(self, "console_interface") and self.console_interface:
+                    sc = getattr(self.console_interface, "slider_controller", None)
+                    if sc:
+                        sc._apply_saved_calibration()
                 self.g923_manager.start()
                 log_queue.put(("INFO", "G923 conectado e ativo"))
             else:

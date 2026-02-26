@@ -617,6 +617,10 @@ class SliderController:
         self._cal_raw_max = None
         self._cal_raw_current = 0
 
+        # Desativa endstop durante calibração de steering (senão trava no limite atual)
+        if component == "STEERING" and self.g923_manager:
+            self.g923_manager.disable_endstop()
+
         # Atualiza UI
         self._update_calibration_ui()
 
@@ -683,6 +687,10 @@ class SliderController:
 
     def _finish_calibration(self):
         """Finaliza modo de calibração"""
+        # Reativa endstop se foi desativado durante calibração de steering
+        if self._cal_component == "STEERING" and self.g923_manager:
+            self.g923_manager.enable_endstop()
+
         self._cal_active = False
         self._cal_component = None
         self._cal_raw_min = None

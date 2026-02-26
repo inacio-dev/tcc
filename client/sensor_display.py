@@ -92,6 +92,16 @@ class SensorDisplay:
             "seat_vibration_intensity": 0.0,
             "seat_tilt_x": 0.0,
             "seat_tilt_y": 0.0,
+            # FF Efeitos Dinâmicos
+            "rumble_strong": 0.0,
+            "rumble_weak": 0.0,
+            "periodic_period_ms": 40,
+            "periodic_magnitude": 0.0,
+            "inertia": 5.0,
+            # G923 Inputs
+            "g923_steering": 0.0,
+            "g923_throttle": 0,
+            "g923_brake": 0,
             # Configurações do sensor
             "accel_range_g": 2,
             "gyro_range_dps": 250,
@@ -288,6 +298,16 @@ class SensorDisplay:
                 "seat_vibration_intensity",
                 "seat_tilt_x",
                 "seat_tilt_y",
+                # ===== FF Efeitos Dinâmicos (calculados por force_feedback_calc) =====
+                "rumble_strong",
+                "rumble_weak",
+                "periodic_period_ms",
+                "periodic_magnitude",
+                "inertia",
+                # ===== G923 Inputs (volante/pedais) =====
+                "g923_steering",
+                "g923_throttle",
+                "g923_brake",
                 # ===== Motor / Veículo =====
                 "current_gear",
                 "rpm_display",

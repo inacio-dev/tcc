@@ -500,8 +500,8 @@ class MotorManager:
         # Obter limitador da marcha atual
         max_pwm = gear_limiters.get(self.current_gear, 40)
 
-        # Mapeia throttle (0-100%) para (0-limitador%)
-        final_pwm = (throttle_percent / 100.0) * max_pwm
+        # Mapeia throttle (0-100%) para (0-limitador%), arredonda para baixo
+        final_pwm = int((throttle_percent / 100.0) * max_pwm)
 
         return final_pwm
 

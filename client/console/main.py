@@ -580,6 +580,15 @@ class ConsoleInterface:
         # Enviar comando FF para G923 via evdev
         self.ff_calculator.send_ff_command(ff_intensity, ff_direction)
 
+        # Enviar efeitos dinâmicos (rumble, periodic, inertia) baseados nos sensores
+        self.ff_calculator.send_dynamic_effects(sensor_data)
+
+        # Injetar inputs do G923 no sensor_data para exportação pickle
+        if self.g923_manager and self.g923_manager.is_connected():
+            sensor_data["g923_steering"] = self.g923_manager._steering
+            sensor_data["g923_throttle"] = self.g923_manager._throttle
+            sensor_data["g923_brake"] = self.g923_manager._brake
+
         # Atualizar dados do motor
         self._update_motor_display(sensor_data)
 
@@ -1203,115 +1212,74 @@ class ConsoleInterface:
             error(f"Erro ao enviar comando brake_balance: {e}", "CONTROL")
 
     def _on_ff_damping_change(self, value):
-        """Callback quando o slider de damping muda"""
+        """Callback quando o slider de damping muda — atualiza FF_DAMPER no hardware"""
         try:
             damping = float(value)
             self.damping_value_label.config(text=f"{damping:.0f}%")
-            debug(f"Damping alterado: {damping:.0f}%", "FF")
+            if hasattr(self, "g923_manager") and self.g923_manager:
+                self.g923_manager.update_damper(damping)
         except Exception as e:
             error(f"Erro ao alterar damping: {e}", "FF")
 
     def _on_ff_friction_change(self, value):
-        """Callback quando o slider de friction muda"""
+        """Callback quando o slider de friction muda — atualiza FF_FRICTION no hardware"""
         try:
             friction = float(value)
             self.friction_value_label.config(text=f"{friction:.0f}%")
-            debug(f"Friction alterado: {friction:.0f}%", "FF")
+            if hasattr(self, "g923_manager") and self.g923_manager:
+                self.g923_manager.update_friction(friction)
         except Exception as e:
             error(f"Erro ao alterar friction: {e}", "FF")
 
     def _on_ff_filter_change(self, value):
-        """Callback quando o slider de filter muda"""
+        """Callback quando o slider de filter muda — software EMA no FF_CONSTANT"""
         try:
             filter_val = float(value)
             self.filter_value_label.config(text=f"{filter_val:.0f}%")
-            debug(f"Filter alterado: {filter_val:.0f}%", "FF")
         except Exception as e:
             error(f"Erro ao alterar filter: {e}", "FF")
 
     def _on_ff_sensitivity_change(self, value):
-        """Callback quando o slider de sensitivity muda"""
+        """Callback quando o slider de sensitivity muda — atualiza FF_SPRING no hardware"""
         try:
             sensitivity = float(value)
             self.sensitivity_value_label.config(text=f"{sensitivity:.0f}%")
-            debug(f"Sensitivity alterado: {sensitivity:.0f}%", "FF")
+            if hasattr(self, "g923_manager") and self.g923_manager:
+                self.g923_manager.update_spring(sensitivity)
         except Exception as e:
             error(f"Erro ao alterar sensitivity: {e}", "FF")
 
     def _apply_local_ff(self):
         """
-        Aplica FF local baseado apenas no steering do G923 (sem dados do RPi).
-        Centering spring: puxa o volante de volta ao centro.
-        Friction: resistência proporcional à velocidade de rotação.
-        Quando dados do RPi chegam, update_sensor_data() sobrescreve com cálculo completo.
+        Atualiza efeitos de hardware do FF (spring/damper/friction).
+        Os efeitos rodam no firmware do G923 (~1kHz), muito mais suave que software.
+        Quando dados do RPi chegam, calculate_g_forces_and_ff() atualiza FF_CONSTANT.
         """
         try:
             if not hasattr(self, "g923_manager") or not self.g923_manager:
                 return
             if not self.g923_manager.is_connected():
                 return
-
-            steering = self.g923_manager._steering  # -100 a +100
-
-            # Parâmetros dos sliders
-            sensitivity = self.ff_sensitivity_var.get() / 100.0
-            friction = self.ff_friction_var.get() / 100.0
-            damping = self.ff_damping_var.get() / 100.0
-            filter_strength = self.ff_filter_var.get() / 100.0
-
-            # Centering spring: força proporcional ao ângulo (0-40%)
-            centering = abs(steering) / 100.0 * 40.0
-
-            # Friction: resistência básica simulando grip (0-15%)
-            friction_force = friction * 15.0
-
-            # Combina e aplica sensibilidade
-            base_ff = min(centering + friction_force, 100.0) * sensitivity
-
-            # Suavização (filter)
-            if not hasattr(self, "_local_ff_filtered"):
-                self._local_ff_filtered = 0.0
-            base_ff = base_ff * (1.0 - filter_strength) + self._local_ff_filtered * filter_strength
-            self._local_ff_filtered = base_ff
-
-            # Damping
-            if not hasattr(self, "_local_ff_last"):
-                self._local_ff_last = 0.0
-            base_ff = base_ff * (1.0 - damping) + self._local_ff_last * damping
-            self._local_ff_last = base_ff
-
-            final_ff = max(0.0, min(100.0, base_ff))
-
-            # Direção: centering puxa para o lado oposto ao steering
-            if steering > 5:
-                direction = "left"
-            elif steering < -5:
-                direction = "right"
-            else:
-                direction = "neutral"
-
-            if final_ff < 3.0:
-                direction = "neutral"
-
-            # Aplica no G923
-            self.g923_manager.apply_force_feedback(final_ff, direction)
-
-            # Atualiza LEDs na UI
             if self.ff_calculator:
-                self.ff_calculator.update_ff_leds(final_ff, direction)
-
+                self.ff_calculator.update_hardware_effects()
         except Exception:
             pass
 
     def _on_ff_max_force_change(self, value):
-        """Callback quando o slider de força máxima muda"""
+        """Callback quando o slider de força máxima muda — atualiza FF_GAIN global.
+        Vermelho acima de 25% (limite de travamento do G923)."""
         try:
             max_force = float(value)
-            self.max_force_value_label.config(text=f"{max_force:.0f}%")
-            # Aplica diretamente ao G923Manager
+            if max_force > 25:
+                self.max_force_value_label.config(
+                    text=f"{max_force:.0f}%", foreground="#ff4444"
+                )
+            else:
+                self.max_force_value_label.config(
+                    text=f"{max_force:.0f}%", foreground="white"
+                )
             if hasattr(self, "g923_manager") and self.g923_manager:
                 self.g923_manager.set_ff_max_percent(max_force)
-            debug(f"FF Max Force alterado: {max_force:.0f}%", "FF")
         except Exception as e:
             error(f"Erro ao alterar max force: {e}", "FF")
 

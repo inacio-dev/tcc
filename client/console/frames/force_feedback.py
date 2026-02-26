@@ -75,7 +75,7 @@ def create_force_feedback_frame(console):
     # Descrição
     desc_label = tk.Label(
         inner_frame,
-        text="Calculado com base em forças laterais (G) e rotação (gyro_z)",
+        text="7 efeitos: spring/damper/friction/inertia + constant + rumble + periodic",
         bg="#3c3c3c",
         fg="#888888",
         font=("Arial", 8),
@@ -125,7 +125,7 @@ def create_force_feedback_frame(console):
     # Fórmula (informativo)
     formula_label = tk.Label(
         comp_inner,
-        text="Fórmula: (|G_lateral| x 50) + (|gyro_z| / 60 x 50)",
+        text="FF_CONSTANT: (|G_lateral| x 50) + (|gyro_z| / 60 x 50) x sensitivity",
         bg="#3c3c3c",
         fg="#4488ff",
         font=("Arial", 8, "italic"),
@@ -135,7 +135,7 @@ def create_force_feedback_frame(console):
 
     # === PARÂMETROS AJUSTÁVEIS ===
     params_frame = ttk.LabelFrame(
-        ff_frame, text="Parâmetros de Force Feedback", style="Dark.TLabelframe"
+        ff_frame, text="Parâmetros FF (7 efeitos hardware)", style="Dark.TLabelframe"
     )
     params_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
 
@@ -151,7 +151,7 @@ def create_force_feedback_frame(console):
         console.ff_damping_var,
         console._on_ff_damping_change,
         "#4488ff",
-        "Reduz oscilações e vibrações indesejadas no volante",
+        "FF_DAMPER: resistência proporcional à velocidade do volante (hardware ~1kHz)",
     )
 
     # Slider 2: Friction (Atrito)
@@ -163,7 +163,7 @@ def create_force_feedback_frame(console):
         console.ff_friction_var,
         console._on_ff_friction_change,
         "#ff8800",
-        "Simula a resistência dos pneus (grip disponível)",
+        "FF_FRICTION: resistência constante ao movimento, simula grip do pneu (hardware ~1kHz)",
     )
 
     # Slider 3: Filter (Filtro)
@@ -175,7 +175,7 @@ def create_force_feedback_frame(console):
         console.ff_filter_var,
         console._on_ff_filter_change,
         "#00ff00",
-        "Suaviza o sinal para uma experiência mais realista",
+        "Suavização EMA no FF_CONSTANT (remove ruído dos sensores BMI160)",
     )
 
     # Slider 4: Sensitivity (Sensibilidade)
@@ -187,7 +187,7 @@ def create_force_feedback_frame(console):
         console.ff_sensitivity_var,
         console._on_ff_sensitivity_change,
         "#ff00ff",
-        "Controla a intensidade da resposta aos eventos in-game",
+        "FF_SPRING centering + FF_CONSTANT multiplier + FF_INERTIA base (~1kHz)",
     )
 
     # Slider 5: Max Force (Limite do motor)
@@ -199,7 +199,7 @@ def create_force_feedback_frame(console):
         console.ff_max_force_var,
         console._on_ff_max_force_change,
         "#ff4444",
-        "Limite máximo de força no motor G923 (30%+ pode travar o volante!)",
+        "FF_GAIN: limite global dos 7 efeitos no hardware (25%+ TRAVA!)",
     )
 
 
