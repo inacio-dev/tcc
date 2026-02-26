@@ -491,10 +491,6 @@ class MotorManager:
         # Mapeia throttle (0-100%) para (0-limitador%)
         final_pwm = (throttle_percent / 100.0) * max_pwm
 
-        # Abaixo de 1% corta para 0 (evita motor ligado em 0.1% sem girar)
-        if final_pwm < 1.0:
-            return 0
-
         return final_pwm
 
     def _calculate_efficiency_zone(self, current_pwm: float) -> tuple:
