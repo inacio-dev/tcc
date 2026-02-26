@@ -285,8 +285,8 @@ class F1CarMultiThreadSystem:
         # 4. Sistema de freios
         debug("Inicializando freios...", "MAIN")
         self.brake_mgr = BrakeManager(
-            front_channel=0,
-            rear_channel=1,
+            front_channel=4,
+            rear_channel=8,
             pca9685_address=0x41,
             brake_balance=self.brake_balance,
             max_brake_force=100.0,
@@ -295,7 +295,7 @@ class F1CarMultiThreadSystem:
         if self.brake_mgr.initialize():
             self.system_status["brakes"] = "Online"
             success_count += 1
-            info("Freios inicializados - PCA9685 canais 0/1", "MAIN")
+            info("Freios inicializados - PCA9685 canais 4/8", "MAIN")
         else:
             error("Freios não inicializados", "MAIN")
 
@@ -312,7 +312,7 @@ class F1CarMultiThreadSystem:
         # 6. Direção
         debug("Inicializando direção...", "MAIN")
         self.steering_mgr = SteeringManager(
-            steering_channel=2,
+            steering_channel=0,
             pca9685_address=0x41,
             steering_sensitivity=1.2,
             max_steering_angle=90.0,
@@ -322,7 +322,7 @@ class F1CarMultiThreadSystem:
         if self.steering_mgr.initialize():
             self.system_status["steering"] = "Online"
             success_count += 1
-            info("Direção inicializada - PCA9685 canal 2", "MAIN")
+            info("Direção inicializada - PCA9685 canal 0", "MAIN")
         else:
             error("Direção não inicializada", "MAIN")
 
