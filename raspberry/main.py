@@ -596,6 +596,7 @@ class F1CarMultiThreadSystem:
                         if self.steering_mgr:
                             self.steering_mgr.set_steering_input(steering)
                         if self.motor_mgr:
+                            self.motor_mgr.brake_input = brake
                             self.motor_mgr.set_throttle(throttle)
                         if self.brake_mgr:
                             self.brake_mgr.apply_brake(brake)
@@ -608,6 +609,8 @@ class F1CarMultiThreadSystem:
 
                 elif control_cmd.startswith("BRAKE:"):
                     force = float(control_cmd[6:])
+                    if self.motor_mgr:
+                        self.motor_mgr.brake_input = force
                     if self.brake_mgr:
                         self.brake_mgr.apply_brake(force)
                         debug(f"Freio: {force:.1f}%", "CMD")

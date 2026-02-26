@@ -131,6 +131,7 @@ class MotorManager:
         self.motor_direction = MotorDirection.STOP
         self.current_pwm = 0.0  # PWM atual 0-100%
         self.target_pwm = 0.0  # PWM alvo 0-100%
+        self.brake_input = 0.0  # Freio atual 0-100% (multiplica desaceleração)
 
         # Sistema de transmissão
         self.current_gear = 1  # Marcha atual (1-8)
@@ -688,6 +689,10 @@ class MotorManager:
                 decel_multiplier = 5.0  # 5x mais rápido que aceleração
             else:  # Zona RUIM
                 decel_multiplier = 10.0  # 10x mais rápido que aceleração
+
+            # Freio multiplica a desaceleração (0%=1x, 100%=10x)
+            brake_boost = 1.0 + (self.brake_input / 100.0) * 9.0
+            decel_multiplier *= brake_boost
 
             # Aplica desaceleração melhorada
             deceleration_rate = base_acceleration_per_frame * decel_multiplier
