@@ -281,7 +281,6 @@ class SteeringManager:
                                   (-100% = máximo esquerda, +100% = máximo direita)
         """
         if not self.is_initialized:
-            print("⚠ Sistema de direção não inicializado")
             return
 
         # Garante range válido

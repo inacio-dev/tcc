@@ -304,7 +304,6 @@ class BrakeManager:
             brake_input (float): Intensidade do freio 0-100%
         """
         if not self.is_initialized:
-            print("⚠ Sistema de freios não inicializado")
             return
 
         # Garante que o input está no range válido
