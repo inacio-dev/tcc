@@ -327,9 +327,6 @@ class SteeringManager:
                 self.max_angle_reached = max(self.max_angle_reached, abs(target_angle))
                 self.last_movement_time = time.time()
 
-        # Debug para movimentos grandes
-        if abs(steering_input) > 20:
-            print(f"🔧 Direção: {steering_input:+.0f}% → {target_angle:+.1f}°")
 
     # REMOVIDO: funções auxiliares não usadas - movimento direto
 

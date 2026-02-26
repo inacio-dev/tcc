@@ -386,10 +386,6 @@ class BrakeManager:
             # COMANDO DIRETO - igual ao test_brake_direto_simples.py
             self.front_servo.angle = front_angle
             self.rear_servo.angle = rear_angle
-
-            print(
-                f"🛑 Freio aplicado → Frontal: {front_angle:.1f}° | Traseiro: {rear_angle:.1f}°"
-            )
         else:
             print("⚠️ Servos de freio não inicializados!")
 
