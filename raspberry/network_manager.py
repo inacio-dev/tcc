@@ -50,26 +50,22 @@ class NetworkManager:
         self,
         data_port: int = 9999,  # Porta para enviar dados (RPi -> Cliente)
         command_port: int = 9998,  # Porta para receber comandos (Cliente -> RPi)
-        sensor_port: int = 9997,  # Porta para sensores rápidos (100Hz)
         buffer_size: int = 131072,
     ):
         """
         Inicializa o gerenciador de rede bidirecional
 
         Args:
-            data_port (int): Porta para envio de dados aos clientes (vídeo + sensores lentos)
+            data_port (int): Porta para envio de dados aos clientes (vídeo + sensores)
             command_port (int): Porta para escutar comandos dos clientes
-            sensor_port (int): Porta para sensores rápidos (BMI160 @ 100Hz)
             buffer_size (int): Tamanho do buffer UDP em bytes
         """
         self.data_port = data_port
         self.command_port = command_port
-        self.sensor_port = sensor_port
         self.buffer_size = buffer_size
 
         # Sockets UDP
-        self.send_socket = None  # Para enviar dados (vídeo)
-        self.sensor_socket = None  # Para enviar sensores rápidos
+        self.send_socket = None  # Para enviar dados (vídeo + sensores)
         self.receive_socket = None  # Para receber comandos
         self.is_initialized = False
 
@@ -80,8 +76,6 @@ class NetworkManager:
         # Estatísticas de transmissão
         self.packets_sent = 0
         self.bytes_sent = 0
-        self.sensor_packets_sent = 0  # Pacotes de sensores rápidos
-        self.sensor_bytes_sent = 0
         self.commands_received = 0
         self.last_send_time = time.time()
         self.start_time = time.time()
@@ -111,29 +105,16 @@ class NetworkManager:
         try:
             info("Inicializando comunicação UDP bidirecional...", "NET")
             debug(
-                f"Porta dados: {self.data_port}, Sensores: {self.sensor_port}, Comandos: {self.command_port}",
+                f"Porta dados: {self.data_port}, Comandos: {self.command_port}",
                 "NET",
             )
 
-            # Cria socket para envio de dados (vídeo + sensores lentos)
+            # Cria socket para envio de dados (vídeo + sensores consolidados)
             self.send_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             self.send_socket.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 65536)
             self.send_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             try:
                 self.send_socket.setsockopt(
-                    socket.IPPROTO_IP, socket.IP_TOS, 0x10
-                )  # IPTOS_LOWDELAY
-            except (AttributeError, OSError):
-                pass
-
-            # Cria socket para sensores rápidos (BMI160 @ 100Hz)
-            self.sensor_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            self.sensor_socket.setsockopt(
-                socket.SOL_SOCKET, socket.SO_SNDBUF, 8192
-            )  # Buffer pequeno para baixa latência
-            self.sensor_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            try:
-                self.sensor_socket.setsockopt(
                     socket.IPPROTO_IP, socket.IP_TOS, 0x10
                 )  # IPTOS_LOWDELAY
             except (AttributeError, OSError):
@@ -147,7 +128,7 @@ class NetworkManager:
             self.receive_socket.bind(("", self.command_port))
             self.receive_socket.settimeout(1.0)
 
-            debug("Sockets criados com sucesso (dados + sensores + comandos)", "NET")
+            debug("Sockets criados com sucesso (dados + comandos)", "NET")
 
             # Inicia thread para escutar comandos
             self._start_command_listener()
@@ -612,57 +593,6 @@ class NetworkManager:
         else:
             return False
 
-    def send_fast_sensors(self, sensor_data: Dict[Any, Any]) -> bool:
-        """
-        Envia dados de sensores rápidos (BMI160) via porta dedicada
-        Usado para transmissão de alta frequência (100Hz) independente do vídeo
-
-        Args:
-            sensor_data (dict): Dados dos sensores BMI160 (accel, gyro, etc.)
-
-        Returns:
-            bool: True se enviado para pelo menos um cliente
-        """
-        if not self.is_initialized or not self.sensor_socket:
-            return False
-
-        if not self.has_connected_clients():
-            return False
-
-        try:
-            # Converte tipos numpy para tipos Python nativos
-            cleaned_data = self._convert_numpy_types(sensor_data)
-
-            # Serializa para JSON (pacote leve, ~200-500 bytes)
-            sensor_json = json.dumps(cleaned_data, ensure_ascii=False)
-            sensor_bytes = sensor_json.encode("utf-8")
-
-            # Pacote simples: apenas 4 bytes de tamanho + dados
-            # Formato: [4 bytes: tamanho] [N bytes: JSON]
-            packet = struct.pack("<I", len(sensor_bytes)) + sensor_bytes
-
-            success_count = 0
-
-            with self.clients_lock:
-                for client_ip, client_info in self.connected_clients.items():
-                    try:
-                        # Envia para porta de sensores (9997) do cliente
-                        self.sensor_socket.sendto(packet, (client_ip, self.sensor_port))
-                        success_count += 1
-                    except Exception:
-                        pass  # Silencioso para não afetar performance
-
-            if success_count > 0:
-                self.sensor_packets_sent += 1
-                self.sensor_bytes_sent += len(packet)
-                return True
-
-            return False
-
-        except Exception:
-            # Silencioso para não afetar taxa de 100Hz
-            return False
-
     def send_termination_signal(self) -> bool:
         """
         Envia sinal de terminação (tamanhos zero)
@@ -705,12 +635,6 @@ class NetworkManager:
                 else f"{self.target_ip}:{self.target_port}"
             ),
             "last_send_time": self.last_send_time,
-            # Estatísticas de sensores rápidos
-            "sensor_packets_sent": self.sensor_packets_sent,
-            "sensor_bytes_sent": self.sensor_bytes_sent,
-            "sensor_pps": (
-                round(self.sensor_packets_sent / elapsed, 2) if elapsed > 0 else 0
-            ),
         }
 
     def get_network_info(self) -> Dict[str, Any]:
@@ -834,9 +758,6 @@ class NetworkManager:
             # Fecha sockets
             if self.send_socket:
                 self.send_socket.close()
-
-            if self.sensor_socket:
-                self.sensor_socket.close()
 
             if self.receive_socket:
                 self.receive_socket.close()

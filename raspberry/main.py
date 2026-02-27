@@ -6,10 +6,10 @@ Integra todos os componentes: câmera, sensores, motor, freios, direção, displ
 ARQUITETURA DE THREADS:
 =======================
 ├── Thread Câmera (30Hz)      - Captura frames independente
-├── Thread Sensores (100Hz)   - Lê BMI160 em alta taxa
+├── Thread Sensores (60Hz)    - Lê BMI160 em alta taxa
 ├── Thread Energia (10Hz)     - Monitora Pro Micro (serial) + INA219 (I2C)
 ├── Thread Temperatura (1Hz)  - Lê DS18B20
-├── Thread TX Rede (120Hz)    - Consolida e transmite dados
+├── Thread TX Rede (60Hz)     - Consolida e transmite dados
 └── Thread RX Comandos        - Recebe comandos (daemon no NetworkManager)
 
 COMUNICAÇÃO ENTRE THREADS:
@@ -144,7 +144,7 @@ class F1CarMultiThreadSystem:
         camera_contrast: float = 1.0,
         camera_saturation: float = 1.0,
         camera_brightness: float = 0.0,
-        sensor_rate: int = 100,
+        sensor_rate: int = 60,
         brake_balance: float = 60.0,
         steering_mode: str = "sport",
         calibrate_power: bool = False,
@@ -450,13 +450,11 @@ class F1CarMultiThreadSystem:
         debug("Thread de câmera finalizada", "CAM")
 
     def _sensor_thread_loop(self):
-        """Thread dedicada para sensores BMI160 (100Hz)
+        """Thread dedicada para sensores BMI160 (60Hz)
 
-        Envia dados de duas formas:
-        1. Atualiza current_sensor_data (para thread TX incluir no pacote de vídeo)
-        2. Envia diretamente via send_fast_sensors() na porta 9997 (100Hz)
+        Atualiza current_sensor_data para a thread TX incluir no pacote consolidado.
         """
-        debug("Thread de sensores iniciada (100Hz direto)", "BMI160")
+        debug("Thread de sensores iniciada (60Hz)", "BMI160")
         interval = 1.0 / self.sensor_rate
 
         while self.running:
@@ -465,16 +463,9 @@ class F1CarMultiThreadSystem:
                     if self.bmi160_mgr.update():
                         sensor_data = self.bmi160_mgr.get_sensor_data()
 
-                        # Atualiza dados atuais (para thread TX)
+                        # Atualiza dados atuais (para thread TX consolidar)
                         with self.current_data_lock:
                             self.current_sensor_data = sensor_data
-
-                        # Envia diretamente via porta de sensores rápidos (100Hz)
-                        if (
-                            self.network_mgr
-                            and self.system_status["network"] == "Online"
-                        ):
-                            self.network_mgr.send_fast_sensors(sensor_data)
 
                         # Estatísticas
                         with self.stats_lock:
@@ -547,9 +538,9 @@ class F1CarMultiThreadSystem:
         debug("Thread de temperatura finalizada", "TEMP")
 
     def _network_tx_thread_loop(self):
-        """Thread dedicada para transmissão de rede (120Hz)"""
+        """Thread dedicada para transmissão de rede (60Hz)"""
         debug("Thread de transmissão iniciada", "NET-TX")
-        interval = 1.0 / 120.0  # 120Hz
+        interval = 1.0 / 60.0  # 60Hz
         last_stats_time = time.time()
         last_connect_ping = time.time()
 
@@ -914,7 +905,7 @@ Presets de resolução:
 
     # Outras configurações
     parser.add_argument(
-        "--sensor-rate", type=int, default=100, help="Taxa sensores Hz (default: 100)"
+        "--sensor-rate", type=int, default=60, help="Taxa sensores Hz (default: 60)"
     )
     parser.add_argument(
         "--brake-balance",

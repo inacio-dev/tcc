@@ -83,7 +83,7 @@ class KeyboardController:
         self.root = None  # Será definido quando vincular controles
 
         # Configurações
-        self.command_rate = 100  # Comandos por segundo (10ms)
+        self.command_rate = 60  # Comandos por segundo (~16.7ms)
         self.key_repeat_delay = 100  # ms entre repetições
 
         # Estatísticas

@@ -160,8 +160,8 @@ class G923Manager:
         self._endstop_active = False
         self._ff_lock = threading.Lock()
 
-        # Rate limiting — envio contínuo a 100Hz (10ms entre envios)
-        self._SEND_INTERVAL = 0.01  # 10ms = 100Hz
+        # Rate limiting — envio contínuo a 60Hz (~16.7ms entre envios)
+        self._SEND_INTERVAL = 1.0 / 60.0  # ~16.7ms = 60Hz
         self._last_state_send = 0.0  # Timestamp do último envio STATE
 
         # Estatísticas
@@ -780,7 +780,7 @@ class G923Manager:
                 event = self.device.read_one()
 
                 if event is None:
-                    # Sem eventos — envia estado atual (rate limiter a 100Hz)
+                    # Sem eventos — envia estado atual (rate limiter a 60Hz)
                     self._send_current_state()
                     time.sleep(0.001)  # 1ms - evita busy loop
                     continue
@@ -804,7 +804,7 @@ class G923Manager:
         self._log("INFO", "Loop de input G923 parado")
 
     def _send_current_state(self):
-        """Envia estado unificado (steering,throttle,brake) a 100Hz"""
+        """Envia estado unificado (steering,throttle,brake) a 60Hz"""
         now = time.time()
         if now - self._last_state_send < self._SEND_INTERVAL:
             return
@@ -820,7 +820,7 @@ class G923Manager:
 
     def _handle_axis(self, code: int, value: int):
         """Processa evento de eixo — atualiza estado interno apenas.
-        O envio contínuo a 100Hz é feito por _send_current_state()."""
+        O envio contínuo a 60Hz é feito por _send_current_state()."""
 
         if code == self.ABS_STEERING:
             self._raw_steering = value
