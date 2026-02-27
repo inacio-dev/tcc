@@ -356,12 +356,25 @@ class NetworkManager:
             if client_port is None:
                 client_port = 9998  # Porta padrão de comandos do cliente
 
+            # Resolve hostname uma vez para evitar mDNS lento no sendto
+            t_resolve_start = time.monotonic()
+            try:
+                resolved_ip = socket.gethostbyname(client_ip)
+            except socket.gaierror:
+                resolved_ip = client_ip  # Fallback
+            t_resolve = time.monotonic() - t_resolve_start
+            if t_resolve > 0.050:
+                warn(
+                    f"[DIAG] mDNS LENTO: {client_ip} -> {resolved_ip} em {t_resolve*1000:.0f}ms",
+                    "DIAG",
+                )
+
             # Monta comando CONNECT com informações do servidor
             connect_cmd = f"SERVER_CONNECT:{self.data_port}"
 
-            # Envia comando via UDP
+            # Envia comando via UDP (usa IP resolvido)
             self.send_socket.sendto(
-                connect_cmd.encode("utf-8"), (client_ip, client_port)
+                connect_cmd.encode("utf-8"), (resolved_ip, client_port)
             )
 
             debug(f"Comando CONNECT enviado para {client_ip}:{client_port}", "NET")
@@ -598,10 +611,20 @@ class NetworkManager:
         # Pacote simples: 4 bytes tamanho + dados do frame
         packet = struct.pack("<I", len(frame_data)) + frame_data
 
+        t0 = time.monotonic()
         if len(packet) > self.MAX_PACKET_SIZE:
-            return self._send_fragmented(packet)
+            result = self._send_fragmented(packet)
         else:
-            return self._send_single_packet(packet)
+            result = self._send_single_packet(packet)
+        t_send = time.monotonic() - t0
+
+        if t_send > 0.020:
+            warn(
+                f"[DIAG] VIDEO SEND: {t_send*1000:.0f}ms, size={len(packet)}B",
+                "DIAG",
+            )
+
+        return result
 
     def send_sensor_data(self, sensor_data: Dict[Any, Any]) -> bool:
         """
@@ -619,11 +642,14 @@ class NetworkManager:
             return False
 
         try:
+            t_serial_start = time.monotonic()
             cleaned = self._convert_numpy_types(sensor_data)
             sensor_json = json.dumps(cleaned, ensure_ascii=False)
             sensor_bytes = sensor_json.encode("utf-8")
+            t_serial = time.monotonic() - t_serial_start
 
             success_count = 0
+            t_sendto_start = time.monotonic()
             with self.clients_lock:
                 for client_ip, client_info in self.connected_clients.items():
                     try:
@@ -633,6 +659,14 @@ class NetworkManager:
                         success_count += 1
                     except Exception:
                         pass
+            t_sendto = time.monotonic() - t_sendto_start
+
+            if t_serial > 0.010 or t_sendto > 0.010:
+                warn(
+                    f"[DIAG] SENSOR SEND: serial={t_serial*1000:.0f}ms, "
+                    f"sendto={t_sendto*1000:.0f}ms, size={len(sensor_bytes)}B",
+                    "DIAG",
+                )
 
             if success_count > 0:
                 self.packets_sent += 1

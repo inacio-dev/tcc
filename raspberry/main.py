@@ -429,19 +429,35 @@ class F1CarMultiThreadSystem:
         """Thread dedicada para captura de câmera (30Hz)"""
         debug("Thread de câmera iniciada", "CAM")
         interval = 1.0 / self.camera_fps
+        SLOW_THRESHOLD = 0.100  # 100ms (capture pode ser mais lento)
 
         while self.running:
             try:
+                t0 = time.monotonic()
+
+                t_capture = 0
+                t_lock = 0
                 if self.camera_mgr and self.system_status["camera"] == "Online":
+                    t_cap_start = time.monotonic()
                     frame_data = self.camera_mgr.capture_frame()
+                    t_capture = time.monotonic() - t_cap_start
+
                     if frame_data:
-                        # Atualiza frame atual
+                        t_lock_start = time.monotonic()
                         with self.current_data_lock:
                             self.current_frame = frame_data
+                        t_lock = time.monotonic() - t_lock_start
 
-                        # Estatísticas
                         with self.stats_lock:
                             self.frames_captured += 1
+
+                t_total = time.monotonic() - t0
+                if t_total > SLOW_THRESHOLD:
+                    warn(
+                        f"[DIAG] CAMERA LENTA: total={t_total*1000:.0f}ms "
+                        f"(capture={t_capture*1000:.0f}ms, lock={t_lock*1000:.0f}ms)",
+                        "DIAG",
+                    )
 
                 time.sleep(interval)
 
@@ -458,20 +474,37 @@ class F1CarMultiThreadSystem:
         """
         debug("Thread de sensores iniciada (60Hz)", "BMI160")
         interval = 1.0 / self.sensor_rate
+        SLOW_THRESHOLD = 0.050  # 50ms
 
         while self.running:
             try:
+                t0 = time.monotonic()
+
+                t_read = 0
+                t_lock = 0
                 if self.bmi160_mgr and self.system_status["sensors"] == "Online":
-                    if self.bmi160_mgr.update():
+                    t_read_start = time.monotonic()
+                    updated = self.bmi160_mgr.update()
+                    t_read = time.monotonic() - t_read_start
+
+                    if updated:
                         sensor_data = self.bmi160_mgr.get_sensor_data()
 
-                        # Atualiza dados atuais (para thread TX consolidar)
+                        t_lock_start = time.monotonic()
                         with self.current_data_lock:
                             self.current_sensor_data = sensor_data
+                        t_lock = time.monotonic() - t_lock_start
 
-                        # Estatísticas
                         with self.stats_lock:
                             self.sensor_readings += 1
+
+                t_total = time.monotonic() - t0
+                if t_total > SLOW_THRESHOLD:
+                    warn(
+                        f"[DIAG] BMI160 LENTO: total={t_total*1000:.0f}ms "
+                        f"(i2c_read={t_read*1000:.0f}ms, lock={t_lock*1000:.0f}ms)",
+                        "DIAG",
+                    )
 
                 time.sleep(interval)
 
@@ -543,16 +576,31 @@ class F1CarMultiThreadSystem:
         """Thread dedicada para transmissão de vídeo (30Hz, porta 9999)"""
         debug("Thread TX vídeo iniciada (30Hz)", "NET-TX")
         interval = 1.0 / 30.0  # 30Hz
+        SLOW_THRESHOLD = 0.050  # 50ms
 
         while self.running:
             try:
+                t0 = time.monotonic()
+
+                t_lock_start = time.monotonic()
                 with self.current_data_lock:
                     frame_data = self.current_frame
+                t_lock = time.monotonic() - t_lock_start
 
+                t_send_start = time.monotonic()
                 if self.network_mgr and self.system_status["network"] == "Online":
                     if self.network_mgr.send_video_frame(frame_data):
                         with self.stats_lock:
                             self.packets_sent += 1
+                t_send = time.monotonic() - t_send_start
+
+                t_total = time.monotonic() - t0
+                if t_total > SLOW_THRESHOLD:
+                    warn(
+                        f"[DIAG] VIDEO TX LENTO: total={t_total*1000:.0f}ms "
+                        f"(lock={t_lock*1000:.0f}ms, send={t_send*1000:.0f}ms)",
+                        "DIAG",
+                    )
 
                 time.sleep(interval)
 
@@ -568,19 +616,24 @@ class F1CarMultiThreadSystem:
         interval = 1.0 / 60.0  # 60Hz
         last_stats_time = time.time()
         last_connect_ping = time.time()
+        SLOW_THRESHOLD = 0.050  # 50ms
 
         while self.running:
             try:
+                t0 = time.monotonic()
                 current_time = time.time()
 
                 # === COLETA DADOS ATUAIS ===
+                t_lock_start = time.monotonic()
                 with self.current_data_lock:
                     sensor_data = self.current_sensor_data.copy()
                     power_data = self.current_power_data.copy()
                     temp_data = self.current_temp_data.copy()
                     rpi_sys_data = self.current_rpi_sys_data.copy()
+                t_lock = time.monotonic() - t_lock_start
 
                 # Atualiza status dos atuadores (não bloqueante)
+                t_status_start = time.monotonic()
                 motor_status = {}
                 if self.motor_mgr and self.system_status["motor"] == "Online":
                     motor_status = self.motor_mgr.get_motor_status()
@@ -592,6 +645,7 @@ class F1CarMultiThreadSystem:
                 steering_status = {}
                 if self.steering_mgr and self.system_status["steering"] == "Online":
                     steering_status = self.steering_mgr.get_steering_status()
+                t_status = time.monotonic() - t_status_start
 
                 # === CONSOLIDA E TRANSMITE ===
                 consolidated_data = {
@@ -606,18 +660,32 @@ class F1CarMultiThreadSystem:
                     "system_uptime": current_time - self.start_time,
                 }
 
+                t_send_start = time.monotonic()
                 if self.network_mgr and self.system_status["network"] == "Online":
                     self.network_mgr.send_sensor_data(consolidated_data)
+                t_send = time.monotonic() - t_send_start
 
                 # === PING PERIÓDICO (a cada 10s) ===
+                t_ping = 0
                 if current_time - last_connect_ping >= 10.0:
+                    t_ping_start = time.monotonic()
                     self.network_mgr.send_connect_to_client("f1client.local", 9998)
+                    t_ping = time.monotonic() - t_ping_start
                     last_connect_ping = current_time
 
                 # === ESTATÍSTICAS (a cada 10s) ===
                 if current_time - last_stats_time >= 10.0:
                     self._display_system_stats()
                     last_stats_time = current_time
+
+                t_total = time.monotonic() - t0
+                if t_total > SLOW_THRESHOLD:
+                    warn(
+                        f"[DIAG] SENSOR TX LENTO: total={t_total*1000:.0f}ms "
+                        f"(lock={t_lock*1000:.0f}ms, status={t_status*1000:.0f}ms, "
+                        f"send={t_send*1000:.0f}ms, ping={t_ping*1000:.0f}ms)",
+                        "DIAG",
+                    )
 
                 time.sleep(interval)
 
@@ -642,6 +710,7 @@ class F1CarMultiThreadSystem:
 
                 if control_cmd.startswith("STATE:"):
                     # Pacote unificado: STATE:steering,throttle,brake
+                    t0 = time.monotonic()
                     parts = control_cmd[6:].split(",")
                     if len(parts) == 3:
                         steering = float(parts[0])
@@ -654,6 +723,13 @@ class F1CarMultiThreadSystem:
                             self.motor_mgr.set_throttle(throttle)
                         if self.brake_mgr:
                             self.brake_mgr.apply_brake(brake)
+                        t_state = time.monotonic() - t0
+                        if t_state > 0.050:
+                            warn(
+                                f"[DIAG] STATE CMD LENTO: {t_state*1000:.0f}ms "
+                                f"(steering+motor+brake com I2C lock)",
+                                "DIAG",
+                            )
 
                 elif control_cmd.startswith("BRAKE_BALANCE:"):
                     balance = float(control_cmd[14:])
