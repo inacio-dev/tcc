@@ -71,6 +71,44 @@ import threading
 import time
 from typing import Any, Dict, Optional
 
+class PriorityI2CLock:
+    """Lock I2C com prioridade para bus compartilhado.
+
+    Prioridades:
+        0 = Alta  (steering/brake - controle, segurança)
+        1 = Média (BMI160 - sensores)
+        2 = Baixa (INA219 - monitoramento)
+
+    Threads de alta prioridade passam na frente quando o lock está ocupado.
+    """
+
+    PRIORITY_HIGH = 0    # Steering, Brake
+    PRIORITY_MEDIUM = 1  # BMI160
+    PRIORITY_LOW = 2     # INA219
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._condition = threading.Condition(self._lock)
+        self._waiting = [0, 0, 0]  # Contadores por prioridade
+        self._busy = False
+
+    def acquire(self, priority: int = 1):
+        """Adquire o lock respeitando prioridade."""
+        with self._condition:
+            self._waiting[priority] += 1
+            # Espera se: bus ocupado OU alguém de maior prioridade esperando
+            while self._busy or any(self._waiting[p] > 0 for p in range(priority)):
+                self._condition.wait()
+            self._waiting[priority] -= 1
+            self._busy = True
+
+    def release(self):
+        """Libera o lock e notifica threads esperando."""
+        with self._condition:
+            self._busy = False
+            self._condition.notify_all()
+
+
 # Importa todos os gerenciadores
 try:
     from bmi160_manager import BMI160Manager
@@ -161,6 +199,10 @@ class F1CarMultiThreadSystem:
         self.temperature_mgr: Optional[TemperatureManager] = None
         self.power_mgr: Optional[PowerMonitorManager] = None
         self.rpi_sys_mgr: Optional[RpiSystemMonitor] = None
+
+        # === LOCK I2C COM PRIORIDADE (bus 1: BMI160 + PCA9685 + INA219) ===
+        # Prioridade: 0=alta (steering/brake), 1=média (BMI160), 2=baixa (INA219)
+        self.i2c_lock = PriorityI2CLock()
 
         # === FILAS THREAD-SAFE ===
         self.frame_queue = queue.Queue(maxsize=2)  # Últimos 2 frames
@@ -274,6 +316,7 @@ class F1CarMultiThreadSystem:
             sample_rate=self.sensor_rate,
             accel_range=BMI160Manager.ACCEL_RANGE_2G,
             gyro_range=BMI160Manager.GYRO_RANGE_250,
+            i2c_lock=self.i2c_lock,
         )
         if self.bmi160_mgr.initialize():
             self.system_status["sensors"] = "Online"
@@ -291,6 +334,7 @@ class F1CarMultiThreadSystem:
             brake_balance=self.brake_balance,
             max_brake_force=100.0,
             response_time=0.1,
+            i2c_lock=self.i2c_lock,
         )
         if self.brake_mgr.initialize():
             self.system_status["brakes"] = "Online"
@@ -318,6 +362,7 @@ class F1CarMultiThreadSystem:
             max_steering_angle=90.0,
             steering_mode=self.steering_mode,
             response_time=0.12,
+            i2c_lock=self.i2c_lock,
         )
         if self.steering_mgr.initialize():
             self.system_status["steering"] = "Online"
@@ -340,7 +385,7 @@ class F1CarMultiThreadSystem:
 
         # 8. Monitor de energia (Pro Micro USB Serial + INA219 I2C)
         debug("Inicializando monitor de energia...", "MAIN")
-        self.power_mgr = PowerMonitorManager(sample_rate=10, buffer_size=20)
+        self.power_mgr = PowerMonitorManager(sample_rate=10, buffer_size=20, i2c_lock=self.i2c_lock)
         if self.power_mgr.initialize():
             self.system_status["power"] = "Online"
             success_count += 1

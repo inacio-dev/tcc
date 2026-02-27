@@ -152,6 +152,7 @@ class BrakeManager:
         brake_balance: float = 50.0,  # 50% = balanceado
         max_brake_force: float = 100.0,
         response_time: float = 0.1,
+        i2c_lock=None,  # Lock compartilhado do bus I2C
     ):
         """
         Inicializa o sistema de freios
@@ -163,7 +164,9 @@ class BrakeManager:
             brake_balance (float): Balanço de freio 0-100% (0=mais dianteiro, 100=mais traseiro)
             max_brake_force (float): Força máxima de freio 0-100%
             response_time (float): Tempo de resposta do servo em segundos
+            i2c_lock: threading.Lock compartilhado entre dispositivos I2C
         """
+        self.i2c_lock = i2c_lock
         self.front_channel = front_channel or self.FRONT_BRAKE_CHANNEL
         self.rear_channel = rear_channel or self.REAR_BRAKE_CHANNEL
         self.pca9685_address = pca9685_address or self.PCA9685_I2C_ADDRESS
@@ -245,8 +248,16 @@ class BrakeManager:
             )
 
             # Posiciona servos na posição solta (freios liberados)
-            self.front_servo.angle = self.BRAKE_MIN_ANGLE
-            self.rear_servo.angle = self.BRAKE_MIN_ANGLE
+            if self.i2c_lock:
+                self.i2c_lock.acquire(priority=0)  # Alta
+                try:
+                    self.front_servo.angle = self.BRAKE_MIN_ANGLE
+                    self.rear_servo.angle = self.BRAKE_MIN_ANGLE
+                finally:
+                    self.i2c_lock.release()
+            else:
+                self.front_servo.angle = self.BRAKE_MIN_ANGLE
+                self.rear_servo.angle = self.BRAKE_MIN_ANGLE
             print(
                 f"✓ Servos posicionados na posição solta ({self.BRAKE_MIN_ANGLE}° = freios liberados)"
             )
@@ -384,13 +395,28 @@ class BrakeManager:
                 min(self.BRAKE_MAX_ANGLE, self.rear_brake_angle),
             )
 
-            # Só escreve no I2C se o ângulo mudou (evita contenção no bus)
-            if self._last_front_angle is None or abs(front_angle - self._last_front_angle) >= 0.1:
-                self.front_servo.angle = front_angle
-                self._last_front_angle = front_angle
-            if self._last_rear_angle is None or abs(rear_angle - self._last_rear_angle) >= 0.1:
-                self.rear_servo.angle = rear_angle
-                self._last_rear_angle = rear_angle
+            # Só escreve no I2C se o ângulo mudou (dedup)
+            front_changed = self._last_front_angle is None or abs(front_angle - self._last_front_angle) >= 0.1
+            rear_changed = self._last_rear_angle is None or abs(rear_angle - self._last_rear_angle) >= 0.1
+            if front_changed or rear_changed:
+                if self.i2c_lock:
+                    self.i2c_lock.acquire(priority=0)  # Alta
+                    try:
+                        if front_changed:
+                            self.front_servo.angle = front_angle
+                        if rear_changed:
+                            self.rear_servo.angle = rear_angle
+                    finally:
+                        self.i2c_lock.release()
+                else:
+                    if front_changed:
+                        self.front_servo.angle = front_angle
+                    if rear_changed:
+                        self.rear_servo.angle = rear_angle
+                if front_changed:
+                    self._last_front_angle = front_angle
+                if rear_changed:
+                    self._last_rear_angle = rear_angle
         else:
             print("⚠️ Servos de freio não inicializados!")
 

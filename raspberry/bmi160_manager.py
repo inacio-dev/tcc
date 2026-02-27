@@ -149,6 +149,7 @@ class BMI160Manager:
         accel_range=None,  # Será ACCEL_RANGE_2G por padrão
         gyro_range=None,  # Será GYRO_RANGE_250 por padrão
         i2c_address=None,  # Será I2C_ADDRESS_LOW por padrão
+        i2c_lock=None,  # Lock compartilhado do bus I2C
     ):
         """
         Inicializa o gerenciador do BMI160
@@ -158,7 +159,9 @@ class BMI160Manager:
             accel_range (int): Range do acelerômetro (usar constantes ACCEL_RANGE_*)
             gyro_range (int): Range do giroscópio (usar constantes GYRO_RANGE_*)
             i2c_address (int): Endereço I2C do sensor
+            i2c_lock: threading.Lock compartilhado entre dispositivos I2C
         """
+        self.i2c_lock = i2c_lock
         # Valores padrão recomendados para veículos (melhor dinâmica)
         self.accel_range = (
             accel_range if accel_range is not None else self.ACCEL_RANGE_4G
@@ -232,12 +235,17 @@ class BMI160Manager:
             return self.ODR_1600HZ
 
     def _write_register(self, reg, value):
-        """Escreve valor em registrador via I2C"""
+        """Escreve valor em registrador via I2C (prioridade média)"""
         try:
             if self.i2c_bus:
-                # I2C real com delay obrigatório
-                self.i2c_bus.write_byte_data(self.i2c_address, reg, value)
-                time.sleep(0.005)  # 5ms delay otimizado
+                if self.i2c_lock:
+                    self.i2c_lock.acquire(priority=1)
+                try:
+                    self.i2c_bus.write_byte_data(self.i2c_address, reg, value)
+                    time.sleep(0.005)  # 5ms delay otimizado
+                finally:
+                    if self.i2c_lock:
+                        self.i2c_lock.release()
             else:
                 print("⚠ I2C bus não inicializado")
                 return False
@@ -248,12 +256,17 @@ class BMI160Manager:
         return True
 
     def _read_register(self, reg):
-        """Lê valor de registrador via I2C"""
+        """Lê valor de registrador via I2C (prioridade média)"""
         try:
             if self.i2c_bus:
-                # I2C real com delay obrigatório
-                time.sleep(0.005)  # 5ms delay otimizado
-                return self.i2c_bus.read_byte_data(self.i2c_address, reg)
+                if self.i2c_lock:
+                    self.i2c_lock.acquire(priority=1)
+                try:
+                    time.sleep(0.005)  # 5ms delay otimizado
+                    return self.i2c_bus.read_byte_data(self.i2c_address, reg)
+                finally:
+                    if self.i2c_lock:
+                        self.i2c_lock.release()
             else:
                 print("⚠ I2C bus não inicializado")
                 return None
@@ -263,56 +276,51 @@ class BMI160Manager:
             return None
 
     def _read_sensor_registers(self, start_reg, num_bytes):
-        """Lê múltiplos registradores sequenciais com recuperação de erros"""
+        """Lê múltiplos registradores sequenciais (prioridade média)"""
         if not self.i2c_bus:
             print("⚠ I2C bus não inicializado")
             return None
 
-        # Tenta ler com até 3 tentativas
         for attempt in range(3):
             try:
-                # I2C real
-                return self.i2c_bus.read_i2c_block_data(
-                    self.i2c_address, start_reg, num_bytes
-                )
+                if self.i2c_lock:
+                    self.i2c_lock.acquire(priority=1)
+                try:
+                    return self.i2c_bus.read_i2c_block_data(
+                        self.i2c_address, start_reg, num_bytes
+                    )
+                finally:
+                    if self.i2c_lock:
+                        self.i2c_lock.release()
 
             except OSError as e:
                 if e.errno == 5:  # Input/output error
                     if attempt == 0:
-                        # Primeira tentativa falhou - aguarda um pouco
-                        time.sleep(0.001)  # 1ms
+                        time.sleep(0.001)
                     elif attempt == 1:
-                        # Segunda tentativa falhou - aguarda mais e tenta reinicializar I2C
-                        time.sleep(0.005)  # 5ms
+                        time.sleep(0.005)
                         try:
-                            # Tenta reinicializar o barramento I2C
                             import smbus2
-
                             self.i2c_bus = smbus2.SMBus(1)
                             time.sleep(0.001)
                         except Exception:
                             pass
                     else:
-                        # Terceira tentativa falhou - reporta erro mas não trava o sistema
                         if not hasattr(self, "_error_count"):
                             self._error_count = 0
                         self._error_count += 1
 
-                        # Só mostra erro a cada 50 falhas para evitar spam
                         if self._error_count % 50 == 0:
                             print(
                                 f"⚠ BMI160 I2C Error (erro #{self._error_count}): reg 0x{start_reg:02X}"
                             )
 
-                        # Retorna dados zero para manter o sistema funcionando
                         return [0] * num_bytes
                 else:
-                    # Outro tipo de erro OSError
                     print(f"⚠ Erro I2C ao ler reg 0x{start_reg:02X}: {e}")
                     return [0] * num_bytes
 
             except Exception as e:
-                # Outros erros
                 print(f"⚠ Erro inesperado ao ler reg 0x{start_reg:02X}: {e}")
                 return [0] * num_bytes
 

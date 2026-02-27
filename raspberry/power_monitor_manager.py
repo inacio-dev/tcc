@@ -123,6 +123,7 @@ class PowerMonitorManager:
         buffer_size: int = 20,
         ina219_address: int = None,
         serial_port: str = None,
+        i2c_lock=None,  # Lock compartilhado do bus I2C
     ):
         """
         Inicializa o gerenciador de monitoramento de energia
@@ -132,7 +133,9 @@ class PowerMonitorManager:
             buffer_size: Tamanho do buffer para médias móveis
             ina219_address: Endereço I2C do INA219 (padrão 0x40)
             serial_port: Porta serial do Pro Micro (None = auto-detect)
+            i2c_lock: threading.Lock compartilhado entre dispositivos I2C
         """
+        self.i2c_lock = i2c_lock
         self.sample_rate = min(max(sample_rate, 1), 100)
         self.buffer_size = buffer_size
         self.ina219_address = ina219_address or self.INA219_ADDRESS
@@ -509,19 +512,33 @@ class PowerMonitorManager:
             return False
 
     def _write_ina219_register(self, register: int, value: int):
-        """Escreve registrador de 16 bits no INA219"""
+        """Escreve registrador de 16 bits no INA219 (prioridade baixa)"""
         try:
             msb = (value >> 8) & 0xFF
             lsb = value & 0xFF
-            self.i2c_bus.write_i2c_block_data(self.ina219_address, register, [msb, lsb])
+            if self.i2c_lock:
+                self.i2c_lock.acquire(priority=2)  # Baixa
+                try:
+                    self.i2c_bus.write_i2c_block_data(self.ina219_address, register, [msb, lsb])
+                finally:
+                    self.i2c_lock.release()
+            else:
+                self.i2c_bus.write_i2c_block_data(self.ina219_address, register, [msb, lsb])
             return True
         except Exception:
             return False
 
     def _read_ina219_register(self, register: int) -> Optional[int]:
-        """Lê registrador de 16 bits do INA219"""
+        """Lê registrador de 16 bits do INA219 (prioridade baixa)"""
         try:
-            data = self.i2c_bus.read_i2c_block_data(self.ina219_address, register, 2)
+            if self.i2c_lock:
+                self.i2c_lock.acquire(priority=2)  # Baixa
+                try:
+                    data = self.i2c_bus.read_i2c_block_data(self.ina219_address, register, 2)
+                finally:
+                    self.i2c_lock.release()
+            else:
+                data = self.i2c_bus.read_i2c_block_data(self.ina219_address, register, 2)
             return (data[0] << 8) | data[1]
         except Exception:
             return None

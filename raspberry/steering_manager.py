@@ -156,6 +156,7 @@ class SteeringManager:
         max_steering_angle: float = 90.0,  # RANGE COMPLETO
         steering_mode: SteeringMode = SteeringMode.NORMAL,
         response_time: float = 0.15,
+        i2c_lock=None,  # Lock compartilhado do bus I2C
     ):
         """
         Inicializa o gerenciador de direção
@@ -167,7 +168,9 @@ class SteeringManager:
             max_steering_angle (float): Ângulo máximo de esterçamento
             steering_mode (SteeringMode): Modo de direção
             response_time (float): Tempo de resposta da direção
+            i2c_lock: threading.Lock compartilhado entre dispositivos I2C
         """
+        self.i2c_lock = i2c_lock
         self.steering_channel = steering_channel or self.STEERING_CHANNEL
         self.pca9685_address = pca9685_address or self.PCA9685_I2C_ADDRESS
 
@@ -239,7 +242,14 @@ class SteeringManager:
             print(f"✓ Servo direção configurado (canal {self.steering_channel})")
 
             # Posiciona servo na posição central
-            self.steering_servo.angle = self.STEERING_CENTER
+            if self.i2c_lock:
+                self.i2c_lock.acquire(priority=0)
+                try:
+                    self.steering_servo.angle = self.STEERING_CENTER
+                finally:
+                    self.i2c_lock.release()
+            else:
+                self.steering_servo.angle = self.STEERING_CENTER
             print(f"✓ Servo posicionado na posição central ({self.STEERING_CENTER}°)")
 
             # Aguarda servo se posicionar
@@ -307,9 +317,16 @@ class SteeringManager:
                     min(self.STEERING_MAX_ANGLE, self.servo_angle),
                 )
 
-                # Só escreve no I2C se o ângulo mudou (evita contenção no bus)
+                # Só escreve no I2C se o ângulo mudou (dedup)
                 if self._last_servo_angle is None or abs(final_angle - self._last_servo_angle) >= 0.1:
-                    self.steering_servo.angle = final_angle
+                    if self.i2c_lock:
+                        self.i2c_lock.acquire(priority=0)  # Alta
+                        try:
+                            self.steering_servo.angle = final_angle
+                        finally:
+                            self.i2c_lock.release()
+                    else:
+                        self.steering_servo.angle = final_angle
                     self._last_servo_angle = final_angle
 
                 # Log rate limited a cada 1s
