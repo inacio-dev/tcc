@@ -332,68 +332,64 @@ class NetworkManager:
         """Define callback para processar comandos personalizados"""
         self.command_callback = callback
 
+    def _resolve_hostname(self, hostname: str) -> str:
+        """Resolve hostname para IP numérico (evita mDNS em cada sendto)"""
+        try:
+            resolved = socket.gethostbyname(hostname)
+            info(f"Resolvido: {hostname} -> {resolved}", "NET")
+            return resolved
+        except socket.gaierror:
+            warn(f"Falha ao resolver {hostname}, usando hostname direto", "NET")
+            return hostname
+
     def set_fixed_client(self, client_ip: str, client_port: int):
         """Define cliente fixo para modo direto (sem descoberta)"""
+        resolved_ip = self._resolve_hostname(client_ip)
         with self.clients_lock:
-            self.connected_clients[client_ip] = {
+            self.connected_clients[resolved_ip] = {
                 "port": client_port,
                 "last_seen": time.time(),
             }
-            info(f"Cliente fixo configurado: {client_ip}:{client_port}", "NET")
+            info(f"Cliente fixo configurado: {resolved_ip}:{client_port}", "NET")
             debug(f"Total clientes: {len(self.connected_clients)}", "NET")
 
     def send_connect_to_client(self, client_ip: str, client_port: int = None):
         """
-        Envia comando CONNECT ativo para um cliente específico
-        Usado para iniciar conexão ou reestabelecer conexão perdida
+        Envia comando CONNECT ativo para um cliente específico.
+        Re-resolve hostname e atualiza IP em connected_clients.
 
         Args:
-            client_ip (str): IP do cliente
+            client_ip (str): IP ou hostname do cliente
             client_port (int): Porta do cliente (opcional, usa 9998 se não especificado)
         """
         try:
-            # Usa porta padrão se não especificada
             if client_port is None:
-                client_port = 9998  # Porta padrão de comandos do cliente
+                client_port = 9998
 
-            # Resolve hostname uma vez para evitar mDNS lento no sendto
-            t_resolve_start = time.monotonic()
-            try:
-                resolved_ip = socket.gethostbyname(client_ip)
-            except socket.gaierror:
-                resolved_ip = client_ip  # Fallback
-            t_resolve = time.monotonic() - t_resolve_start
-            if t_resolve > 0.050:
-                warn(
-                    f"[DIAG] mDNS LENTO: {client_ip} -> {resolved_ip} em {t_resolve*1000:.0f}ms",
-                    "DIAG",
-                )
+            # Re-resolve hostname (atualiza IP se DHCP mudou)
+            resolved_ip = self._resolve_hostname(client_ip)
 
-            # Monta comando CONNECT com informações do servidor
             connect_cmd = f"SERVER_CONNECT:{self.data_port}"
-
-            # Envia comando via UDP (usa IP resolvido)
             self.send_socket.sendto(
                 connect_cmd.encode("utf-8"), (resolved_ip, client_port)
             )
 
-            debug(f"Comando CONNECT enviado para {client_ip}:{client_port}", "NET")
+            debug(f"CONNECT enviado para {resolved_ip}:{client_port}", "NET")
 
-            # Adiciona cliente à lista se não existir
+            # Atualiza IP resolvido em connected_clients
             with self.clients_lock:
-                if client_ip not in self.connected_clients:
-                    self.connected_clients[client_ip] = {
-                        "port": self.data_port,  # Porta para envio de dados
+                # Remove hostname antigo se existir
+                if client_ip != resolved_ip and client_ip in self.connected_clients:
+                    del self.connected_clients[client_ip]
+
+                if resolved_ip not in self.connected_clients:
+                    self.connected_clients[resolved_ip] = {
+                        "port": self.data_port,
                         "last_seen": time.time(),
-                        "auto_connect": True,  # Marca como conexão automática
+                        "auto_connect": True,
                     }
-                    info(
-                        f"Cliente auto-adicionado: {client_ip}:{self.data_port}", "NET"
-                    )
                 else:
-                    # Atualiza timestamp de última conexão
-                    self.connected_clients[client_ip]["last_seen"] = time.time()
-                    debug(f"Cliente atualizado: {client_ip}", "NET")
+                    self.connected_clients[resolved_ip]["last_seen"] = time.time()
 
         except Exception as e:
             warn(f"Erro ao enviar CONNECT para {client_ip}:{client_port}: {e}", "NET")
@@ -661,7 +657,7 @@ class NetworkManager:
                         pass
             t_sendto = time.monotonic() - t_sendto_start
 
-            if t_serial > 0.010 or t_sendto > 0.010:
+            if t_serial > 0.050 or t_sendto > 0.050:
                 warn(
                     f"[DIAG] SENSOR SEND: serial={t_serial*1000:.0f}ms, "
                     f"sendto={t_sendto*1000:.0f}ms, size={len(sensor_bytes)}B",
