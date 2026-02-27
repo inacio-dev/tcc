@@ -203,6 +203,7 @@ class SteeringManager:
         self.start_time = time.time()
         self.last_movement_time = 0.0
         self._last_log_time = 0.0
+        self._last_servo_angle = None  # Dedup I2C writes
 
     def initialize(self) -> bool:
         """
@@ -306,8 +307,10 @@ class SteeringManager:
                     min(self.STEERING_MAX_ANGLE, self.servo_angle),
                 )
 
-                # COMANDO DIRETO - igual ao test_steering_direto_simples.py
-                self.steering_servo.angle = final_angle
+                # Só escreve no I2C se o ângulo mudou (evita contenção no bus)
+                if self._last_servo_angle is None or abs(final_angle - self._last_servo_angle) >= 0.1:
+                    self.steering_servo.angle = final_angle
+                    self._last_servo_angle = final_angle
 
                 # Log rate limited a cada 1s
                 now = time.time()

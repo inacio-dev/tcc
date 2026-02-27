@@ -584,7 +584,7 @@ class ConsoleInterface:
         self.ff_calculator.send_dynamic_effects(sensor_data)
 
         # Injetar inputs do G923 no sensor_data para exportação pickle
-        if self.g923_manager and self.g923_manager.is_connected():
+        if self.g923_manager:
             sensor_data["g923_steering"] = self.g923_manager._steering
             sensor_data["g923_throttle"] = self.g923_manager._throttle
             sensor_data["g923_brake"] = self.g923_manager._brake
@@ -852,9 +852,9 @@ class ConsoleInterface:
             if "client_net_tx_rate_kbps" in data:
                 self.client_vars["net_tx"].set(f"{data['client_net_tx_rate_kbps']:.1f}")
 
-            # Salva dados no histórico do sensor_display
-            if self.sensor_display and hasattr(self.sensor_display, 'current_data'):
-                self.sensor_display.current_data.update(data)
+            # Salva dados no display_data para que update_history() inclua no pickle
+            if self.sensor_display and hasattr(self.sensor_display, 'display_data'):
+                self.sensor_display.display_data.update(data)
 
         except Exception as e:
             error(f"Erro ao atualizar dados do cliente: {e}", "CONSOLE")

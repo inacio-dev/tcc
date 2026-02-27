@@ -193,6 +193,8 @@ class BrakeManager:
         self.i2c = None
         self.front_servo = None
         self.rear_servo = None
+        self._last_front_angle = None  # Dedup I2C writes
+        self._last_rear_angle = None
 
         # Estatísticas
         self.brake_applications = 0
@@ -382,9 +384,13 @@ class BrakeManager:
                 min(self.BRAKE_MAX_ANGLE, self.rear_brake_angle),
             )
 
-            # COMANDO DIRETO - igual ao test_brake_direto_simples.py
-            self.front_servo.angle = front_angle
-            self.rear_servo.angle = rear_angle
+            # Só escreve no I2C se o ângulo mudou (evita contenção no bus)
+            if self._last_front_angle is None or abs(front_angle - self._last_front_angle) >= 0.1:
+                self.front_servo.angle = front_angle
+                self._last_front_angle = front_angle
+            if self._last_rear_angle is None or abs(rear_angle - self._last_rear_angle) >= 0.1:
+                self.rear_servo.angle = rear_angle
+                self._last_rear_angle = rear_angle
         else:
             print("⚠️ Servos de freio não inicializados!")
 
