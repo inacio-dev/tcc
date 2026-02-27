@@ -282,7 +282,7 @@ class F1CarMultiThreadSystem:
         # 1. Rede (crítico - deve inicializar primeiro)
         debug("Inicializando rede UDP...", "MAIN")
         self.network_mgr = NetworkManager(
-            data_port=self.target_port, command_port=9998, buffer_size=131072
+            video_port=self.target_port, sensor_port=9997, command_port=9998, buffer_size=131072
         )
         self.network_mgr.command_callback = self._process_client_command
 
