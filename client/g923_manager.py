@@ -168,9 +168,10 @@ class G923Manager:
         self._last_periodic_key = None
         self._last_rumble_key = None
 
-        # Rate limiting — envio contínuo a 60Hz (~16.7ms entre envios)
+        # Rate limiting — envia apenas quando estado muda (max 60Hz)
         self._SEND_INTERVAL = 1.0 / 60.0  # ~16.7ms = 60Hz
         self._last_state_send = 0.0  # Timestamp do último envio STATE
+        self._state_dirty = False  # True quando eixo/botão mudou
 
         # Estatísticas
         self.commands_sent = 0
@@ -780,7 +781,7 @@ class G923Manager:
                 event = self.device.read_one()
 
                 if event is None:
-                    # Sem eventos — envia estado atual (rate limiter a 60Hz)
+                    # Envia se algo mudou (max 60Hz) ou heartbeat a cada 1s
                     self._send_current_state()
                     time.sleep(0.001)  # 1ms - evita busy loop
                     continue
@@ -804,14 +805,18 @@ class G923Manager:
         self._log("INFO", "Loop de input G923 parado")
 
     def _send_current_state(self):
-        """Envia estado unificado (steering,throttle,brake) a 60Hz"""
+        """Envia estado unificado (steering,throttle,brake) apenas quando mudou (max 60Hz)."""
+        if not self._state_dirty:
+            return
+
         now = time.time()
         if now - self._last_state_send < self._SEND_INTERVAL:
             return
+
         self._last_state_send = now
+        self._state_dirty = False
 
         if self.command_callback:
-            # Comando unificado: STATE:steering,throttle,brake
             self.command_callback(
                 "STATE", f"{self._steering},{self._throttle},{self._brake}"
             )
@@ -819,8 +824,8 @@ class G923Manager:
         self.last_command_time = now
 
     def _handle_axis(self, code: int, value: int):
-        """Processa evento de eixo — atualiza estado interno apenas.
-        O envio contínuo a 60Hz é feito por _send_current_state()."""
+        """Processa evento de eixo — marca estado como dirty para envio."""
+        self._state_dirty = True
 
         if code == self.ABS_STEERING:
             self._raw_steering = value

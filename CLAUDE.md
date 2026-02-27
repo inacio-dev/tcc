@@ -109,8 +109,8 @@ sudo systemctl enable --now avahi-daemon
 
 ### Network Protocol
 
-- **mDNS UDP**: RPi (`f1car.local:9999/9998`) ↔ Client (`f1client.local`)
-- **Ports**: 9999 (data), 9998 (commands)
+- **mDNS UDP**: RPi (`f1car.local`) ↔ Client (`f1client.local`)
+- **Ports**: 9999 (vídeo 30Hz, RPi→Client), 9997 (sensores 60Hz, RPi→Client), 9998 (comandos, Client→RPi)
 - **IP Filtering**: Client only accepts packets from configured RPi IP
 - **Commands**: CONNECT, DISCONNECT, PING, CONTROL:THROTTLE/BRAKE/STEERING/BRAKE_BALANCE/GEAR_UP/GEAR_DOWN
 

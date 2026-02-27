@@ -48,7 +48,8 @@ class NetworkManager:
 
     def __init__(
         self,
-        data_port: int = 9999,  # Porta para enviar dados (RPi -> Cliente)
+        video_port: int = 9999,  # Porta para enviar vídeo (RPi -> Cliente)
+        sensor_port: int = 9997,  # Porta para enviar sensores (RPi -> Cliente)
         command_port: int = 9998,  # Porta para receber comandos (Cliente -> RPi)
         buffer_size: int = 131072,
     ):
@@ -56,16 +57,20 @@ class NetworkManager:
         Inicializa o gerenciador de rede bidirecional
 
         Args:
-            data_port (int): Porta para envio de dados aos clientes (vídeo + sensores)
+            video_port (int): Porta para envio de vídeo aos clientes
+            sensor_port (int): Porta para envio de sensores aos clientes
             command_port (int): Porta para escutar comandos dos clientes
             buffer_size (int): Tamanho do buffer UDP em bytes
         """
-        self.data_port = data_port
+        self.video_port = video_port
+        self.sensor_port = sensor_port
+        self.data_port = video_port  # Compatibilidade (usado em send_packet)
         self.command_port = command_port
         self.buffer_size = buffer_size
 
         # Sockets UDP
-        self.send_socket = None  # Para enviar dados (vídeo + sensores)
+        self.send_socket = None  # Para enviar vídeo
+        self.sensor_socket = None  # Para enviar sensores
         self.receive_socket = None  # Para receber comandos
         self.is_initialized = False
 
@@ -105,11 +110,11 @@ class NetworkManager:
         try:
             info("Inicializando comunicação UDP bidirecional...", "NET")
             debug(
-                f"Porta dados: {self.data_port}, Comandos: {self.command_port}",
+                f"Portas: vídeo={self.video_port}, sensores={self.sensor_port}, comandos={self.command_port}",
                 "NET",
             )
 
-            # Cria socket para envio de dados (vídeo + sensores consolidados)
+            # Socket para envio de vídeo (porta 9999)
             self.send_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             self.send_socket.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 65536)
             self.send_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -119,6 +124,11 @@ class NetworkManager:
                 )  # IPTOS_LOWDELAY
             except (AttributeError, OSError):
                 pass
+
+            # Socket para envio de sensores (porta 9997)
+            self.sensor_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            self.sensor_socket.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 32768)
+            self.sensor_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
             # Cria socket para receber comandos
             self.receive_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -572,26 +582,78 @@ class NetworkManager:
             self.send_errors += 1
             return False
 
-    def send_frame_with_sensors(
-        self, frame_data: Optional[bytes], sensor_data: Dict[Any, Any]
-    ) -> bool:
+    def send_video_frame(self, frame_data: Optional[bytes]) -> bool:
         """
-        Envia frame de vídeo junto com dados de sensores
+        Envia frame de vídeo (porta 9999).
 
         Args:
-            frame_data (bytes): Dados do frame codificado
+            frame_data (bytes): Dados do frame MJPEG
+
+        Returns:
+            bool: True se enviado com sucesso
+        """
+        if not frame_data:
+            return False
+
+        # Pacote simples: 4 bytes tamanho + dados do frame
+        packet = struct.pack("<I", len(frame_data)) + frame_data
+
+        if len(packet) > self.MAX_PACKET_SIZE:
+            return self._send_fragmented(packet)
+        else:
+            return self._send_single_packet(packet)
+
+    def send_sensor_data(self, sensor_data: Dict[Any, Any]) -> bool:
+        """
+        Envia dados de sensores consolidados (porta 9997).
+
+        Args:
             sensor_data (dict): Dados dos sensores
 
         Returns:
             bool: True se enviado com sucesso
         """
-        # Cria pacote estruturado
-        packet = self.create_packet(frame_data, sensor_data)
-
-        if packet:
-            return self.send_packet(packet)
-        else:
+        if not self.is_initialized or not self.sensor_socket:
             return False
+        if not self.has_connected_clients():
+            return False
+
+        try:
+            cleaned = self._convert_numpy_types(sensor_data)
+            sensor_json = json.dumps(cleaned, ensure_ascii=False)
+            sensor_bytes = sensor_json.encode("utf-8")
+
+            success_count = 0
+            with self.clients_lock:
+                for client_ip, client_info in self.connected_clients.items():
+                    try:
+                        self.sensor_socket.sendto(
+                            sensor_bytes, (client_ip, self.sensor_port)
+                        )
+                        success_count += 1
+                    except Exception:
+                        pass
+
+            if success_count > 0:
+                self.packets_sent += 1
+                self.bytes_sent += len(sensor_bytes)
+                return True
+            return False
+
+        except Exception as e:
+            current_time = time.time()
+            if current_time - self.last_error_log > 5.0:
+                warn(f"Erro ao enviar sensores: {e}", "NET")
+                self.last_error_log = current_time
+            return False
+
+    def send_frame_with_sensors(
+        self, frame_data: Optional[bytes], sensor_data: Dict[Any, Any]
+    ) -> bool:
+        """Compatibilidade — envia vídeo + sensores separadamente"""
+        v = self.send_video_frame(frame_data)
+        s = self.send_sensor_data(sensor_data)
+        return v or s
 
     def send_termination_signal(self) -> bool:
         """
@@ -758,6 +820,9 @@ class NetworkManager:
             # Fecha sockets
             if self.send_socket:
                 self.send_socket.close()
+
+            if self.sensor_socket:
+                self.sensor_socket.close()
 
             if self.receive_socket:
                 self.receive_socket.close()

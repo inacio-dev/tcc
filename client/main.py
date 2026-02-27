@@ -156,7 +156,8 @@ class F1ClientApplication:
             # 1. Inicializa cliente de rede
             debug("Inicializando cliente de rede...", "CLIENT")
             self.network_client = NetworkClient(
-                port=self.port,
+                video_port=self.port,
+                sensor_port=9997,
                 command_port=9998,
                 buffer_size=self.buffer_size,
                 rpi_ip=self.rpi_ip,
@@ -585,8 +586,9 @@ def main():
     client_ip = "f1client.local"
 
     print("🔗 CONFIGURAÇÃO mDNS:")
-    print(f"   📡 Raspberry Pi: {rpi_ip}:9999 (dados)")
-    print(f"   🎮 Cliente: {client_ip}:9998 (comandos)")
+    print(f"   📹 Vídeo: {rpi_ip}:9999 (RPi → Client)")
+    print(f"   📊 Sensores: {rpi_ip}:9997 (RPi → Client)")
+    print(f"   🎮 Comandos: {client_ip}:9998 (Client → RPi)")
     print()
 
     # Criar e executar aplicação com IPs fixos

@@ -44,7 +44,8 @@ class NetworkClient:
 
     def __init__(
         self,
-        port=9999,
+        video_port=9999,
+        sensor_port=9997,
         command_port=9998,
         buffer_size=131072,
         host="0.0.0.0",
@@ -59,7 +60,8 @@ class NetworkClient:
         Inicializa o cliente de rede bidirecional
 
         Args:
-            port (int): Porta UDP para receber dados (vídeo + sensores)
+            video_port (int): Porta UDP para receber vídeo
+            sensor_port (int): Porta UDP para receber sensores
             command_port (int): Porta UDP para enviar comandos
             buffer_size (int): Tamanho do buffer UDP
             host (str): IP para escutar (0.0.0.0 = todas as interfaces)
@@ -68,7 +70,8 @@ class NetworkClient:
             sensor_queue (Queue): Fila para dados de sensores
             video_queue (Queue): Fila para frames de vídeo
         """
-        self.port = port
+        self.port = video_port
+        self.sensor_port = sensor_port
         self.command_port = command_port
         self.buffer_size = buffer_size
         self.host = host
@@ -94,8 +97,9 @@ class NetworkClient:
         self.video_queue = video_queue
 
         # Sockets UDP
-        self.receive_socket = None  # Para receber dados (vídeo + sensores)
-        self.send_socket = None  # Para enviar comandos
+        self.receive_socket = None  # Para receber vídeo (porta 9999)
+        self.sensor_socket = None  # Para receber sensores (porta 9997)
+        self.send_socket = None  # Para enviar comandos (porta 9998)
         self.is_running = False
 
         # Status da conexão
@@ -155,19 +159,26 @@ class NetworkClient:
         """
         try:
             self._log("INFO", "Inicializando cliente UDP bidirecional (Multi-Thread)")
-            self._log("INFO", f"Dados: porta {self.port}, Comandos: porta {self.command_port}")
+            self._log("INFO", f"Vídeo: porta {self.port}, Sensores: porta {self.sensor_port}, Comandos: porta {self.command_port}")
 
-            # Cria socket para receber dados (vídeo + sensores consolidados)
+            # Socket para receber vídeo (porta 9999)
             self.receive_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             self.receive_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             self.receive_socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 65536)
             self.receive_socket.settimeout(1.0)
             self.receive_socket.bind((self.host, self.port))
 
-            # Cria socket para enviar comandos
+            # Socket para receber sensores (porta 9997)
+            self.sensor_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            self.sensor_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self.sensor_socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 32768)
+            self.sensor_socket.settimeout(1.0)
+            self.sensor_socket.bind((self.host, self.sensor_port))
+
+            # Socket para enviar comandos (porta 9998)
             self.send_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-            self._log("INFO", "Sockets UDP inicializados")
+            self._log("INFO", "Sockets UDP inicializados (vídeo + sensores + comandos)")
             self._log("INFO", "Aguardando dados do Raspberry Pi...")
 
             return True
@@ -491,108 +502,148 @@ class NetworkClient:
             self.last_stats_time = current_time
 
     def run_receiver(self):
-        """Loop principal de recepção de dados (Multi-Thread)"""
+        """Inicia recepção em 2 threads: vídeo (9999) + sensores (9997)"""
         if not self.initialize():
             self._log("ERROR", "Falha ao inicializar cliente de rede")
             return
 
         self.is_running = True
         self._log("INFO", "Cliente de rede iniciado")
-        self._log("INFO", f"Dados: {self.rpi_ip}:{self.port}")
+        self._log("INFO", f"Vídeo: {self.rpi_ip}:{self.port}, Sensores: {self.rpi_ip}:{self.sensor_port}")
 
-        # Configura endereço do RPi mas NÃO marca como conectado ainda
-        # Conexão real só é confirmada quando recebemos pacotes
         if self.rpi_ip:
             self.raspberry_pi_ip = self.rpi_ip
             self._log("INFO", f"Raspberry Pi configurado: {self.raspberry_pi_ip} (aguardando conexão)")
 
+        # Thread de sensores roda em background
+        self._sensor_rx_thread = threading.Thread(
+            target=self._sensor_receiver_loop, name="SensorRX", daemon=True
+        )
+        self._sensor_rx_thread.start()
+
+        # Thread principal: recepção de vídeo
         try:
-            while self.is_running:
-                try:
-                    # Recebe pacote de dados
-                    packet, addr = self.receive_socket.recvfrom(self.buffer_size)
-
-                    # Filtra: só aceita pacotes do IP configurado
-                    if self.rpi_ip and addr[0] != self.rpi_ip:
-                        continue  # Ignora pacotes de outros IPs
-
-                    # Confirma conexão no primeiro pacote recebido
-                    if not self.is_connected_to_rpi:
-                        self.raspberry_pi_ip = addr[0]
-                        self.is_connected_to_rpi = True
-                        self._log(
-                            "INFO",
-                            f"🔗 Raspberry Pi conectado: {self.raspberry_pi_ip}",
-                        )
-                        self._log("INFO", "✅ Conexão estabelecida!")
-
-                    # Atualiza estatísticas
-                    self.packets_received += 1
-                    self.bytes_received += len(packet)
-
-                    # Atualiza status da conexão
-                    self.update_connection_status(addr)
-
-                    # Verifica se é um comando de texto (como SERVER_CONNECT)
-                    try:
-                        packet_str = packet.decode("utf-8")
-                        if packet_str.startswith("SERVER_CONNECT"):
-                            self._log(
-                                "INFO",
-                                "🔄 Recebido comando de reconexão do Raspberry Pi",
-                            )
-                            # Marca como conectado/reconectado
-                            self.raspberry_pi_ip = addr[0]
-                            self.is_connected_to_rpi = True
-                            self._update_status(
-                                {
-                                    "connection": f"Reconectado com {addr[0]}",
-                                    "status": "Ativo via SERVER_CONNECT",
-                                }
-                            )
-                            continue  # Pula processamento como dados binários
-                    except UnicodeDecodeError:
-                        # Não é comando de texto, processa como dados binários
-                        pass
-
-                    # Processa pacote
-                    frame_data, sensor_data = self.parse_packet(packet)
-
-                    # Verifica sinal de término
-                    if frame_data == "TERMINATE":
-                        break
-
-                    # Envia frame de vídeo
-                    if frame_data is not None:
-                        self.frames_received += 1
-                        self._send_video_frame(frame_data)
-
-                    # Envia dados de sensores
-                    if sensor_data is not None:
-                        self.sensor_packets_received += 1
-                        self._send_sensor_data(sensor_data)
-
-                    # Atualiza estatísticas periodicamente
-                    self.update_statistics()
-
-                except socket.timeout:
-                    # Timeout é normal, verifica conexão
-                    self.check_connection_timeout()
-                    continue
-
-                except Exception as e:
-                    current_time = time.time()
-                    if (
-                        current_time - self.last_error_log > 5.0
-                    ):  # Log a cada 5 segundos
-                        self._log("ERROR", f"Erro na recepção: {e}")
-                        self.last_error_log = current_time
-                    time.sleep(0.001)  # Sleep mínimo para tempo real
-
+            self._video_receiver_loop()
         except KeyboardInterrupt:
             self._log("INFO", "Recepção interrompida pelo usuário")
         finally:
             self.stop()
+
+    def _confirm_connection(self, addr):
+        """Confirma conexão no primeiro pacote recebido"""
+        if not self.is_connected_to_rpi:
+            self.raspberry_pi_ip = addr[0]
+            self.is_connected_to_rpi = True
+            self._log("INFO", f"🔗 Raspberry Pi conectado: {self.raspberry_pi_ip}")
+            self._log("INFO", "✅ Conexão estabelecida!")
+
+    def _video_receiver_loop(self):
+        """Recebe frames de vídeo (porta 9999)"""
+        while self.is_running:
+            try:
+                packet, addr = self.receive_socket.recvfrom(self.buffer_size)
+
+                if self.rpi_ip and addr[0] != self.rpi_ip:
+                    continue
+
+                self._confirm_connection(addr)
+                self.packets_received += 1
+                self.bytes_received += len(packet)
+                self.update_connection_status(addr)
+
+                # Verifica comando de texto (SERVER_CONNECT)
+                try:
+                    packet_str = packet.decode("utf-8")
+                    if packet_str.startswith("SERVER_CONNECT"):
+                        self._log("INFO", "🔄 Recebido comando de reconexão do Raspberry Pi")
+                        self.raspberry_pi_ip = addr[0]
+                        self.is_connected_to_rpi = True
+                        self._update_status({
+                            "connection": f"Reconectado com {addr[0]}",
+                            "status": "Ativo via SERVER_CONNECT",
+                        })
+                        continue
+                except UnicodeDecodeError:
+                    pass
+
+                # Pacote de vídeo: 4 bytes tamanho + dados do frame
+                frame_data = self._parse_video_packet(packet)
+                if frame_data == "TERMINATE":
+                    break
+                if frame_data is not None:
+                    self.frames_received += 1
+                    self._send_video_frame(frame_data)
+
+                self.update_statistics()
+
+            except socket.timeout:
+                self.check_connection_timeout()
+            except Exception as e:
+                current_time = time.time()
+                if current_time - self.last_error_log > 5.0:
+                    self._log("ERROR", f"Erro na recepção de vídeo: {e}")
+                    self.last_error_log = current_time
+                time.sleep(0.001)
+
+    def _sensor_receiver_loop(self):
+        """Recebe dados de sensores (porta 9997)"""
+        while self.is_running:
+            try:
+                packet, addr = self.sensor_socket.recvfrom(32768)
+
+                if self.rpi_ip and addr[0] != self.rpi_ip:
+                    continue
+
+                self._confirm_connection(addr)
+
+                # Pacote de sensores: JSON direto
+                try:
+                    sensor_data = json.loads(packet.decode("utf-8"))
+                    self.sensor_packets_received += 1
+                    self._send_sensor_data(sensor_data)
+                except (json.JSONDecodeError, UnicodeDecodeError):
+                    self.decode_errors += 1
+
+            except socket.timeout:
+                continue
+            except Exception as e:
+                current_time = time.time()
+                if current_time - self.last_error_log > 5.0:
+                    self._log("ERROR", f"Erro na recepção de sensores: {e}")
+                    self.last_error_log = current_time
+                time.sleep(0.001)
+
+    def _parse_video_packet(self, packet):
+        """Parse de pacote de vídeo (4 bytes tamanho + frame data).
+        Compatível com pacotes antigos (frame_size + sensor_size + data)."""
+        try:
+            if len(packet) < 4:
+                return None
+
+            # Verifica se é fragmento
+            if len(packet) >= 4:
+                magic = struct.unpack("<I", packet[:4])[0]
+                if magic == self.FRAG_MAGIC:
+                    return self._handle_fragment(packet)
+
+            frame_size = struct.unpack("<I", packet[:4])[0]
+
+            if frame_size == 0:
+                # Pode ser pacote antigo com sensor_size no offset 4
+                if len(packet) >= 8:
+                    sensor_size = struct.unpack("<I", packet[4:8])[0]
+                    if sensor_size == 0:
+                        return "TERMINATE"
+                return None
+
+            # Novo formato: 4 bytes tamanho + frame
+            if len(packet) >= 4 + frame_size:
+                return packet[4:4 + frame_size]
+
+            return None
+        except Exception:
+            self.packet_errors += 1
+            return None
 
     def get_statistics(self):
         """
@@ -644,6 +695,12 @@ class NetworkClient:
         if self.receive_socket:
             try:
                 self.receive_socket.close()
+            except Exception:
+                pass
+
+        if self.sensor_socket:
+            try:
+                self.sensor_socket.close()
             except Exception:
                 pass
 

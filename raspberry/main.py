@@ -9,8 +9,9 @@ ARQUITETURA DE THREADS:
 ├── Thread Sensores (60Hz)    - Lê BMI160 em alta taxa
 ├── Thread Energia (10Hz)     - Monitora Pro Micro (serial) + INA219 (I2C)
 ├── Thread Temperatura (1Hz)  - Lê DS18B20
-├── Thread TX Rede (60Hz)     - Consolida e transmite dados
-└── Thread RX Comandos        - Recebe comandos (daemon no NetworkManager)
+├── Thread TX Vídeo (30Hz)    - Transmite frames MJPEG (porta 9999)
+├── Thread TX Sensores (60Hz) - Transmite dados consolidados (porta 9997)
+└── Thread RX Comandos        - Recebe comandos (daemon no NetworkManager, porta 9998)
 
 COMUNICAÇÃO ENTRE THREADS:
 =========================
@@ -226,7 +227,8 @@ class F1CarMultiThreadSystem:
         self.sensor_thread: Optional[threading.Thread] = None
         self.power_thread: Optional[threading.Thread] = None
         self.temp_thread: Optional[threading.Thread] = None
-        self.network_tx_thread: Optional[threading.Thread] = None
+        self.video_tx_thread: Optional[threading.Thread] = None
+        self.sensor_tx_thread: Optional[threading.Thread] = None
 
         # === CONTROLE DE EXECUÇÃO ===
         self.running = False
@@ -537,9 +539,32 @@ class F1CarMultiThreadSystem:
 
         debug("Thread de temperatura finalizada", "TEMP")
 
-    def _network_tx_thread_loop(self):
-        """Thread dedicada para transmissão de rede (60Hz)"""
-        debug("Thread de transmissão iniciada", "NET-TX")
+    def _video_tx_thread_loop(self):
+        """Thread dedicada para transmissão de vídeo (30Hz, porta 9999)"""
+        debug("Thread TX vídeo iniciada (30Hz)", "NET-TX")
+        interval = 1.0 / 30.0  # 30Hz
+
+        while self.running:
+            try:
+                with self.current_data_lock:
+                    frame_data = self.current_frame
+
+                if self.network_mgr and self.system_status["network"] == "Online":
+                    if self.network_mgr.send_video_frame(frame_data):
+                        with self.stats_lock:
+                            self.packets_sent += 1
+
+                time.sleep(interval)
+
+            except Exception as e:
+                warn(f"Erro na thread TX vídeo: {e}", "NET-TX", rate_limit=5.0)
+                time.sleep(0.01)
+
+        debug("Thread TX vídeo finalizada", "NET-TX")
+
+    def _sensor_tx_thread_loop(self):
+        """Thread dedicada para transmissão de sensores (60Hz, porta 9997)"""
+        debug("Thread TX sensores iniciada (60Hz)", "NET-TX")
         interval = 1.0 / 60.0  # 60Hz
         last_stats_time = time.time()
         last_connect_ping = time.time()
@@ -550,7 +575,6 @@ class F1CarMultiThreadSystem:
 
                 # === COLETA DADOS ATUAIS ===
                 with self.current_data_lock:
-                    frame_data = self.current_frame
                     sensor_data = self.current_sensor_data.copy()
                     power_data = self.current_power_data.copy()
                     temp_data = self.current_temp_data.copy()
@@ -569,7 +593,7 @@ class F1CarMultiThreadSystem:
                 if self.steering_mgr and self.system_status["steering"] == "Online":
                     steering_status = self.steering_mgr.get_steering_status()
 
-                # === CONSOLIDA DADOS ===
+                # === CONSOLIDA E TRANSMITE ===
                 consolidated_data = {
                     **sensor_data,
                     **motor_status,
@@ -582,14 +606,8 @@ class F1CarMultiThreadSystem:
                     "system_uptime": current_time - self.start_time,
                 }
 
-                # === TRANSMITE ===
                 if self.network_mgr and self.system_status["network"] == "Online":
-                    success = self.network_mgr.send_frame_with_sensors(
-                        frame_data, consolidated_data
-                    )
-                    if success:
-                        with self.stats_lock:
-                            self.packets_sent += 1
+                    self.network_mgr.send_sensor_data(consolidated_data)
 
                 # === PING PERIÓDICO (a cada 10s) ===
                 if current_time - last_connect_ping >= 10.0:
@@ -604,10 +622,10 @@ class F1CarMultiThreadSystem:
                 time.sleep(interval)
 
             except Exception as e:
-                warn(f"Erro na thread de transmissão: {e}", "NET-TX", rate_limit=5.0)
+                warn(f"Erro na thread TX sensores: {e}", "NET-TX", rate_limit=5.0)
                 time.sleep(0.01)
 
-        debug("Thread de transmissão finalizada", "NET-TX")
+        debug("Thread TX sensores finalizada", "NET-TX")
 
     # === PROCESSAMENTO DE COMANDOS ===
 
@@ -761,8 +779,11 @@ class F1CarMultiThreadSystem:
         self.temp_thread = threading.Thread(
             target=self._temp_thread_loop, name="TempThread", daemon=True
         )
-        self.network_tx_thread = threading.Thread(
-            target=self._network_tx_thread_loop, name="NetworkTXThread", daemon=True
+        self.video_tx_thread = threading.Thread(
+            target=self._video_tx_thread_loop, name="VideoTXThread", daemon=True
+        )
+        self.sensor_tx_thread = threading.Thread(
+            target=self._sensor_tx_thread_loop, name="SensorTXThread", daemon=True
         )
 
         # Inicia threads
@@ -770,7 +791,8 @@ class F1CarMultiThreadSystem:
         self.sensor_thread.start()
         self.power_thread.start()
         self.temp_thread.start()
-        self.network_tx_thread.start()
+        self.video_tx_thread.start()
+        self.sensor_tx_thread.start()
 
         info("Sistema multi-thread ativo - Ctrl+C para parar", "MAIN")
 
@@ -797,7 +819,8 @@ class F1CarMultiThreadSystem:
             ("sensor", self.sensor_thread),
             ("power", self.power_thread),
             ("temp", self.temp_thread),
-            ("network_tx", self.network_tx_thread),
+            ("video_tx", self.video_tx_thread),
+            ("sensor_tx", self.sensor_tx_thread),
         ]
 
         for name, thread in threads:
