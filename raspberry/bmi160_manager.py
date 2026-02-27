@@ -217,6 +217,10 @@ class BMI160Manager:
         self.start_time = time.time()
         self.readings_count = 0
 
+        # Watchdog: detecta zeros consecutivos (brown-out recovery)
+        self._consecutive_zeros = 0
+        self._ZERO_THRESHOLD = 5  # Re-inicializa após 5 leituras zeradas
+
     def _get_odr_value(self, sample_rate):
         """Converte sample_rate para valor ODR do registrador"""
         if sample_rate <= 25:
@@ -510,6 +514,59 @@ class BMI160Manager:
         }
         return range_map.get(self.gyro_range, 250)
 
+    def _rewake_sensor(self):
+        """Re-ativa PMU do BMI160 após brown-out (sem soft reset completo).
+        Quando o motor causa queda de tensão, o BMI160 pode voltar a suspend mode."""
+        try:
+            print("⚠ BMI160: detectado zeros consecutivos — re-ativando PMU...")
+
+            # Re-ativa acelerômetro (CMD 0x11 = acc normal mode)
+            self._write_register(self.REG_CMD, self.CMD_ACC_SET_PMU_MODE)
+            time.sleep(0.010)
+
+            # Re-configura acelerômetro
+            self._write_register(self.REG_ACC_RANGE, self.accel_range)
+            acc_conf = self.odr_value | (0x02 << 4)
+            self._write_register(self.REG_ACC_CONF, acc_conf)
+
+            # Re-ativa giroscópio (CMD 0x15 = gyro normal mode)
+            self._write_register(self.REG_CMD, self.CMD_GYR_SET_PMU_MODE)
+            time.sleep(0.080)  # Gyro startup time conforme datasheet
+
+            # Re-configura giroscópio
+            self._write_register(self.REG_GYR_RANGE, self.gyro_range)
+            gyr_conf = self.odr_value | (0x02 << 4)
+            self._write_register(self.REG_GYR_CONF, gyr_conf)
+
+            time.sleep(0.050)
+
+            # Testa se voltou
+            test = self._read_sensor_registers(self.REG_ACCEL_DATA, 6)
+            if test and any(b != 0 for b in test):
+                print("✓ BMI160: PMU re-ativado com sucesso")
+                self._consecutive_zeros = 0
+                return True
+            else:
+                print("⚠ BMI160: PMU re-ativado mas ainda zerado, tentando soft reset...")
+                self._write_register(self.REG_CMD, self.CMD_SOFT_RESET)
+                time.sleep(0.200)
+                self._write_register(self.REG_CMD, self.CMD_ACC_SET_PMU_MODE)
+                time.sleep(0.010)
+                self._write_register(self.REG_CMD, self.CMD_GYR_SET_PMU_MODE)
+                time.sleep(0.080)
+                self._write_register(self.REG_ACC_RANGE, self.accel_range)
+                self._write_register(self.REG_ACC_CONF, acc_conf)
+                self._write_register(self.REG_GYR_RANGE, self.gyro_range)
+                self._write_register(self.REG_GYR_CONF, gyr_conf)
+                time.sleep(0.050)
+                self._consecutive_zeros = 0
+                print("✓ BMI160: soft reset completo")
+                return True
+
+        except Exception as e:
+            print(f"❌ BMI160 rewake falhou: {e}")
+            return False
+
     def read_sensor_data(self):
         """Lê dados raw do sensor BMI160 conforme datasheet"""
         if not self.is_initialized:
@@ -532,13 +589,23 @@ class BMI160Manager:
             else:
                 self._last_gyro_data = gyro_data
 
+            # Watchdog: detecta brown-out (todos bytes zero = sensor em suspend)
+            all_zero = all(b == 0 for b in accel_data) and all(b == 0 for b in gyro_data)
+            if all_zero:
+                self._consecutive_zeros += 1
+                if self._consecutive_zeros >= self._ZERO_THRESHOLD:
+                    self._rewake_sensor()
+                    return True  # Usa dados anteriores neste ciclo
+            else:
+                self._consecutive_zeros = 0
+
             # Debug: mostrar dados raw lidos do I2C
             if hasattr(self, "_debug_counter"):
                 self._debug_counter += 1
             else:
                 self._debug_counter = 1
 
-            if self._debug_counter % 200 == 0:  # A cada ~1s
+            if self._debug_counter % 200 == 0:  # A cada ~3s
                 print(
                     f"🔍 BMI160 RAW I2C: accel_data={accel_data}, gyro_data={gyro_data}"
                 )

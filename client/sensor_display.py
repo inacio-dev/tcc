@@ -704,15 +704,17 @@ class SensorDisplay:
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 filename = f"sensor_history_{timestamp}.pkl"
 
+            # Snapshot rápido sob lock, I/O fora do lock
             with self.data_lock:
                 if len(self.history["timestamp"]) == 0:
                     return None
+                snapshot = {k: list(v) for k, v in self.history.items()}
 
-                # Pickle direto do dict - muito mais rápido que CSV
-                with open(filename, "wb") as f:
-                    pickle.dump(dict(self.history), f, protocol=pickle.HIGHEST_PROTOCOL)
+            # Pickle fora do lock — não bloqueia sensor updates
+            with open(filename, "wb") as f:
+                pickle.dump(snapshot, f, protocol=pickle.HIGHEST_PROTOCOL)
 
-                return filename
+            return filename
 
         except Exception as e:
             print(f"[EXPORT] Erro pickle: {e}")

@@ -160,6 +160,14 @@ class G923Manager:
         self._endstop_active = False
         self._ff_lock = threading.Lock()
 
+        # Cache de valores FF — evita upload_effect redundante (ioctl bloqueante)
+        self._last_spring_coeff = -1
+        self._last_damper_coeff = -1
+        self._last_friction_coeff = -1
+        self._last_inertia_coeff = -1
+        self._last_periodic_key = None
+        self._last_rumble_key = None
+
         # Rate limiting — envio contínuo a 60Hz (~16.7ms entre envios)
         self._SEND_INTERVAL = 1.0 / 60.0  # ~16.7ms = 60Hz
         self._last_state_send = 0.0  # Timestamp do último envio STATE
@@ -450,72 +458,65 @@ class G923Manager:
         """
         Atualiza FF_SPRING (centering spring).
         Força mínima de MIN_SPRING_PCT para simular peso mecânico.
-
-        Args:
-            coefficient_pct: 0-100%. Controla a rigidez da mola de centralização.
         """
+        pct = max(self.MIN_SPRING_PCT, min(100, coefficient_pct))
+        coeff = int(pct / 100.0 * 32767)
+        if coeff == self._last_spring_coeff:
+            return
         with self._ff_lock:
-            pct = max(self.MIN_SPRING_PCT, min(100, coefficient_pct))
-            coeff = int(pct / 100.0 * 32767)
             self._update_condition_effect(
                 self._ff_spring_id, ecodes.FF_SPRING, coeff, coeff
             )
+            self._last_spring_coeff = coeff
 
     def update_damper(self, coefficient_pct: float):
-        """
-        Atualiza FF_DAMPER (amortecimento).
-
-        Args:
-            coefficient_pct: 0-100%. Resistência proporcional à velocidade do volante.
-        """
+        """Atualiza FF_DAMPER (amortecimento)."""
+        coeff = int(max(0, min(100, coefficient_pct)) / 100.0 * 32767)
+        if coeff == self._last_damper_coeff:
+            return
         with self._ff_lock:
-            coeff = int(max(0, min(100, coefficient_pct)) / 100.0 * 32767)
             self._update_condition_effect(
                 self._ff_damper_id, ecodes.FF_DAMPER, coeff, coeff
             )
+            self._last_damper_coeff = coeff
 
     def update_friction(self, coefficient_pct: float):
         """
         Atualiza FF_FRICTION (atrito/grip do pneu).
         Força mínima de MIN_FRICTION_PCT para simular resistência mecânica.
-
-        Args:
-            coefficient_pct: 0-100%. Resistência constante ao movimento.
         """
+        pct = max(self.MIN_FRICTION_PCT, min(100, coefficient_pct))
+        coeff = int(pct / 100.0 * 32767)
+        if coeff == self._last_friction_coeff:
+            return
         with self._ff_lock:
-            pct = max(self.MIN_FRICTION_PCT, min(100, coefficient_pct))
-            coeff = int(pct / 100.0 * 32767)
             self._update_condition_effect(
                 self._ff_friction_id, ecodes.FF_FRICTION, coeff, coeff
             )
+            self._last_friction_coeff = coeff
 
     def update_inertia(self, coefficient_pct: float):
-        """
-        Atualiza FF_INERTIA (peso do volante — aumenta com velocidade).
-
-        Args:
-            coefficient_pct: 0-100%. Resistência baseada na aceleração angular do volante.
-        """
+        """Atualiza FF_INERTIA (peso do volante — aumenta com velocidade)."""
+        coeff = int(max(0, min(100, coefficient_pct)) / 100.0 * 32767)
+        if coeff == self._last_inertia_coeff:
+            return
         with self._ff_lock:
-            coeff = int(max(0, min(100, coefficient_pct)) / 100.0 * 32767)
             self._update_condition_effect(
                 self._ff_inertia_id, ecodes.FF_INERTIA, coeff, coeff
             )
+            self._last_inertia_coeff = coeff
 
     def update_rumble(self, strong_pct: float, weak_pct: float):
-        """
-        Atualiza FF_RUMBLE (vibração de impactos/estrada).
-
-        Args:
-            strong_pct: Motor forte 0-100% (impactos bruscos, bumps)
-            weak_pct: Motor fraco 0-100% (vibração contínua, textura da estrada)
-        """
+        """Atualiza FF_RUMBLE (vibração de impactos/estrada)."""
         if self._ff_rumble_id < 0 or not self.device:
+            return
+        strong = int(max(0, min(100, strong_pct)) / 100.0 * 65535)
+        weak = int(max(0, min(100, weak_pct)) / 100.0 * 65535)
+        key = (strong, weak)
+        if key == self._last_rumble_key:
             return
         with self._ff_lock:
             try:
-                strong = int(max(0, min(100, strong_pct)) / 100.0 * 65535)
-                weak = int(max(0, min(100, weak_pct)) / 100.0 * 65535)
                 effect = ff.Effect(
                     ecodes.FF_RUMBLE, self._ff_rumble_id, 0,
                     ff.Trigger(0, 0),
@@ -523,24 +524,22 @@ class G923Manager:
                     ff.EffectType(ff_rumble_effect=ff.Rumble(strong, weak)),
                 )
                 self.device.upload_effect(effect)
+                self._last_rumble_key = key
             except Exception:
                 pass
 
     def update_periodic(self, period_ms: int, magnitude_pct: float):
-        """
-        Atualiza FF_PERIODIC (vibração senoidal — engine RPM).
-
-        Args:
-            period_ms: Período em ms (40=25Hz idle, 20=50Hz high RPM)
-            magnitude_pct: Magnitude 0-100%
-        """
+        """Atualiza FF_PERIODIC (vibração senoidal — engine RPM)."""
         if self._ff_periodic_id < 0 or not self.device:
+            return
+        mag = int(max(0, min(100, magnitude_pct)) / 100.0 * 32767)
+        key = (max(1, period_ms), mag)
+        if key == self._last_periodic_key:
             return
         with self._ff_lock:
             try:
-                mag = int(max(0, min(100, magnitude_pct)) / 100.0 * 32767)
                 per = ff.Periodic(
-                    ecodes.FF_SINE, max(1, period_ms), mag, 0, 0,
+                    ecodes.FF_SINE, key[0], mag, 0, 0,
                     ff.Envelope(0, 0, 0, 0),
                 )
                 effect = ff.Effect(
@@ -550,6 +549,7 @@ class G923Manager:
                     ff.EffectType(ff_periodic_effect=per),
                 )
                 self.device.upload_effect(effect)
+                self._last_periodic_key = key
             except Exception:
                 pass
 
