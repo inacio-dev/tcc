@@ -270,6 +270,24 @@ class ConsoleInterface:
             "readings_count": tk.StringVar(value="0"),
         }
 
+        # Variáveis de monitoramento dos efeitos FF (atualizadas a cada pacote BMI160)
+        self.ff_monitor_vars = {
+            "ff_constant": tk.StringVar(value="0% neutral"),
+            "ff_rumble": tk.StringVar(value="S:0%  W:0%"),
+            "ff_periodic": tk.StringVar(value="40ms  3%"),
+            "ff_inertia": tk.StringVar(value="5%"),
+            "ff_spring": tk.StringVar(value="75%"),
+            "ff_damper": tk.StringVar(value="50%"),
+            "ff_friction": tk.StringVar(value="30%"),
+            "ff_context": tk.StringVar(value="Idle"),
+            "ff_jerk_frontal": tk.StringVar(value="0.0"),
+            "ff_jerk_vertical": tk.StringVar(value="0.0"),
+            "ff_jerk_throttle": tk.StringVar(value="0.0"),
+            "ff_jerk_brake": tk.StringVar(value="0.0"),
+            "ff_jerk_steering": tk.StringVar(value="0.0"),
+            "ff_roughness": tk.StringVar(value="0.0"),
+        }
+
         # Variáveis do sistema cliente (notebook/PC)
         self.client_vars = {
             "cpu_usage": tk.StringVar(value="--"),
@@ -582,6 +600,9 @@ class ConsoleInterface:
 
         # Enviar efeitos dinâmicos (rumble, periodic, inertia) baseados nos sensores
         self.ff_calculator.send_dynamic_effects(sensor_data)
+
+        # Atualizar monitor de efeitos FF na UI
+        self._update_ff_monitor(sensor_data, ff_intensity, ff_direction)
 
         # Injetar inputs do G923 no sensor_data para exportação pickle
         if self.g923_manager:
@@ -1248,6 +1269,40 @@ class ConsoleInterface:
                 self.g923_manager.update_spring(sensitivity)
         except Exception as e:
             error(f"Erro ao alterar sensitivity: {e}", "FF")
+
+    def _update_ff_monitor(self, sensor_data, ff_intensity, ff_direction):
+        """Atualiza variáveis do monitor de efeitos FF na UI"""
+        try:
+            if not hasattr(self, "ff_monitor_vars"):
+                return
+            v = self.ff_monitor_vars
+
+            # Efeitos dinâmicos
+            v["ff_constant"].set(f"{ff_intensity:.0f}% {ff_direction}")
+            strong = sensor_data.get("rumble_strong", 0)
+            weak = sensor_data.get("rumble_weak", 0)
+            v["ff_rumble"].set(f"S:{strong:.0f}%  W:{weak:.0f}%")
+            period = sensor_data.get("periodic_period_ms", 40)
+            mag = sensor_data.get("periodic_magnitude", 3)
+            v["ff_periodic"].set(f"{period}ms  {mag:.0f}%")
+            inertia = sensor_data.get("inertia", 5)
+            v["ff_inertia"].set(f"{inertia:.0f}%")
+
+            # Efeitos condicionais (sliders)
+            v["ff_spring"].set(f"{self.ff_sensitivity_var.get():.0f}%")
+            v["ff_damper"].set(f"{self.ff_damping_var.get():.0f}%")
+            v["ff_friction"].set(f"{self.ff_friction_var.get():.0f}%")
+
+            # Contexto e jerks
+            v["ff_context"].set(sensor_data.get("ff_context", "Idle"))
+            v["ff_jerk_frontal"].set(f"{sensor_data.get('ff_jerk_frontal', 0):.1f} m/s³")
+            v["ff_jerk_vertical"].set(f"{sensor_data.get('ff_jerk_vertical', 0):.1f} m/s³")
+            v["ff_jerk_throttle"].set(f"{sensor_data.get('ff_jerk_throttle', 0):.0f} %/s")
+            v["ff_jerk_brake"].set(f"{sensor_data.get('ff_jerk_brake', 0):.0f} %/s")
+            v["ff_jerk_steering"].set(f"{sensor_data.get('ff_jerk_steering', 0):.0f} °/s²")
+            v["ff_roughness"].set(f"{sensor_data.get('ff_roughness', 0):.2f} m/s²")
+        except Exception:
+            pass
 
     def _apply_local_ff(self):
         """

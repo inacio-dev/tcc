@@ -359,7 +359,7 @@ class G923Manager:
             effect = ff.Effect(
                 effect_type, -1, 0,
                 ff.Trigger(0, 0),
-                ff.Replay(0xFFFF, 0),
+                ff.Replay(0, 0),
                 ff.EffectType(ff_condition_effect=cond),
             )
             eid = self.device.upload_effect(effect)
@@ -375,7 +375,7 @@ class G923Manager:
             effect = ff.Effect(
                 ecodes.FF_CONSTANT, -1, 0,
                 ff.Trigger(0, 0),
-                ff.Replay(0xFFFF, 0),
+                ff.Replay(0, 0),
                 ff.EffectType(
                     ff_constant_effect=ff.Constant(0, ff.Envelope(0, 0, 0, 0))
                 ),
@@ -399,7 +399,7 @@ class G923Manager:
             effect = ff.Effect(
                 ecodes.FF_RUMBLE, -1, 0,
                 ff.Trigger(0, 0),
-                ff.Replay(0xFFFF, 0),
+                ff.Replay(0, 0),
                 ff.EffectType(ff_rumble_effect=ff.Rumble(strong, weak)),
             )
             eid = self.device.upload_effect(effect)
@@ -425,7 +425,7 @@ class G923Manager:
             effect = ff.Effect(
                 ecodes.FF_PERIODIC, -1, 0,
                 ff.Trigger(0, 0),
-                ff.Replay(0xFFFF, 0),
+                ff.Replay(0, 0),
                 ff.EffectType(ff_periodic_effect=per),
             )
             eid = self.device.upload_effect(effect)
@@ -448,7 +448,7 @@ class G923Manager:
             effect = ff.Effect(
                 effect_type, effect_id, 0,
                 ff.Trigger(0, 0),
-                ff.Replay(0xFFFF, 0),
+                ff.Replay(0, 0),
                 ff.EffectType(ff_condition_effect=cond),
             )
             self.device.upload_effect(effect)
@@ -507,9 +507,39 @@ class G923Manager:
             )
             self._last_inertia_coeff = coeff
 
+    def _recreate_effect(self, old_id_attr: str, effect: "ff.Effect"):
+        """
+        Recria um efeito FF do zero: para → apaga → cria novo → inicia.
+
+        O driver hid-lg4ff do G923 não aplica mudanças via upload_effect()
+        em efeitos existentes para force/vibration effects. A solução é
+        destruir e recriar o efeito a cada atualização.
+
+        Args:
+            old_id_attr: Nome do atributo com o ID antigo (ex: '_ff_rumble_id')
+            effect: Novo efeito a criar (com id=-1)
+
+        Returns:
+            int: Novo effect ID ou -1 se falhar
+        """
+        old_id = getattr(self, old_id_attr)
+        try:
+            # Para e apaga o efeito antigo
+            if old_id >= 0:
+                self.device.write(ecodes.EV_FF, old_id, 0)
+                self.device.erase_effect(old_id)
+            # Cria e inicia o novo
+            new_id = self.device.upload_effect(effect)
+            self.device.write(ecodes.EV_FF, new_id, 1)
+            setattr(self, old_id_attr, new_id)
+            return new_id
+        except Exception:
+            setattr(self, old_id_attr, -1)
+            return -1
+
     def update_rumble(self, strong_pct: float, weak_pct: float):
         """Atualiza FF_RUMBLE (vibração de impactos/estrada)."""
-        if self._ff_rumble_id < 0 or not self.device:
+        if not self.device:
             return
         strong = int(max(0, min(100, strong_pct)) / 100.0 * 65535)
         weak = int(max(0, min(100, weak_pct)) / 100.0 * 65535)
@@ -517,42 +547,36 @@ class G923Manager:
         if key == self._last_rumble_key:
             return
         with self._ff_lock:
-            try:
-                effect = ff.Effect(
-                    ecodes.FF_RUMBLE, self._ff_rumble_id, 0,
-                    ff.Trigger(0, 0),
-                    ff.Replay(0xFFFF, 0),
-                    ff.EffectType(ff_rumble_effect=ff.Rumble(strong, weak)),
-                )
-                self.device.upload_effect(effect)
-                self._last_rumble_key = key
-            except Exception:
-                pass
+            effect = ff.Effect(
+                ecodes.FF_RUMBLE, -1, 0,
+                ff.Trigger(0, 0),
+                ff.Replay(0, 0),
+                ff.EffectType(ff_rumble_effect=ff.Rumble(strong, weak)),
+            )
+            self._recreate_effect('_ff_rumble_id', effect)
+            self._last_rumble_key = key
 
     def update_periodic(self, period_ms: int, magnitude_pct: float):
         """Atualiza FF_PERIODIC (vibração senoidal — engine RPM)."""
-        if self._ff_periodic_id < 0 or not self.device:
+        if not self.device:
             return
         mag = int(max(0, min(100, magnitude_pct)) / 100.0 * 32767)
         key = (max(1, period_ms), mag)
         if key == self._last_periodic_key:
             return
         with self._ff_lock:
-            try:
-                per = ff.Periodic(
-                    ecodes.FF_SINE, key[0], mag, 0, 0,
-                    ff.Envelope(0, 0, 0, 0),
-                )
-                effect = ff.Effect(
-                    ecodes.FF_PERIODIC, self._ff_periodic_id, 0,
-                    ff.Trigger(0, 0),
-                    ff.Replay(0xFFFF, 0),
-                    ff.EffectType(ff_periodic_effect=per),
-                )
-                self.device.upload_effect(effect)
-                self._last_periodic_key = key
-            except Exception:
-                pass
+            per = ff.Periodic(
+                ecodes.FF_SINE, key[0], mag, 0, 0,
+                ff.Envelope(0, 0, 0, 0),
+            )
+            effect = ff.Effect(
+                ecodes.FF_PERIODIC, -1, 0,
+                ff.Trigger(0, 0),
+                ff.Replay(0, 0),
+                ff.EffectType(ff_periodic_effect=per),
+            )
+            self._recreate_effect('_ff_periodic_id', effect)
+            self._last_periodic_key = key
 
     def apply_constant_force(self, intensity: float, direction: str):
         """
@@ -562,39 +586,33 @@ class G923Manager:
             intensity: Intensidade da força (0-100%)
             direction: Direção ("left", "right", "neutral")
         """
-        if self._ff_constant_id < 0 or not self.device:
+        if not self.device:
             return
 
+        level = int(max(0, min(100, intensity)) / 100.0 * 32767)
+
+        if direction == "neutral":
+            level = 0
+
+        if direction == "left":
+            ff_direction = 0x4000
+        elif direction == "right":
+            ff_direction = 0xC000
+        else:
+            ff_direction = 0
+
         with self._ff_lock:
-            try:
-                level = int(max(0, min(100, intensity)) / 100.0 * 32767)
-
-                if direction == "neutral":
-                    level = 0
-
-                if direction == "left":
-                    ff_direction = 0x4000
-                elif direction == "right":
-                    ff_direction = 0xC000
-                else:
-                    ff_direction = 0
-
-                effect = ff.Effect(
-                    ecodes.FF_CONSTANT,
-                    self._ff_constant_id,
-                    ff_direction,
-                    ff.Trigger(0, 0),
-                    ff.Replay(0xFFFF, 0),
-                    ff.EffectType(
-                        ff_constant_effect=ff.Constant(
-                            level, ff.Envelope(0, 0, 0, 0)
-                        )
-                    ),
-                )
-                self.device.upload_effect(effect)
-
-            except Exception:
-                pass
+            effect = ff.Effect(
+                ecodes.FF_CONSTANT, -1, ff_direction,
+                ff.Trigger(0, 0),
+                ff.Replay(0, 0),
+                ff.EffectType(
+                    ff_constant_effect=ff.Constant(
+                        level, ff.Envelope(0, 0, 0, 0)
+                    )
+                ),
+            )
+            self._recreate_effect('_ff_constant_id', effect)
 
     def apply_force_feedback(self, intensity: float, direction: str):
         """Wrapper de compatibilidade — chama apply_constant_force"""
@@ -650,22 +668,17 @@ class G923Manager:
         self._endstop_active = level > 0
 
         with self._ff_lock:
-            try:
-                effect = ff.Effect(
-                    ecodes.FF_CONSTANT,
-                    self._ff_endstop_id,
-                    ff_direction,
-                    ff.Trigger(0, 0),
-                    ff.Replay(0xFFFF, 0),
-                    ff.EffectType(
-                        ff_constant_effect=ff.Constant(
-                            level, ff.Envelope(0, 0, 0, 0)
-                        )
-                    ),
-                )
-                self.device.upload_effect(effect)
-            except Exception:
-                pass
+            effect = ff.Effect(
+                ecodes.FF_CONSTANT, -1, ff_direction,
+                ff.Trigger(0, 0),
+                ff.Replay(0, 0),
+                ff.EffectType(
+                    ff_constant_effect=ff.Constant(
+                        level, ff.Envelope(0, 0, 0, 0)
+                    )
+                ),
+            )
+            self._recreate_effect('_ff_endstop_id', effect)
 
     def disable_endstop(self):
         """Desativa endstop temporariamente (ex: durante calibração)"""
