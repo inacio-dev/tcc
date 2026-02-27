@@ -502,35 +502,32 @@ class MotorManager:
         """
         Calcula zona de eficiência F1 baseada no PWM atual e marcha
 
-        Distribuição das marchas:
-        - 1ª e 2ª dividem 0-30% (marchas lentas)
-        - 3ª e 4ª dividem 30-90% (marchas médias/altas)
-        - 5ª pega 70-100% (velocidade pura, zona ampla)
+        Zonas alinhadas com limitadores de marcha:
+        - Limitadores: 1ª=8%, 2ª=15%, 3ª=30%, 4ª=50%, 5ª=70%
+        - Ao trocar de marcha, o PWM da marcha anterior cai na zona IDEAL da próxima
 
-        1ª MARCHA (limitador 15%):
-        - IDEAL: 0-10%
-        - SUBOPTIMAL: 10-13%
-        - POOR: 13-15%
+        1ª MARCHA (limitador 8%):
+        - IDEAL: 0-8% (cobre todo o range da marcha)
 
-        2ª MARCHA (limitador 30%):
-        - IDEAL: 10-22%
-        - SUBOPTIMAL: 5-10% e 22-27%
-        - POOR: 0-5% e 27-30%
+        2ª MARCHA (limitador 15%, entra com ~8% da 1ª):
+        - IDEAL: 7-13% (8% da 1ª cai em IDEAL)
+        - SUBOPTIMAL: 4-7% e 13-14%
+        - POOR: 0-4% e 14-15%
 
-        3ª MARCHA (limitador 60%):
-        - IDEAL: 30-45%
-        - SUBOPTIMAL: 22-30% e 45-52%
-        - POOR: 0-22% e 52-60%
+        3ª MARCHA (limitador 30%, entra com ~15% da 2ª):
+        - IDEAL: 13-25% (15% da 2ª cai em IDEAL)
+        - SUBOPTIMAL: 8-13% e 25-28%
+        - POOR: 0-8% e 28-30%
 
-        4ª MARCHA (limitador 90%):
-        - IDEAL: 45-75%
-        - SUBOPTIMAL: 35-45% e 75-85%
-        - POOR: 0-35% e 85-90%
+        4ª MARCHA (limitador 50%, entra com ~30% da 3ª):
+        - IDEAL: 27-43% (30% da 3ª cai em IDEAL)
+        - SUBOPTIMAL: 20-27% e 43-48%
+        - POOR: 0-20% e 48-50%
 
-        5ª MARCHA (limitador 100%):
-        - IDEAL: 70-100% (zona ampla - velocidade pura)
-        - SUBOPTIMAL: 55-70%
-        - POOR: 0-55%
+        5ª MARCHA (limitador 70%, entra com ~50% da 4ª):
+        - IDEAL: 45-62% (50% da 4ª cai em IDEAL)
+        - SUBOPTIMAL: 35-45% e 62-67%
+        - POOR: 0-35% e 67-70%
 
         Args:
             current_pwm (float): PWM atual do motor
@@ -539,51 +536,48 @@ class MotorManager:
             tuple: (zona_eficiencia, multiplicador_aceleracao)
         """
         if self.current_gear == 1:
-            # 1ª MARCHA (limitador: 15% - marcha lenta)
-            if 0 <= current_pwm <= 10:
-                return "IDEAL", 1.0  # 0-10%: Alta eficiência
-            elif 10 < current_pwm <= 13:
-                return "SUBOPTIMAL", 0.1  # 10-13%: Média eficiência
-            else:  # 13-15%
-                return "POOR", 0.04  # 13-15%: Baixa eficiência
+            # 1ª MARCHA (limitador: 8%)
+            # Range inteiro é IDEAL — marcha de arranque
+            if 0 <= current_pwm <= 8:
+                return "IDEAL", 1.0
 
         elif self.current_gear == 2:
-            # 2ª MARCHA (limitador: 30%)
-            if 10 <= current_pwm <= 22:
-                return "IDEAL", 1.0  # 10-22%: Alta eficiência
-            elif (5 <= current_pwm < 10) or (22 < current_pwm <= 27):
-                return "SUBOPTIMAL", 0.1  # 5-10% e 22-27%: Média eficiência
-            else:  # 0-5% e 27-30%
-                return "POOR", 0.04  # Baixa eficiência
+            # 2ª MARCHA (limitador: 15%, entra com ~8% da 1ª)
+            if 7 <= current_pwm <= 13:
+                return "IDEAL", 1.0
+            elif (4 <= current_pwm < 7) or (13 < current_pwm <= 14):
+                return "SUBOPTIMAL", 0.1
+            else:
+                return "POOR", 0.04
 
         elif self.current_gear == 3:
-            # 3ª MARCHA (limitador: 60%)
-            if 30 <= current_pwm <= 45:
-                return "IDEAL", 1.0  # 30-45%: Alta eficiência
-            elif (22 <= current_pwm < 30) or (45 < current_pwm <= 52):
-                return "SUBOPTIMAL", 0.1  # 22-30% e 45-52%: Média eficiência
-            else:  # 0-22% e 52-60%
-                return "POOR", 0.04  # Baixa eficiência
+            # 3ª MARCHA (limitador: 30%, entra com ~15% da 2ª)
+            if 13 <= current_pwm <= 25:
+                return "IDEAL", 1.0
+            elif (8 <= current_pwm < 13) or (25 < current_pwm <= 28):
+                return "SUBOPTIMAL", 0.1
+            else:
+                return "POOR", 0.04
 
         elif self.current_gear == 4:
-            # 4ª MARCHA (limitador: 90% - não atinge máximo)
-            if 45 <= current_pwm <= 75:
-                return "IDEAL", 1.0  # 45-75%: Alta eficiência
-            elif (35 <= current_pwm < 45) or (75 < current_pwm <= 85):
-                return "SUBOPTIMAL", 0.1  # 35-45% e 75-85%: Média eficiência
-            else:  # 0-35% e 85-90%
-                return "POOR", 0.04  # Baixa eficiência
+            # 4ª MARCHA (limitador: 50%, entra com ~30% da 3ª)
+            if 27 <= current_pwm <= 43:
+                return "IDEAL", 1.0
+            elif (20 <= current_pwm < 27) or (43 < current_pwm <= 48):
+                return "SUBOPTIMAL", 0.1
+            else:
+                return "POOR", 0.04
 
         elif self.current_gear == 5:
-            # 5ª MARCHA (limitador: 100% - velocidade pura, zona ampla)
-            if 70 <= current_pwm <= 100:
-                return "IDEAL", 1.0  # 70-100%: Alta eficiência (30 pontos)
-            elif 55 <= current_pwm < 70:
-                return "SUBOPTIMAL", 0.1  # 55-70%: Média eficiência
-            else:  # 0-55%
-                return "POOR", 0.04  # Baixa eficiência
+            # 5ª MARCHA (limitador: 70%, entra com ~50% da 4ª)
+            if 45 <= current_pwm <= 62:
+                return "IDEAL", 1.0
+            elif (35 <= current_pwm < 45) or (62 < current_pwm <= 67):
+                return "SUBOPTIMAL", 0.1
+            else:
+                return "POOR", 0.04
 
-        # Fallback para marchas não definidas
+        # Fallback
         return "POOR", 0.04
 
     def _calculate_efficiency_zone_percentage(self, current_pwm: float) -> float:
@@ -591,11 +585,11 @@ class MotorManager:
         Calcula porcentagem dentro da zona IDEAL de eficiência da marcha atual
 
         Para cada marcha, mapeia a zona IDEAL para 0-100%:
-        - 1ª marcha (0-10%): PWM de 0-10% → 0-100% no conta-giros
-        - 2ª marcha (10-22%): PWM de 10-22% → 0-100% no conta-giros
-        - 3ª marcha (30-45%): PWM de 30-45% → 0-100% no conta-giros
-        - 4ª marcha (45-75%): PWM de 45-75% → 0-100% no conta-giros
-        - 5ª marcha (70-100%): PWM de 70-100% → 0-100% no conta-giros
+        - 1ª marcha (0-8%): PWM de 0-8% → 0-100% no conta-giros
+        - 2ª marcha (7-13%): PWM de 7-13% → 0-100% no conta-giros
+        - 3ª marcha (13-25%): PWM de 13-25% → 0-100% no conta-giros
+        - 4ª marcha (27-43%): PWM de 27-43% → 0-100% no conta-giros
+        - 5ª marcha (45-62%): PWM de 45-62% → 0-100% no conta-giros
 
         Fora da zona ideal permanece 0% (abaixo) ou 100% (acima)
 
@@ -605,14 +599,13 @@ class MotorManager:
         Returns:
             float: Porcentagem 0-100% dentro da zona ideal
         """
-        # Define zonas ideais por marcha
-        # 1ª e 2ª dividem 0-30% | 3ª e 4ª dividem 30-90% | 5ª pega 70-100%
+        # Zonas IDEAL alinhadas com limitadores: 1ª=8%, 2ª=15%, 3ª=30%, 4ª=50%, 5ª=70%
         ideal_zones = {
-            1: (0, 10),  # 1ª marcha: 0-10% (marcha lenta)
-            2: (10, 22),  # 2ª marcha: 10-22%
-            3: (30, 45),  # 3ª marcha: 30-45%
-            4: (45, 75),  # 4ª marcha: 45-75%
-            5: (70, 100),  # 5ª marcha: 70-100% (velocidade pura)
+            1: (0, 8),    # 1ª marcha: 0-8% (limiter = 8%)
+            2: (7, 13),   # 2ª marcha: 7-13% (entra com ~8% da 1ª)
+            3: (13, 25),  # 3ª marcha: 13-25% (entra com ~15% da 2ª)
+            4: (27, 43),  # 4ª marcha: 27-43% (entra com ~30% da 3ª)
+            5: (45, 62),  # 5ª marcha: 45-62% (entra com ~50% da 4ª)
         }
 
         if self.current_gear not in ideal_zones:
@@ -855,14 +848,13 @@ class MotorManager:
         else:
             gear_efficiency = 25.0  # Zona POOR
 
-        # Define faixas ideais para display
-        # 1ª e 2ª dividem 0-30% | 3ª e 4ª dividem 30-90% | 5ª pega 70-100%
+        # Define faixas ideais para display (alinhadas com limitadores)
         gear_ideal_ranges = {
-            1: "0-10%",  # 1ª marcha (marcha lenta)
-            2: "10-22%",  # 2ª marcha
-            3: "30-45%",  # 3ª marcha
-            4: "45-75%",  # 4ª marcha
-            5: "70-100%",  # 5ª marcha (velocidade pura)
+            1: "0-8%",    # 1ª marcha (limiter 8%)
+            2: "7-13%",   # 2ª marcha (limiter 15%, entra com ~8%)
+            3: "13-25%",  # 3ª marcha (limiter 30%, entra com ~15%)
+            4: "27-43%",  # 4ª marcha (limiter 50%, entra com ~30%)
+            5: "45-62%",  # 5ª marcha (limiter 70%, entra com ~50%)
         }
         ideal_range = gear_ideal_ranges.get(self.current_gear, "0-20%")
 
