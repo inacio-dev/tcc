@@ -3,7 +3,7 @@
 network_manager.py - Gerenciamento de Comunicação UDP - VERSÃO CORRIGIDA
 Responsável por transmitir vídeo + dados de sensores via UDP
 CORREÇÃO: Agora suporta tipos numpy (bool_, float64, etc.)
-CORREÇÃO: Suporta fragmentação automática para frames grandes (1080p)
+CORREÇÃO: Suporta fragmentação automática para frames grandes (720p+)
 
 CONFIGURAÇÃO DE REDE:
 ====================
@@ -174,7 +174,7 @@ class NetworkManager:
                 # Recebe dados de qualquer cliente
                 data, addr = self.receive_socket.recvfrom(self.buffer_size)
                 client_ip, client_port = addr
-                debug(f"Comando recebido de {client_ip}:{client_port}: {data}", "NET")
+                debug(f"Comando recebido de {client_ip}:{client_port}: {data}", "NET", rate_limit=1.0)
 
                 # Processa o comando recebido
                 self._process_client_command(data, client_ip, client_port)
@@ -294,7 +294,7 @@ class NetworkManager:
 
     def _handle_control_command(self, client_ip: str, command: str):
         """Processa comando de controle do veículo"""
-        debug(f"Comando de {client_ip}: {command}", "NET")
+        debug(f"Comando de {client_ip}: {command}", "NET", rate_limit=1.0)
 
         # Aqui você pode processar comandos como:
         # "THROTTLE:50" -> acelerar 50%
@@ -468,14 +468,14 @@ class NetworkManager:
             # Log erro detalhado apenas a cada 5 segundos
             current_time = time.time()
             if current_time - self.last_error_log > 5.0:
-                print(f"⚠ Erro ao criar pacote: {e}")
+                warn(f"Erro ao criar pacote: {e}", "NET")
 
                 # Debug adicional para identificar tipos problemáticos
                 if sensor_data:
-                    print("🔍 Debug - Tipos problemáticos nos dados:")
+                    debug("Tipos problemáticos nos dados:", "NET")
                     for key, value in sensor_data.items():
                         if hasattr(value, "dtype") or type(value).__module__ == "numpy":
-                            print(f"  {key}: {type(value)} = {value}")
+                            debug(f"  {key}: {type(value)} = {value}", "NET")
 
                 self.last_error_log = current_time
 
@@ -817,13 +817,13 @@ class NetworkManager:
             )
             self.socket.sendto(test_data, (self.target_ip, self.target_port))
 
-            print(
-                f"✓ Teste de conectividade OK para {self.target_ip}:{self.target_port}"
+            info(
+                f"Teste de conectividade OK para {self.target_ip}:{self.target_port}", "NET"
             )
             return True
 
         except Exception as e:
-            print(f"✗ Falha no teste de conectividade: {e}")
+            error(f"Falha no teste de conectividade: {e}", "NET")
             return False
 
     def cleanup(self):

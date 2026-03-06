@@ -22,6 +22,8 @@ import time
 import tkinter as tk
 from typing import Optional
 
+from simple_logger import debug, error, info, warn
+
 import cv2
 import numpy as np
 from PIL import Image, ImageTk
@@ -76,7 +78,8 @@ class VideoDisplay:
         if self.log_queue:
             self.log_queue.put((level, message))
         else:
-            print(f"[VIDEO-{level}] {message}")
+            _fn = {"ERROR": error, "WARN": warn, "DEBUG": debug}.get(level, info)
+            _fn(message, "VIDEO")
 
     def set_tkinter_label(self, label):
         """Define o label Tkinter para exibir vídeo"""

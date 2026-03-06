@@ -53,9 +53,11 @@ import threading
 import time
 from typing import Callable, Optional
 
+from simple_logger import debug, error, info, warn
+
 try:
     import evdev
-    from evdev import InputDevice, categorize, ecodes, ff
+    from evdev import InputDevice, ecodes, ff
 
     EVDEV_AVAILABLE = True
 except ImportError:
@@ -183,7 +185,8 @@ class G923Manager:
         if self.log_callback:
             self.log_callback(level, message)
         else:
-            print(f"[{level}] G923: {message}")
+            _fn = {"ERROR": error, "WARN": warn, "DEBUG": debug}.get(level, info)
+            _fn(message, "G923")
 
     # ================================================================
     # DETECÇÃO E CONEXÃO

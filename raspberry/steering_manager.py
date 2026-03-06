@@ -97,6 +97,8 @@ import time
 from enum import Enum
 from typing import Any, Dict
 
+from logger import debug, error, info, warn
+
 try:
     import board
     import busio
@@ -104,11 +106,9 @@ try:
     from adafruit_pca9685 import PCA9685
 
     PCA9685_AVAILABLE = True
-    print("✓ PCA9685 disponível")
+    info("PCA9685 disponível", "STEERING")
 except ImportError:
-    print(
-        "❌ PCA9685 não disponível - instale: sudo pip3 install adafruit-circuitpython-pca9685"
-    )
+    error("PCA9685 não disponível - instale: sudo pip3 install adafruit-circuitpython-pca9685", "STEERING")
     PCA9685_AVAILABLE = False
     exit(1)  # Para execução se PCA9685 não disponível
 
@@ -215,31 +215,18 @@ class SteeringManager:
         Returns:
             bool: True se inicializado com sucesso
         """
-        print("Inicializando sistema de direção via PCA9685...")
-        print(f"Servo direção: Canal {self.steering_channel} do PCA9685")
-        print(f"Endereço I2C: 0x{self.pca9685_address:02X}")
-        print(f"Modo: {self.steering_mode.value.upper()}")
-        print(f"Sensibilidade: {self.steering_sensitivity:.1f}x")
-        print(f"Ângulo máximo: ±{self.max_steering_angle}°")
-        print("Geometria Ackermann: DESABILITADA (movimento direto)")
+        info(f"Inicializando direção | Canal: {self.steering_channel} | I2C: 0x{self.pca9685_address:02X} | Modo: {self.steering_mode.value.upper()} | Sens: {self.steering_sensitivity:.1f}x | ±{self.max_steering_angle}°", "STEERING")
 
         try:
             # Inicializa barramento I2C (pode ser compartilhado com brake_manager)
             self.i2c = busio.I2C(board.SCL, board.SDA)
-            print("✓ Barramento I2C inicializado")
-
-            # Inicializa PCA9685
             self.pca9685 = PCA9685(self.i2c, address=self.pca9685_address)
             self.pca9685.frequency = self.PWM_FREQUENCY
-            print(f"✓ PCA9685 inicializado @ {self.PWM_FREQUENCY}Hz")
-
-            # Configura servo no canal especificado
             self.steering_servo = servo.Servo(
                 self.pca9685.channels[self.steering_channel],
                 min_pulse=int(self.PULSE_MIN * 1000),  # converte para microssegundos
                 max_pulse=int(self.PULSE_MAX * 1000),
             )
-            print(f"✓ Servo direção configurado (canal {self.steering_channel})")
 
             # Posiciona servo na posição central
             if self.i2c_lock:
@@ -250,21 +237,12 @@ class SteeringManager:
                     self.i2c_lock.release()
             else:
                 self.steering_servo.angle = self.STEERING_CENTER
-            print(f"✓ Servo posicionado na posição central ({self.STEERING_CENTER}°)")
 
             # Aguarda servo se posicionar
             time.sleep(0.5)
 
             self.is_initialized = True
-
-            print("✅ Sistema de direção inicializado com sucesso!")
-            print(f"  - Frequência PWM: {self.PWM_FREQUENCY}Hz")
-            print(f"  - Posição inicial: {self.STEERING_CENTER}° (centro)")
-            print(
-                f"  - Range: {self.STEERING_MIN_ANGLE}° a {self.STEERING_MAX_ANGLE}° (LIMITADO 0-113.4°)"
-            )
-            print("  - Movimento: DIRETO (sem suavização)")
-            print(f"  - Canal direção: {self.steering_channel}")
+            info(f"Direção inicializada | PWM: {self.PWM_FREQUENCY}Hz | Canal: {self.steering_channel}", "STEERING")
 
             # Teste rápido da direção
             self._test_steering()
@@ -272,13 +250,7 @@ class SteeringManager:
             return True
 
         except Exception as e:
-            print(f"❌ Erro ao inicializar direção: {e}")
-            print("\nVerifique:")
-            print("1. Conexões do PCA9685 (VCC, GND, SDA, SCL)")
-            print("2. Conexão do servo no PCA9685 (canal correto)")
-            print("3. Alimentação do servo (fonte externa 6V recomendada)")
-            print("4. sudo raspi-config -> Interface Options -> I2C -> Enable")
-            print("5. sudo pip3 install adafruit-circuitpython-pca9685")
+            error(f"Erro ao inicializar direção: {e} | Verifique: PCA9685 I2C, canal servo, alimentação 6V", "STEERING")
 
             self.is_initialized = False
             return False
@@ -333,11 +305,9 @@ class SteeringManager:
                 now = time.time()
                 if now - self._last_log_time >= 1.0 and abs(steering_input) > 0:
                     self._last_log_time = now
-                    print(
-                        f"🎯 Direção: {steering_input:.1f}% → {final_angle:.1f}°"
-                    )
+                    debug(f"Direção: {steering_input:.1f}% → {final_angle:.1f}°", "STEERING")
             else:
-                print("⚠️ Servo não inicializado!")
+                warn("Servo não inicializado!", "STEERING")
 
             # Atualiza estatísticas
             if abs(steering_input) > 5:  # Movimento significativo
@@ -352,36 +322,25 @@ class SteeringManager:
     def center_steering(self):
         """Centraliza a direção"""
         self.set_steering_input(0.0)
-        print("🔧 Direção centralizada")
+        debug("Direção centralizada", "STEERING")
 
     def _test_steering(self):
         """Executa teste rápido da direção - MOVIMENTO DIRETO"""
-        print("Executando teste da direção...")
+        debug("Executando teste da direção...", "STEERING")
 
         try:
-            # Teste esquerda
-            print("  - Testando direção esquerda...")
-            self.set_steering_input(-50.0)  # 50% esquerda
+            self.set_steering_input(-50.0)
             time.sleep(0.8)
-
-            # Centro
-            print("  - Retornando ao centro...")
             self.center_steering()
             time.sleep(0.8)
-
-            # Teste direita
-            print("  - Testando direção direita...")
-            self.set_steering_input(50.0)  # 50% direita
+            self.set_steering_input(50.0)
             time.sleep(0.8)
-
-            # Centro final
             self.center_steering()
             time.sleep(0.5)
-
-            print("✓ Teste da direção concluído")
+            debug("Teste da direção concluído", "STEERING")
 
         except Exception as e:
-            print(f"⚠ Erro durante teste: {e}")
+            warn(f"Erro durante teste: {e}", "STEERING")
 
     def get_steering_status(self) -> Dict[str, Any]:
         """
@@ -467,7 +426,7 @@ class SteeringManager:
     def cleanup(self):
         """Libera recursos da direção"""
         try:
-            print("Finalizando sistema de direção...")
+            debug("Finalizando sistema de direção...", "STEERING")
 
             # Centraliza direção antes de desligar
             self.center_steering()
@@ -484,10 +443,10 @@ class SteeringManager:
                 self.i2c = None
 
             self.is_initialized = False
-            print("✓ Sistema de direção finalizado")
+            info("Sistema de direção finalizado", "STEERING")
 
         except Exception as e:
-            print(f"⚠ Erro ao finalizar direção: {e}")
+            warn(f"Erro ao finalizar direção: {e}", "STEERING")
 
     def __del__(self):
         """Destrutor - garante limpeza dos recursos"""

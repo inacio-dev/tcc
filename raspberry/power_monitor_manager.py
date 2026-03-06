@@ -81,6 +81,8 @@ from collections import deque
 from statistics import median
 from typing import Any, Dict, Optional
 
+from logger import debug, error, info, warn
+
 
 class PowerMonitorManager:
     """Gerencia monitoramento de energia do sistema F1 Car
@@ -203,30 +205,30 @@ class PowerMonitorManager:
         Returns:
             bool: True se pelo menos um sensor foi inicializado
         """
-        print("Inicializando monitoramento de energia...")
+        info("Inicializando monitoramento de energia...", "POWER")
 
         try:
             # Inicializa I2C para INA219
             try:
                 import smbus2
                 self.i2c_bus = smbus2.SMBus(1)
-                print("✓ I2C inicializado com smbus2")
+                debug("I2C inicializado com smbus2", "POWER")
             except ImportError:
                 try:
                     import smbus
                     self.i2c_bus = smbus.SMBus(1)
-                    print("✓ I2C inicializado com smbus")
+                    debug("I2C inicializado com smbus", "POWER")
                 except ImportError:
-                    print("⚠ Bibliotecas I2C não disponíveis (INA219 offline)")
+                    warn("Bibliotecas I2C não disponíveis (INA219 offline)", "POWER")
 
             # Inicializa INA219 (I2C)
             if self.i2c_bus:
                 self.ina219_available = self._init_ina219()
-                print(f"  INA219: {'Online' if self.ina219_available else 'Offline'}")
+                info(f"INA219: {'Online' if self.ina219_available else 'Offline'}", "POWER")
 
             # Inicializa Pro Micro (USB Serial)
             self.pro_micro_connected = self._init_pro_micro()
-            print(f"  Pro Micro: {'Online' if self.pro_micro_connected else 'Offline'}")
+            info(f"Pro Micro: {'Online' if self.pro_micro_connected else 'Offline'}", "POWER")
 
             # Inicia thread de leitura serial
             self._running = True
@@ -239,16 +241,15 @@ class PowerMonitorManager:
 
             if self.pro_micro_connected or self.ina219_available:
                 self.is_initialized = True
-                print("✓ Monitoramento de energia inicializado!")
+                info("Monitoramento de energia inicializado!", "POWER")
                 return True
             else:
-                # Mesmo sem sensores, inicializa (thread tentará reconectar)
                 self.is_initialized = True
-                print("⚠ Nenhum sensor de energia disponível (tentará reconectar Pro Micro)")
+                warn("Nenhum sensor de energia disponível (tentará reconectar Pro Micro)", "POWER")
                 return True
 
         except Exception as e:
-            print(f"❌ Erro ao inicializar sensores de energia: {e}")
+            error(f"Erro ao inicializar sensores de energia: {e}", "POWER")
             return False
 
     # ================================================================
@@ -259,7 +260,7 @@ class PowerMonitorManager:
         """Inicializa conexão serial com o Arduino Pro Micro"""
         port = self.serial_port_path or self._find_pro_micro_port()
         if not port:
-            print("⚠ Arduino Pro Micro não encontrado")
+            warn("Arduino Pro Micro não encontrado", "POWER")
             return False
 
         try:
@@ -270,10 +271,10 @@ class PowerMonitorManager:
                 timeout=self.SERIAL_TIMEOUT,
             )
             self._last_serial_data = time.time()
-            print(f"✓ Pro Micro conectado em {port}")
+            info(f"Pro Micro conectado em {port}", "POWER")
             return True
         except Exception as e:
-            print(f"⚠ Erro ao conectar Pro Micro ({port}): {e}")
+            warn(f"Erro ao conectar Pro Micro ({port}): {e}", "POWER")
             return False
 
     def _find_pro_micro_port(self) -> Optional[str]:
@@ -292,7 +293,7 @@ class PowerMonitorManager:
         try:
             exact_path = os.path.join(by_id_path, self.PRO_MICRO_DEVICE_ID)
             if os.path.exists(exact_path):
-                print(f"  Pro Micro encontrado via device ID: {exact_path}")
+                debug(f"Pro Micro encontrado via device ID: {exact_path}", "POWER")
                 return exact_path
         except Exception:
             pass
@@ -303,7 +304,7 @@ class PowerMonitorManager:
                 for link in os.listdir(by_id_path):
                     if "arduino" in link.lower():
                         full_path = os.path.join(by_id_path, link)
-                        print(f"  Pro Micro encontrado via by-id: {full_path}")
+                        debug(f"Pro Micro encontrado via by-id: {full_path}", "POWER")
                         return full_path
         except Exception:
             pass
@@ -315,7 +316,7 @@ class PowerMonitorManager:
             arduino_vids = {0x2341, 0x1B4F, 0x239A}
             for port in serial.tools.list_ports.comports():
                 if port.vid in arduino_vids:
-                    print(f"  Pro Micro encontrado via VID 0x{port.vid:04X}: {port.device}")
+                    debug(f"Pro Micro encontrado via VID 0x{port.vid:04X}: {port.device}", "POWER")
                     return port.device
         except ImportError:
             pass
@@ -323,7 +324,7 @@ class PowerMonitorManager:
         # 4. Fallback: primeiro /dev/ttyACM*
         acm_ports = sorted(glob.glob("/dev/ttyACM*"))
         if acm_ports:
-            print(f"  Pro Micro (fallback): {acm_ports[0]}")
+            debug(f"Pro Micro (fallback): {acm_ports[0]}", "POWER")
             return acm_ports[0]
 
         return None
@@ -348,7 +349,7 @@ class PowerMonitorManager:
             if not raw:
                 # Verifica timeout de dados
                 if time.time() - self._last_serial_data > self.SERIAL_DATA_TIMEOUT:
-                    print("⚠ Pro Micro: timeout de dados, desconectando")
+                    warn("Pro Micro: timeout de dados, desconectando", "POWER")
                     self._disconnect_serial()
                 return
 
@@ -363,21 +364,21 @@ class PowerMonitorManager:
             elif line.startswith("STATUS:"):
                 status = line[7:]
                 if status == "READY":
-                    print("✓ Pro Micro: pronto")
+                    info("Pro Micro: pronto", "POWER")
                 elif status == "CALIBRATING":
-                    print("ℹ Pro Micro: calibrando sensores...")
+                    info("Pro Micro: calibrando sensores...", "POWER")
                 elif status == "NO_CAL":
-                    print("ℹ Pro Micro: sem calibração salva, usando offset teórico")
+                    info("Pro Micro: sem calibração salva, usando offset teórico", "POWER")
             elif line.startswith("CAL_DONE:"):
-                print(f"✓ Pro Micro: calibração concluída ({line[9:]})")
+                info(f"Pro Micro: calibração concluída ({line[9:]})", "POWER")
 
         except (OSError, IOError):
-            print("⚠ Pro Micro: erro de comunicação, desconectando")
+            warn("Pro Micro: erro de comunicação, desconectando", "POWER")
             self._disconnect_serial()
         except Exception as e:
             self.errors_count += 1
             if self.errors_count % 50 == 0:
-                print(f"⚠ Erro serial Pro Micro (#{self.errors_count}): {e}")
+                warn(f"Erro serial Pro Micro (#{self.errors_count}): {e}", "POWER")
 
     def _parse_power_data(self, line: str):
         """
@@ -462,7 +463,7 @@ class PowerMonitorManager:
             )
             self.pro_micro_connected = True
             self._last_serial_data = time.time()
-            print(f"✓ Pro Micro reconectado em {port}")
+            info(f"Pro Micro reconectado em {port}", "POWER")
         except Exception:
             pass
 
@@ -477,12 +478,11 @@ class PowerMonitorManager:
         if self.pro_micro_connected and self.serial_conn:
             try:
                 self.serial_conn.write(b"CAL\n")
-                print("ℹ Comando de calibração enviado ao Pro Micro")
-                print("  Aguardando calibração (desligar cargas!)...")
+                info("Comando de calibração enviado (desligar cargas!)", "POWER")
             except Exception as e:
-                print(f"⚠ Erro ao enviar comando de calibração: {e}")
+                warn(f"Erro ao enviar comando de calibração: {e}", "POWER")
         else:
-            print("⚠ Pro Micro não conectado, calibração não disponível")
+            warn("Pro Micro não conectado, calibração não disponível", "POWER")
 
     # ================================================================
     # INA219 (I2C)
@@ -502,13 +502,13 @@ class PowerMonitorManager:
 
             voltage = self._read_ina219_bus_voltage()
             if voltage is not None and voltage >= 0:
-                print(f"✓ INA219 detectado (tensão: {voltage:.2f}V)")
+                info(f"INA219 detectado (tensão: {voltage:.2f}V)", "POWER")
                 return True
             else:
-                print(f"⚠ INA219 não responde em 0x{self.ina219_address:02X}")
+                warn(f"INA219 não responde em 0x{self.ina219_address:02X}", "POWER")
                 return False
         except Exception as e:
-            print(f"⚠ Erro ao inicializar INA219: {e}")
+            warn(f"Erro ao inicializar INA219: {e}", "POWER")
             return False
 
     def _write_ina219_register(self, register: int, value: int):
@@ -634,7 +634,7 @@ class PowerMonitorManager:
         except Exception as e:
             self.errors_count += 1
             if self.errors_count % 50 == 0:
-                print(f"⚠ Erro INA219 (#{self.errors_count}): {e}")
+                warn(f"Erro INA219 (#{self.errors_count}): {e}", "POWER")
 
         return success
 
@@ -760,9 +760,9 @@ class PowerMonitorManager:
             if self.i2c_bus:
                 self.i2c_bus.close()
             self.is_initialized = False
-            print("✓ PowerMonitorManager finalizado")
+            info("PowerMonitorManager finalizado", "POWER")
         except Exception as e:
-            print(f"⚠ Erro ao finalizar PowerMonitorManager: {e}")
+            warn(f"Erro ao finalizar PowerMonitorManager: {e}", "POWER")
 
     def __del__(self):
         """Destrutor"""

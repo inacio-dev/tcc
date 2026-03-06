@@ -33,6 +33,7 @@ import threading
 import time
 from collections import deque
 
+from logger import debug, error, info, warn
 from picamera2 import Picamera2
 from picamera2.encoders import MJPEGEncoder
 from picamera2.outputs import FileOutput
@@ -169,21 +170,19 @@ class CameraManager:
             bool: True se inicializada com sucesso, False caso contrário
         """
         try:
-            print("Inicializando câmera OV5647 com MJPEG encoder...")
+            info("Inicializando câmera OV5647 com MJPEG encoder...", "CAMERA")
 
             # Verifica câmeras disponíveis ANTES de criar instância
             try:
                 camera_info = Picamera2.global_camera_info()
-                print(f"  Câmeras encontradas: {len(camera_info)}")
                 if camera_info:
                     for i, cam in enumerate(camera_info):
-                        print(f"    [{i}] {cam.get('Model', 'Desconhecida')}")
+                        debug(f"  [{i}] {cam.get('Model', 'Desconhecida')}", "CAMERA")
                 else:
-                    print("❌ Nenhuma câmera detectada pelo sistema!")
-                    print("   Execute: libcamera-hello --list-cameras")
+                    error("Nenhuma câmera detectada! Execute: libcamera-hello --list-cameras", "CAMERA")
                     return False
             except Exception as e:
-                print(f"⚠ Erro ao listar câmeras: {e}")
+                warn(f"Erro ao listar câmeras: {e}", "CAMERA")
 
             # Cria instância da PiCamera2 com índice explícito
             self.camera = Picamera2(camera_num=0)
@@ -223,10 +222,8 @@ class CameraManager:
                     controls["Brightness"] = self.brightness
 
                 self.camera.set_controls(controls)
-                print(f"  Frame rate: {self.frame_rate} FPS")
-                print(f"  Controles: sharpness={self.sharpness}, contrast={self.contrast}, saturation={self.saturation}")
             except Exception as e:
-                print(f"⚠ Aviso: Alguns controles não configurados: {e}")
+                warn(f"Alguns controles não configurados: {e}", "CAMERA")
 
             # Cria encoder MJPEG (usa hardware do Raspberry Pi)
             # Qualidade controlada via parâmetro quality (1-100)
@@ -253,29 +250,18 @@ class CameraManager:
             self.start_time = time.time()
 
             self.is_initialized = True
-
-            print("✓ Câmera OV5647 inicializada com MJPEG encoder")
-            print(f"  Resolução: {self.resolution[0]}x{self.resolution[1]}")
-            print(f"  Qualidade MJPEG: {self.quality}")
-            print("  Encoder: MJPEG (hardware, cada frame é JPEG independente)")
+            info(f"Câmera inicializada | {self.resolution[0]}x{self.resolution[1]} | MJPEG Q={self.quality} | {self.frame_rate}fps", "CAMERA")
 
             return True
 
         except IndexError as e:
-            print(f"✗ Erro ao detectar câmera: {e}")
-            print("\nVerifique:")
-            print("1. Cabo da câmera conectado corretamente")
-            print(
-                "2. Câmera habilitada: sudo raspi-config -> Interface Options -> Camera"
-            )
-            print("3. Sistema reiniciado após habilitar")
-            print("4. Execute: libcamera-hello para testar")
+            error(f"Erro ao detectar câmera: {e} | Verifique cabo e raspi-config -> Camera", "CAMERA")
 
             self.is_initialized = False
             return False
 
         except Exception as e:
-            print(f"✗ Erro ao inicializar câmera: {e}")
+            error(f"Erro ao inicializar câmera: {e}", "CAMERA")
             import traceback
 
             traceback.print_exc()
@@ -305,7 +291,7 @@ class CameraManager:
             return None
 
         except Exception as e:
-            print(f"⚠ Erro ao obter frame: {e}")
+            warn(f"Erro ao obter frame: {e}", "CAMERA")
             return None
 
     def get_frame_with_metadata(self):
@@ -330,7 +316,7 @@ class CameraManager:
             return None
 
         except Exception as e:
-            print(f"⚠ Erro ao obter frame: {e}")
+            warn(f"Erro ao obter frame: {e}", "CAMERA")
             return None
 
     def get_frame_size_info(self, frame_data):
@@ -421,7 +407,7 @@ class CameraManager:
             return False
 
         except Exception as e:
-            print(f"⚠ Erro ao ajustar controles: {e}")
+            warn(f"Erro ao ajustar controles: {e}", "CAMERA")
             return False
 
     def get_current_settings(self):
@@ -460,18 +446,16 @@ class CameraManager:
             bool: True se a resolução foi alterada com sucesso
         """
         if resolution_name not in self.RESOLUTION_PRESETS:
-            print(f"⚠ Resolução inválida: {resolution_name}")
-            print(f"   Opções válidas: {list(self.RESOLUTION_PRESETS.keys())}")
+            warn(f"Resolução inválida: {resolution_name} | Opções: {list(self.RESOLUTION_PRESETS.keys())}", "CAMERA")
             return False
 
         new_resolution = self.RESOLUTION_PRESETS[resolution_name]
 
-        # Se a resolução já é a mesma, não faz nada
         if new_resolution == self.resolution:
-            print(f"ℹ Resolução já é {resolution_name}")
+            debug(f"Resolução já é {resolution_name}", "CAMERA")
             return True
 
-        print(f"🔄 Mudando resolução para {resolution_name} ({new_resolution[0]}x{new_resolution[1]})...")
+        info(f"Mudando resolução para {resolution_name} ({new_resolution[0]}x{new_resolution[1]})...", "CAMERA")
 
         try:
             # Para o encoder atual
@@ -524,11 +508,11 @@ class CameraManager:
             self.camera.start_encoder(self.encoder, self.output)
             self.is_recording = True
 
-            print(f"✓ Resolução alterada para {resolution_name} ({new_resolution[0]}x{new_resolution[1]})")
+            info(f"Resolução alterada para {resolution_name} ({new_resolution[0]}x{new_resolution[1]})", "CAMERA")
             return True
 
         except Exception as e:
-            print(f"✗ Erro ao mudar resolução: {e}")
+            error(f"Erro ao mudar resolução: {e}", "CAMERA")
             import traceback
             traceback.print_exc()
             return False
@@ -542,7 +526,7 @@ class CameraManager:
 
             if self.camera is not None:
                 self.camera.close()
-                print("✓ Câmera OV5647 finalizada")
+                info("Câmera finalizada", "CAMERA")
 
             self.is_initialized = False
             self.camera = None
@@ -551,7 +535,7 @@ class CameraManager:
             self.output = None
 
         except Exception as e:
-            print(f"⚠ Erro ao finalizar câmera: {e}")
+            warn(f"Erro ao finalizar câmera: {e}", "CAMERA")
 
     def __del__(self):
         """Destrutor - garante limpeza dos recursos"""

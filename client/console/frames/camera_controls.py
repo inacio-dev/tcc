@@ -9,14 +9,12 @@ from tkinter import ttk
 RESOLUTION_HEIGHTS = {
     "480p": 480,   # 640x480 - proporção 4:3
     "720p": 540,   # 960x540 - proporção 16:9 (720p escalado)
-    "1080p": 675,  # 1200x675 - proporção 16:9 (1080p escalado)
 }
 
 # Proporções de aspecto por resolução
 RESOLUTION_ASPECTS = {
     "480p": (4, 3),    # 640x480
     "720p": (16, 9),   # 1280x720
-    "1080p": (16, 9),  # 1920x1080
 }
 
 
@@ -53,7 +51,7 @@ def create_camera_controls_frame(console, parent=None):
     console.camera_resolution_var = tk.StringVar(value="480p")
 
     # Botões de resolução
-    resolutions = ["480p", "720p", "1080p"]
+    resolutions = ["480p", "720p"]
     console.resolution_buttons = {}
 
     for res in resolutions:
@@ -84,7 +82,7 @@ def _on_resolution_change(console, resolution):
 
     Args:
         console: Instância de ConsoleInterface
-        resolution: Resolução selecionada ('480p', '720p', '1080p')
+        resolution: Resolução selecionada ('480p', '720p')
     """
     try:
         # Atualiza visual dos botões

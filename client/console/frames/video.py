@@ -5,6 +5,8 @@ video.py - Frame para exibição do vídeo
 import tkinter as tk
 from tkinter import ttk
 
+from simple_logger import error
+
 # Importação do módulo de filtros PDI
 try:
     from image_filters import ImageFilters, get_filters
@@ -155,7 +157,7 @@ def _on_filter_toggle(console, filter_key: str):
             console.video_display.set_image_filter(console.image_filters)
 
     except Exception as e:
-        print(f"[FILTER] Erro ao mudar filtro: {e}")
+        error(f"Erro ao mudar filtro: {e}", "FILTER")
 
 
 def _clear_all_filters(console):
@@ -179,7 +181,7 @@ def _clear_all_filters(console):
             console.video_display.set_image_filter(console.image_filters)
 
     except Exception as e:
-        print(f"[FILTER] Erro ao limpar filtros: {e}")
+        error(f"Erro ao limpar filtros: {e}", "FILTER")
 
 
 def _on_filter_change(console):
@@ -201,4 +203,4 @@ def _on_filter_change(console):
                 console.video_display.set_image_filter(console.image_filters)
 
     except Exception as e:
-        print(f"[FILTER] Erro ao mudar filtro: {e}")
+        error(f"Erro ao mudar filtro: {e}", "FILTER")

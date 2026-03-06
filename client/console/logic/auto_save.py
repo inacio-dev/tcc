@@ -12,6 +12,8 @@ import threading
 import tkinter as tk
 from datetime import datetime
 
+from simple_logger import error, info
+
 from ..utils.constants import (
     AUTO_EXPORT_DIR,
     MAX_LOG_LINES,
@@ -108,15 +110,15 @@ class AutoSaveManager:
                         with open(telemetry_filename, "wb") as f:
                             pickle.dump(telemetry_snapshot, f)
 
-                    print(f"[AUTO-EXPORT] Dados salvos em: {AUTO_EXPORT_DIR}/")
+                    info(f"Dados salvos em: {AUTO_EXPORT_DIR}/", "AUTO-EXPORT")
                 except Exception as e:
-                    print(f"[AUTO-EXPORT] Erro I/O: {e}")
+                    error(f"Erro I/O: {e}", "AUTO-EXPORT")
 
             thread = threading.Thread(target=_write_files, daemon=True)
             thread.start()
 
         except Exception as e:
-            print(f"[AUTO-EXPORT] Erro: {e}")
+            error(f"Erro: {e}", "AUTO-EXPORT")
 
     def periodic_auto_save(self):
         """Auto-save periódico a cada 20 segundos (apenas se houver dados novos).
@@ -258,12 +260,12 @@ class AutoSaveManager:
                         )
 
                     if saved_items:
-                        print(
-                            f"[AUTO-SAVE] {', '.join(saved_items)}"
-                            f" -> {AUTO_EXPORT_DIR}/"
+                        info(
+                            f"{', '.join(saved_items)} -> {AUTO_EXPORT_DIR}/",
+                            "AUTO-SAVE",
                         )
                 except Exception as e:
-                    print(f"[AUTO-SAVE] Erro I/O: {e}")
+                    error(f"Erro I/O: {e}", "AUTO-SAVE")
 
                 # Reset na thread UI (Tkinter não é thread-safe)
                 try:
@@ -280,7 +282,7 @@ class AutoSaveManager:
             thread.start()
 
         except Exception as e:
-            print(f"[AUTO-SAVE] Erro: {e}")
+            error(f"Erro: {e}", "AUTO-SAVE")
 
         self._schedule_next()
 

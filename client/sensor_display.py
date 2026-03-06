@@ -28,6 +28,8 @@ import threading
 import time
 from collections import defaultdict, deque
 
+from simple_logger import debug, error, info, warn
+
 
 class SensorDisplay:
     """Gerencia processamento e exibição de dados de sensores"""
@@ -174,7 +176,8 @@ class SensorDisplay:
         if self.log_queue:
             self.log_queue.put((level, message))
         else:
-            print(f"[SENSOR-{level}] {message}")
+            _fn = {"ERROR": error, "WARN": warn, "DEBUG": debug}.get(level, info)
+            _fn(message, "SENSOR")
 
     def validate_sensor_data(self, data):
         """
@@ -717,5 +720,5 @@ class SensorDisplay:
             return filename
 
         except Exception as e:
-            print(f"[EXPORT] Erro pickle: {e}")
+            error(f"Erro pickle: {e}", "EXPORT")
             return None

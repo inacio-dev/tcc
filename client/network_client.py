@@ -33,6 +33,8 @@ import threading
 import time
 from collections import defaultdict
 
+from simple_logger import debug, error, info, warn
+
 
 class NetworkClient:
     """Cliente de rede para comunicação UDP bidirecional"""
@@ -77,18 +79,8 @@ class NetworkClient:
         self.host = host
         self.client_ip = client_ip  # IP deste cliente
 
-        # Resolve hostname para IP se necessário
-        self.rpi_ip = None
-        if rpi_ip:
-            try:
-                # Se for hostname (como f1car.local), resolve para IP
-                resolved_ip = socket.gethostbyname(rpi_ip)
-                self.rpi_ip = resolved_ip
-                if resolved_ip != rpi_ip:
-                    print(f"[NET] Hostname {rpi_ip} resolvido para {resolved_ip}")
-            except socket.gaierror as e:
-                print(f"[NET] ERRO: Não foi possível resolver {rpi_ip}: {e}")
-                self.rpi_ip = rpi_ip  # Usa o valor original como fallback
+        # IP já resolvido pelo main.py (mDNS resolvido uma vez no startup)
+        self.rpi_ip = rpi_ip
 
         # Filas de comunicação
         self.log_queue = log_queue
@@ -133,7 +125,8 @@ class NetworkClient:
         if self.log_queue:
             self.log_queue.put((level, message))
         else:
-            print(f"[{level}] {message}")
+            _fn = {"ERROR": error, "WARN": warn, "DEBUG": debug}.get(level, info)
+            _fn(message, "NET")
 
     def _update_status(self, status_dict):
         """Envia atualizações de status"""

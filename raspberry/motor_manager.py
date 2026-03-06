@@ -56,12 +56,14 @@ import time
 from enum import Enum
 from typing import Any, Dict
 
+from logger import debug, error, info, warn
+
 try:
     import RPi.GPIO as GPIO
 
     GPIO_AVAILABLE = True
 except ImportError:
-    print("⚠ RPi.GPIO não disponível - usando simulação")
+    warn("RPi.GPIO não disponível - usando simulação", "MOTOR")
     GPIO_AVAILABLE = False
 
 
@@ -183,20 +185,10 @@ class MotorManager:
         Returns:
             bool: True se inicializado com sucesso
         """
-        print("Inicializando sistema de motor...")
-        print("Motor: RC 775 12V via ponte H BTS7960")
-        print(
-            f"RPWM (Frente): GPIO{self.rpwm_pin} (Pin {self._gpio_to_pin(self.rpwm_pin)})"
-        )
-        print(
-            f"LPWM (Ré): GPIO{self.lpwm_pin} (Pin {self._gpio_to_pin(self.lpwm_pin)})"
-        )
-        print(f"R_EN: GPIO{self.r_en_pin} (Pin {self._gpio_to_pin(self.r_en_pin)})")
-        print(f"L_EN: GPIO{self.l_en_pin} (Pin {self._gpio_to_pin(self.l_en_pin)})")
-        print("Transmissão: MANUAL - 5 marchas")
+        info(f"Inicializando motor BTS7960 | RPWM=GPIO{self.rpwm_pin} LPWM=GPIO{self.lpwm_pin} | 5 marchas", "MOTOR")
 
         if not GPIO_AVAILABLE:
-            print("⚠ MODO SIMULAÇÃO - Motor não conectado")
+            warn("MODO SIMULAÇÃO - Motor não conectado", "MOTOR")
             self.is_initialized = True
             self._start_acceleration_thread()
             self._start_engine()
@@ -230,30 +222,17 @@ class MotorManager:
 
             self.is_initialized = True
 
-            # Correção emergencial: garantir marcha válida no sistema de 5 marchas
             if self.current_gear > 5:
-                print(f"⚠ Marcha {self.current_gear}ª inválida - redefinindo para 1ª")
+                warn(f"Marcha {self.current_gear}ª inválida - redefinindo para 1ª", "MOTOR")
                 self.current_gear = 1
 
-            # Inicia thread de controle APÓS is_initialized=True
             self._start_acceleration_thread()
-
-            print("✓ Sistema de motor inicializado com sucesso")
-            print(f"  - Frequência PWM: {self.PWM_FREQUENCY}Hz")
-            print(f"  - Marcha inicial: {self.current_gear}ª")
-            print("  - Modo transmissão: manual")
-            print("  - Resposta instantânea: motor responde imediatamente")
+            info(f"Motor inicializado | PWM: {self.PWM_FREQUENCY}Hz | Marcha: {self.current_gear}ª", "MOTOR")
 
             return True
 
         except Exception as e:
-            print(f"✗ Erro ao inicializar motor: {e}")
-            print("\nVerifique:")
-            print("1. Conexões da ponte H BTS7960")
-            print("2. Alimentação 12V do motor (V+/V-)")
-            print("3. Alimentação 5V da lógica (VCC/GND)")
-            print("4. Enables conectados e em HIGH")
-            print("5. sudo apt-get install python3-rpi.gpio")
+            error(f"Erro ao inicializar motor: {e} | Verifique: BTS7960, alimentação 12V, GPIO", "MOTOR")
 
             self.is_initialized = False
             return False
@@ -288,13 +267,11 @@ class MotorManager:
             self.acceleration_thread = threading.Thread(target=self._acceleration_loop)
             self.acceleration_thread.daemon = True
             self.acceleration_thread.start()
-            print("🧵 Thread de aceleração iniciada")
+            debug("Thread de aceleração iniciada", "MOTOR")
 
     def _acceleration_loop(self):
         """Loop principal de controle de aceleração e RPM"""
-        print(
-            f"🧵 Thread loop iniciado (should_stop={self.should_stop}, is_initialized={self.is_initialized})"
-        )
+        debug(f"Thread loop iniciado (should_stop={self.should_stop}, is_initialized={self.is_initialized})", "MOTOR")
         while not self.should_stop and self.is_initialized:
             try:
                 current_time = time.time()
@@ -313,7 +290,7 @@ class MotorManager:
                 time.sleep(0.02)  # 50Hz de atualização
 
             except Exception as e:
-                print(f"⚠ Erro no controle do motor: {e}")
+                warn(f"Erro no controle do motor: {e}", "MOTOR")
                 time.sleep(0.1)
 
     def _shift_gear(self, new_gear: int):
@@ -330,10 +307,7 @@ class MotorManager:
         if self.is_shifting:
             return
 
-        print(
-            f"🔧 Trocando marcha: {self.current_gear}ª → {new_gear}ª "
-            f"(PWM: {self.current_pwm:.1f}%)"
-        )
+        info(f"Trocando marcha: {self.current_gear}ª → {new_gear}ª (PWM: {self.current_pwm:.1f}%)", "MOTOR")
 
         self.is_shifting = True
 
@@ -356,10 +330,7 @@ class MotorManager:
             # Atualiza estatísticas
             self.gear_changes += 1
 
-            print(
-                f"✓ Marcha trocada para {new_gear}ª "
-                f"(Relação: {self.gear_ratio:.1f}:1) - Instantâneo!"
-            )
+            info(f"Marcha {new_gear}ª engrenada (Relação: {self.gear_ratio:.1f}:1)", "MOTOR")
 
             # CORREÇÃO: Reaplica último throttle com novo limite da marcha
             # Isso também força recálculo do conta-giros (zona de eficiência)
@@ -379,9 +350,7 @@ class MotorManager:
         intelligent_pwm = self._calculate_intelligent_pwm(self.last_throttle_percent)
         self.target_pwm = intelligent_pwm
 
-        print(
-            f"🔄 THROTTLE reaplicado: {self.last_throttle_percent}% → PWM: {intelligent_pwm:.1f}% (nova marcha: {self.current_gear}ª)"
-        )
+        debug(f"Throttle reaplicado: {self.last_throttle_percent}% → PWM: {intelligent_pwm:.1f}% (marcha: {self.current_gear}ª)", "MOTOR")
 
         # Log removido daqui - será feito no main.py com todos os dados
 
@@ -408,7 +377,7 @@ class MotorManager:
                 self.lpwm.ChangeDutyCycle(0)
 
         except Exception as e:
-            print(f"⚠ Erro ao aplicar PWM: {e}")
+            warn(f"Erro ao aplicar PWM: {e}", "MOTOR")
 
     def _start_engine(self):
         """Inicia o motor em marcha lenta"""
@@ -416,7 +385,7 @@ class MotorManager:
         self.target_pwm = 0.0
         self.current_pwm = 0.0
         self.engine_starts += 1
-        print("🔧 Motor iniciado em marcha lenta")
+        debug("Motor iniciado em marcha lenta", "MOTOR")
 
     def _update_statistics(self, dt: float):
         """Atualiza estatísticas do motor"""
@@ -432,7 +401,7 @@ class MotorManager:
             throttle_percent (float): Posição do acelerador 0-100%
         """
         if not self.is_initialized:
-            print("⚠ Motor não inicializado")
+            warn("Motor não inicializado", "MOTOR")
             return
 
         # Garante range válido
@@ -457,9 +426,7 @@ class MotorManager:
         now = time.time()
         if now - self._last_throttle_log >= 1.0 and throttle_percent > 0:
             self._last_throttle_log = now
-            print(
-                f"🚗 THROTTLE: {throttle_percent}% → PWM target: {intelligent_pwm:.1f}% (marcha: {self.current_gear}ª)"
-            )
+            debug(f"Throttle: {throttle_percent}% → PWM: {intelligent_pwm:.1f}% (marcha: {self.current_gear}ª)", "MOTOR")
 
         # Log removido daqui - será feito no main.py com todos os dados
 
@@ -654,7 +621,7 @@ class MotorManager:
         if zone != self.efficiency_zone:
             self.efficiency_zone = zone
             self.zone_acceleration_rate = rate_multiplier
-            print(f"🏁 Zona F1: {zone} (aceleração: {rate_multiplier:.2f}x)")
+            debug(f"Zona F1: {zone} (aceleração: {rate_multiplier:.2f}x)", "MOTOR")
 
         # Calcula diferença entre target e atual
         pwm_diff = self.target_pwm - self.current_pwm
@@ -696,8 +663,8 @@ class MotorManager:
         current_time = time.time()
         if current_time - self.last_zone_check >= 1.0:
             self.last_zone_check = current_time
-            if abs(pwm_diff) > 0.5:  # Só mostra se ainda está mudando
-                action = "⬆️ ACELERANDO" if pwm_diff > 0 else "⬇️ DESACELERANDO"
+            if abs(pwm_diff) > 0.5:
+                action = "ACELERANDO" if pwm_diff > 0 else "DESACELERANDO"
                 if pwm_diff > 0:
                     rate_info = f"Rate: {rate_multiplier:.2f}x"
                 else:
@@ -706,10 +673,8 @@ class MotorManager:
                         if rate_multiplier >= 1.0
                         else (5.0 if rate_multiplier >= 0.1 else 10.0)
                     )
-                    rate_info = f"Decel: {decel_mult:.1f}x mais rápido"
-                print(
-                    f"🏁 F1 Zone: {zone} | PWM: {self.current_pwm:.1f}%→{self.target_pwm:.1f}% | {action} | {rate_info}"
-                )
+                    rate_info = f"Decel: {decel_mult:.1f}x"
+                debug(f"F1 Zone: {zone} | PWM: {self.current_pwm:.1f}%→{self.target_pwm:.1f}% | {action} | {rate_info}", "MOTOR")
 
     def set_reverse(self, enable: bool = True):
         """
@@ -723,17 +688,17 @@ class MotorManager:
 
         if enable:
             self.motor_direction = MotorDirection.REVERSE
-            print("🔧 Ré engrenada")
+            info("Ré engrenada", "MOTOR")
         else:
             self.motor_direction = MotorDirection.FORWARD
-            print("🔧 Modo frente")
+            info("Modo frente", "MOTOR")
 
     def emergency_stop(self):
         """Para motor imediatamente"""
         self.motor_direction = MotorDirection.STOP
         self.target_pwm = 0.0
         self.current_pwm = 0.0
-        print("🚨 PARADA DE EMERGÊNCIA DO MOTOR!")
+        warn("PARADA DE EMERGÊNCIA DO MOTOR!", "MOTOR")
 
     def manual_shift(self, gear: int):
         """
@@ -743,7 +708,7 @@ class MotorManager:
             gear (int): Marcha desejada (1-8)
         """
         if gear < 1 or gear > 5:
-            print(f"⚠ Marcha inválida: {gear} (válido: 1-5)")
+            warn(f"Marcha inválida: {gear} (válido: 1-5)", "MOTOR")
             return
 
         # Modo sempre manual - permite troca a qualquer momento
@@ -911,7 +876,7 @@ class MotorManager:
     def cleanup(self):
         """Libera recursos do motor"""
         try:
-            print("Finalizando sistema de motor...")
+            debug("Finalizando sistema de motor...", "MOTOR")
 
             # Para motor
             self.emergency_stop()
@@ -939,10 +904,10 @@ class MotorManager:
                 )
 
             self.is_initialized = False
-            print("✓ Sistema de motor finalizado")
+            info("Sistema de motor finalizado", "MOTOR")
 
         except Exception as e:
-            print(f"⚠ Erro ao finalizar motor: {e}")
+            warn(f"Erro ao finalizar motor: {e}", "MOTOR")
 
     def __del__(self):
         """Destrutor - garante limpeza dos recursos"""

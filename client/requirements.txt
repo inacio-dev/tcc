@@ -8,6 +8,26 @@
 #
 # Arch Linux:
 #   sudo pacman -S tk
+#
+# ============================================================================
+# SETUP mDNS - HOSTNAME f1client.local (necessario para o RPi encontrar o PC)
+#
+# Ubuntu/Debian:
+#   sudo hostnamectl set-hostname f1client
+#   echo "127.0.1.1 f1client" | sudo tee -a /etc/hosts
+#   sudo apt install avahi-daemon avahi-utils libnss-mdns
+#   sudo systemctl enable --now avahi-daemon
+#
+# Arch Linux:
+#   sudo hostnamectl set-hostname f1client
+#   echo "127.0.1.1 f1client" | sudo tee -a /etc/hosts
+#   sudo pacman -S avahi nss-mdns
+#   # Adicionar "mdns_minimal [NOTFOUND=return]" na linha hosts em /etc/nsswitch.conf
+#   sudo systemctl enable --now avahi-daemon
+#
+# Verificar:
+#   avahi-resolve -n f1client.local   (no PC)
+#   ping f1client.local               (no Raspberry Pi)
 # ============================================================================
 
 # OpenCV para processamento de video e exibicao

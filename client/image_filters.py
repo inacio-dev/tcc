@@ -28,6 +28,8 @@ from typing import Dict, List, Optional
 import cv2
 import numpy as np
 
+from simple_logger import debug, error, info, warn
+
 # Tenta importar CuPy para aceleração GPU
 GPU_AVAILABLE = False
 cp = None
@@ -36,19 +38,19 @@ cp_ndimage = None
 try:
     import cupy as cp
 
-    # Testa se CUDA realmente funciona
-    cp.cuda.runtime.getDeviceCount()
+    # Testa kernel real (alocação passa mesmo sem suporte, soma exige binário compilado)
+    float(cp.sum(cp.ones((4, 4), dtype=cp.float32)))
     from cupyx.scipy import ndimage as cp_ndimage
 
     GPU_AVAILABLE = True
-    print("[FILTERS] GPU NVIDIA detectada - usando CuPy para aceleração")
+    info("GPU NVIDIA detectada - usando CuPy para aceleração", "FILTERS")
 except ImportError:
-    print("[FILTERS] CuPy não instalado - usando CPU")
+    info("CuPy não instalado - usando CPU", "FILTERS")
 except Exception as e:
     # CUDA não disponível ou erro de runtime
     cp = None
     cp_ndimage = None
-    print(f"[FILTERS] GPU não disponível ({type(e).__name__}) - usando CPU")
+    warn(f"GPU não disponível ({type(e).__name__}) - usando CPU", "FILTERS")
 
 
 def _create_gaussian_kernel(size=5, sigma=1.0):
@@ -261,7 +263,7 @@ class ImageFilters:
                         if method:
                             frame = method(frame)
                     except Exception as e:
-                        print(f"[FILTER] Erro ao aplicar {filter_key}: {e}")
+                        error(f"Erro ao aplicar {filter_key}: {e}", "FILTER")
 
             return frame
 
@@ -275,7 +277,7 @@ class ImageFilters:
                 return method(frame)
             return frame
         except Exception as e:
-            print(f"[FILTER] Erro ao aplicar filtro: {e}")
+            error(f"Erro ao aplicar filtro: {e}", "FILTER")
             return frame
 
     def _apply_sharpen(self, frame: np.ndarray) -> np.ndarray:
@@ -444,7 +446,7 @@ class ImageFilters:
             return cp.asnumpy(result)
 
         except Exception as e:
-            print(f"[FILTER-GPU] Erro, usando CPU: {e}")
+            warn(f"Erro GPU, usando CPU: {e}", "FILTER")
             # Fallback para CPU
             cpu_kernel = self.KERNELS.get(kernel_name)
             if cpu_kernel is not None:
@@ -473,7 +475,7 @@ class ImageFilters:
             return cp.asnumpy(result)
 
         except Exception as e:
-            print(f"[FILTER-GPU] Unsharp fallback CPU: {e}")
+            warn(f"Unsharp fallback CPU: {e}", "FILTER")
             blurred = cv2.GaussianBlur(frame, (0, 0), 3)
             return cv2.addWeighted(frame, 1.5, blurred, -0.5, 0)
 
@@ -495,7 +497,7 @@ class ImageFilters:
             return cp.asnumpy(result)
 
         except Exception as e:
-            print(f"[FILTER-GPU] Brightness fallback CPU: {e}")
+            warn(f"Brightness fallback CPU: {e}", "FILTER")
             if delta > 0:
                 return cv2.add(frame, delta)
             else:
@@ -522,7 +524,7 @@ class ImageFilters:
             return cp.asnumpy(downscaled)
 
         except Exception as e:
-            print(f"[FILTER-GPU] SuperRes fallback CPU: {e}")
+            warn(f"SuperRes fallback CPU: {e}", "FILTER")
             h, w = frame.shape[:2]
             upscaled = cv2.resize(
                 frame, (w * 2, h * 2), interpolation=cv2.INTER_LANCZOS4

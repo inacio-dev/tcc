@@ -72,6 +72,8 @@ REGISTRADORES IMPORTANTES (conforme datasheet):
 import threading
 import time
 
+from logger import debug, error, info, warn
+
 
 class BMI160Manager:
     """Gerencia o sensor BMI160 conforme datasheet oficial"""
@@ -251,11 +253,11 @@ class BMI160Manager:
                     if self.i2c_lock:
                         self.i2c_lock.release()
             else:
-                print("⚠ I2C bus não inicializado")
+                warn("I2C bus não inicializado", "BMI160")
                 return False
 
         except Exception as e:
-            print(f"⚠ Erro ao escrever registrador 0x{reg:02X}: {e}")
+            warn(f"Erro ao escrever registrador 0x{reg:02X}: {e}", "BMI160")
             return False
         return True
 
@@ -272,17 +274,17 @@ class BMI160Manager:
                     if self.i2c_lock:
                         self.i2c_lock.release()
             else:
-                print("⚠ I2C bus não inicializado")
+                warn("I2C bus não inicializado", "BMI160")
                 return None
 
         except Exception as e:
-            print(f"⚠ Erro ao ler registrador 0x{reg:02X}: {e}")
+            warn(f"Erro ao ler registrador 0x{reg:02X}: {e}", "BMI160")
             return None
 
     def _read_sensor_registers(self, start_reg, num_bytes):
         """Lê múltiplos registradores sequenciais (prioridade média)"""
         if not self.i2c_bus:
-            print("⚠ I2C bus não inicializado")
+            warn("I2C bus não inicializado", "BMI160")
             return None
 
         for attempt in range(3):
@@ -315,17 +317,15 @@ class BMI160Manager:
                         self._error_count += 1
 
                         if self._error_count % 50 == 0:
-                            print(
-                                f"⚠ BMI160 I2C Error (erro #{self._error_count}): reg 0x{start_reg:02X}"
-                            )
+                            warn(f"I2C Error (erro #{self._error_count}): reg 0x{start_reg:02X}", "BMI160")
 
                         return [0] * num_bytes
                 else:
-                    print(f"⚠ Erro I2C ao ler reg 0x{start_reg:02X}: {e}")
+                    warn(f"Erro I2C ao ler reg 0x{start_reg:02X}: {e}", "BMI160")
                     return [0] * num_bytes
 
             except Exception as e:
-                print(f"⚠ Erro inesperado ao ler reg 0x{start_reg:02X}: {e}")
+                warn(f"Erro inesperado ao ler reg 0x{start_reg:02X}: {e}", "BMI160")
                 return [0] * num_bytes
 
         # Não deveria chegar aqui, mas por segurança
@@ -338,11 +338,7 @@ class BMI160Manager:
         Returns:
             bool: True se inicializado com sucesso
         """
-        print("Inicializando sensor BMI160...")
-        print(f"Endereço I2C: 0x{self.i2c_address:02X}")
-        print(f"Range Accel: ±{self._get_accel_range_g()}g")
-        print(f"Range Gyro: ±{self._get_gyro_range_dps()}°/s")
-        print(f"ODR: {self.sample_rate}Hz")
+        info(f"Inicializando BMI160 | I2C: 0x{self.i2c_address:02X} | Accel: ±{self._get_accel_range_g()}g | Gyro: ±{self._get_gyro_range_dps()}°/s | {self.sample_rate}Hz", "BMI160")
 
         try:
             # 1. Tentar inicializar I2C real
@@ -351,54 +347,49 @@ class BMI160Manager:
                 import smbus2
 
                 self.i2c_bus = smbus2.SMBus(1)  # I2C bus 1 no Raspberry Pi
-                print("✓ I2C inicializado com smbus2")
+                info("I2C inicializado com smbus2", "BMI160")
             except ImportError:
                 try:
                     # Fallback para smbus (sistema)
                     import smbus
 
                     self.i2c_bus = smbus.SMBus(1)
-                    print("✓ I2C inicializado com smbus")
+                    info("I2C inicializado com smbus", "BMI160")
                 except ImportError:
-                    print(
-                        "❌ Nem smbus2 nem smbus disponíveis - hardware I2C obrigatório"
-                    )
+                    error("Nem smbus2 nem smbus disponíveis - hardware I2C obrigatório", "BMI160")
                     return False
                 except Exception as e:
-                    print(f"❌ Erro no smbus: {e} - hardware I2C obrigatório")
+                    error(f"Erro no smbus: {e} - hardware I2C obrigatório", "BMI160")
                     return False
             except Exception as e:
-                print(f"⚠ Erro no smbus2: {e} - tentando smbus...")
+                warn(f"Erro no smbus2: {e} - tentando smbus...", "BMI160")
                 try:
                     import smbus
 
                     self.i2c_bus = smbus.SMBus(1)
-                    print("✓ I2C inicializado com smbus")
+                    info("I2C inicializado com smbus", "BMI160")
                 except Exception as e2:
-                    print(f"❌ Erro no smbus também: {e2} - hardware I2C obrigatório")
+                    error(f"Erro no smbus também: {e2} - hardware I2C obrigatório", "BMI160")
                     return False
 
             # 2. Verificar CHIP_ID (deve ser 0xD1)
             chip_id = self._read_register(self.REG_CHIP_ID)
             if chip_id is None:
-                print("✗ Erro ao ler CHIP_ID - sensor não responde")
+                error("Erro ao ler CHIP_ID - sensor não responde", "BMI160")
                 return False
             if chip_id != self.CHIP_ID_BMI160:
-                print(
-                    f"✗ CHIP_ID incorreto: 0x{chip_id:02X} (esperado: 0x{self.CHIP_ID_BMI160:02X})"
-                )
+                error(f"CHIP_ID incorreto: 0x{chip_id:02X} (esperado: 0x{self.CHIP_ID_BMI160:02X})", "BMI160")
                 return False
 
-            print(f"✓ CHIP_ID verificado: 0x{chip_id:02X}")
+            info(f"CHIP_ID verificado: 0x{chip_id:02X}", "BMI160")
 
             # 3. Soft Reset
-            print("Executando soft reset...")
+            debug("Executando soft reset...", "BMI160")
             if not self._write_register(self.REG_CMD, self.CMD_SOFT_RESET):
-                print("❌ Falha no soft reset")
+                error("Falha no soft reset", "BMI160")
                 return False
 
-            # BMI160 precisa de tempo para resetar completamente
-            print("Aguardando estabilização após reset...")
+            debug("Aguardando estabilização após reset...", "BMI160")
             time.sleep(0.2)  # 200ms para garantir reset completo
 
             # 4. Verificar se voltou depois do reset (com retry)
@@ -407,88 +398,70 @@ class BMI160Manager:
                 chip_id_after_reset = self._read_register(self.REG_CHIP_ID)
                 if chip_id_after_reset == self.CHIP_ID_BMI160:
                     break
-                print(f"Retry {retry+1}: aguardando sensor...")
+                debug(f"Retry {retry+1}: aguardando sensor...", "BMI160")
                 time.sleep(0.1)
 
             if chip_id_after_reset != self.CHIP_ID_BMI160:
-                print(
-                    f"❌ CHIP_ID após reset: 0x{chip_id_after_reset if chip_id_after_reset else 'None':02X}"
-                )
-                # Sensor pode estar funcional mesmo sem confirmar reset
-                print("⚠ Continuando sem confirmação de reset...")
+                warn(f"CHIP_ID após reset: 0x{chip_id_after_reset if chip_id_after_reset else 'None'} - continuando", "BMI160")
             else:
-                print("✓ Sensor OK após reset")
+                debug("Sensor OK após reset", "BMI160")
 
             # 5. Ativar acelerômetro ANTES de configurar
-            print("Ativando acelerômetro...")
             if not self._write_register(self.REG_CMD, self.CMD_ACC_SET_PMU_MODE):
-                print("❌ Falha ao ativar acelerômetro")
+                error("Falha ao ativar acelerômetro", "BMI160")
                 return False
             time.sleep(0.010)  # Startup time do acelerômetro
 
             # 6. Configurar acelerômetro (DEPOIS de ativar)
-            print("Configurando range do acelerômetro...")
             if not self._write_register(self.REG_ACC_RANGE, self.accel_range):
-                print("❌ Falha ao configurar range acelerômetro")
+                error("Falha ao configurar range acelerômetro", "BMI160")
                 return False
 
-            print("Configurando ODR do acelerômetro...")
             acc_conf = self.odr_value | (0x02 << 4)  # BWP = 0x02 (normal mode)
             if not self._write_register(self.REG_ACC_CONF, acc_conf):
-                print("❌ Falha ao configurar ODR acelerômetro")
+                error("Falha ao configurar ODR acelerômetro", "BMI160")
                 return False
 
             # 7. Ativar giroscópio ANTES de configurar
-            print("Ativando giroscópio...")
             if not self._write_register(self.REG_CMD, self.CMD_GYR_SET_PMU_MODE):
-                print("❌ Falha ao ativar giroscópio")
+                error("Falha ao ativar giroscópio", "BMI160")
                 return False
             time.sleep(0.080)  # Startup time do giroscópio (80ms conforme datasheet)
 
             # 8. Configurar giroscópio (DEPOIS de ativar)
-            print("Configurando range do giroscópio...")
             if not self._write_register(self.REG_GYR_RANGE, self.gyro_range):
-                print("❌ Falha ao configurar range giroscópio")
+                error("Falha ao configurar range giroscópio", "BMI160")
                 return False
 
-            print("Configurando ODR do giroscópio...")
             gyr_conf = self.odr_value | (0x02 << 4)  # BWP = 0x02 (normal mode)
             if not self._write_register(self.REG_GYR_CONF, gyr_conf):
-                print("❌ Falha ao configurar ODR giroscópio")
+                error("Falha ao configurar ODR giroscópio", "BMI160")
                 return False
 
             # 9. Aguardar estabilização final
-            print("Aguardando estabilização final...")
             time.sleep(0.1)
 
             # 10. Teste de leitura para verificar se funciona
-            print("Testando leitura dos registradores...")
             test_accel = self._read_sensor_registers(self.REG_ACCEL_DATA, 6)
             test_gyro = self._read_sensor_registers(self.REG_GYRO_DATA, 6)
             if test_accel is None or test_gyro is None:
-                print("❌ Falha no teste de leitura - sensor não responde")
+                error("Falha no teste de leitura - sensor não responde", "BMI160")
                 return False
-            print(f"✓ Teste OK - accel: {test_accel[:2]}, gyro: {test_gyro[:2]}")
 
             self.is_initialized = True
-
-            print("✓ BMI160 inicializado com sucesso!")
-            print(f"  - Acelerômetro: ±{self._get_accel_range_g()}g")
-            print(f"  - Giroscópio: ±{self._get_gyro_range_dps()}°/s")
-            print(f"  - Taxa: {self.sample_rate}Hz")
-            print(f"  - Escala Accel: {self.accel_scale:.6f} g/LSB")
-            print(f"  - Escala Gyro: {self.gyro_scale:.6f} °/s/LSB")
-
+            info(
+                f"BMI160 inicializado | Accel: ±{self._get_accel_range_g()}g | "
+                f"Gyro: ±{self._get_gyro_range_dps()}°/s | {self.sample_rate}Hz",
+                "BMI160",
+            )
             return True
 
         except Exception as e:
-            print(f"✗ Erro ao inicializar BMI160: {e}")
-            print("\nVerifique:")
-            print("1. Conexões I2C (SDA=GPIO2, SCL=GPIO3)")
-            print("2. I2C habilitado: sudo raspi-config -> Interface Options -> I2C")
-            print("3. Biblioteca I2C: sudo apt-get install i2c-tools python3-smbus2")
-            print("4. Endereço correto: sudo i2cdetect -y 1")
-            print("5. Alimentação do sensor (3.3V ou 5V)")
+            error(
+                f"Erro ao inicializar BMI160: {e} | "
+                "Verifique: I2C (SDA=GPIO2, SCL=GPIO3), raspi-config -> I2C, i2cdetect -y 1",
+                "BMI160",
+            )
 
             self.is_initialized = False
             return False
@@ -518,7 +491,7 @@ class BMI160Manager:
         """Re-ativa PMU do BMI160 após brown-out (sem soft reset completo).
         Quando o motor causa queda de tensão, o BMI160 pode voltar a suspend mode."""
         try:
-            print("⚠ BMI160: detectado zeros consecutivos — re-ativando PMU...")
+            warn("BMI160: detectado zeros consecutivos — re-ativando PMU...", "BMI160")
 
             # Re-ativa acelerômetro (CMD 0x11 = acc normal mode)
             self._write_register(self.REG_CMD, self.CMD_ACC_SET_PMU_MODE)
@@ -543,11 +516,11 @@ class BMI160Manager:
             # Testa se voltou
             test = self._read_sensor_registers(self.REG_ACCEL_DATA, 6)
             if test and any(b != 0 for b in test):
-                print("✓ BMI160: PMU re-ativado com sucesso")
+                info("BMI160: PMU re-ativado com sucesso", "BMI160")
                 self._consecutive_zeros = 0
                 return True
             else:
-                print("⚠ BMI160: PMU re-ativado mas ainda zerado, tentando soft reset...")
+                warn("BMI160: PMU re-ativado mas ainda zerado, tentando soft reset...", "BMI160")
                 self._write_register(self.REG_CMD, self.CMD_SOFT_RESET)
                 time.sleep(0.200)
                 self._write_register(self.REG_CMD, self.CMD_ACC_SET_PMU_MODE)
@@ -560,11 +533,11 @@ class BMI160Manager:
                 self._write_register(self.REG_GYR_CONF, gyr_conf)
                 time.sleep(0.050)
                 self._consecutive_zeros = 0
-                print("✓ BMI160: soft reset completo")
+                info("BMI160: soft reset completo", "BMI160")
                 return True
 
         except Exception as e:
-            print(f"❌ BMI160 rewake falhou: {e}")
+            error(f"BMI160 rewake falhou: {e}", "BMI160")
             return False
 
     def read_sensor_data(self):
@@ -606,9 +579,7 @@ class BMI160Manager:
                 self._debug_counter = 1
 
             if self._debug_counter % 200 == 0:  # A cada ~3s
-                print(
-                    f"🔍 BMI160 RAW I2C: accel_data={accel_data}, gyro_data={gyro_data}"
-                )
+                debug(f"RAW I2C: accel={accel_data}, gyro={gyro_data}", "BMI160")
 
             # CONVERSÃO CONFORME DATASHEET:
             # Dados em complemento de 2, LSB primeiro
@@ -645,7 +616,7 @@ class BMI160Manager:
             return True
 
         except Exception as e:
-            print(f"⚠ Erro ao ler BMI160: {e}")
+            warn(f"Erro ao ler BMI160: {e}", "BMI160")
             return False
 
     def _bytes_to_int16(self, lsb, msb):
@@ -738,10 +709,10 @@ class BMI160Manager:
 
             self.is_initialized = False
             self.i2c_bus = None
-            print("✓ BMI160 finalizado")
+            info("BMI160 finalizado", "BMI160")
 
         except Exception as e:
-            print(f"⚠ Erro ao finalizar BMI160: {e}")
+            warn(f"Erro ao finalizar BMI160: {e}", "BMI160")
 
     def __del__(self):
         """Destrutor - garante limpeza dos recursos"""

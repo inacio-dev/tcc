@@ -104,6 +104,8 @@ sudo pip3 install adafruit-circuitpython-pca9685
 import threading
 import time
 
+from logger import debug, error, info, warn
+
 try:
     import board
     import busio
@@ -111,11 +113,9 @@ try:
     from adafruit_pca9685 import PCA9685
 
     PCA9685_AVAILABLE = True
-    print("✓ PCA9685 disponível")
+    info("PCA9685 disponível", "BRAKE")
 except ImportError:
-    print(
-        "❌ PCA9685 não disponível - instale: sudo pip3 install adafruit-circuitpython-pca9685"
-    )
+    error("PCA9685 não disponível - instale: sudo pip3 install adafruit-circuitpython-pca9685", "BRAKE")
     PCA9685_AVAILABLE = False
     exit(1)  # Para execução se PCA9685 não disponível
 
@@ -213,23 +213,17 @@ class BrakeManager:
         Returns:
             bool: True se inicializado com sucesso
         """
-        print("Inicializando sistema de freios via PCA9685...")
-        print(f"Freio dianteiro: Canal {self.front_channel} do PCA9685")
-        print(f"Freio traseiro: Canal {self.rear_channel} do PCA9685")
-        print(f"Endereço I2C: 0x{self.pca9685_address:02X}")
-        print(
-            f"Balanço de freio: {self.brake_balance:.1f}% (0=dianteiro, 100=traseiro)"
-        )
+        info(f"Inicializando freios | Canais: front={self.front_channel} rear={self.rear_channel} | I2C: 0x{self.pca9685_address:02X} | Balanço: {self.brake_balance:.1f}%", "BRAKE")
 
         try:
             # Inicializa barramento I2C
             self.i2c = busio.I2C(board.SCL, board.SDA)
-            print("✓ Barramento I2C inicializado")
+            debug("I2C inicializado", "BRAKE")
 
             # Inicializa PCA9685
             self.pca9685 = PCA9685(self.i2c, address=self.pca9685_address)
             self.pca9685.frequency = self.PWM_FREQUENCY
-            print(f"✓ PCA9685 inicializado @ {self.PWM_FREQUENCY}Hz")
+            debug(f"PCA9685 inicializado @ {self.PWM_FREQUENCY}Hz", "BRAKE")
 
             # Configura servos nos canais especificados
             self.front_servo = servo.Servo(
@@ -243,9 +237,7 @@ class BrakeManager:
                 min_pulse=int(self.PULSE_MIN * 1000),  # converte para microssegundos
                 max_pulse=int(self.PULSE_MAX * 1000),
             )
-            print(
-                f"✓ Servos configurados (canais {self.front_channel} e {self.rear_channel})"
-            )
+            debug(f"Servos configurados (canais {self.front_channel} e {self.rear_channel})", "BRAKE")
 
             # Posiciona servos na posição solta (freios liberados)
             if self.i2c_lock:
@@ -258,21 +250,11 @@ class BrakeManager:
             else:
                 self.front_servo.angle = self.BRAKE_MIN_ANGLE
                 self.rear_servo.angle = self.BRAKE_MIN_ANGLE
-            print(
-                f"✓ Servos posicionados na posição solta ({self.BRAKE_MIN_ANGLE}° = freios liberados)"
-            )
-
             # Aguarda servos se posicionarem
             time.sleep(0.5)
 
             self.is_initialized = True
-
-            print("✅ Sistema de freios inicializado com sucesso!")
-            print(f"  - Frequência PWM: {self.PWM_FREQUENCY}Hz")
-            print(f"  - Posição inicial: {self.BRAKE_MIN_ANGLE}° (freios soltos)")
-            print("  - Movimento: DIRETO (sem suavização)")
-            print(f"  - Canal frontal: {self.front_channel}")
-            print(f"  - Canal traseiro: {self.rear_channel}")
+            info(f"Freios inicializados | PWM: {self.PWM_FREQUENCY}Hz | Canais: {self.front_channel}/{self.rear_channel}", "BRAKE")
 
             # Teste rápido dos servos
             self._test_servos()
@@ -280,13 +262,7 @@ class BrakeManager:
             return True
 
         except Exception as e:
-            print(f"❌ Erro ao inicializar sistema de freios: {e}")
-            print("\nVerifique:")
-            print("1. Conexões do PCA9685 (VCC, GND, SDA, SCL)")
-            print("2. Conexões dos servos no PCA9685 (canais corretos)")
-            print("3. Alimentação dos servos (fonte externa 6V recomendada)")
-            print("4. sudo raspi-config -> Interface Options -> I2C -> Enable")
-            print("5. sudo pip3 install adafruit-circuitpython-pca9685")
+            error(f"Erro ao inicializar freios: {e} | Verifique: PCA9685 I2C, canais, alimentação servos 6V", "BRAKE")
 
             self.is_initialized = False
             return False
@@ -303,7 +279,7 @@ class BrakeManager:
             self.brake_balance = max(0.0, min(100.0, balance))
 
             if abs(self.brake_balance - old_balance) > 0.1:
-                print(f"Balanço de freio alterado: {self.brake_balance:.1f}%")
+                info(f"Balanço de freio alterado: {self.brake_balance:.1f}%", "BRAKE")
 
                 # Recalcula distribuição se freios estão aplicados
                 if self.total_brake_input > 0:
@@ -339,11 +315,7 @@ class BrakeManager:
             now = time.time()
             if now - self._last_log_time >= 1.0 and brake_input > 0:
                 self._last_log_time = now
-                print(
-                    f"🛑 Freio: {brake_input:.1f}% "
-                    f"(Diant: {self.front_brake_force:.1f}%, "
-                    f"Tras: {self.rear_brake_force:.1f}%)"
-                )
+                debug(f"Freio: {brake_input:.1f}% (Diant: {self.front_brake_force:.1f}%, Tras: {self.rear_brake_force:.1f}%)", "BRAKE")
 
     def _calculate_brake_distribution(self, total_input: float):
         """
@@ -418,44 +390,36 @@ class BrakeManager:
                 if rear_changed:
                     self._last_rear_angle = rear_angle
         else:
-            print("⚠️ Servos de freio não inicializados!")
+            warn("Servos de freio não inicializados!", "BRAKE")
 
     def release_brakes(self):
         """Libera completamente os freios"""
         self.apply_brake(0.0)
-        print("🔧 Freios liberados")
+        debug("Freios liberados", "BRAKE")
 
     def emergency_brake(self):
         """Aplica freio de emergência (força máxima)"""
         self.apply_brake(100.0)
-        print("🚨 FREIO DE EMERGÊNCIA ATIVADO!")
+        warn("FREIO DE EMERGÊNCIA ATIVADO!", "BRAKE")
 
     def _test_servos(self):
         """Executa teste rápido dos servos - MOVIMENTO DIRETO"""
-        print("Executando teste dos servos...")
+        debug("Executando teste dos servos...", "BRAKE")
 
         try:
-            # Teste freio dianteiro
-            print("  - Testando freio dianteiro...")
             old_balance = self.brake_balance
             self.set_brake_balance(0.0)
-            self.apply_brake(30.0)  # 30% só no dianteiro
+            self.apply_brake(30.0)
             time.sleep(0.5)
-
-            # Teste freio traseiro
-            print("  - Testando freio traseiro...")
-            self.set_brake_balance(100.0)  # 30% só no traseiro
+            self.set_brake_balance(100.0)
             time.sleep(0.5)
-
-            # Volta ao estado inicial
             self.set_brake_balance(old_balance)
             self.release_brakes()
             time.sleep(0.5)
-
-            print("✓ Teste dos servos concluído")
+            debug("Teste dos servos concluído", "BRAKE")
 
         except Exception as e:
-            print(f"⚠ Erro durante teste: {e}")
+            warn(f"Erro durante teste: {e}", "BRAKE")
 
     def get_brake_status(self) -> dict:
         """
@@ -517,7 +481,7 @@ class BrakeManager:
     def cleanup(self):
         """Libera recursos do sistema de freios"""
         try:
-            print("Finalizando sistema de freios...")
+            debug("Finalizando sistema de freios...", "BRAKE")
 
             # Libera freios antes de desligar
             self.release_brakes()
@@ -536,10 +500,10 @@ class BrakeManager:
                 self.i2c = None
 
             self.is_initialized = False
-            print("✓ Sistema de freios finalizado")
+            info("Sistema de freios finalizado", "BRAKE")
 
         except Exception as e:
-            print(f"⚠ Erro ao finalizar sistema de freios: {e}")
+            warn(f"Erro ao finalizar sistema de freios: {e}", "BRAKE")
 
     def __del__(self):
         """Destrutor - garante limpeza dos recursos"""

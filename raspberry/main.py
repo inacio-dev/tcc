@@ -5,12 +5,12 @@ Integra todos os componentes: câmera, sensores, motor, freios, direção, displ
 
 ARQUITETURA DE THREADS:
 =======================
-├── Thread Câmera (30Hz)      - Captura frames independente
-├── Thread Sensores (60Hz)    - Lê BMI160 em alta taxa
+├── Thread Câmera (60Hz)      - Captura frames independente
+├── Thread Sensores (100Hz)   - Lê BMI160 em alta taxa
 ├── Thread Energia (10Hz)     - Monitora Pro Micro (serial) + INA219 (I2C)
 ├── Thread Temperatura (1Hz)  - Lê DS18B20
-├── Thread TX Vídeo (30Hz)    - Transmite frames MJPEG (porta 9999)
-├── Thread TX Sensores (60Hz) - Transmite dados consolidados (porta 9997)
+├── Thread TX Vídeo (60Hz)    - Transmite frames MJPEG (porta 9999)
+├── Thread TX Sensores (100Hz)- Transmite dados consolidados (porta 9997)
 └── Thread RX Comandos        - Recebe comandos (daemon no NetworkManager, porta 9998)
 
 COMUNICAÇÃO ENTRE THREADS:
@@ -261,9 +261,9 @@ class F1CarMultiThreadSystem:
 
     def _signal_handler(self, signum, frame):
         """Manipulador de sinais para parada limpa"""
-        print(f"\nRecebido sinal {signum} - Iniciando parada limpa...")
+        info(f"Recebido sinal {signum} - Iniciando parada limpa...", "MAIN")
         if self._stopping:
-            print("\n Forçando saída imediata...")
+            warn("Forçando saída imediata...", "MAIN")
             sys.exit(0)
         self._stopping = True
         self.stop()
@@ -426,7 +426,7 @@ class F1CarMultiThreadSystem:
     # === THREADS DE AQUISIÇÃO ===
 
     def _camera_thread_loop(self):
-        """Thread dedicada para captura de câmera (30Hz)"""
+        """Thread dedicada para captura de câmera (60Hz)"""
         debug("Thread de câmera iniciada", "CAM")
         interval = 1.0 / self.camera_fps
         SLOW_THRESHOLD = 0.100  # 100ms (capture pode ser mais lento)
@@ -573,9 +573,9 @@ class F1CarMultiThreadSystem:
         debug("Thread de temperatura finalizada", "TEMP")
 
     def _video_tx_thread_loop(self):
-        """Thread dedicada para transmissão de vídeo (30Hz, porta 9999)"""
-        debug("Thread TX vídeo iniciada (30Hz)", "NET-TX")
-        interval = 1.0 / 30.0  # 30Hz
+        """Thread dedicada para transmissão de vídeo (60Hz, porta 9999)"""
+        debug("Thread TX vídeo iniciada (60Hz)", "NET-TX")
+        interval = 1.0 / 60.0  # 60Hz
         SLOW_THRESHOLD = 0.050  # 50ms
 
         while self.running:
@@ -611,9 +611,9 @@ class F1CarMultiThreadSystem:
         debug("Thread TX vídeo finalizada", "NET-TX")
 
     def _sensor_tx_thread_loop(self):
-        """Thread dedicada para transmissão de sensores (60Hz, porta 9997)"""
-        debug("Thread TX sensores iniciada (60Hz)", "NET-TX")
-        interval = 1.0 / 60.0  # 60Hz
+        """Thread dedicada para transmissão de sensores (100Hz, porta 9997)"""
+        debug("Thread TX sensores iniciada (100Hz)", "NET-TX")
+        interval = 1.0 / 100.0  # 100Hz
         last_stats_time = time.time()
         last_connect_ping = time.time()
         SLOW_THRESHOLD = 0.050  # 50ms
@@ -700,7 +700,7 @@ class F1CarMultiThreadSystem:
     def _process_client_command(self, client_ip: str, command: str):
         """Processa comandos recebidos do cliente"""
         try:
-            debug(f"Comando de {client_ip}: {command}", "CMD")
+            debug(f"Comando de {client_ip}: {command}", "CMD", rate_limit=1.0)
 
             with self.stats_lock:
                 self.commands_received += 1
@@ -766,14 +766,6 @@ class F1CarMultiThreadSystem:
                     if self.motor_mgr:
                         if self.motor_mgr.shift_gear_down():
                             info(f"Marcha: {self.motor_mgr.current_gear}", "CMD")
-
-                elif control_cmd.startswith("CAMERA_RESOLUTION:"):
-                    resolution = control_cmd[18:]  # e.g., "720p", "1080p", "480p"
-                    if self.camera_mgr:
-                        if self.camera_mgr.set_resolution(resolution):
-                            info(f"Resolução da câmera: {resolution}", "CMD")
-                        else:
-                            warn(f"Falha ao mudar resolução: {resolution}", "CMD")
 
                 elif control_cmd.startswith("CAMERA_QUALITY:"):
                     quality = int(control_cmd[15:])
@@ -957,16 +949,14 @@ def create_argument_parser():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Exemplos de uso:
-  python3 main.py                                    # Padrão (480p@30fps)
+  python3 main.py                                    # Padrão (480p@60fps)
   python3 main.py --resolution 720p --fps 60        # HD 720p a 60fps
-  python3 main.py --resolution 1080p --fps 30       # Full HD a 30fps
   python3 main.py --quality 95 --sharpness 1.5      # Alta qualidade + nitidez
   python3 main.py --debug                            # Modo verbose
 
 Presets de resolução:
   480p  = 640x480   (leve, até 90fps)
   720p  = 1280x720  (HD, até 60fps)
-  1080p = 1920x1080 (Full HD, até 30fps)
         """,
     )
 
@@ -979,12 +969,12 @@ Presets de resolução:
     parser.add_argument(
         "--resolution",
         type=str,
-        choices=["480p", "720p", "1080p"],
+        choices=["480p", "720p"],
         default="480p",
         help="Resolução da câmera (default: 480p)",
     )
     parser.add_argument(
-        "--fps", type=int, default=30, help="FPS da câmera (default: 30)"
+        "--fps", type=int, default=60, help="FPS da câmera (default: 60)"
     )
     parser.add_argument(
         "--quality", type=int, default=85, help="Qualidade MJPEG 1-100 (default: 85)"
@@ -1004,7 +994,7 @@ Presets de resolução:
 
     # Outras configurações
     parser.add_argument(
-        "--sensor-rate", type=int, default=60, help="Taxa sensores Hz (default: 60)"
+        "--sensor-rate", type=int, default=100, help="Taxa sensores Hz (default: 100)"
     )
     parser.add_argument(
         "--brake-balance",
@@ -1042,12 +1032,11 @@ def main():
     resolution_map = {
         "480p": (640, 480),
         "720p": (1280, 720),
-        "1080p": (1920, 1080),
     }
     resolution = resolution_map[args.resolution]
 
     # Validações
-    max_fps = {"480p": 90, "720p": 60, "1080p": 30}[args.resolution]
+    max_fps = {"480p": 90, "720p": 60}[args.resolution]
     if not (1 <= args.fps <= max_fps):
         error(f"FPS deve estar entre 1 e {max_fps} para {args.resolution}", "CONFIG")
         sys.exit(1)

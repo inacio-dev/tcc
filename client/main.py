@@ -30,6 +30,7 @@ O cliente está preparado para receber TODOS os dados do BMI160:
 
 import argparse
 import queue
+import socket
 import sys
 import threading
 import time
@@ -40,7 +41,7 @@ try:
     from g923_manager import G923Manager
     from network_client import NetworkClient
     from sensor_display import SensorDisplay
-    from simple_logger import debug, error, info
+    from simple_logger import debug, error, info, warn
     from video_display import VideoDisplay
 except ImportError as e:
     print(f"❌ ERRO: Não foi possível importar módulos necessários: {e}")
@@ -98,6 +99,11 @@ class F1ClientApplication:
         self.network_thread = None
         self.console_thread = None
         self.video_thread = None
+        self.command_tx_thread = None
+
+        # Estado de controle compartilhado (atualizado pelo G923/teclado, enviado a 100Hz)
+        self._control_state = "0,0,0"  # steering,throttle,brake
+        self._control_state_lock = threading.Lock()
 
         # Estatísticas
         self.start_time = time.time()
@@ -132,17 +138,16 @@ class F1ClientApplication:
             elif command_type in ["GEAR_UP", "GEAR_DOWN"]:
                 log_queue.put(("INFO", f"G923: {command_type}"))
 
-            # Só envia pela rede se RPi confirmado (recebeu pelo menos 1 pacote)
-            # Sem esta verificação, sendto("f1car.local") bloqueia no mDNS
-            # e trava a thread de input do G923 por segundos
-            if (
-                self.network_client
-                and self.network_client.packets_received > 0
-            ):
-                if command_type == "STATE":
-                    # Pacote unificado: CONTROL:STATE:steering,throttle,brake
-                    self.network_client.send_control_command(command_type, value)
-                elif command_type in ["GEAR_UP", "GEAR_DOWN"]:
+            if command_type == "STATE":
+                # Apenas atualiza estado — o loop 100Hz envia continuamente
+                with self._control_state_lock:
+                    self._control_state = value
+            elif command_type in ["GEAR_UP", "GEAR_DOWN"]:
+                # Eventos de marcha: envia imediatamente (não são estado contínuo)
+                if (
+                    self.network_client
+                    and self.network_client.packets_received > 0
+                ):
                     self.network_client.send_control_command(command_type, 1.0)
         except Exception as e:
             log_queue.put(("WARN", f"Falha ao enviar comando: {command_type}:{value}"))
@@ -247,6 +252,30 @@ class F1ClientApplication:
                     ("WARN", "G923 não encontrado - use sliders ou teclado como fallback")
                 )
 
+    def start_command_tx_thread(self):
+        """Inicia loop de envio de comandos a 100Hz"""
+        self.command_tx_thread = threading.Thread(
+            target=self._command_tx_loop, name="CommandTX", daemon=True
+        )
+        self.command_tx_thread.start()
+        log_queue.put(("INFO", "Thread de comandos TX 100Hz iniciada"))
+
+    def _command_tx_loop(self):
+        """Envia o estado de controle atual ao RPi a 100Hz continuamente"""
+        interval = 1.0 / 100.0  # 100Hz
+        while self.running:
+            try:
+                if (
+                    self.network_client
+                    and self.network_client.packets_received > 0
+                ):
+                    with self._control_state_lock:
+                        state = self._control_state
+                    self.network_client.send_control_command("STATE", state)
+                time.sleep(interval)
+            except Exception:
+                time.sleep(interval)
+
     def start_console_thread(self):
         """Inicia thread do console (interface principal)"""
         if self.console_interface:
@@ -280,6 +309,10 @@ class F1ClientApplication:
 
             # Inicia G923 (opcional - não bloqueia se não conectado)
             self.start_g923()
+            time.sleep(0.1)  # Pequena pausa
+
+            # Loop de envio de comandos a 100Hz
+            self.start_command_tx_thread()
             time.sleep(0.1)  # Pequena pausa
 
             # Console por último (thread principal)
@@ -559,37 +592,34 @@ def main():
     buffer_size = args.buffer * 1024
 
     # Banner de inicialização
-    print("🏎️" + "=" * 60)
-    print("    F1 CAR CLIENT - REMOTE CONTROL RECEIVER")
-    print("    Recebe vídeo + sensores do Raspberry Pi")
-    print("=" * 62)
-    print()
-
-    # Configurações
-    print("📋 CONFIGURAÇÕES:")
-    print(f"   🔌 Porta: {args.port}")
-    print(f"   📦 Buffer: {args.buffer} KB")
-    print(f"   🐛 Debug: {'Ativado' if args.debug else 'Desativado'}")
-    print()
+    info("=" * 60)
+    info("F1 CAR CLIENT - REMOTE CONTROL RECEIVER")
+    info("Recebe vídeo + sensores do Raspberry Pi")
+    info("=" * 60)
+    info(f"Porta: {args.port} | Buffer: {args.buffer} KB | Debug: {'Ativado' if args.debug else 'Desativado'}")
 
     # Validação de argumentos
     if not (1024 <= args.port <= 65535):
-        print("❌ ERRO: Porta deve estar entre 1024 e 65535")
+        error("Porta deve estar entre 1024 e 65535")
         sys.exit(1)
 
     if not (32 <= args.buffer <= 1024):
-        print("❌ ERRO: Buffer deve estar entre 32 e 1024 KB")
+        error("Buffer deve estar entre 32 e 1024 KB")
         sys.exit(1)
 
     # Configuração via mDNS - funciona em qualquer rede
-    rpi_ip = "f1car.local"
+    rpi_hostname = "f1car.local"
     client_ip = "f1client.local"
 
-    print("🔗 CONFIGURAÇÃO mDNS:")
-    print(f"   📹 Vídeo: {rpi_ip}:9999 (RPi → Client)")
-    print(f"   📊 Sensores: {rpi_ip}:9997 (RPi → Client)")
-    print(f"   🎮 Comandos: {client_ip}:9998 (Client → RPi)")
-    print()
+    # Resolve hostname mDNS uma vez e guarda IP numérico (evita resolução por pacote)
+    try:
+        rpi_ip = socket.gethostbyname(rpi_hostname)
+        info(f"mDNS resolvido: {rpi_hostname} → {rpi_ip}")
+    except socket.gaierror:
+        warn(f"Não foi possível resolver {rpi_hostname}, usando hostname direto")
+        rpi_ip = rpi_hostname
+
+    info(f"Vídeo: {rpi_ip}:9999 | Sensores: {rpi_ip}:9997 | Comandos: {client_ip}:9998")
 
     # Criar e executar aplicação com IPs fixos
     app = F1ClientApplication(
@@ -601,13 +631,13 @@ def main():
         success = app.run()
 
         if not success:
-            print("\n❌ Falha na execução da aplicação")
+            error("Falha na execução da aplicação")
             sys.exit(1)
 
     except KeyboardInterrupt:
-        print("\n⚠️ Interrompido pelo usuário")
+        warn("Interrompido pelo usuário")
     except Exception as e:
-        print(f"\n❌ Erro crítico: {e}")
+        error(f"Erro crítico: {e}")
         import traceback
 
         traceback.print_exc()
@@ -618,7 +648,7 @@ def main():
             app.stop()
         except Exception:
             pass
-        print("\n👋 Obrigado por usar o F1 Client!")
+        info("F1 Client finalizado")
 
         # Força saída limpa para evitar erro "Tcl_AsyncDelete" do Tkinter
         # Este erro ocorre quando objetos Tkinter são garbage-collected em threads secundárias
