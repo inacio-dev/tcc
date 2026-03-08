@@ -139,21 +139,21 @@ class SteeringManager:
     PULSE_MAX = 2.0  # 2.0ms = 180° (máximo direita)
     PULSE_CENTER = 1.5  # 1.5ms = 90° (centro)
 
-    # Limites mecânicos da direção (em graus) - RANGE LIMITADO 0° a 113.4°
-    STEERING_MIN_ANGLE = 0  # 0° = máximo à esquerda
-    STEERING_MAX_ANGLE = 113.4  # 113.4° = máximo à direita
-    STEERING_CENTER = 56.7  # 56.7° = posição central (meio do range 0-113.4°)
+    # Limites mecânicos da direção (em graus) - RANGE COMPLETO 0° a 180°
+    STEERING_MIN_ANGLE = 0    # 0° = máximo à esquerda
+    STEERING_MAX_ANGLE = 180  # 180° = máximo à direita
+    STEERING_CENTER = 90      # 90° = posição central
 
-    # Range de direção útil (LIMITADO 0°-113.4°)
-    MAX_STEERING_LEFT = -56.7  # -56.7° (esquerda máxima: 56.7°-56.7°=0°)
-    MAX_STEERING_RIGHT = 56.7  # +56.7° (direita máxima: 56.7°+56.7°=113.4°)
+    # Range de direção útil (±90° do centro)
+    MAX_STEERING_LEFT = -90   # -90° (esquerda máxima: 90°-90°=0°)
+    MAX_STEERING_RIGHT = 90   # +90° (direita máxima: 90°+90°=180°)
 
     def __init__(
         self,
         steering_channel: int = None,
         pca9685_address: int = None,
         steering_sensitivity: float = 1.0,
-        max_steering_angle: float = 90.0,  # RANGE COMPLETO
+        max_steering_angle: float = 90.0,  # ±90° (range completo 0°-180°)
         steering_mode: SteeringMode = SteeringMode.NORMAL,
         response_time: float = 0.15,
         i2c_lock=None,  # Lock compartilhado do bus I2C
@@ -180,16 +180,16 @@ class SteeringManager:
         # Configurações
         self.steering_sensitivity = max(0.5, min(2.0, steering_sensitivity))
         self.max_steering_angle = max(
-            10.0, min(56.7, max_steering_angle)
-        )  # Máximo 56.7° (range 0-113.4°)
+            10.0, min(90.0, max_steering_angle)
+        )  # Máximo 90° (range completo 0°-180°)
         self.steering_mode = steering_mode
         self.response_time = max(0.05, response_time)
 
         # Estado da direção
         self.is_initialized = False
-        self.current_angle = 0.0  # Ângulo atual (-56.7° a +56.7°)
+        self.current_angle = 0.0  # Ângulo atual (-90° a +90°)
         self.target_angle = 0.0  # Ângulo alvo
-        self.servo_angle = self.STEERING_CENTER  # Ângulo do servo (0° a 113.4°)
+        self.servo_angle = self.STEERING_CENTER  # Ângulo do servo (0° a 180°)
         self.steering_input = 0.0  # Input de direção (-100% a +100%)
 
         # Controle PCA9685
@@ -272,7 +272,7 @@ class SteeringManager:
         with self.state_lock:
             self.steering_input = steering_input
 
-            # MOVIMENTO DIRETO - converte entrada (-100% a +100%) para ângulo (-56.7° a +56.7°)
+            # MOVIMENTO DIRETO - converte entrada (-100% a +100%) para ângulo (-90° a +90°)
             target_angle = (steering_input / 100.0) * self.max_steering_angle
 
             self.target_angle = target_angle
@@ -283,7 +283,7 @@ class SteeringManager:
 
             # Aplica movimento DIRETO ao servo
             if self.steering_servo:
-                # Limita ângulo ao range válido do servo (0° a 113.4°)
+                # Limita ângulo ao range válido do servo (0° a 180°)
                 final_angle = max(
                     self.STEERING_MIN_ANGLE,
                     min(self.STEERING_MAX_ANGLE, self.servo_angle),
