@@ -149,7 +149,7 @@ class MotorManager:
         self.efficiency_zone = "IDEAL"  # IDEAL, SUBOPTIMAL, POOR
         self.zone_acceleration_rate = 1.0  # Multiplicador de aceleração baseado na zona
         self.base_acceleration_time = (
-            25.0  # Tempo base (25s) → 1ª marcha (8%) leva ~4s para atingir teto
+            5.0  # Tempo base (5s) → 1ª marcha (8%) leva ~0.8s para atingir teto
         )
         self.last_zone_check = time.time()
 
