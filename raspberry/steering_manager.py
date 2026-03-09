@@ -94,7 +94,6 @@ sudo pip3 install adafruit-circuitpython-pca9685
 
 import threading
 import time
-from enum import Enum
 from typing import Any, Dict
 
 from logger import debug, error, info, warn
@@ -111,15 +110,6 @@ except ImportError:
     error("PCA9685 não disponível - instale: sudo pip3 install adafruit-circuitpython-pca9685", "STEERING")
     PCA9685_AVAILABLE = False
     exit(1)  # Para execução se PCA9685 não disponível
-
-
-class SteeringMode(Enum):
-    """Modos de direção"""
-
-    NORMAL = "normal"  # Direção normal
-    SPORT = "sport"  # Direção esportiva (mais sensível)
-    COMFORT = "comfort"  # Direção confortável (menos sensível)
-    PARKING = "parking"  # Assistência para estacionamento
 
 
 class SteeringManager:
@@ -154,7 +144,6 @@ class SteeringManager:
         pca9685_address: int = None,
         steering_sensitivity: float = 1.0,
         max_steering_angle: float = 90.0,  # ±90° (range completo 0°-180°)
-        steering_mode: SteeringMode = SteeringMode.NORMAL,
         response_time: float = 0.15,
         i2c_lock=None,  # Lock compartilhado do bus I2C
     ):
@@ -166,7 +155,6 @@ class SteeringManager:
             pca9685_address (int): Endereço I2C do PCA9685
             steering_sensitivity (float): Sensibilidade da direção (0.5-2.0)
             max_steering_angle (float): Ângulo máximo de esterçamento
-            steering_mode (SteeringMode): Modo de direção
             response_time (float): Tempo de resposta da direção
             i2c_lock: threading.Lock compartilhado entre dispositivos I2C
         """
@@ -182,7 +170,6 @@ class SteeringManager:
         self.max_steering_angle = max(
             10.0, min(90.0, max_steering_angle)
         )  # Máximo 90° (range completo 0°-180°)
-        self.steering_mode = steering_mode
         self.response_time = max(0.05, response_time)
 
         # Estado da direção
@@ -215,7 +202,7 @@ class SteeringManager:
         Returns:
             bool: True se inicializado com sucesso
         """
-        info(f"Inicializando direção | Canal: {self.steering_channel} | I2C: 0x{self.pca9685_address:02X} | Modo: {self.steering_mode.value.upper()} | Sens: {self.steering_sensitivity:.1f}x | ±{self.max_steering_angle}°", "STEERING")
+        info(f"Inicializando direção | Canal: {self.steering_channel} | I2C: 0x{self.pca9685_address:02X} | Sens: {self.steering_sensitivity:.1f}x | ±{self.max_steering_angle}°", "STEERING")
 
         try:
             # Inicializa barramento I2C (pode ser compartilhado com brake_manager)
@@ -352,7 +339,6 @@ class SteeringManager:
         with self.state_lock:
             return {
                 # === CONFIGURAÇÃO ===
-                "steering_mode": self.steering_mode.value,
                 "steering_sensitivity": round(self.steering_sensitivity, 2),
                 "max_steering_angle": round(self.max_steering_angle, 1),
                 "response_time": round(self.response_time, 3),
@@ -420,7 +406,6 @@ class SteeringManager:
                 else 0
             ),
             "system_uptime": round(elapsed, 2),
-            "steering_mode": self.steering_mode.value,
         }
 
     def cleanup(self):

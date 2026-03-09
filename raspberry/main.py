@@ -120,7 +120,7 @@ try:
     from network_manager import NetworkManager
     from power_monitor_manager import PowerMonitorManager
     from rpi_system_monitor import RpiSystemMonitor
-    from steering_manager import SteeringManager, SteeringMode
+    from steering_manager import SteeringManager
     from temperature_manager import TemperatureManager
 except ImportError as e:
     print(f"ERRO: Não foi possível importar módulos necessários: {e}")
@@ -147,7 +147,6 @@ class F1CarMultiThreadSystem:
         camera_brightness: float = 0.0,
         sensor_rate: int = 60,
         brake_balance: float = 60.0,
-        steering_mode: str = "sport",
         calibrate_power: bool = False,
     ):
         """
@@ -165,7 +164,6 @@ class F1CarMultiThreadSystem:
             camera_brightness: Brilho -1.0 a 1.0
             sensor_rate: Taxa de amostragem dos sensores (Hz)
             brake_balance: Balanço de freio 0-100%
-            steering_mode: Modo de direção
             calibrate_power: Se True, calibra sensores de corrente na inicialização
         """
         self.target_ip = target_ip
@@ -180,14 +178,6 @@ class F1CarMultiThreadSystem:
         self.camera_brightness = camera_brightness
         self.sensor_rate = sensor_rate
         self.brake_balance = brake_balance
-
-        steering_map = {
-            "normal": SteeringMode.NORMAL,
-            "sport": SteeringMode.SPORT,
-            "comfort": SteeringMode.COMFORT,
-            "parking": SteeringMode.PARKING,
-        }
-        self.steering_mode = steering_map.get(steering_mode, SteeringMode.SPORT)
         self.calibrate_power = calibrate_power
 
         # === GERENCIADORES DE COMPONENTES ===
@@ -362,7 +352,6 @@ class F1CarMultiThreadSystem:
             pca9685_address=0x41,
             steering_sensitivity=1.2,
             max_steering_angle=90.0,
-            steering_mode=self.steering_mode,
             response_time=0.12,
             i2c_lock=self.i2c_lock,
         )
@@ -1002,12 +991,6 @@ Presets de resolução:
         default=60.0,
         help="Balanço freio %% (default: 60)",
     )
-    parser.add_argument(
-        "--steering-mode",
-        type=str,
-        choices=["normal", "sport", "comfort", "parking"],
-        default="sport",
-    )
     parser.add_argument("--debug", action="store_true", help="Modo debug")
     parser.add_argument(
         "--calibrate-power",
@@ -1065,7 +1048,6 @@ def main():
         camera_brightness=args.brightness,
         sensor_rate=args.sensor_rate,
         brake_balance=args.brake_balance,
-        steering_mode=args.steering_mode,
         calibrate_power=args.calibrate_power,
     )
 
