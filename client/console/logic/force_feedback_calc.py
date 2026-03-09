@@ -23,6 +23,7 @@ Detecção de eventos via histórico do BMI160 (~333ms de buffer a 60Hz):
 - Contexto combinado: curva + aceleração = vibrar + puxar simultaneamente
 """
 
+import math
 import time
 from collections import deque
 
@@ -60,6 +61,10 @@ class ForceFeedbackCalculator:
         self._filtered_rumble_strong = 0.0
         self._filtered_rumble_weak = 0.0
         self._filtered_inertia = self.IDLE_INERTIA_PCT
+
+        # Integração de ângulos (roll/pitch estático via accel, yaw via gyro)
+        self._yaw_angle = 0.0
+        self._last_angle_time = None
 
     # ================================================================
     # HISTÓRICO E DETECÇÃO DE EVENTOS
@@ -131,6 +136,8 @@ class ForceFeedbackCalculator:
             accel_z = sensor_data.get("bmi160_accel_z", 9.81)  # Vertical
 
             # Obtém dados de giroscópio em °/s
+            gyro_x = sensor_data.get("bmi160_gyro_x", 0.0)
+            gyro_y = sensor_data.get("bmi160_gyro_y", 0.0)
             gyro_z = sensor_data.get("bmi160_gyro_z", 0.0)  # Rotação (yaw)
 
             # === CALCULA FORÇAS G ===
@@ -141,6 +148,33 @@ class ForceFeedbackCalculator:
             sensor_data["g_force_frontal"] = g_force_frontal
             sensor_data["g_force_lateral"] = g_force_lateral
             sensor_data["g_force_vertical"] = g_force_vertical
+
+            # === CALCULA ROLL / PITCH / YAW ===
+            # Roll e Pitch: calculados pelo acelerômetro (estável, sem drift)
+            # Yaw: integrado pelo giroscópio (tem drift, mas útil para telemetria)
+            accel_mag = math.sqrt(accel_x**2 + accel_y**2 + accel_z**2)
+            if accel_mag > 0.5:  # Ignora se aceleração total for muito baixa (ruído)
+                roll_rad = math.atan2(accel_y, accel_z)
+                pitch_rad = math.atan2(-accel_x, math.sqrt(accel_y**2 + accel_z**2))
+                roll_deg = math.degrees(roll_rad)
+                pitch_deg = math.degrees(pitch_rad)
+            else:
+                roll_deg = sensor_data.get("roll_angle", 0.0)
+                pitch_deg = sensor_data.get("pitch_angle", 0.0)
+
+            # Yaw via integração do gyro_z
+            now = time.monotonic()
+            if self._last_angle_time is not None:
+                dt = now - self._last_angle_time
+                if 0 < dt < 0.2:  # Ignora gaps grandes (pausa/reconexão)
+                    self._yaw_angle += gyro_z * dt
+                    # Mantém no range -180° a +180°
+                    self._yaw_angle = ((self._yaw_angle + 180) % 360) - 180
+            self._last_angle_time = now
+
+            sensor_data["roll_angle"] = round(roll_deg, 2)
+            sensor_data["pitch_angle"] = round(pitch_deg, 2)
+            sensor_data["yaw_angle"] = round(self._yaw_angle, 2)
 
             # Obtém estado atual do G923 (throttle/brake/steering para contexto)
             throttle = 0

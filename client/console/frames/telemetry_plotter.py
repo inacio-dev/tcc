@@ -228,9 +228,8 @@ class F1TelemetryPlotter:
         self.time_data.append(current_time)
 
         # Speed (usa velocidade calculada ou 0)
-        speed = sensor_data.get("velocity_total", 0.0)
+        speed = sensor_data.get("velocidade", 0.0)
         if speed == 0:
-            # Tenta pegar de outros campos
             speed = sensor_data.get("speed", 0.0)
         self.speed_data.append(speed)
 

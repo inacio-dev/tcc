@@ -23,6 +23,8 @@ DADOS EXIBIDOS:
 - Dados derivados do BMI160
 """
 
+import threading
+import time
 import tkinter as tk
 from datetime import datetime
 from tkinter import ttk
@@ -142,6 +144,11 @@ class ConsoleInterface:
 
         # Atualização
         self.update_interval = UPDATE_INTERVAL
+
+        # Thread de processamento de sensores a 100Hz
+        self._latest_sensor_data = {}
+        self._sensor_data_lock = threading.Lock()
+        self._sensor_thread = None
 
         # Auto-save periódico
         self.auto_save_interval = AUTO_SAVE_INTERVAL
@@ -268,6 +275,12 @@ class ConsoleInterface:
             "timestamp": tk.StringVar(value="0"),
             "frame_count": tk.StringVar(value="0"),
             "readings_count": tk.StringVar(value="0"),
+            # Ângulos calculados pelo client
+            "roll_angle": tk.StringVar(value="0.0"),
+            "pitch_angle": tk.StringVar(value="0.0"),
+            "yaw_angle": tk.StringVar(value="0.0"),
+            # Velocidade calculada pelo client
+            "velocidade": tk.StringVar(value="0.0"),
         }
 
         # Variáveis de monitoramento dos efeitos FF (atualizadas a cada pacote BMI160)
@@ -583,32 +596,18 @@ class ConsoleInterface:
             self.quality_var.set(f"{quality:.1f}%")
 
     def update_sensor_data(self, sensor_data):
-        """Atualiza dados dos sensores"""
-        # Calcular velocidade baseada no BMI160
-        self.velocity_calculator.calculate_velocity(sensor_data)
-
-        # Calcular forças G e force feedback
-        self.ff_calculator.calculate_g_forces_and_ff(sensor_data)
-
+        """Atualiza widgets da GUI com dados dos sensores (roda na GUI thread a 10Hz)"""
         # Atualizar LEDs de force feedback
         ff_intensity = sensor_data.get("steering_feedback_intensity", 0.0)
         ff_direction = sensor_data.get("steering_feedback_direction", "neutral")
         self.ff_calculator.update_ff_leds(ff_intensity, ff_direction)
 
-        # Enviar comando FF para G923 via evdev
-        self.ff_calculator.send_ff_command(ff_intensity, ff_direction)
-
-        # Enviar efeitos dinâmicos (rumble, periodic, inertia) baseados nos sensores
-        self.ff_calculator.send_dynamic_effects(sensor_data)
-
         # Atualizar monitor de efeitos FF na UI
         self._update_ff_monitor(sensor_data, ff_intensity, ff_direction)
 
-        # Injetar inputs do G923 no sensor_data para exportação pickle
-        if self.g923_manager:
-            sensor_data["g923_steering"] = self.g923_manager._steering
-            sensor_data["g923_throttle"] = self.g923_manager._throttle
-            sensor_data["g923_brake"] = self.g923_manager._brake
+        # Atualizar display de velocidade na seção BMI160
+        if hasattr(self, "velocity_label") and "velocidade" in sensor_data:
+            self.velocity_label.config(text=f"{sensor_data['velocidade']:.1f} km/h")
 
         # Atualizar dados do motor
         self._update_motor_display(sensor_data)
@@ -692,6 +691,12 @@ class ConsoleInterface:
             "accel_range_g": "accel_range",
             "gyro_range_dps": "gyro_range",
             "sample_rate": "sample_rate",
+            # Ângulos calculados pelo client
+            "roll_angle": "roll_angle",
+            "pitch_angle": "pitch_angle",
+            "yaw_angle": "yaw_angle",
+            # Velocidade calculada pelo client
+            "velocidade": "velocidade",
             # Metadados
             "timestamp": "timestamp",
             "frame_count": "frame_count",
@@ -756,6 +761,11 @@ class ConsoleInterface:
                     formatted_value = f"±{value}°/s"
                 elif var_name in ["sample_rate"]:
                     formatted_value = f"{value}Hz"
+                elif var_name in ["roll_angle", "pitch_angle", "yaw_angle"]:
+                    formatted_value = f"{value:.1f}°"
+                elif var_name == "velocidade":
+                    formatted_value = f"{value:.1f}"
+                    self.speed_var.set(f"{value:.1f}")
                 elif isinstance(value, float):
                     formatted_value = f"{value:.1f}"
                 else:
@@ -981,8 +991,60 @@ class ConsoleInterface:
         except Exception as e:
             error(f"Erro ao atualizar painel de instrumentos: {e}", "CONSOLE")
 
+    def _sensor_processing_loop(self):
+        """Processamento de sensores a 100Hz numa thread separada (sem Tkinter)"""
+        interval = 1.0 / 100.0
+        _calculated = [
+            "g_force_frontal", "g_force_lateral", "g_force_vertical",
+            "roll_angle", "pitch_angle", "yaw_angle",
+            "steering_feedback_intensity", "steering_feedback_direction",
+            "rumble_strong", "rumble_weak", "periodic_period_ms",
+            "periodic_magnitude", "inertia", "velocidade",
+            "g923_steering", "g923_throttle", "g923_brake",
+        ]
+        while self.is_running:
+            t0 = time.monotonic()
+            try:
+                if (self.sensor_display and self.ff_calculator and self.velocity_calculator
+                        and self.sensor_display.process_queue()):
+                    sensor_data = self.sensor_display.get_display_data()
+
+                    # Cálculos (sem Tkinter — thread-safe)
+                    self.velocity_calculator.calculate_velocity(sensor_data)
+                    self.ff_calculator.calculate_g_forces_and_ff(sensor_data)
+
+                    ff_intensity = sensor_data.get("steering_feedback_intensity", 0.0)
+                    ff_direction = sensor_data.get("steering_feedback_direction", "neutral")
+
+                    # Envia FF via evdev (thread-safe)
+                    self.ff_calculator.send_ff_command(ff_intensity, ff_direction)
+                    self.ff_calculator.send_dynamic_effects(sensor_data)
+
+                    # Injeta inputs do G923 para exportação
+                    if self.g923_manager:
+                        sensor_data["g923_steering"] = self.g923_manager._steering
+                        sensor_data["g923_throttle"] = self.g923_manager._throttle
+                        sensor_data["g923_brake"] = self.g923_manager._brake
+
+                    # Writeback ao sensor_display para histórico/export
+                    with self.sensor_display.data_lock:
+                        for _k in _calculated:
+                            if _k in sensor_data:
+                                self.sensor_display.display_data[_k] = sensor_data[_k]
+
+                    # Disponibiliza snapshot para a GUI thread
+                    with self._sensor_data_lock:
+                        self._latest_sensor_data = sensor_data
+            except Exception as e:
+                error(f"Erro no loop de sensores: {e}", "CONSOLE")
+
+            elapsed = time.monotonic() - t0
+            sleep_time = interval - elapsed
+            if sleep_time > 0:
+                time.sleep(sleep_time)
+
     def process_queues(self):
-        """Processa filas de comunicação"""
+        """Processa filas e atualiza GUI a 10Hz"""
         try:
             # Processar logs
             while self.log_queue and not self.log_queue.empty():
@@ -994,11 +1056,11 @@ class ConsoleInterface:
                 status_dict = self.status_queue.get_nowait()
                 self.update_connection_status(status_dict)
 
-            # Processar dados de sensores
-            if self.sensor_display:
-                if self.sensor_display.process_queue():
-                    sensor_data = self.sensor_display.get_display_data()
-                    self.update_sensor_data(sensor_data)
+            # Atualiza GUI com último snapshot processado pela sensor thread
+            with self._sensor_data_lock:
+                sensor_data = dict(self._latest_sensor_data)
+            if sensor_data:
+                self.update_sensor_data(sensor_data)
 
             # Atualizar status e sliders do G923
             if hasattr(self, "g923_manager") and self.g923_manager:
@@ -1073,6 +1135,14 @@ class ConsoleInterface:
             # Inicia monitor de sistema do cliente
             self.client_system_monitor.start()
             self.root.after(1000, self._update_client_system_data)
+
+            # Inicia thread de processamento de sensores a 100Hz
+            self._sensor_thread = threading.Thread(
+                target=self._sensor_processing_loop,
+                daemon=True,
+                name="sensor-proc-100hz",
+            )
+            self._sensor_thread.start()
 
             # Log inicial
             self.log("INFO", "Interface do console iniciada")
