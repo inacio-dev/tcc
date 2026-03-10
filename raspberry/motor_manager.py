@@ -449,7 +449,7 @@ class MotorManager:
         """
         # Limitadores dinâmicos por marcha
         gear_limiters = {
-            1: 14,  # 1ª marcha: máximo 14% (arranque)
+            1: 14,  # 1ª marcha: 6-14% (abaixo de 6% o motor não move)
             2: 22,  # 2ª marcha: máximo 22% (aceleração inicial)
             3: 35,  # 3ª marcha: máximo 35% (velocidade média)
             4: 55,  # 4ª marcha: máximo 55% (velocidade alta)
@@ -459,7 +459,8 @@ class MotorManager:
         # Obter limitador da marcha atual
         max_pwm = gear_limiters.get(self.current_gear, 40)
 
-        # Mapeia throttle (0-100%) para (0-limitador%)
+        # Mapeamento linear 0-100% throttle → 0-max_pwm
+        # A zona morta 0-6% na 1ª marcha é tratada em _apply_f1_zone_acceleration()
         final_pwm = (throttle_percent / 100.0) * max_pwm
 
         return final_pwm
@@ -472,8 +473,8 @@ class MotorManager:
         - Limitadores: 1ª=14%, 2ª=22%, 3ª=35%, 4ª=55%, 5ª=70%
         - Ao trocar de marcha, o PWM da marcha anterior cai na zona IDEAL da próxima
 
-        1ª MARCHA (limitador 14%):
-        - IDEAL: 0-14% (cobre todo o range da marcha)
+        1ª MARCHA (limitador 14%, mínimo 6%):
+        - IDEAL: 6-14% (abaixo de 6% o motor não move)
 
         2ª MARCHA (limitador 22%, entra com ~14% da 1ª):
         - IDEAL: 12-19% (14% da 1ª cai em IDEAL)
@@ -502,9 +503,10 @@ class MotorManager:
             tuple: (zona_eficiencia, multiplicador_aceleracao)
         """
         if self.current_gear == 1:
-            # 1ª MARCHA (limitador: 14%)
-            # Range inteiro é IDEAL — marcha de arranque
-            if 0 <= current_pwm <= 14:
+            # 1ª MARCHA (limitador: 14%, zona morta: 0-6%)
+            # Abaixo de 6% é zona morta (tratada por rampa rápida em _apply_f1_zone_acceleration)
+            # 6-14% é zona IDEAL
+            if current_pwm <= 14:
                 return "IDEAL", 1.0
 
         elif self.current_gear == 2:
@@ -551,7 +553,7 @@ class MotorManager:
         Calcula porcentagem dentro da zona IDEAL de eficiência da marcha atual
 
         Para cada marcha, mapeia a zona IDEAL para 0-100%:
-        - 1ª marcha (0-14%): PWM de 0-14% → 0-100% no conta-giros
+        - 1ª marcha (6-14%): PWM de 6-14% → 0-100% no conta-giros
         - 2ª marcha (12-19%): PWM de 12-19% → 0-100% no conta-giros
         - 3ª marcha (20-30%): PWM de 20-30% → 0-100% no conta-giros
         - 4ª marcha (32-48%): PWM de 32-48% → 0-100% no conta-giros
@@ -567,7 +569,7 @@ class MotorManager:
         """
         # Zonas IDEAL alinhadas com limitadores: 1ª=14%, 2ª=22%, 3ª=35%, 4ª=55%, 5ª=70%
         ideal_zones = {
-            1: (0, 14),   # 1ª marcha: 0-14% (limiter = 14%)
+            1: (6, 14),   # 1ª marcha: 6-14% (mín 6%, limiter 14%)
             2: (12, 19),  # 2ª marcha: 12-19% (entra com ~14% da 1ª)
             3: (20, 30),  # 3ª marcha: 20-30% (entra com ~22% da 2ª)
             4: (32, 48),  # 4ª marcha: 32-48% (entra com ~35% da 3ª)
@@ -613,6 +615,10 @@ class MotorManager:
         Args:
             dt (float): Delta time desde última atualização
         """
+        # Zona morta do motor na 1ª marcha: abaixo de 6% o motor não gira
+        DEAD_ZONE_PWM = 6.0
+        DEAD_ZONE_RATE = 20.0  # Multiplier para atravessar zona morta rápido
+
         # Calcula zona de eficiência atual
         zone, rate_multiplier = self._calculate_efficiency_zone(self.current_pwm)
 
@@ -636,27 +642,41 @@ class MotorManager:
         zone_acceleration = base_acceleration_per_frame * rate_multiplier
 
         # Sistema diferenciado para aceleração vs desaceleração
-        if pwm_diff > 0:  # ACELERANDO - usa zona de eficiência
-            acceleration_step = min(zone_acceleration * dt * 50, pwm_diff)  # 50Hz
-            self.current_pwm += acceleration_step
+        if pwm_diff > 0:  # ACELERANDO
+            # Zona morta: abaixo de 6% na 1ª marcha, rampa rápida até 6%
+            if (self.current_gear == 1
+                    and self.current_pwm < DEAD_ZONE_PWM
+                    and self.target_pwm >= DEAD_ZONE_PWM):
+                fast_step = base_acceleration_per_frame * DEAD_ZONE_RATE * dt * 50
+                self.current_pwm = min(self.current_pwm + fast_step, DEAD_ZONE_PWM)
+            else:
+                acceleration_step = min(zone_acceleration * dt * 50, pwm_diff)  # 50Hz
+                self.current_pwm += acceleration_step
 
         else:  # DESACELERANDO - mais rápido e inteligente
-            # Desaceleração baseada na zona atual, mas sempre mais rápida
-            if rate_multiplier >= 1.0:  # Zona IDEAL
-                decel_multiplier = 2.0  # 2x mais rápido que aceleração
-            elif rate_multiplier >= 0.1:  # Zona SUBÓTIMA
-                decel_multiplier = 5.0  # 5x mais rápido que aceleração
-            else:  # Zona RUIM
-                decel_multiplier = 10.0  # 10x mais rápido que aceleração
+            # Zona morta: abaixo de 6% na 1ª marcha, queda rápida para 0%
+            if (self.current_gear == 1
+                    and self.current_pwm <= DEAD_ZONE_PWM
+                    and self.target_pwm < DEAD_ZONE_PWM):
+                fast_step = base_acceleration_per_frame * DEAD_ZONE_RATE * dt * 50
+                self.current_pwm = max(self.current_pwm - fast_step, 0.0)
+            else:
+                # Desaceleração baseada na zona atual, mas sempre mais rápida
+                if rate_multiplier >= 1.0:  # Zona IDEAL
+                    decel_multiplier = 2.0  # 2x mais rápido que aceleração
+                elif rate_multiplier >= 0.1:  # Zona SUBÓTIMA
+                    decel_multiplier = 5.0  # 5x mais rápido que aceleração
+                else:  # Zona RUIM
+                    decel_multiplier = 10.0  # 10x mais rápido que aceleração
 
-            # Freio multiplica a desaceleração (0%=1x, 100%=10x)
-            brake_boost = 1.0 + (self.brake_input / 100.0) * 9.0
-            decel_multiplier *= brake_boost
+                # Freio multiplica a desaceleração (0%=1x, 100%=10x)
+                brake_boost = 1.0 + (self.brake_input / 100.0) * 9.0
+                decel_multiplier *= brake_boost
 
-            # Aplica desaceleração melhorada
-            deceleration_rate = base_acceleration_per_frame * decel_multiplier
-            deceleration_step = min(deceleration_rate * dt * 50, abs(pwm_diff))
-            self.current_pwm -= deceleration_step
+                # Aplica desaceleração melhorada
+                deceleration_rate = base_acceleration_per_frame * decel_multiplier
+                deceleration_step = min(deceleration_rate * dt * 50, abs(pwm_diff))
+                self.current_pwm -= deceleration_step
 
         # Debug zona a cada 1s
         current_time = time.time()
@@ -814,7 +834,7 @@ class MotorManager:
 
         # Define faixas ideais para display (alinhadas com limitadores)
         gear_ideal_ranges = {
-            1: "0-14%",   # 1ª marcha (limiter 14%)
+            1: "6-14%",   # 1ª marcha (mín 6%, limiter 14%)
             2: "12-19%",  # 2ª marcha (limiter 22%, entra com ~14%)
             3: "20-30%",  # 3ª marcha (limiter 35%, entra com ~22%)
             4: "32-48%",  # 4ª marcha (limiter 55%, entra com ~35%)
