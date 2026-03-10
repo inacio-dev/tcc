@@ -196,6 +196,16 @@ class ForceFeedbackCalculator:
             is_braking = brake > 10
             is_turning = abs(g_force_lateral) > 0.08 or abs(gyro_z) > 3
 
+            # === DETECÇÃO DE VEÍCULO PARADO ===
+            # Sem throttle, sem brake e sem movimento significativo = parado
+            # Ruído do BMI160 gera ~0.05g lateral/frontal — ignora
+            vehicle_active = (
+                throttle > 2 or brake > 2
+                or abs(g_force_lateral) > 0.12
+                or abs(g_force_frontal) > 0.12
+                or abs(gyro_z) > 2.5
+            )
+
             # Jerk do BMI160: taxa de variação (detecta eventos bruscos)
             jerk_frontal = self._calc_jerk('ax')   # Partida/frenagem brusca
             jerk_vertical = self._calc_jerk('az')   # Bumps na pista
@@ -209,133 +219,149 @@ class ForceFeedbackCalculator:
             roughness = self._road_roughness()
 
             # === 1. FF_CONSTANT: Puxão lateral (G lateral + yaw) ===
-            sensitivity = self.console.ff_sensitivity_var.get() / 100.0
-            filter_strength = self.console.ff_filter_var.get() / 100.0
+            if vehicle_active:
+                sensitivity = self.console.ff_sensitivity_var.get() / 100.0
+                filter_strength = self.console.ff_filter_var.get() / 100.0
 
-            lateral_component = min(abs(g_force_lateral) * 50, 100)
-            yaw_component = min(abs(gyro_z) / 60.0 * 50, 50)
-            base_ff = min(lateral_component + yaw_component, 100)
+                lateral_component = min(abs(g_force_lateral) * 50, 100)
+                yaw_component = min(abs(gyro_z) / 60.0 * 50, 50)
+                base_ff = min(lateral_component + yaw_component, 100)
 
-            adjusted_ff = base_ff * sensitivity
-            adjusted_ff = (
-                adjusted_ff * (1.0 - filter_strength)
-                + self._filtered_constant_ff * filter_strength
-            )
-            self._filtered_constant_ff = adjusted_ff
-            final_ff = max(0.0, min(100.0, adjusted_ff))
+                adjusted_ff = base_ff * sensitivity
+                adjusted_ff = (
+                    adjusted_ff * (1.0 - filter_strength)
+                    + self._filtered_constant_ff * filter_strength
+                )
+                self._filtered_constant_ff = adjusted_ff
+                final_ff = max(0.0, min(100.0, adjusted_ff))
 
-            # Direção do puxão
-            lateral_dir = g_force_lateral * 10
-            yaw_dir = gyro_z
-            total_dir = lateral_dir + yaw_dir
-            if total_dir > 1.5:
-                direction = "right"
-            elif total_dir < -1.5:
-                direction = "left"
+                # Direção do puxão
+                lateral_dir = g_force_lateral * 10
+                yaw_dir = gyro_z
+                total_dir = lateral_dir + yaw_dir
+                if total_dir > 1.5:
+                    direction = "right"
+                elif total_dir < -1.5:
+                    direction = "left"
+                else:
+                    direction = "neutral"
+                if final_ff < 2.0:
+                    direction = "neutral"
             else:
-                direction = "neutral"
-            if final_ff < 2.0:
+                # Veículo parado — zera FF_CONSTANT (decai EMA rapidamente)
+                self._filtered_constant_ff *= 0.5
+                final_ff = 0.0
                 direction = "neutral"
 
             sensor_data["steering_feedback_intensity"] = final_ff
             sensor_data["steering_feedback_direction"] = direction
 
             # === 2. FF_RUMBLE: Vibração combinada ===
-            # NOTA: FF_GAIN a 15% escala ×0.15, então raw 60% → 9% real.
-            # Magnitudes altas (50-100%) são necessárias para sentir no volante.
+            if vehicle_active:
+                # NOTA: FF_GAIN a 15% escala ×0.15, então raw 60% → 9% real.
+                # Magnitudes altas (50-100%) são necessárias para sentir no volante.
 
-            # Componente 1: Vibração do motor (proporcional ao throttle)
-            # Principal fonte de vibração contínua — motor DC 775 vibra o chassi
-            engine_vibration = throttle / 100.0 * 60  # 0-60% raw
+                # Componente 1: Vibração do motor (proporcional ao throttle)
+                engine_vibration = throttle / 100.0 * 60  # 0-60% raw
 
-            # Componente 2: Bumps verticais (desvio de accel_z da gravidade)
-            vertical_dev = abs(accel_z - 9.81) / 9.81
-            bump_vibration = min(vertical_dev * 400, 100)
+                # Componente 2: Bumps verticais (desvio de accel_z da gravidade)
+                vertical_dev = abs(accel_z - 9.81) / 9.81
+                bump_vibration = min(vertical_dev * 400, 100)
 
-            # Componente 3: Impacto frontal (frenagem/aceleração forte)
-            frontal_impact = min(abs(g_force_frontal) * 200, 100)
+                # Componente 3: Impacto frontal (frenagem/aceleração forte)
+                frontal_impact = min(abs(g_force_frontal) * 200, 100)
 
-            # Componente 4: Jerk BMI160 (eventos bruscos — partida, freada, bump)
-            jerk_impact = min(abs(jerk_frontal) * 8, 80)
-            jerk_bump = min(abs(jerk_vertical) * 8, 80)
+                # Componente 4: Jerk BMI160 (eventos bruscos)
+                jerk_impact = min(abs(jerk_frontal) * 8, 80)
+                jerk_bump = min(abs(jerk_vertical) * 8, 80)
 
-            # Componente 5: Jerk controles (mudanças bruscas nos inputs)
-            throttle_burst = min(abs(jerk_throttle) * 0.8, 60) if jerk_throttle > 30 else 0
-            brake_burst = min(abs(jerk_brake) * 1.0, 80) if jerk_brake > 30 else 0
-            steering_burst = min(abs(jerk_steering) * 0.6, 50) if abs(jerk_steering) > 20 else 0
+                # Componente 5: Jerk controles (mudanças bruscas nos inputs)
+                throttle_burst = min(abs(jerk_throttle) * 0.8, 60) if jerk_throttle > 30 else 0
+                brake_burst = min(abs(jerk_brake) * 1.0, 80) if jerk_brake > 30 else 0
+                steering_burst = min(abs(jerk_steering) * 0.6, 50) if abs(jerk_steering) > 20 else 0
 
-            # Componente 6: Rugosidade da pista (histórico)
-            roughness_vibration = min(roughness * 80, 70)
+                # Componente 6: Rugosidade da pista (histórico)
+                roughness_vibration = min(roughness * 80, 70)
 
-            # Componente 7: Stress lateral nos pneus (curva = vibração)
-            turn_vibration = min(abs(g_force_lateral) * 150, 80) if is_turning else 0
+                # Componente 7: Stress lateral nos pneus (curva = vibração)
+                turn_vibration = min(abs(g_force_lateral) * 150, 80) if is_turning else 0
 
-            # Componente 8: Frenagem contínua
-            brake_rumble = min(brake / 100.0 * 70, 70) if brake > 10 else 0
+                # Componente 8: Frenagem contínua
+                brake_rumble = min(brake / 100.0 * 70, 70) if brake > 10 else 0
 
-            # Strong motor: impactos + motor + frenagem + virada
-            strong_raw = min(
-                engine_vibration * 0.5
-                + bump_vibration * 0.3
-                + frontal_impact * 0.3
-                + jerk_impact * 0.2
-                + jerk_bump * 0.2
-                + throttle_burst
-                + brake_burst
-                + steering_burst
-                + brake_rumble * 0.5
-                + turn_vibration * 0.3,
-                100,
-            )
+                # Strong motor: impactos + motor + frenagem + virada
+                strong_raw = min(
+                    engine_vibration * 0.5
+                    + bump_vibration * 0.3
+                    + frontal_impact * 0.3
+                    + jerk_impact * 0.2
+                    + jerk_bump * 0.2
+                    + throttle_burst
+                    + brake_burst
+                    + steering_burst
+                    + brake_rumble * 0.5
+                    + turn_vibration * 0.3,
+                    100,
+                )
 
-            # Weak motor: vibração contínua (motor + rugosidade + curva)
-            weak_raw = min(
-                engine_vibration * 0.7
-                + roughness_vibration
-                + bump_vibration * 0.3
-                + turn_vibration * 0.4
-                + brake_rumble * 0.3,
-                100,
-            )
+                # Weak motor: vibração contínua (motor + rugosidade + curva)
+                weak_raw = min(
+                    engine_vibration * 0.7
+                    + roughness_vibration
+                    + bump_vibration * 0.3
+                    + turn_vibration * 0.4
+                    + brake_rumble * 0.3,
+                    100,
+                )
 
-            # EMA para suavizar (mais responsivo: 60% novo, 40% antigo)
-            self._filtered_rumble_strong = (
-                strong_raw * 0.6 + self._filtered_rumble_strong * 0.4
-            )
-            self._filtered_rumble_weak = (
-                weak_raw * 0.6 + self._filtered_rumble_weak * 0.4
-            )
+                # EMA para suavizar (mais responsivo: 60% novo, 40% antigo)
+                self._filtered_rumble_strong = (
+                    strong_raw * 0.6 + self._filtered_rumble_strong * 0.4
+                )
+                self._filtered_rumble_weak = (
+                    weak_raw * 0.6 + self._filtered_rumble_weak * 0.4
+                )
+            else:
+                # Veículo parado — decai rumble rapidamente
+                self._filtered_rumble_strong *= 0.3
+                self._filtered_rumble_weak *= 0.3
 
             sensor_data["rumble_strong"] = self._filtered_rumble_strong
             sensor_data["rumble_weak"] = self._filtered_rumble_weak
 
             # === 3. FF_PERIODIC: Vibração do motor ===
-            # Frequência perceptível: 5Hz (200ms) idle → 12Hz (80ms) full throttle
-            # Magnitude alta para compensar FF_GAIN 15%: 15% idle → 90% full
-            if throttle > 5:
-                period_ms = int(200 - (throttle / 100.0 * 120))  # 200ms → 80ms
-                periodic_magnitude = min(15 + throttle * 0.75, 90)
-            else:
-                period_ms = self.IDLE_PERIODIC_PERIOD_MS
-                periodic_magnitude = self.IDLE_PERIODIC_MAGNITUDE
+            if vehicle_active:
+                # Frequência: 5Hz (200ms) idle → 12Hz (80ms) full throttle
+                if throttle > 5:
+                    period_ms = int(200 - (throttle / 100.0 * 120))  # 200ms → 80ms
+                    periodic_magnitude = min(15 + throttle * 0.75, 90)
+                else:
+                    period_ms = self.IDLE_PERIODIC_PERIOD_MS
+                    periodic_magnitude = self.IDLE_PERIODIC_MAGNITUDE
 
-            # Curva aumenta vibração (stress nos pneus transmite para direção)
-            if is_turning:
-                periodic_magnitude = min(periodic_magnitude + abs(g_force_lateral) * 40, 100)
+                # Curva aumenta vibração (stress nos pneus)
+                if is_turning:
+                    periodic_magnitude = min(periodic_magnitude + abs(g_force_lateral) * 40, 100)
+            else:
+                # Veículo parado — sem vibração de motor
+                period_ms = self.IDLE_PERIODIC_PERIOD_MS
+                periodic_magnitude = 0.0
 
             sensor_data["periodic_period_ms"] = period_ms
             sensor_data["periodic_magnitude"] = periodic_magnitude
 
             # === 4. FF_INERTIA: Peso do volante ===
-            # Em baixa velocidade: leve (fácil de girar)
-            # Em alta velocidade: pesado (difícil de girar — realismo)
-            speed_kmh = sensor_data.get("speed_kmh", 0)
-            inertia_speed = min(abs(speed_kmh) / 100.0 * 50, 50)
-            inertia_throttle = throttle / 100.0 * 25
-            inertia_raw = max(
-                self.IDLE_INERTIA_PCT,
-                min(inertia_speed + inertia_throttle, self.MAX_INERTIA_PCT),
-            )
+            if vehicle_active:
+                speed_kmh = sensor_data.get("speed_kmh", 0)
+                inertia_speed = min(abs(speed_kmh) / 100.0 * 50, 50)
+                inertia_throttle = throttle / 100.0 * 25
+                inertia_raw = max(
+                    self.IDLE_INERTIA_PCT,
+                    min(inertia_speed + inertia_throttle, self.MAX_INERTIA_PCT),
+                )
+            else:
+                # Veículo parado — inertia mínima
+                inertia_raw = self.IDLE_INERTIA_PCT
 
             # EMA para suavizar transição
             self._filtered_inertia = (
@@ -343,6 +369,10 @@ class ForceFeedbackCalculator:
             )
 
             sensor_data["inertia"] = self._filtered_inertia
+
+            # Limpa histórico quando parado (evita dados velhos ao retomar)
+            if not vehicle_active and len(self._history) > 3:
+                self._history.clear()
 
             # === DIAGNÓSTICO: dados para UI de monitoramento ===
             # Contexto de condução

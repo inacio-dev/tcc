@@ -606,25 +606,26 @@ class SensorDisplay:
             }
 
     def process_queue(self):
-        """Processa fila de dados de sensores"""
-        processed = 0
+        """Processa fila de sensores — drena e usa apenas o pacote mais recente (tempo real)"""
+        latest = None
+        drained = 0
 
-        while self.sensor_queue and not self.sensor_queue.empty() and processed < 10:
+        # Drena toda a fila, mantém apenas o mais recente
+        while self.sensor_queue and not self.sensor_queue.empty():
             try:
-                sensor_data = self.sensor_queue.get_nowait()
-
-                if self.process_sensor_data(sensor_data):
-                    processed += 1
-                # Não loga falha - dados parciais são aceitos
-
-            except Exception as e:
-                self._log("ERROR", f"Erro ao processar fila de sensores: {e}")
+                latest = self.sensor_queue.get_nowait()
+                drained += 1
+            except Exception:
                 break
 
-        # Atualiza status de conexão
-        self.update_connection_status()
+        if latest is None:
+            self.update_connection_status()
+            return False
 
-        return processed > 0
+        # Processa apenas o pacote mais recente
+        self.process_sensor_data(latest)
+        self.update_connection_status()
+        return True
 
     def reset_statistics(self):
         """Reseta estatísticas do processador"""
