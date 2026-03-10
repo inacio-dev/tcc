@@ -1,11 +1,9 @@
-# Sistema de Force Feedback
-
-Documento sobre a implementação do force feedback no volante ESP32.
+# Sistema de Force Feedback — Logitech G923 via evdev
 
 ## Status Atual
 
-- **Data**: 2025-12-18
-- **Status**: Produção
+- **Data**: 2026-03-10
+- **Status**: Produção (G923 nativo via evdev, sem ESP32)
 
 ---
 
@@ -16,314 +14,208 @@ Documento sobre a implementação do force feedback no volante ESP32.
 │                     FLUXO DE FORCE FEEDBACK                         │
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                     │
-│  Raspberry Pi              Cliente PC              ESP32 Cockpit   │
-│  ────────────              ──────────              ─────────────   │
+│  Raspberry Pi                    Cliente PC                         │
+│  ────────────                    ──────────                         │
 │                                                                     │
 │  BMI160 (100Hz)                                                     │
 │      │                                                              │
 │      ▼                                                              │
-│  UDP 9997 ──────────────► Recepção                                 │
-│                               │                                     │
-│                               ▼                                     │
-│                          Cálculo FF                                 │
-│                          (g_lateral,                                │
-│                           gyro_z,                                   │
-│                           steering)                                 │
-│                               │                                     │
-│                               ▼                                     │
-│                          Parâmetros                                 │
-│                          (sensitivity,                              │
-│                           friction,                                 │
-│                           filter,                                   │
-│                           damping)                                  │
-│                               │                                     │
-│                               ▼                                     │
-│                          Serial USB ──────────► FF Motor Manager   │
-│                          "FF_MOTOR:                    │            │
-│                           LEFT:45"                     ▼            │
-│                                                   BTS7960 PWM      │
-│                                                        │            │
-│                                                        ▼            │
-│                                                   Motor DC 12V     │
-│                                                        │            │
-│                                                        ▼            │
-│                                                   Torque no        │
-│                                                   Volante          │
+│  UDP 9997 (60Hz) ──────────────► network_client.py                 │
+│                                       │                             │
+│                                       ▼                             │
+│                                  sensor_display queue               │
+│                                       │                             │
+│                                       ▼                             │
+│                         _sensor_processing_loop (100Hz thread)      │
+│                                       │                             │
+│                          ┌────────────┴────────────┐                │
+│                          ▼                         ▼                │
+│                  calculate_g_forces_and_ff()  velocity_calc()       │
+│                          │                                          │
+│                          ▼                                          │
+│                  ┌───────┴───────┐                                  │
+│                  ▼               ▼                                  │
+│           send_ff_command()  send_dynamic_effects()                 │
+│           (FF_CONSTANT)      (RUMBLE + PERIODIC + INERTIA)          │
+│                  │               │                                  │
+│                  └───────┬───────┘                                  │
+│                          ▼                                          │
+│                  g923_manager.py (upload_effect ioctl)              │
+│                          │                                          │
+│                          ▼                                          │
+│                  Logitech G923 hardware (kernel ~1kHz)              │
+│                                                                     │
+│  Paralelamente (GUI thread, 10Hz):                                 │
+│  process_queues() → _apply_local_ff()                              │
+│       → update_spring/damper/friction (sliders)                    │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Por que Calcular no Cliente?
+## 8 Efeitos Simultâneos
 
-### Alternativas Consideradas
+### Condition effects (kernel ~1kHz, baseados em sliders)
 
-| Local | Prós | Contras | Decisão |
-|-------|------|---------|---------|
-| Raspberry Pi | Menor latência | CPU limitada, 4 núcleos ocupados | Rejeitado |
-| ESP32 | Ultra-baixa latência | Não tem dados do BMI160 | Impossível |
-| **Cliente PC** | CPU sobrando, ajustes em tempo real | +10ms latência | **Escolhido** |
+| Efeito | Controle | Mínimo | Função |
+|--------|----------|--------|--------|
+| FF_SPRING | Slider Sensitivity (75%) | 5% | Centering — kernel calcula pela posição do volante |
+| FF_DAMPER | Slider Damping (50%) | 0% | Resistência proporcional à velocidade do volante |
+| FF_FRICTION | Slider Friction (30%) | 3% | Grip do pneu — resistência constante ao movimento |
+| FF_INERTIA | Calculado (velocidade + throttle) | 5% | Peso do volante — aumenta com velocidade |
 
-### Justificativa
+### Force effects (software, a cada pacote BMI160)
 
-1. **CPU disponível**: PC tem núcleos livres, RPi está saturado com vídeo + sensores
-2. **Parâmetros ajustáveis**: Interface Tkinter permite ajustar sensitivity/friction em tempo real
-3. **Latência aceitável**: 10ms adicional imperceptível para tato humano (limiar ~50ms)
+| Efeito | Fonte | Função |
+|--------|-------|--------|
+| FF_CONSTANT (dinâmico) | G lateral + yaw do BMI160 | Puxão lateral em curvas |
+| FF_CONSTANT (endstop) | Posição do volante (~1kHz) | Batente virtual nos limites calibrados |
 
----
+### Vibration effects
 
-## Componentes da Força
+| Efeito | Fonte | Função |
+|--------|-------|--------|
+| FF_RUMBLE | 8 componentes combinados | Vibração de impactos/estrada (strong + weak motor) |
+| FF_PERIODIC | Throttle → frequência | Vibração senoidal do motor (5Hz idle → 12Hz full) |
 
-### Fórmula Base
+### Controle global
 
-```python
-def calculate_force(self, sensor_data, steering_value):
-    g_lateral = sensor_data.get('bmi160_g_force_lateral', 0)
-    gyro_z = sensor_data.get('bmi160_gyro_z', 0)
-
-    # Componente 1: Forças laterais em curva (0-100%)
-    lateral = min(abs(g_lateral) * 50, 100)
-
-    # Componente 2: Rotação yaw (0-50%)
-    yaw = min(abs(gyro_z) / 60.0 * 50, 50)
-
-    # Componente 3: Centralização (0-40%)
-    centering = abs(steering_value) / 100.0 * 40
-
-    # Força base combinada
-    base_ff = min(lateral + yaw + centering, 100)
-
-    return base_ff
-```
-
-### Componente Lateral (Curvas)
-
-**Física**: Em curva, força centrípeta empurra lateralmente.
-
-```
-Curva leve:  0.3g → 0.3 × 50 = 15% força
-Curva média: 0.8g → 0.8 × 50 = 40% força
-Curva forte: 1.5g → 1.5 × 50 = 75% força (clamp em 100%)
-```
-
-### Componente Yaw (Rotação)
-
-**Física**: Rotação do chassi causa torque reativo no volante.
-
-```
-Rotação leve:  20°/s → 20/60 × 50 = 16% força
-Rotação média: 40°/s → 40/60 × 50 = 33% força
-Rotação forte: 60°/s → 60/60 × 50 = 50% força (máximo)
-```
-
-### Componente Centralização
-
-**Física**: Caster e KPI das rodas tendem a centralizar volante.
-
-```
-Volante centro: 0% → 0/100 × 40 = 0% força
-Volante 50%:   50% → 50/100 × 40 = 20% força
-Volante 100%: 100% → 100/100 × 40 = 40% força (máximo)
-```
+FF_GAIN limita todos os 8 efeitos simultaneamente. Default 15% (25%+ pode travar o G923).
 
 ---
 
-## Parâmetros Ajustáveis
+## Otimização de Latência (2026-03-10)
 
-### Sensitivity (Sensibilidade)
+### Problema: delay perceptível no force feedback
 
-```python
-ff_adjusted = base_ff * (sensitivity / 100.0)
+A cada pacote BMI160 (60Hz), 3 efeitos dinâmicos eram atualizados via `_recreate_effect()`,
+que fazia 4 ioctls bloqueantes por efeito (stop → erase → upload → start):
+
+```
+Antes: 3 efeitos × 4 ioctls = 12 ioctls/pacote × 1-5ms cada = 12-60ms bloqueio
 ```
 
-| Valor | Efeito |
-|-------|--------|
-| 25% | Força muito leve |
-| 50% | Força moderada |
-| **75%** | **Padrão** - força realista |
-| 100% | Força máxima |
+A sensor thread (100Hz, ciclo de 10ms) ficava bloqueada por mais tempo que o ciclo,
+perdendo pacotes e introduzindo delay perceptível no feedback.
 
-### Friction (Atrito)
+### Correção 1: Cache no FF_CONSTANT
 
-Simula resistência mecânica da direção.
+`apply_constant_force()` não tinha cache — recriava o efeito mesmo com mesma
+intensidade e direção. Adicionado `_last_constant_key = (level, direction)`:
 
 ```python
-friction_force = (gyro_z / 100.0) * (friction / 100.0) * 30
-ff_adjusted += friction_force
+key = (level, ff_direction)
+if key == self._last_constant_key:
+    return  # Nenhum ioctl
 ```
 
-| Valor | Efeito |
-|-------|--------|
-| 0% | Volante livre |
-| **30%** | **Padrão** - atrito leve |
-| 60% | Atrito médio |
-| 100% | Volante pesado |
+### Correção 2: Quantização dos EMA outputs
 
-### Filter (Filtro EMA)
-
-Remove ruído de alta frequência do sensor.
+Os valores de rumble, periodic e inertia passam por EMA (Exponential Moving Average),
+que gera floats ligeiramente diferentes a cada ciclo (ex: 42.31 → 42.29), invalidando
+o cache mesmo com input estável.
 
 ```python
-# Exponential Moving Average
-ff_filtered = ff_adjusted * (1 - filter/100) + previous_ff * (filter/100)
+# Antes: float → cache nunca acerta
+sensor_data["rumble_strong"] = self._filtered_rumble_strong  # 42.3147...
+
+# Depois: inteiro → cache funciona quando input é estável
+sensor_data["rumble_strong"] = round(self._filtered_rumble_strong)  # 42
 ```
 
-| Valor | Efeito |
-|-------|--------|
-| 0% | Sem filtro (ruidoso) |
-| **40%** | **Padrão** - suave |
-| 70% | Muito suave (lento) |
-| 100% | Sem mudança (travado) |
+Aplicado em: rumble_strong/weak, periodic_magnitude, periodic_period_ms,
+steering_feedback_intensity, inertia.
 
-### Damping (Amortecimento)
+### Correção 3: Upload in-place ao invés de recreate
 
-Simula inércia do sistema mecânico.
+Para FF_CONSTANT, FF_RUMBLE e FF_PERIODIC, o efeito agora é atualizado via
+`upload_effect(id_existente)` (1 ioctl) ao invés de erase+create (4 ioctls).
+Se o driver hid-lg4ff não aplicar, faz fallback automático para recreate.
 
 ```python
-ff_damped = ff_filtered * (1 - damping/100) + last_ff * (damping/100)
+# Antes: _recreate_effect() — 4 ioctls
+self.device.write(EV_FF, old_id, 0)      # para
+self.device.erase_effect(old_id)           # apaga
+new_id = self.device.upload_effect(...)    # cria
+self.device.write(EV_FF, new_id, 1)       # inicia
+
+# Depois: upload in-place — 1 ioctl
+effect = ff.Effect(FF_CONSTANT, existing_id, ...)
+self.device.upload_effect(effect)          # atualiza direto
 ```
 
-| Valor | Efeito |
-|-------|--------|
-| 0% | Resposta instantânea |
-| **50%** | **Padrão** - amortecido |
-| 80% | Muito lento |
-| 100% | Sem movimento |
+### Resultado
+
+```
+Antes:  12 ioctls/pacote (4 por efeito × 3 efeitos) = 12-60ms bloqueio
+Depois:  0-3 ioctls/pacote (1 por efeito, só quando valor muda) = 0-15ms bloqueio
+```
+
+Quando inputs são estáveis (volante parado, throttle constante), o cache acerta e
+zero ioctls são feitos. Quando há mudança real, 1 ioctl por efeito ao invés de 4.
 
 ---
 
-## Determinação de Direção
+## Componentes da Força (FF_CONSTANT dinâmico)
 
-### Algoritmo
+### Fórmula
 
 ```python
-def determine_direction(self, g_lateral, gyro_z, steering):
-    # Peso de cada componente na direção
-    centering_dir = -steering  # Oposto ao volante
-    lateral_dir = g_lateral * 10  # Amplificado
-    yaw_dir = gyro_z  # Direto
+# Componente lateral (curvas): 0-100%
+lateral_component = min(abs(g_force_lateral) * 50, 100)
 
-    # Soma ponderada
-    total_dir = centering_dir + lateral_dir + yaw_dir
+# Componente yaw (rotação): 0-50%
+yaw_component = min(abs(gyro_z) / 60.0 * 50, 50)
 
-    if abs(total_dir) < 5:  # Zona morta
-        return "NEUTRAL"
-    elif total_dir < 0:
-        return "LEFT"
-    else:
-        return "RIGHT"
+# Soma limitada
+base_ff = min(lateral_component + yaw_component, 100)
+
+# Aplicar sensitivity e EMA filter
+adjusted_ff = base_ff * sensitivity
+final_ff = adjusted_ff * (1 - filter) + previous_ff * filter
 ```
 
-### Cenários
+### Direção do puxão
 
-| Situação | Centering | Lateral | Yaw | Resultado |
-|----------|-----------|---------|-----|-----------|
-| Reto, centro | 0 | 0 | 0 | NEUTRAL |
-| Reto, volante esquerda | +50 | 0 | 0 | RIGHT (centraliza) |
-| Curva direita | 0 | +30 | +20 | RIGHT (resiste) |
-| Curva esquerda, volante esquerda | +50 | -30 | -20 | Depende do peso |
+```python
+lateral_dir = g_force_lateral * 10
+yaw_dir = gyro_z
+total_dir = lateral_dir + yaw_dir
 
----
-
-## Hardware ESP32
-
-### BTS7960 H-Bridge
-
-```
-ESP32 GPIO        BTS7960
-──────────        ───────
-GPIO 16  ───────► RPWM (horário)
-GPIO 17  ───────► LPWM (anti-horário)
-GPIO 18  ───────► R_EN (enable)
-GPIO 19  ───────► L_EN (enable)
-```
-
-### Configuração PWM
-
-```cpp
-#define PWM_FREQUENCY 1000   // 1kHz
-#define PWM_RESOLUTION 8     // 0-255
-
-void setup() {
-    ledcSetup(0, PWM_FREQUENCY, PWM_RESOLUTION);  // Canal RPWM
-    ledcSetup(1, PWM_FREQUENCY, PWM_RESOLUTION);  // Canal LPWM
-    ledcAttachPin(PIN_RPWM, 0);
-    ledcAttachPin(PIN_LPWM, 1);
-}
-```
-
-### Conversão Intensidade→PWM
-
-```cpp
-int intensity_to_pwm(int intensity) {
-    return map(intensity, 0, 100, 0, 255);
-}
-
-// 50% força → PWM 127
-// 75% força → PWM 191
-// 100% força → PWM 255
+if total_dir > 1.5:   direction = "right"
+elif total_dir < -1.5: direction = "left"
+else:                   direction = "neutral"
 ```
 
 ---
 
-## Protocolo Serial
+## Componentes do Rumble (FF_RUMBLE)
 
-### Formato
+8 componentes combinados em strong motor (impactos) e weak motor (contínuo):
 
-```
-FF_MOTOR:<DIRECTION>:<INTENSITY>
-
-Exemplos:
-  FF_MOTOR:LEFT:45     → 45% força anti-horária
-  FF_MOTOR:RIGHT:80    → 80% força horária
-  FF_MOTOR:NEUTRAL:0   → Para motor
-```
-
-### Parsing no ESP32
-
-```cpp
-void process_ff_command(String cmd) {
-    // cmd = "FF_MOTOR:LEFT:45"
-    int colon1 = cmd.indexOf(':');
-    int colon2 = cmd.indexOf(':', colon1 + 1);
-
-    String direction = cmd.substring(colon1 + 1, colon2);
-    int intensity = cmd.substring(colon2 + 1).toInt();
-
-    ff_motor.set_force(direction, intensity);
-}
-```
+| Componente | Strong | Weak | Fonte |
+|------------|--------|------|-------|
+| Engine vibration | 0.5× | 0.7× | throttle/100 × 60% |
+| Bump vertical | 0.3× | 0.3× | desvio de accel_z da gravidade |
+| Impacto frontal | 0.3× | — | g_force_frontal |
+| Jerk BMI160 | 0.2× | — | derivada temporal de accel |
+| Jerk controles | 1× | — | mudança brusca de throttle/brake/steering |
+| Rugosidade | — | 1× | desvio padrão de accel_z (histórico) |
+| Stress lateral | 0.3× | 0.4× | g_force_lateral em curva |
+| Frenagem | 0.5× | 0.3× | brake/100 × 70% |
 
 ---
 
-## Startup Check
+## Parâmetros Ajustáveis (Sliders)
 
-### Por que verificar na inicialização?
-
-1. **Segurança**: Detecta BTS7960 desconectado
-2. **Calibração**: Centraliza volante antes de operar
-3. **Feedback**: Usuário sente que sistema funciona
-
-### Sequência (1.5 segundos)
-
-```cpp
-void perform_startup_check() {
-    // Fase 0 (0-500ms): Gira esquerda
-    set_force("LEFT", 20);
-    delay(500);
-
-    // Fase 1 (500-1000ms): Gira direita
-    set_force("RIGHT", 20);
-    delay(500);
-
-    // Fase 2 (1000-1500ms): Para
-    set_force("NEUTRAL", 0);
-    delay(500);
-
-    startup_complete = true;
-}
-```
+| Parâmetro | Default | Efeito no hardware |
+|-----------|---------|-------------------|
+| Sensitivity | 75% | FF_SPRING coefficient + multiplicador do FF_CONSTANT |
+| Friction | 30% | FF_FRICTION coefficient (mín 3%) |
+| Damping | 50% | FF_DAMPER coefficient |
+| Filter | 40% | EMA no FF_CONSTANT (software only) |
+| Max Force | 15% | FF_GAIN global (limita todos os 8 efeitos) |
 
 ---
 
@@ -333,69 +225,39 @@ void perform_startup_check() {
 
 | Etapa | Latência |
 |-------|----------|
-| BMI160 → Buffer | ~1ms |
-| Buffer → UDP | ~1ms |
-| UDP 9997 transmissão | ~1-2ms |
-| Recepção cliente | ~1ms |
-| Cálculo FF | <1ms |
-| Serial USB | ~1ms |
-| ESP32 parsing | <1ms |
-| PWM → Motor | ~1ms |
-| **Total** | **~8-10ms** |
+| BMI160 → Buffer RPi | ~1ms |
+| Buffer → UDP 9997 | ~1ms |
+| UDP transmissão WiFi | ~1-5ms |
+| Recepção + queue | ~1ms |
+| Cálculo FF (CPU) | <1ms |
+| upload_effect ioctl (USB) | ~1-5ms |
+| Kernel → Motor G923 | <1ms |
+| **Total** | **~6-15ms** |
 
 ### Percepção Humana
 
 - Limiar tátil: ~50ms
-- Sistema: ~10ms
-- **Margem**: 5x mais rápido que percepção
+- Sistema: ~6-15ms
+- Margem: 3-8x mais rápido que percepção
 
 ---
 
-## Interface de Ajuste
+## Detecção de Veículo Parado
 
-### Sliders Tkinter
-
-```python
-# console/frames/controls.py
-ttk.Label(frame, text="Force Feedback")
-
-ttk.Scale(frame, from_=0, to=100, variable=self.sensitivity_var,
-          command=self._on_sensitivity_change)
-ttk.Label(frame, text="Sensitivity")
-
-ttk.Scale(frame, from_=0, to=100, variable=self.friction_var,
-          command=self._on_friction_change)
-ttk.Label(frame, text="Friction")
-
-# ... filter, damping
-```
-
-### Valores Padrão
-
-```python
-DEFAULT_FF_PARAMS = {
-    "sensitivity": 75,
-    "friction": 30,
-    "filter": 40,
-    "damping": 50,
-}
-```
+Quando o veículo está parado (sem throttle, sem brake, sem movimento significativo):
+- FF_CONSTANT decai rapidamente (EMA × 0.5)
+- FF_RUMBLE decai (EMA × 0.3)
+- FF_PERIODIC vai para 0%
+- FF_INERTIA vai para mínimo (5%)
+- Histórico do BMI160 é limpo (evita dados velhos ao retomar)
 
 ---
 
-## Arquivos Relacionados
+## Arquivos
 
-### Cliente
-- `client/console/logic/force_feedback_calc.py` - Cálculo de força
-- `client/console/frames/controls.py` - Interface de ajuste
-- `client/serial_receiver_manager.py` - Envio serial
-
-### ESP32
-- `esp32/ff_motor_manager.h/cpp` - Controle do motor
-- `esp32/esp32.ino` - Recepção de comandos
-
-### Raspberry Pi
-- `raspberry/bmi160_manager.py` - Fonte de dados de sensores
+- `client/g923_manager.py` — Driver evdev, 8 efeitos FF, cache de uploads
+- `client/console/logic/force_feedback_calc.py` — Cálculo dos 7 efeitos dinâmicos
+- `client/console/main.py` — `_sensor_processing_loop` (100Hz) e `_apply_local_ff` (10Hz)
 
 ---
 
@@ -403,7 +265,6 @@ DEFAULT_FF_PARAMS = {
 
 | Data | Mudança |
 |------|---------|
-| 2025-12-17 | Implementação inicial |
-| 2025-12-17 | Adicionado startup check |
-| 2025-12-17 | Parâmetros ajustáveis na UI |
-| 2025-12-18 | Documentação completa |
+| 2025-12-17 | Implementação inicial (ESP32 + BTS7960 via serial) |
+| 2026-02-18 | Migração para G923 nativo via evdev (8 efeitos simultâneos) |
+| 2026-03-10 | Otimização de latência: cache FF_CONSTANT, quantização EMA, upload in-place |

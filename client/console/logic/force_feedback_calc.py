@@ -253,7 +253,7 @@ class ForceFeedbackCalculator:
                 final_ff = 0.0
                 direction = "neutral"
 
-            sensor_data["steering_feedback_intensity"] = final_ff
+            sensor_data["steering_feedback_intensity"] = round(final_ff)
             sensor_data["steering_feedback_direction"] = direction
 
             # === 2. FF_RUMBLE: Vibração combinada ===
@@ -326,8 +326,10 @@ class ForceFeedbackCalculator:
                 self._filtered_rumble_strong *= 0.3
                 self._filtered_rumble_weak *= 0.3
 
-            sensor_data["rumble_strong"] = self._filtered_rumble_strong
-            sensor_data["rumble_weak"] = self._filtered_rumble_weak
+            # Quantiza para inteiro — evita que EMA gere valores float
+            # ligeiramente diferentes a cada ciclo, invalidando o cache do G923
+            sensor_data["rumble_strong"] = round(self._filtered_rumble_strong)
+            sensor_data["rumble_weak"] = round(self._filtered_rumble_weak)
 
             # === 3. FF_PERIODIC: Vibração do motor ===
             if vehicle_active:
@@ -347,8 +349,8 @@ class ForceFeedbackCalculator:
                 period_ms = self.IDLE_PERIODIC_PERIOD_MS
                 periodic_magnitude = 0.0
 
-            sensor_data["periodic_period_ms"] = period_ms
-            sensor_data["periodic_magnitude"] = periodic_magnitude
+            sensor_data["periodic_period_ms"] = int(period_ms)
+            sensor_data["periodic_magnitude"] = round(periodic_magnitude)
 
             # === 4. FF_INERTIA: Peso do volante ===
             if vehicle_active:
@@ -368,7 +370,7 @@ class ForceFeedbackCalculator:
                 inertia_raw * 0.3 + self._filtered_inertia * 0.7
             )
 
-            sensor_data["inertia"] = self._filtered_inertia
+            sensor_data["inertia"] = round(self._filtered_inertia)
 
             # Limpa histórico quando parado (evita dados velhos ao retomar)
             if not vehicle_active and len(self._history) > 3:

@@ -745,16 +745,16 @@ class ConsoleInterface:
                 elif var_name in ["battery_percentage"]:
                     formatted_value = f"{value:.1f}%"
                 elif var_name in ["current_rpi", "current_servos", "current_motor"]:
-                    formatted_value = f"{value:.2f}A"
+                    formatted_value = f"{abs(value):.2f}A"
                 elif var_name in ["voltage_rpi"]:
-                    formatted_value = f"{value:.2f}V"
+                    formatted_value = f"{abs(value):.2f}V"
                 elif var_name in [
                     "power_rpi",
                     "power_servos",
                     "power_motor",
                     "power_total",
                 ]:
-                    formatted_value = f"{value:.1f}W"
+                    formatted_value = f"{abs(value):.1f}W"
                 elif var_name in ["accel_range"]:
                     formatted_value = f"±{value}g"
                 elif var_name in ["gyro_range"]:

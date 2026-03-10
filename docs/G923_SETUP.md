@@ -429,7 +429,7 @@ Quando dados do RPi chegam, `calculate_g_forces_and_ff()` atualiza o FF_CONSTANT
 
 A versão anterior usava apenas FF_CONSTANT e calculava spring, damping e friction em software Python a ~10Hz. O G923 suporta 15 tipos de efeito com 63 slots simultâneos. Efeitos condicionais (FF_SPRING, FF_DAMPER, FF_FRICTION) rodam no firmware do volante a ~1kHz — muito mais suaves e realistas.
 
-### 7 efeitos simultâneos
+### 8 efeitos simultâneos
 
 ```
 Condition effects (kernel ~1kHz):
@@ -440,10 +440,11 @@ Condition effects (kernel ~1kHz):
 
 Force effects (software, a cada pacote):
   Slot 4: FF_CONSTANT  ← forças dinâmicas do BMI160 (G lateral + yaw)
+  Slot 5: FF_CONSTANT  ← batente virtual (endstop nos limites calibrados, ~1kHz)
 
 Vibration effects (hardware):
-  Slot 5: FF_RUMBLE    ← vibração de impactos/estrada (strong + weak motor)
-  Slot 6: FF_PERIODIC  ← vibração senoidal do motor (freq = RPM via throttle)
+  Slot 6: FF_RUMBLE    ← vibração de impactos/estrada (strong + weak motor)
+  Slot 7: FF_PERIODIC  ← vibração senoidal do motor (freq = RPM via throttle)
 ```
 
 ### Controle global: FF_GAIN
@@ -465,7 +466,7 @@ device.write(ecodes.EV_FF, ecodes.FF_GAIN, gain)
 | Friction | 30% | FF_FRICTION coeff (mín 3%) | Resistência constante (grip do pneu) |
 | Damping | 50% | FF_DAMPER coeff | Resistência proporcional à velocidade |
 | Filter | 40% | Software EMA no FF_CONSTANT | Suaviza ruído dos sensores BMI160 |
-| Max Force | 15% | FF_GAIN global | Limite de TODOS os 7 efeitos |
+| Max Force | 15% | FF_GAIN global | Limite de TODOS os 8 efeitos |
 
 Efeitos automáticos (sem slider — calculados pelo contexto):
 
@@ -540,12 +541,24 @@ device.upload_effect(effect)
 
 1. **Inicialização** (`_init_force_feedback()`):
    - Define FF_GAIN baseado no slider Max Force
-   - Upload 7 efeitos (spring, damper, friction, inertia, constant, rumble, periodic) com `id=-1`
+   - Upload 8 efeitos (spring, damper, friction, inertia, constant, endstop, rumble, periodic) com `id=-1`
    - Ativa todos: `write(EV_FF, eid, 1)`
-2. **Atualização de sliders**: Re-upload condition effects com mesmo `eid`
-3. **Atualização de sensor data**: Re-upload FF_CONSTANT + FF_RUMBLE + FF_PERIODIC + FF_INERTIA
-4. **Idle (sem RPi)**: Spring/friction com mínimos, periodic idle (25Hz/3%), inertia base (5%)
+2. **Atualização de sliders**: Re-upload condition effects com mesmo `eid` (1 ioctl)
+3. **Atualização de sensor data**: Upload in-place de FF_CONSTANT + FF_RUMBLE + FF_PERIODIC + FF_INERTIA
+4. **Idle (sem RPi)**: Spring/friction com mínimos, periodic idle (5Hz/15%), inertia base (5%)
 5. **Cleanup** (`_stop_force_feedback()`): `write(EV_FF, eid, 0)` + `erase_effect(eid)` para cada um
+
+### Otimização de latência (2026-03-10)
+
+Problema: `_recreate_effect()` fazia 4 ioctls (stop → erase → upload → start) por efeito.
+Com 3 efeitos dinâmicos a 60Hz = 12 ioctls/pacote = 12-60ms de bloqueio na sensor thread.
+
+Correções aplicadas:
+1. **Cache no FF_CONSTANT** — `_last_constant_key = (level, direction)` evita ioctl quando valor não mudou
+2. **Quantização EMA** — `round()` nos outputs de rumble/periodic/inertia para que o cache funcione com inputs estáveis
+3. **Upload in-place** — `upload_effect(id_existente)` (1 ioctl) ao invés de recreate (4 ioctls), com fallback automático
+
+Resultado: 12 ioctls/pacote → 0-3 ioctls/pacote. Ver detalhes em `FORCE_FEEDBACK.md`.
 
 ### Fluxo de dados completo
 
@@ -555,19 +568,22 @@ G923 (firmware ~1kHz) — condition effects:
   ├─ FF_DAMPER:   kernel lê velocidade → resistência (Damping slider)
   ├─ FF_FRICTION: kernel aplica resistência constante (Friction slider, mín 3%)
   ├─ FF_INERTIA:  kernel lê aceleração angular → peso (auto: velocidade/throttle)
-  └─ FF_GAIN:     multiplica todos os 7 efeitos (Max Force slider, default 15%)
+  └─ FF_GAIN:     multiplica todos os 8 efeitos (Max Force slider, default 15%)
 
 BMI160 (RPi, 100Hz) → UDP → Client → ff_calculator.calculate_g_forces_and_ff():
   ├─ FF_CONSTANT: G lateral + yaw → empurra volante (sensitivity × filter EMA)
   ├─ FF_RUMBLE:   |accel_z - 9.81| → strong (impactos) + weak (estrada)
-  ├─ FF_PERIODIC: throttle → freq 25-50Hz, magnitude 3-30% (engine RPM)
+  ├─ FF_PERIODIC: throttle → freq 5-12Hz, magnitude 15-90% (engine RPM)
   └─ FF_INERTIA:  velocidade + throttle → 5-80% (peso dinâmico do volante)
+
+G923 input thread (~1kHz):
+  └─ FF_CONSTANT (endstop): posição do volante → trava nos limites calibrados
 
 Idle (sem RPi, sem dados):
   ├─ FF_SPRING:   mínimo 5% (peso mecânico do eixo de direção)
   ├─ FF_FRICTION: mínimo 3% (atrito mecânico)
   ├─ FF_INERTIA:  base 5% (peso do volante parado)
-  ├─ FF_PERIODIC: 25Hz / 3% (motor em idle)
+  ├─ FF_PERIODIC: 5Hz / 15% (motor em idle)
   └─ FF_CONSTANT/RUMBLE: desligados (sem dados de sensor)
 
 Slider callbacks (imediato):

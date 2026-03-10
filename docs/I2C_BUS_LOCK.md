@@ -25,31 +25,39 @@ Quando o client conecta e envia comandos STATE a 100Hz via UDP:
 
 Não havia lock compartilhado no barramento I2C. Cada driver (smbus2 e busio) acessava o bus independentemente. Quando duas transações I2C colidem no mesmo bus físico, o kernel retorna erro de I/O.
 
-## Solução: PriorityI2CLock
-
-Implementamos um lock com **3 níveis de prioridade** ao invés de um `threading.Lock` simples. Threads de maior prioridade "furam a fila" quando o bus fica livre.
+## Solução: PriorityI2CLock com Fair Queuing
 
 ### Prioridades
 
-| Prioridade | Valor | Dispositivos       | Justificativa                              |
-|------------|-------|---------------------|--------------------------------------------|
-| Alta       | 0     | Steering, Brake     | Controle do veículo, segurança crítica     |
-| Média      | 1     | BMI160              | Dados de sensores para telemetria e FF     |
-| Baixa      | 2     | INA219              | Monitoramento de energia (não-crítico)     |
+| Prioridade | Valor | Peso (turns) | Dispositivos       | Justificativa                              |
+|------------|-------|--------------|---------------------|--------------------------------------------|
+| Alta       | 0     | 3            | Steering, Brake     | Controle do veículo, segurança crítica     |
+| Média      | 1     | 2            | BMI160              | Dados de sensores para telemetria e FF     |
+| Baixa      | 2     | 1            | INA219              | Monitoramento de energia (não-crítico)     |
 
-### Funcionamento
+### Evolução: De Strict Priority para Fair Queuing
+
+**Lock antigo (strict priority)** — causava starvation:
 
 ```
-Thread Steering (prioridade 0):   acquire(0) → escreve PCA9685 → release()
-Thread BMI160 (prioridade 1):     acquire(1) → lê BMI160 → release()
-Thread INA219 (prioridade 2):     acquire(2) → lê INA219 → release()
+Thread Steering (prioridade 0):   acquire(0) → sempre passa primeiro
+Thread BMI160 (prioridade 1):     acquire(1) → BLOQUEADO enquanto steering espera
+Thread INA219 (prioridade 2):     acquire(2) → BLOQUEADO enquanto qualquer outro espera
 ```
 
-Quando múltiplas threads esperam pelo lock:
-1. O lock é liberado
-2. Threads de **menor valor** (maior prioridade) são acordadas primeiro
-3. Se há thread prioridade 0 esperando, as de 1 e 2 continuam esperando
-4. Se há thread prioridade 1 esperando, as de 2 continuam esperando
+O problema: durante aceleração, steering e brake enviam comandos continuamente ao PCA9685.
+Com prioridade estrita, o BMI160 (prioridade 1) ficava **completamente bloqueado**
+porque sempre havia um comando de prioridade 0 na fila. Resultado: zeros por starvation.
+
+**Lock novo (weighted fair queuing)** — resolve starvation:
+
+```
+Exemplo com steering (peso 3) e BMI160 (peso 2) disputando:
+→ 3x steering → 2x BMI160 → 3x steering → 2x BMI160 → ...
+```
+
+Cada prioridade tem um **peso** (número de turnos consecutivos antes de ceder).
+Após gastar seus turnos, a thread cede para outras prioridades que estejam esperando.
 
 ### Implementação
 
@@ -58,19 +66,46 @@ class PriorityI2CLock:
     PRIORITY_HIGH = 0    # Steering, Brake
     PRIORITY_MEDIUM = 1  # BMI160
     PRIORITY_LOW = 2     # INA219
+    WEIGHT = {0: 3, 1: 2, 2: 1}  # Turnos antes de ceder
 
     def __init__(self):
         self._lock = threading.Lock()
         self._condition = threading.Condition(self._lock)
-        self._waiting = [0, 0, 0]  # Contadores por prioridade
+        self._waiting = [0, 0, 0]
         self._busy = False
+        self._run_prio = None   # Prioridade que acabou de rodar
+        self._run_count = 0     # Quantos turnos consecutivos
+
+    def _can_acquire(self, priority):
+        if self._busy:
+            return False
+        others_waiting = any(self._waiting[p] > 0
+                             for p in range(3) if p != priority)
+        # Excedeu peso e outros esperando → ceder
+        if (self._run_prio == priority
+                and self._run_count >= self.WEIGHT.get(priority, 1)
+                and others_waiting):
+            return False
+        # Prioridade mais alta esperando e NÃO excedeu peso → esperar
+        for p in range(priority):
+            if self._waiting[p] > 0:
+                higher_exceeded = (self._run_prio == p
+                    and self._run_count >= self.WEIGHT.get(p, 1))
+                if not higher_exceeded:
+                    return False
+        return True
 
     def acquire(self, priority=1):
         with self._condition:
             self._waiting[priority] += 1
-            while self._busy or any(self._waiting[p] > 0 for p in range(priority)):
+            while not self._can_acquire(priority):
                 self._condition.wait()
             self._waiting[priority] -= 1
+            if self._run_prio == priority:
+                self._run_count += 1
+            else:
+                self._run_prio = priority
+                self._run_count = 1
             self._busy = True
 
     def release(self):
@@ -78,6 +113,17 @@ class PriorityI2CLock:
             self._busy = False
             self._condition.notify_all()
 ```
+
+### Por que fair queuing resolve o problema
+
+Com strict priority, um fluxo contínuo de comandos de steering (prioridade 0)
+bloqueava **indefinidamente** o BMI160 (prioridade 1). O sensor ficava sem leituras
+e o watchdog de zeros interpretava como brown-out, fazendo rewake desnecessário.
+
+Com weighted fair queuing, mesmo sob carga máxima de steering:
+- Steering executa no máximo 3 transações consecutivas
+- Depois BMI160 garante 2 transações
+- Nenhuma prioridade fica bloqueada por mais de ~3 transações (~1.5ms a 400kHz)
 
 ## Bandwidth do I2C
 
