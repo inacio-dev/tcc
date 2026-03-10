@@ -221,7 +221,7 @@ class BMI160Manager:
 
         # Watchdog: detecta zeros consecutivos (brown-out recovery)
         self._consecutive_zeros = 0
-        self._ZERO_THRESHOLD = 5  # Re-inicializa após 5 leituras zeradas
+        self._ZERO_THRESHOLD = 3  # Re-inicializa após 3 leituras zeradas
 
     def _get_odr_value(self, sample_rate):
         """Converte sample_rate para valor ODR do registrador"""
@@ -248,7 +248,7 @@ class BMI160Manager:
                     self.i2c_lock.acquire(priority=1)
                 try:
                     self.i2c_bus.write_byte_data(self.i2c_address, reg, value)
-                    time.sleep(0.005)  # 5ms delay otimizado
+                    time.sleep(0.001)  # 1ms (datasheet: 2µs normal mode)
                 finally:
                     if self.i2c_lock:
                         self.i2c_lock.release()
@@ -268,7 +268,6 @@ class BMI160Manager:
                 if self.i2c_lock:
                     self.i2c_lock.acquire(priority=1)
                 try:
-                    time.sleep(0.005)  # 5ms delay otimizado
                     return self.i2c_bus.read_byte_data(self.i2c_address, reg)
                 finally:
                     if self.i2c_lock:
@@ -489,13 +488,19 @@ class BMI160Manager:
 
     def _rewake_sensor(self):
         """Re-ativa PMU do BMI160 após brown-out (sem soft reset completo).
-        Quando o motor causa queda de tensão, o BMI160 pode voltar a suspend mode."""
+        Quando o motor causa queda de tensão, o BMI160 pode voltar a suspend mode.
+
+        Tempos conforme datasheet BST-BMI160-DS000-09:
+        - Accel Suspend → Normal: 3.8ms
+        - Gyro Suspend → Normal: 80ms
+        - Register write settling: 2µs (normal mode)
+        """
         try:
             warn("BMI160: detectado zeros consecutivos — re-ativando PMU...", "BMI160")
 
             # Re-ativa acelerômetro (CMD 0x11 = acc normal mode)
             self._write_register(self.REG_CMD, self.CMD_ACC_SET_PMU_MODE)
-            time.sleep(0.010)
+            time.sleep(0.004)  # 3.8ms startup (datasheet)
 
             # Re-configura acelerômetro
             self._write_register(self.REG_ACC_RANGE, self.accel_range)
@@ -504,14 +509,14 @@ class BMI160Manager:
 
             # Re-ativa giroscópio (CMD 0x15 = gyro normal mode)
             self._write_register(self.REG_CMD, self.CMD_GYR_SET_PMU_MODE)
-            time.sleep(0.080)  # Gyro startup time conforme datasheet
+            time.sleep(0.080)  # 80ms startup (datasheet)
 
             # Re-configura giroscópio
             self._write_register(self.REG_GYR_RANGE, self.gyro_range)
             gyr_conf = self.odr_value | (0x02 << 4)
             self._write_register(self.REG_GYR_CONF, gyr_conf)
 
-            time.sleep(0.050)
+            time.sleep(0.010)  # Settling final
 
             # Testa se voltou
             test = self._read_sensor_registers(self.REG_ACCEL_DATA, 6)
@@ -522,16 +527,16 @@ class BMI160Manager:
             else:
                 warn("BMI160: PMU re-ativado mas ainda zerado, tentando soft reset...", "BMI160")
                 self._write_register(self.REG_CMD, self.CMD_SOFT_RESET)
-                time.sleep(0.200)
+                time.sleep(0.100)  # 55ms spec + margem
                 self._write_register(self.REG_CMD, self.CMD_ACC_SET_PMU_MODE)
-                time.sleep(0.010)
+                time.sleep(0.004)
                 self._write_register(self.REG_CMD, self.CMD_GYR_SET_PMU_MODE)
                 time.sleep(0.080)
                 self._write_register(self.REG_ACC_RANGE, self.accel_range)
                 self._write_register(self.REG_ACC_CONF, acc_conf)
                 self._write_register(self.REG_GYR_RANGE, self.gyro_range)
                 self._write_register(self.REG_GYR_CONF, gyr_conf)
-                time.sleep(0.050)
+                time.sleep(0.010)
                 self._consecutive_zeros = 0
                 info("BMI160: soft reset completo", "BMI160")
                 return True
