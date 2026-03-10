@@ -658,7 +658,7 @@ class F1CarMultiThreadSystem:
                 t_ping = 0
                 if current_time - last_connect_ping >= 10.0:
                     t_ping_start = time.monotonic()
-                    self.network_mgr.send_connect_to_client("f1client.local", 9998)
+                    self.network_mgr.send_connect_to_client(self._client_ip, 9998)
                     t_ping = time.monotonic() - t_ping_start
                     last_connect_ping = current_time
 
@@ -815,9 +815,17 @@ class F1CarMultiThreadSystem:
             error("Falha na inicialização", "MAIN")
             return False
 
-        # Configura cliente fixo
-        self.network_mgr.set_fixed_client("f1client.local", 9999)
-        info("Cliente: f1client.local:9999 (mDNS)", "MAIN")
+        # Resolve mDNS uma vez e guarda IP numérico (evita resolução por pacote)
+        import socket as _socket
+        try:
+            self._client_ip = _socket.gethostbyname("f1client.local")
+            info(f"mDNS resolvido: f1client.local → {self._client_ip}", "MAIN")
+        except _socket.gaierror:
+            warn("Falha ao resolver f1client.local, usando hostname direto", "MAIN")
+            self._client_ip = "f1client.local"
+
+        self.network_mgr.set_fixed_client(self._client_ip, 9999)
+        info(f"Cliente: {self._client_ip}:9999", "MAIN")
 
         self.running = True
 
