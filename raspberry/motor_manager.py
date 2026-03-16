@@ -613,7 +613,7 @@ class MotorManager:
         Args:
             dt (float): Delta time desde última atualização
         """
-        # Zona morta do motor na 1ª marcha: abaixo de 6% o motor não gira
+        # Zona morta do motor: abaixo de 6% PWM o motor não tem torque para girar
         DEAD_ZONE_PWM = 6.0
         DEAD_ZONE_RATE = 20.0  # Multiplier para atravessar zona morta rápido
 
@@ -641,9 +641,8 @@ class MotorManager:
 
         # Sistema diferenciado para aceleração vs desaceleração
         if pwm_diff > 0:  # ACELERANDO
-            # Zona morta: abaixo de 6% na 1ª marcha, rampa rápida até 6%
-            if (self.current_gear == 1
-                    and self.current_pwm < DEAD_ZONE_PWM
+            # Zona morta: abaixo de 6% o motor não gira, rampa rápida até 6%
+            if (self.current_pwm < DEAD_ZONE_PWM
                     and self.target_pwm >= DEAD_ZONE_PWM):
                 fast_step = base_acceleration_per_frame * DEAD_ZONE_RATE * dt * 50
                 self.current_pwm = min(self.current_pwm + fast_step, DEAD_ZONE_PWM)
@@ -652,9 +651,8 @@ class MotorManager:
                 self.current_pwm += acceleration_step
 
         else:  # DESACELERANDO - mais rápido e inteligente
-            # Zona morta: abaixo de 6% na 1ª marcha, queda rápida para 0%
-            if (self.current_gear == 1
-                    and self.current_pwm <= DEAD_ZONE_PWM
+            # Zona morta: abaixo de 6% o motor não gira, queda rápida para 0%
+            if (self.current_pwm <= DEAD_ZONE_PWM
                     and self.target_pwm < DEAD_ZONE_PWM):
                 fast_step = base_acceleration_per_frame * DEAD_ZONE_RATE * dt * 50
                 self.current_pwm = max(self.current_pwm - fast_step, 0.0)

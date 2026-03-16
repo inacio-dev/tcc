@@ -81,10 +81,10 @@ F1-style remote-controlled car with complete telemetry system using Raspberry Pi
 **Logitech G923 (evdev Linux):**
 
 - ABS_X → Steering (volante, ~0-65535) → mapeia para -100 a +100
-- ABS_RZ → Throttle (acelerador, invertido) → mapeia para 0 a 100
-- ABS_Z → Brake (freio, invertido) → mapeia para 0 a 100
-- BTN_GEAR_UP (711) → Paddle direito → GEAR_UP
-- BTN_GEAR_DOWN (710) → Paddle esquerdo → GEAR_DOWN
+- ABS_Y → Throttle (acelerador, invertido, 0-255) → mapeia para 0 a 100
+- ABS_Z → Brake (freio, invertido, 0-255) → mapeia para 0 a 100
+- BTN_TOP2 (292) → Paddle direito → GEAR_UP
+- BTN_PINKIE (293) → Paddle esquerdo → GEAR_DOWN
 - FF_CONSTANT → Force feedback direcional via evdev
 
 ## Network Configuration (mDNS)

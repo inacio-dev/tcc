@@ -49,9 +49,9 @@ A \autoref{tab:enderecos-i2c-rpi} apresenta os endereços I2C dos dispositivos c
 		\toprule
 		Endereço & Dispositivo & Função \\
 		\midrule \midrule
-		0x40 & PCA9685 & Driver PWM 16 canais para servos \\
+		0x40 & INA219 & Sensor de corrente/tensão do Raspberry Pi (endereço padrão) \\
 		\midrule
-		0x41 & INA219 & Sensor de corrente/tensão do Raspberry Pi (A0=VCC) \\
+		0x41 & PCA9685 & Driver PWM 16 canais para servos (pino A0 soldado) \\
 		\midrule
 		0x68 & BMI160 & IMU 6 eixos (acelerômetro/giroscópio) \\
 		\bottomrule
@@ -61,20 +61,10 @@ A \autoref{tab:enderecos-i2c-rpi} apresenta os endereços I2C dos dispositivos c
 }
 \end{table}
 
-\section*{Diagrama de Alimentação e Sensores de Corrente}
+\section*{Diagrama Elétrico Completo}
 
-Diagrama mostrando a bateria LiPo Turnigy Grafeno 6000mAh 3S 150C, regulador step-down XL4015 5A, sensores de corrente ACS758 (50A e 100A) com filtros RC (1k$\Omega$ e 100nF), divisor de tensão (20k$\Omega$/10k$\Omega$), Arduino Pro Micro para aquisição de dados via USB serial, UBEC 15A para alimentação dos servos, driver PWM PCA9685, ponte H BTS7960B e motor DC 775.
-
-\begin{center}
-\includegraphics[width=\textwidth,height=0.85\textheight,keepaspectratio]{figuras/diagrama-rpi-1}
-\end{center}
-
-\newpage
-
-\section*{Raspberry Pi, Sensores e Comunicação}
-
-Diagrama mostrando o Raspberry Pi 4 Modelo B como elemento central, sensor ACS758 50A conectado ao Arduino Pro Micro via pino A1, driver PWM PCA9685 de 16 canais com pino OE, UBEC 15A, sensor de corrente e tensão INA219 I2C, módulo USB-C breakout com resistores de 5,1k$\Omega$ para negociação de energia, câmera OV5647 conectada via cabo flat CSI, sensor de temperatura DS18B20 com resistor pull-up de 4,7k$\Omega$ e sensor IMU GY-BMI160 conectado via I2C.
+O diagrama apresenta a arquitetura elétrica completa do veículo teleoperado, incluindo a bateria LiPo Turnigy Grafeno 6000mAh 3S 150C, regulador step-down XL4015 5A, sensores de corrente ACS758 (50A e 100A) com filtros RC (1k$\Omega$ e 100nF), divisor de tensão (20k$\Omega$/10k$\Omega$), Arduino Pro Micro para aquisição de dados via USB serial, UBEC 15A para alimentação dos servos, driver PWM PCA9685, ponte H BTS7960B com motor DC 775, sensor de corrente e tensão INA219 I2C, módulo USB-C breakout com resistores de 5,1k$\Omega$ para negociação de energia, câmera OV5647 conectada via cabo flat CSI, sensor de temperatura DS18B20 com resistor pull-up de 4,7k$\Omega$ e sensor IMU GY-BMI160 conectado via I2C.
 
 \begin{center}
-\includegraphics[width=\textwidth,height=0.85\textheight,keepaspectratio]{figuras/diagrama-rpi-2}
+\includegraphics[width=\textwidth,height=0.85\textheight,keepaspectratio]{figuras/diagrama-rpi}
 \end{center}

@@ -5,15 +5,18 @@ generate_gear_zones_chart.py - Gera gráfico das zonas de eficiência F1 por mar
 Baseado no sistema de zonas implementado em raspberry/motor_manager.py
 
 Zonas de Eficiência por Marcha:
+- ZONA MORTA (cinza): 0-6% PWM na 1ª marcha (rampa 20x para atravessar)
 - IDEAL (verde): Aceleração normal (1.0x)
-- SUBOPTIMAL (amarelo): Aceleração 10x mais lenta (0.1x)
-- POOR (vermelho): Aceleração 25x mais lenta (0.04x)
+- SUBÓTIMA (amarelo): Aceleração 10x mais lenta (0.1x)
+- RUIM (vermelho): Aceleração 25x mais lenta (0.04x)
 
 Uso:
     python scripts/generate_gear_zones_chart.py
 
 Saída:
     monografia/figuras/zonas_eficiencia_marchas.png
+    monografia/figuras/taxa_aceleracao_zonas.png
+    monografia/figuras/sistema_transmissao_f1.png
 """
 
 import matplotlib.pyplot as plt
@@ -25,57 +28,63 @@ plt.rcParams['font.family'] = 'DejaVu Sans'
 plt.rcParams['font.size'] = 10
 
 # Dados das zonas de eficiência por marcha (baseado em motor_manager.py)
-# Distribuição: 1ª e 2ª dividem 0-30% | 3ª e 4ª dividem 30-90% | 5ª pega 70-100%
+# Extraído de _calculate_efficiency_zone() linhas 505-547
 # Formato: marcha -> [(inicio, fim, zona), ...]
 GEAR_ZONES = {
     1: [
-        (0, 10, 'IDEAL'),
-        (10, 13, 'SUBÓTIMA'),
-        (13, 15, 'RUIM'),
+        (0, 6, 'ZONA MORTA'),
+        (6, 12, 'IDEAL'),
     ],
     2: [
-        (0, 5, 'RUIM'),
-        (5, 10, 'SUBÓTIMA'),
-        (10, 22, 'IDEAL'),
-        (22, 27, 'SUBÓTIMA'),
-        (27, 30, 'RUIM'),
+        (0, 6, 'ZONA MORTA'),
+        (6, 8, 'RUIM'),
+        (8, 10, 'SUBÓTIMA'),
+        (10, 21, 'IDEAL'),
+        (21, 24, 'SUBÓTIMA'),
+        (24, 25, 'RUIM'),
     ],
     3: [
-        (0, 22, 'RUIM'),
-        (22, 30, 'SUBÓTIMA'),
-        (30, 45, 'IDEAL'),
-        (45, 52, 'SUBÓTIMA'),
-        (52, 60, 'RUIM'),
+        (0, 6, 'ZONA MORTA'),
+        (6, 14, 'RUIM'),
+        (14, 22, 'SUBÓTIMA'),
+        (22, 39, 'IDEAL'),
+        (39, 43, 'SUBÓTIMA'),
+        (43, 45, 'RUIM'),
     ],
     4: [
-        (0, 35, 'RUIM'),
-        (35, 45, 'SUBÓTIMA'),
-        (45, 75, 'IDEAL'),
-        (75, 85, 'SUBÓTIMA'),
-        (85, 90, 'RUIM'),
+        (0, 6, 'ZONA MORTA'),
+        (6, 30, 'RUIM'),
+        (30, 40, 'SUBÓTIMA'),
+        (40, 62, 'IDEAL'),
+        (62, 68, 'SUBÓTIMA'),
+        (68, 70, 'RUIM'),
     ],
     5: [
-        (0, 55, 'RUIM'),
-        (55, 70, 'SUBÓTIMA'),
-        (70, 100, 'IDEAL'),
+        (0, 6, 'ZONA MORTA'),
+        (6, 50, 'RUIM'),
+        (50, 65, 'SUBÓTIMA'),
+        (65, 90, 'IDEAL'),
+        (90, 96, 'SUBÓTIMA'),
+        (96, 100, 'RUIM'),
     ],
 }
 
-# Limitadores de PWM por marcha
-# 1ª e 2ª dividem 0-30% | 3ª e 4ª dividem 30-90% | 5ª pega 70-100%
+# Limitadores de PWM por marcha (motor_manager.py linhas 451-457)
+# Intervalos crescentes: 6%, 13%, 20%, 25%, 30%
 GEAR_LIMITERS = {
-    1: 15,
-    2: 30,
-    3: 60,
-    4: 90,
-    5: 100,
+    1: 12,   # 1ª marcha: 6-12%  (intervalo  6%)
+    2: 25,   # 2ª marcha: 0-25%  (intervalo 13%)
+    3: 45,   # 3ª marcha: 0-45%  (intervalo 20%)
+    4: 70,   # 4ª marcha: 0-70%  (intervalo 25%)
+    5: 100,  # 5ª marcha: 0-100% (intervalo 30%)
 }
 
 # Cores para cada zona
 ZONE_COLORS = {
-    'IDEAL': '#2ecc71',      # Verde
-    'SUBÓTIMA': '#f39c12',   # Amarelo/Laranja
-    'RUIM': '#e74c3c',       # Vermelho
+    'IDEAL': '#2ecc71',       # Verde
+    'SUBÓTIMA': '#f39c12',    # Amarelo/Laranja
+    'RUIM': '#e74c3c',        # Vermelho
+    'ZONA MORTA': '#95a5a6',  # Cinza
 }
 
 # Multiplicadores de aceleração
@@ -83,7 +92,11 @@ ZONE_RATES = {
     'IDEAL': '1.0x',
     'SUBÓTIMA': '0.1x (10x mais lento)',
     'RUIM': '0.04x (25x mais lento)',
+    'ZONA MORTA': '20x (rampa rápida)',
 }
+
+# Tempo base de aceleração (motor_manager.py linha 151)
+BASE_ACCELERATION_TIME = 50.0  # segundos
 
 
 def create_gear_zones_chart():
@@ -106,8 +119,8 @@ def create_gear_zones_chart():
             color = ZONE_COLORS[zone_type]
 
             # Barra da zona
-            rect = ax.barh(y_pos, width, left=start, height=bar_height,
-                          color=color, edgecolor='white', linewidth=1)
+            ax.barh(y_pos, width, left=start, height=bar_height,
+                    color=color, edgecolor='white', linewidth=1)
 
         # Linha do limitador
         ax.axvline(x=limiter, ymin=(y_pos - 0.3) / 5, ymax=(y_pos + 0.9) / 5,
@@ -135,18 +148,11 @@ def create_gear_zones_chart():
         mpatches.Patch(color=ZONE_COLORS['IDEAL'], label=f'IDEAL - Aceleração {ZONE_RATES["IDEAL"]}'),
         mpatches.Patch(color=ZONE_COLORS['SUBÓTIMA'], label=f'SUBÓTIMA - Aceleração {ZONE_RATES["SUBÓTIMA"]}'),
         mpatches.Patch(color=ZONE_COLORS['RUIM'], label=f'RUIM - Aceleração {ZONE_RATES["RUIM"]}'),
+        mpatches.Patch(color=ZONE_COLORS['ZONA MORTA'], label=f'ZONA MORTA - {ZONE_RATES["ZONA MORTA"]}'),
     ]
     ax.legend(handles=legend_patches, loc='upper right', fontsize=9)
 
     # Anotações das zonas ideais
-    ideal_ranges = {
-        1: '0-10%',
-        2: '10-22%',
-        3: '30-45%',
-        4: '45-75%',
-        5: '70-100%',
-    }
-
     for gear in range(1, 6):
         y_pos = gear - 1
         zones = GEAR_ZONES[gear]
@@ -156,6 +162,11 @@ def create_gear_zones_chart():
                 ax.text(mid, y_pos, f'{start}-{end}%',
                        va='center', ha='center', fontsize=9,
                        color='white', fontweight='bold')
+            elif zone_type == 'ZONA MORTA':
+                mid = (start + end) / 2
+                ax.text(mid, y_pos, f'0-{end}%',
+                       va='center', ha='center', fontsize=8,
+                       color='white', fontstyle='italic')
 
     plt.tight_layout()
 
@@ -174,17 +185,17 @@ def create_acceleration_rate_chart():
     fig, ax = plt.subplots(figsize=(10, 6))
 
     # Dados das zonas de eficiência
-    # Do motor_manager.py: base_acceleration_time = 5.0s
+    # Do motor_manager.py: base_acceleration_time = 50.0s
     # Taxa = (100 / tempo_base) × multiplicador_zona
     zones = ['IDEAL', 'SUBÓTIMA', 'RUIM']
     multipliers = [1.0, 0.1, 0.04]
-    base_time = 5.0  # segundos
+    base_time = BASE_ACCELERATION_TIME
 
     # Taxa de aceleração (%PWM por segundo)
-    rates = [(100 / base_time) * m for m in multipliers]  # [20.0, 2.0, 0.8]
+    rates = [(100 / base_time) * m for m in multipliers]  # [2.0, 0.2, 0.08]
 
     # Tempo para atingir 100% PWM
-    times = [base_time / m for m in multipliers]  # [5.0, 50.0, 125.0]
+    times = [base_time / m for m in multipliers]  # [50, 500, 1250]
 
     # Configuração de barras
     x = np.arange(len(zones))
@@ -202,22 +213,22 @@ def create_acceleration_rate_chart():
 
     # Valores nas barras
     for bar, val in zip(bars1, rates):
-        ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.5,
-                f'{val:.1f}%/s', ha='center', va='bottom', fontsize=10, fontweight='bold')
+        ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.05,
+                f'{val:.2f}%/s', ha='center', va='bottom', fontsize=10, fontweight='bold')
 
     for bar, val in zip(bars2, times):
-        ax2.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 3,
+        ax2.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 30,
                 f'{val:.0f}s', ha='center', va='bottom', fontsize=10, fontweight='bold')
 
     # Configurações
     ax.set_xlabel('Zona de Eficiência', fontsize=11)
     ax.set_ylabel('Taxa de Aceleração (%PWM/s)', fontsize=11)
     ax2.set_ylabel('Tempo para 100% PWM (s)', fontsize=11)
-    ax.set_title('Taxa de Aceleração por Zona de Eficiência\n(Tempo base: 5 segundos)', fontsize=12)
+    ax.set_title(f'Taxa de Aceleração por Zona de Eficiência\n(Tempo base: {int(base_time)} segundos)', fontsize=12)
     ax.set_xticks(x)
     ax.set_xticklabels(zones, fontsize=11)
-    ax.set_ylim(0, 25)
-    ax2.set_ylim(0, 150)
+    ax.set_ylim(0, 2.5)
+    ax2.set_ylim(0, 1500)
     ax.grid(axis='y', alpha=0.3)
 
     # Legenda combinada
@@ -226,7 +237,9 @@ def create_acceleration_rate_chart():
     ax.legend(lines1 + lines2, labels1 + labels2, loc='upper right')
 
     # Equação
-    ax.text(0.5, -0.15, r'$Taxa_{acel} = \frac{100\%}{T_{base}} \times M_{zona}$ onde $M_{IDEAL}=1.0$, $M_{SUB}=0.1$, $M_{RUIM}=0.04$',
+    ax.text(0.5, -0.15, r'$Taxa_{acel} = \frac{100\%}{T_{base}} \times M_{zona}$'
+            f' onde $T_{{base}}={int(base_time)}s$, '
+            r'$M_{IDEAL}=1.0$, $M_{SUB}=0.1$, $M_{RUIM}=0.04$',
             transform=ax.transAxes, fontsize=11, ha='center',
             bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
 
@@ -276,6 +289,11 @@ def create_combined_chart():
                 ax1.text(mid, y_pos, f'{start}-{end}%',
                         va='center', ha='center', fontsize=9,
                         color='white', fontweight='bold')
+            elif zone_type == 'ZONA MORTA':
+                mid = (start + end) / 2
+                ax1.text(mid, y_pos, f'0-{end}%',
+                        va='center', ha='center', fontsize=8,
+                        color='white', fontstyle='italic')
 
     ax1.set_xlim(0, 105)
     ax1.set_ylim(-0.5, 5)
@@ -289,6 +307,7 @@ def create_combined_chart():
         mpatches.Patch(color=ZONE_COLORS['IDEAL'], label='IDEAL (1.0x)'),
         mpatches.Patch(color=ZONE_COLORS['SUBÓTIMA'], label='SUBÓTIMA (0.1x)'),
         mpatches.Patch(color=ZONE_COLORS['RUIM'], label='RUIM (0.04x)'),
+        mpatches.Patch(color=ZONE_COLORS['ZONA MORTA'], label='ZONA MORTA (20x rampa)'),
     ]
     ax1.legend(handles=legend_patches, loc='upper right', fontsize=9)
 
@@ -296,17 +315,16 @@ def create_combined_chart():
     ax2 = axes[1]
 
     # Dados das zonas de eficiência
-    # Do motor_manager.py: base_acceleration_time = 5.0s
-    # Taxa = (100 / tempo_base) × multiplicador_zona
+    # Do motor_manager.py: base_acceleration_time = 50.0s
     zones = ['IDEAL', 'SUBÓTIMA', 'RUIM']
     multipliers = [1.0, 0.1, 0.04]
-    base_time = 5.0  # segundos
+    base_time = BASE_ACCELERATION_TIME
 
     # Taxa de aceleração (%PWM por segundo)
-    rates = [(100 / base_time) * m for m in multipliers]  # [20.0, 2.0, 0.8]
+    rates = [(100 / base_time) * m for m in multipliers]  # [2.0, 0.2, 0.08]
 
     # Tempo para atingir 100% PWM
-    times = [base_time / m for m in multipliers]  # [5.0, 50.0, 125.0]
+    times = [base_time / m for m in multipliers]  # [50, 500, 1250]
 
     # Configuração de barras
     x = np.arange(len(zones))
@@ -324,15 +342,16 @@ def create_combined_chart():
 
     # Valores nas barras
     for bar, val in zip(bars1, rates):
-        ax2.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.5,
-                f'{val:.1f}%/s', ha='center', va='bottom', fontsize=9, fontweight='bold')
+        ax2.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.05,
+                f'{val:.2f}%/s', ha='center', va='bottom', fontsize=9, fontweight='bold')
 
     for bar, val in zip(bars2, times):
-        ax2_twin.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 3,
+        ax2_twin.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 30,
                 f'{val:.0f}s', ha='center', va='bottom', fontsize=9, fontweight='bold')
 
     # Equação
-    ax2.text(0.5, -0.18, r'$Taxa_{acel} = \frac{100\%}{5s} \times M_{zona}$ onde $M_{IDEAL}=1.0$, $M_{SUB}=0.1$, $M_{RUIM}=0.04$',
+    ax2.text(0.5, -0.18, r'$Taxa_{acel} = \frac{100\%}{50s} \times M_{zona}$'
+             r' onde $M_{IDEAL}=1.0$, $M_{SUB}=0.1$, $M_{RUIM}=0.04$',
             transform=ax2.transAxes, fontsize=10, ha='center',
             bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
 
@@ -342,8 +361,8 @@ def create_combined_chart():
     ax2.set_title('(b) Taxa de Aceleração por Zona de Eficiência', fontweight='bold')
     ax2.set_xticks(x)
     ax2.set_xticklabels(zones)
-    ax2.set_ylim(0, 25)
-    ax2_twin.set_ylim(0, 150)
+    ax2.set_ylim(0, 2.5)
+    ax2_twin.set_ylim(0, 1500)
     ax2.grid(axis='y', alpha=0.3)
 
     # Legenda combinada

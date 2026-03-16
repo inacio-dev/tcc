@@ -77,7 +77,7 @@ A análise comparativa dos testes, sumarizada na \autoref{tab:comparativo-comuni
 
 A comunicação via rádio NRF24L01, apesar de apresentar excelente latência (2ms) e alcance (800m), exigiria a implementação de um broker intermediário para traduzir os pacotes de rádio para o protocolo UDP do servidor. Essa camada adicional aumentaria a complexidade do sistema, introduziria novos pontos de falha e demandaria desenvolvimento de firmware específico para gerenciamento da comunicação bidirecional entre rádio e rede IP. Além disso, embora o NRF24L01 seja adequado para transmissão de comandos de controle (pacotes pequenos de dezenas de bytes), a transmissão de vídeo em tempo real seria inviável: o módulo opera com taxa máxima de 2 Mbps e payload limitado a 32 bytes por pacote, tornando a fragmentação e remontagem de frames \gls{MJPEG} (10 a 50 KB cada) excessivamente complexa e propensa a erros. Implementar um protocolo confiável de transmissão de imagem sobre rádio demandaria esforço de desenvolvimento incompatível com o cronograma do projeto.
 
-A decisão de embarcar o Raspberry Pi 4 diretamente no veículo eliminou essas limitações, permitindo comunicação UDP nativa sobre WiFi. Com o Raspberry Pi embarcado, a captura de vídeo, codificação MJPEG e transmissão UDP ocorrem internamente no mesmo dispositivo, simplificando drasticamente a arquitetura. O Raspberry Pi atua simultaneamente como controlador do veículo e servidor UDP, processando vídeo da câmera OV5647, dados do sensor BMI160 e comandos de controle em uma única plataforma. Para simplificar a descoberta de dispositivos na rede local, foi adotado o protocolo mDNS, permitindo que o veículo seja acessado pelo nome \texttt{f1car.local} e o cliente por \texttt{f1client.local}, eliminando a necessidade de configuração manual de endereços IP.
+A decisão de embarcar o Raspberry Pi 4 diretamente no veículo eliminou essas limitações, permitindo comunicação UDP nativa sobre WiFi. Com o Raspberry Pi embarcado, a captura de vídeo, codificação MJPEG e transmissão UDP ocorrem internamente no mesmo dispositivo, simplificando drasticamente a arquitetura. O Raspberry Pi atua simultaneamente como controlador do veículo e servidor UDP, processando vídeo da câmera OV5647, dados do sensor BMI160 e comandos de controle em uma única plataforma. Para simplificar a descoberta de dispositivos na rede local, foi adotado o protocolo mDNS, permitindo que o veículo seja acessado pelo nome \texttt{f1car.local} e o cliente por \texttt{f1client.local}, eliminando a necessidade de configuração manual de endereços IP. Para evitar bloqueios durante a transmissão, duas otimizações foram aplicadas à camada de rede. A primeira é a resolução antecipada do \textit{hostname} mDNS: ao estabelecer conexão, o \textit{hostname} \texttt{f1client.local} é resolvido uma única vez para endereço IP numérico via \texttt{socket.gethostbyname()}, e todas as chamadas \texttt{sendto()} subsequentes utilizam o IP em cache. Sem essa otimização, cada chamada \texttt{sendto()} com \textit{hostname} dispara resolução mDNS pelo daemon Avahi, que possui \textit{timeout} padrão de 5 segundos --- com 90 pacotes por segundo (60Hz de sensores e 30Hz de vídeo), qualquer expiração do \textit{cache} mDNS bloqueava ambos os \textit{sockets} simultaneamente por 5 segundos. A re-resolução periódica (a cada 10 segundos) garante atualização do IP em caso de mudança pelo DHCP. A segunda otimização é a desativação do gerenciamento de energia WiFi do Raspberry Pi 4: o \textit{driver} \texttt{brcmfmac} ativa por padrão o modo de economia de energia, desligando periodicamente a antena WiFi e bloqueando chamadas \texttt{sendto()} até a reativação. A configuração permanente via NetworkManager (\texttt{wifi.powersave = 2}) elimina esses bloqueios.
 
 A arquitetura de comunicação utiliza três portas UDP separadas para otimizar o desempenho de cada tipo de dado, conforme detalhado na \autoref{tab:arquitetura-portas-udp}. Essa separação é necessária porque pacotes de vídeo grandes (50 KB) bloqueariam os pacotes pequenos de sensores (200 bytes) se compartilhassem a mesma porta, e o sistema de \gls{forcefeedback} requer taxa consistente de 100Hz com latência inferior a 10ms para resposta tátil adequada no volante.
 
@@ -101,7 +101,7 @@ A arquitetura de comunicação utiliza três portas UDP separadas para otimizar 
 }
 \end{table}
 
-Para o simulador, optou-se pelo volante Logitech G923, um dispositivo \gls{USB} \gls{HID} profissional que integra volante com rotação de 900°, pedais progressivos, paddle shifters e motor de force feedback em um único periférico. O G923 é acessado no Linux através da biblioteca evdev, que permite leitura dos eixos analógicos (\texttt{ABS\_X} para direção, \texttt{ABS\_RZ} para acelerador e \texttt{ABS\_Z} para freio) e botões digitais (paddle shifters para troca de marchas) a taxas superiores a 100Hz, além de upload de efeitos de force feedback do tipo \texttt{FF\_CONSTANT} diretamente ao motor integrado do volante. Essa abordagem elimina a necessidade de firmware customizado, encoders e ponte H externa, simplificando significativamente a arquitetura do simulador.
+Para o simulador, optou-se pelo volante Logitech G923, um dispositivo \gls{USB} \gls{HID} profissional que integra volante com rotação de 900°, pedais progressivos, paddle shifters e motor de force feedback em um único periférico. O G923 é acessado no Linux através da biblioteca evdev, que permite leitura dos eixos analógicos (\texttt{ABS\_X} para direção, \texttt{ABS\_Y} para acelerador e \texttt{ABS\_Z} para freio) e botões digitais (paddle shifters para troca de marchas) a taxas superiores a 100Hz, além de upload de efeitos de \textit{force feedback} diretamente ao motor integrado do volante. Essa abordagem elimina a necessidade de firmware customizado, encoders e ponte H externa, simplificando significativamente a arquitetura do simulador.
 
 Essa arquitetura resultou em um sistema com apenas dois saltos de comunicação (Veículo $\leftrightarrow$ Cliente $\leftrightarrow$ Simulador), maximizando a confiabilidade e minimizando a latência total do loop de controle.
 
@@ -201,11 +201,11 @@ A \autoref{tab:componentes-veiculo} apresenta os componentes embarcados no veíc
 		\midrule
 		Servo MG996R (3x) & 4.8--7.2V, torque 11kg.cm, rotação 180°, velocidade 0.14s/60° & Controle de direção e sistema de freio dianteiro/traseiro \\
 		\midrule
-		PCA9685 PWM Driver \cite{nxp2015pca9685} & 16 canais, 12 bits, I2C, endereço \texttt{0x40} & Controle de servos (freio dianteiro, traseiro e direção) \\
+		PCA9685 PWM Driver \cite{nxp2015pca9685} & 16 canais, 12 bits, I2C, endereço \texttt{0x41} (A0 soldado) & Controle de servos (freio dianteiro, traseiro e direção) \\
 		\midrule
 		Arduino Pro Micro & ATmega32U4, 16MHz, ADC 10 bits, USB nativo & Leitura de sensores ACS758 e tensão da bateria via USB serial \\
 		\midrule
-		INA219 \cite{ti2015ina219} & Sensor corrente/tensão, I2C, endereço \texttt{0x41} & Monitoramento de energia do Raspberry Pi \\
+		INA219 \cite{ti2015ina219} & Sensor corrente/tensão, I2C, endereço \texttt{0x40} & Monitoramento de energia do Raspberry Pi \\
 		\midrule
 		Sensor DS18B20 \cite{maxim2019ds18b20} & Digital 1-Wire, $-55$°C a $+125$°C, precisão $\pm0{,}5$°C & Monitoramento de temperatura do motor e eletrônica \\
 		\midrule
@@ -315,9 +315,11 @@ A câmera OV5647 conectada via interface CSI captura vídeo em resolução 640x4
 
 O sensor inercial BMI160 conectado via barramento I2C (endereço \texttt{0x68}) fornece dados de aceleração (3 eixos) e velocidade angular (3 eixos) a 100Hz. A configuração utiliza faixa de $\pm$4g para acelerômetro e $\pm$500°/s para giroscópio, adequadas para captura de forças G em manobras típicas de veículos RC. Os dados são transmitidos ao cliente em formato JSON via UDP, onde são processados para cálculo de force feedback e estimativa de velocidade.
 
+O BMI160 é suscetível a \textit{brown-out} elétrico durante picos de corrente do motor DC 775, que causam quedas momentâneas de tensão no barramento 3,3V do Raspberry Pi. Quando isso ocorre, o sensor realiza um \textit{power-on reset} interno e entra em modo \textit{suspend}, onde os registradores de dados retornam zero indefinidamente apesar de o barramento I2C continuar funcionando. Para mitigar esse problema, o software implementa um \textit{watchdog} que monitora leituras consecutivas zeradas. Após 3 leituras zeradas consecutivas (30ms a 100Hz), o sistema executa uma rotina de recuperação que reativa a unidade de gerenciamento de energia (PMU) do sensor, reconfigura os parâmetros de faixa e taxa de amostragem, e verifica o sucesso da recuperação. Os tempos de recuperação seguem as especificações do \textit{datasheet} BST-BMI160-DS000-09: 3,8ms para ativação do acelerômetro e 80ms para o giroscópio. Caso a reativação da PMU falhe, o sistema executa um \textit{soft reset} completo do sensor como segunda tentativa de recuperação.
+
 \subsubsection{Monitoramento de Energia}
 
-O sistema de monitoramento de energia utiliza uma arquitetura híbrida com dois subsistemas complementares: um Arduino Pro Micro (ATmega32U4) dedicado à leitura dos sensores de corrente ACS758 e tensão da bateria, e um sensor INA219 (endereço I2C \texttt{0x41}) para monitoramento de corrente e tensão do Raspberry Pi.
+O sistema de monitoramento de energia utiliza uma arquitetura híbrida com dois subsistemas complementares: um Arduino Pro Micro (ATmega32U4) dedicado à leitura dos sensores de corrente ACS758 e tensão da bateria, e um sensor INA219 (endereço I2C \texttt{0x40}) para monitoramento de corrente e tensão do Raspberry Pi.
 
 Inicialmente, o projeto utilizava um ADC externo ADS1115 (16 bits, I2C) conectado diretamente ao Raspberry Pi para leitura dos sensores ACS758. Essa abordagem apresentava três limitações fundamentais. A primeira era a incompatibilidade de referência de tensão: os ACS758 possuem saída ratiométrica (ponto zero em VCC/2), porém o ADS1115 opera com referência interna própria (PGA configurável), incapaz de acompanhar variações na alimentação dos sensores. Na prática, uma queda de 5,00V para 4,90V no VCC dos ACS758 deslocava o offset zero em 50mV, introduzindo erro de 2,5A no sensor de 100A (sensibilidade de 20mV/A). A segunda limitação era o congestionamento do barramento I2C, compartilhado com BMI160 (100Hz), PCA9685 e INA219, onde cada ciclo de leitura do ADS1115 (três canais multiplexados) ocupava aproximadamente 25ms do barramento. A terceira era a ausência de canal disponível para medição da tensão da bateria.
 
@@ -328,7 +330,7 @@ O sensor INA219 permanece no barramento I2C para monitoramento do Raspberry Pi, 
 \subsection{Controle de Propulsão e Direção}
 \label{subsec:propulsao-direcao-veiculo}
 
-O sistema de propulsão utiliza motor DC 775 de 24V controlado por ponte H BTS7960, enquanto direção e freios são acionados por servos MG996R através do driver PWM PCA9685 (endereço \texttt{0x40}).
+O sistema de propulsão utiliza motor DC 775 de 24V controlado por ponte H BTS7960, enquanto direção e freios são acionados por servos MG996R através do driver PWM PCA9685 (endereço I2C \texttt{0x41}, com pino A0 soldado para evitar conflito com o INA219 no endereço padrão \texttt{0x40}).
 
 \subsubsection{Motor de Propulsão}
 
@@ -339,7 +341,7 @@ O motor DC 775 opera com transmissão manual de 5 marchas, simulando comportamen
 Taxa_{acel} = \frac{100\%}{T_{base}} \times M_{zona}
 \end{equation}
 
-\noindent onde $T_{base} = 5s$ é o tempo base para atingir 100\% do PWM, e $M_{zona}$ é o multiplicador da zona de eficiência: $M_{IDEAL} = 1.0$, $M_{SUB} = 0.1$ (10× mais lento), e $M_{RUIM} = 0.04$ (25× mais lento). Isso resulta em taxas de 20\%/s na zona IDEAL, 2\%/s na zona SUBÓTIMA e 0.8\%/s na zona RUIM, conforme ilustrado na \autoref{fig:taxa-aceleracao-zonas}.
+\noindent onde $T_{base} = 50s$ é o tempo base para atingir 100\% do PWM (equivalente a 2\%/s), e $M_{zona}$ é o multiplicador da zona de eficiência: $M_{IDEAL} = 1.0$, $M_{SUB} = 0.1$ (10× mais lento), e $M_{RUIM} = 0.04$ (25× mais lento). Isso resulta em taxas de 2\%/s na zona IDEAL, 0,2\%/s na zona SUBÓTIMA e 0,08\%/s na zona RUIM, conforme ilustrado na \autoref{fig:taxa-aceleracao-zonas}.
 
 \begin{figure}[!ht]
 	\captionsetup{width=16cm}
@@ -351,7 +353,7 @@ Taxa_{acel} = \frac{100\%}{T_{base}} \times M_{zona}
 	}
 \end{figure}
 
-A \autoref{fig:zonas-eficiencia-marchas} ilustra as zonas de eficiência por marcha. Cada marcha possui uma zona IDEAL (verde) onde a aceleração ocorre em taxa normal, uma zona SUBÓTIMA (laranja) com aceleração 10 vezes mais lenta, e uma zona RUIM (vermelho) com aceleração 25 vezes mais lenta. Os limitadores de PWM restringem a potência máxima disponível em cada marcha: 15\% na 1ª, 30\% na 2ª, 60\% na 3ª, 90\% na 4ª e 100\% na 5ª marcha. As marchas 1ª e 2ª dividem a faixa de 0-30\% do PWM (marchas lentas), as marchas 3ª e 4ª dividem a faixa de 30-90\% (marchas médias e altas), enquanto a 5ª marcha possui zona IDEAL ampla de 70-100\% (velocidade pura). Esse sistema força o operador a progredir pelas marchas para atingir velocidade máxima, reproduzindo o comportamento de uma transmissão real.
+A \autoref{fig:zonas-eficiencia-marchas} ilustra as zonas de eficiência por marcha. Cada marcha possui uma zona IDEAL (verde) onde a aceleração ocorre em taxa normal, uma zona SUBÓTIMA (laranja) com aceleração 10 vezes mais lenta, e uma zona RUIM (vermelho) com aceleração 25 vezes mais lenta. Os limitadores de PWM restringem a potência máxima disponível em cada marcha com intervalos crescentes: 12\% na 1ª, 25\% na 2ª, 45\% na 3ª, 70\% na 4ª e 100\% na 5ª marcha. Todas as marchas possuem uma zona morta de 0 a 6\% do PWM (cinza), faixa na qual o motor não possui torque suficiente para movimentar o veículo, sendo atravessada automaticamente por uma rampa rápida com multiplicador de 20× quando o operador solicita aceleração. As zonas IDEAL de cada marcha são contíguas entre si, garantindo que a progressão de marchas cubra toda a faixa de PWM sem lacunas. Esse sistema força o operador a progredir pelas marchas para atingir velocidade máxima, reproduzindo o comportamento de uma transmissão real.
 
 \begin{figure}[!ht]
 	\captionsetup{width=16cm}
@@ -365,7 +367,7 @@ A \autoref{fig:zonas-eficiencia-marchas} ilustra as zonas de eficiência por mar
 
 \subsubsection{Sistema de Direção e Freios}
 
-A direção utiliza servo MG996R no canal 2 do PCA9685, com rotação de 0° a 180°. O sistema de freio emprega dois servos MG996R (canais 0 e 1) para controle independente de freio dianteiro e traseiro, permitindo ajuste de balanceamento de frenagem. O balanceamento padrão é 60\% dianteiro e 40\% traseiro, ajustável via comandos do cliente.
+A direção utiliza servo MG996R no canal 0 do PCA9685, com rotação de 0° a 180° e centro mecânico em 90°. O mapeamento converte a entrada do operador ($-100\%$ a $+100\%$) para o ângulo correspondente: $-100\%$ resulta em 0° (máximo à esquerda), $0\%$ resulta em 90° (centro) e $+100\%$ resulta em 180° (máximo à direita). Os pulsos PWM do servo variam de 1,0ms (0°) a 2,0ms (180°) com centro em 1,5ms (90°), operando a 50Hz. O sistema de freio emprega dois servos MG996R (canais 4 e 8) para controle independente de freio dianteiro e traseiro, permitindo ajuste de balanceamento de frenagem. O balanceamento padrão é 60\% dianteiro e 40\% traseiro, ajustável via comandos do cliente.
 
 \subsection{Proteção contra Força Eletromotriz de Retorno}
 \label{subsec:protecao-backemf-veiculo}
@@ -389,13 +391,24 @@ A comunicação entre threads utiliza filas \gls{threadsafe} (classe \texttt{Que
 
 O tratamento de erros é isolado por thread, onde exceções em um subsistema não afetam os demais. Cada thread implementa tratamento de exceção com logging e continuação de execução, evitando que falhas temporárias (como timeout de I2C) interrompam todo o sistema. O shutdown coordenado define uma flag de parada, aguarda cada thread finalizar com timeout de 2 segundos, para componentes na ordem inversa de dependência e libera recursos de GPIO, I2C e sockets.
 
+\subsection{Gerenciamento do Barramento I2C}
+\label{subsec:gerenciamento-i2c}
+
+O barramento I2C-1 do Raspberry Pi 4 (GPIO2/GPIO3) é compartilhado entre três dispositivos com diferentes padrões de acesso: o PCA9685 (endereço \texttt{0x41}) controlado pela thread de recepção de comandos com escritas de até 100Hz para direção e freios, o BMI160 (endereço \texttt{0x68}) lido pela thread de sensores a 100Hz, e o INA219 (endereço \texttt{0x40}) lido pela thread de energia a 10Hz. Sem coordenação, acessos simultâneos ao barramento resultam em colisões que geram erros de I/O (\texttt{errno 5}) no kernel, corrompendo leituras do BMI160.
+
+Para resolver esse problema, foi implementado um mecanismo de \textit{lock} com prioridades ponderadas (\textit{weighted fair queuing}). O sistema atribui três níveis de prioridade: alta (peso 3) para direção e freios, que são críticos para segurança; média (peso 2) para o BMI160, cujos dados alimentam a telemetria e o \textit{force feedback}; e baixa (peso 1) para o INA219, cujo monitoramento de energia tolera maior latência. O peso define quantas transações consecutivas uma prioridade pode executar antes de ceder o barramento para outras prioridades que estejam aguardando. Dessa forma, sob carga máxima, a direção executa no máximo 3 transações consecutivas e depois cede para o BMI160 executar 2 transações, garantindo que nenhum dispositivo fique indefinidamente bloqueado.
+
+A implementação inicial utilizava prioridade estrita, onde a prioridade mais alta sempre era atendida primeiro. Essa abordagem causava \textit{starvation} do BMI160 durante aceleração contínua: como a thread de direção enviava comandos ininterruptamente ao PCA9685, o BMI160 ficava completamente bloqueado, resultando em leituras zeradas que o \textit{watchdog} interpretava como \textit{brown-out}, desencadeando recuperações desnecessárias. A migração para \textit{fair queuing} ponderado eliminou esse problema ao garantir acesso intercalado ao barramento. Adicionalmente, cada gerenciador implementa deduplicação de escritas ao PCA9685: o último ângulo enviado é armazenado em cache e a escrita I2C só ocorre quando a diferença é superior a 0,1°, eliminando transações redundantes quando o volante está parado.
+
+O barramento I2C foi configurado para operar a 400kHz (\textit{Fast mode}) em vez dos 100kHz padrão, reduzindo o tempo de cada transação por um fator de 4 e diminuindo a janela de contenção entre dispositivos. Todos os três dispositivos no barramento (BMI160, PCA9685 e INA219) suportam essa velocidade conforme seus respectivos \textit{datasheets}. A utilização calculada do barramento é de aproximadamente 27,5 kbps dos 400 kbps disponíveis (6,9\%), confirmando que o gargalo não é largura de banda, mas sim a contenção temporal entre transações simultâneas.
+
 % ============================================================================
 % ARQUITETURA DO SIMULADOR (LOGITECH G923)
 % ============================================================================
 \section{Arquitetura do Simulador (Logitech G923)}
 \label{sec:arquitetura-simulador}
 
-O simulador utiliza o volante Logitech G923, um dispositivo profissional de simulação que integra volante com rotação de 900°, pedais progressivos de acelerador e freio, paddle shifters para troca de marchas e motor de force feedback com sistema TRUEFORCE, em um único periférico USB, conforme ilustrado na \autoref{fig:g923-volante}. A escolha do G923 em substituição ao simulador customizado baseado em ESP32 com encoders rotacionais foi motivada pela superior precisão dos sensores internos, force feedback nativo sem necessidade de ponte H externa, e eliminação de firmware customizado e calibração manual de encoders. O G923 é reconhecido pelo sistema operacional Linux como dispositivo de entrada padrão, acessível através da interface evdev do kernel.
+O simulador utiliza o volante Logitech G923, um dispositivo profissional de simulação que integra volante com rotação de 900°, pedais progressivos de acelerador e freio, paddle shifters para troca de marchas e motor de force feedback com sistema TRUEFORCE, em um único periférico USB, conforme ilustrado na \autoref{fig:g923-volante}. A escolha do G923 como dispositivo de entrada do simulador foi motivada pela superior precisão dos sensores internos, \textit{force feedback} nativo sem necessidade de ponte H externa, e eliminação de \textit{firmware} customizado e calibração manual. O G923 é reconhecido pelo sistema operacional Linux como dispositivo de entrada padrão, acessível através da interface evdev do kernel.
 
 \begin{figure}[!ht]
 	\captionsetup{width=16cm}
@@ -471,13 +484,13 @@ A leitura dos dados do G923 é realizada através da interface evdev do kernel L
 		\midrule \midrule
 		\texttt{ABS\_X} & 0 a 65535 & STEERING & $-100\%$ a $+100\%$ (linear) \\
 		\midrule
-		\texttt{ABS\_RZ} & 0 a 255 & THROTTLE & $0\%$ a $100\%$ (invertido) \\
+		\texttt{ABS\_Y} & 0 a 255 & THROTTLE & $0\%$ a $100\%$ (invertido) \\
 		\midrule
 		\texttt{ABS\_Z} & 0 a 255 & BRAKE & $0\%$ a $100\%$ (invertido) \\
 		\midrule
-		\texttt{BTN\_GEAR\_UP} & 0 ou 1 & GEAR\_UP & Evento na transição 0$\rightarrow$1 \\
+		\texttt{BTN\_TOP2} (292) & 0 ou 1 & GEAR\_UP & Paddle direito, evento na transição 0$\rightarrow$1 \\
 		\midrule
-		\texttt{BTN\_GEAR\_DOWN} & 0 ou 1 & GEAR\_DOWN & Evento na transição 0$\rightarrow$1 \\
+		\texttt{BTN\_PINKIE} (293) & 0 ou 1 & GEAR\_DOWN & Paddle esquerdo, evento na transição 0$\rightarrow$1 \\
 		\bottomrule
 	\end{tabular}%
 }{%
@@ -490,7 +503,41 @@ Os valores dos eixos são normalizados para a faixa padrão do sistema: $-100\%$
 \subsection{Sistema de Force Feedback via evdev}
 \label{subsec:ff-simulador}
 
-O force feedback do G923 é controlado através da interface \texttt{FF\_CONSTANT} do kernel Linux. Ao iniciar a conexão, o software realiza upload de um efeito de força constante ao dispositivo, que permanece ativo durante toda a sessão. A intensidade e direção da força são atualizadas em tempo real pelo cliente PC com base nos dados do sensor BMI160 do veículo, sem necessidade de recriar o efeito a cada atualização. O efeito \texttt{FF\_CONSTANT} aplica uma força direcional contínua ao motor do volante, onde valores positivos e negativos correspondem às direções horária e anti-horária respectivamente.
+O sistema de \textit{force feedback} explora a capacidade do G923 de executar 15 tipos de efeitos com até 63 \textit{slots} simultâneos, utilizando 8 efeitos ativos simultaneamente organizados em três categorias. A \autoref{tab:efeitos-ff-g923} apresenta os efeitos utilizados e suas fontes de dados.
+
+\begin{table}[!h]
+\captionsetup{width=16cm}
+\Caption{\label{tab:efeitos-ff-g923} Efeitos de force feedback simultâneos no G923}
+\IBGEtab{}{%
+	\begin{tabular}{p{2.5cm}p{2.5cm}p{3cm}p{6.5cm}}
+		\toprule
+		Efeito & Categoria & Controle & Função \\
+		\midrule \midrule
+		FF\_SPRING & Condicional & Slider sensibilidade & Centralização proporcional à posição do volante (mín. 5\%) \\
+		\midrule
+		FF\_DAMPER & Condicional & Slider \textit{damping} & Resistência proporcional à velocidade angular do volante \\
+		\midrule
+		FF\_FRICTION & Condicional & Slider fricção & Resistência constante ao movimento, simulando grip do pneu (mín. 3\%) \\
+		\midrule
+		FF\_INERTIA & Condicional & Automático & Peso do volante proporcional à velocidade do veículo (5\% a 80\%) \\
+		\midrule
+		FF\_CONSTANT & Força & Dados BMI160 & Puxão lateral em curvas (G lateral + \textit{yaw}) \\
+		\midrule
+		FF\_CONSTANT & Força & Posição volante & Batente virtual nos limites calibrados (\textit{endstop}) \\
+		\midrule
+		FF\_RUMBLE & Vibração & Dados BMI160 & Vibração de impactos e textura da pista (motor forte + fraco) \\
+		\midrule
+		FF\_PERIODIC & Vibração & Acelerador & Vibração senoidal simulando RPM do motor (5 a 12Hz) \\
+		\bottomrule
+	\end{tabular}%
+}{%
+\Fonte{elaborado pelo autor.}%
+}
+\end{table}
+
+Os efeitos condicionais (FF\_SPRING, FF\_DAMPER, FF\_FRICTION, FF\_INERTIA) são executados pelo \textit{firmware} do volante a aproximadamente 1kHz, proporcionando resposta mais suave e realista do que o cálculo equivalente em \textit{software}. Os efeitos de força e vibração são atualizados pelo \textit{software} a cada pacote recebido do BMI160. O ganho global (\texttt{FF\_GAIN}) limita todos os 8 efeitos simultaneamente, com valor padrão de 15\% para evitar forças excessivas que possam travar o mecanismo do volante.
+
+Para minimizar a latência do \textit{force feedback}, três otimizações foram implementadas. A primeira é o \textit{cache} de valores: cada efeito armazena o último valor enviado ao dispositivo e só realiza a chamada de sistema (\texttt{ioctl}) quando o valor efetivamente muda. A segunda é a quantização dos valores de saída dos filtros de média exponencial (\gls{EMA}): os valores \textit{float} são arredondados para inteiro antes da comparação com o \textit{cache}, evitando atualizações desnecessárias causadas por variações decimais insignificantes. A terceira é a atualização \textit{in-place}: ao invés de recriar o efeito a cada atualização (operação de 4 chamadas: parar, apagar, criar e iniciar), o efeito é atualizado diretamente com uma única chamada \texttt{upload\_effect} reutilizando o mesmo identificador. Essas otimizações reduziram o bloqueio da \textit{thread} de sensores de 12 a 60ms por pacote para 0 a 15ms, eliminando a perda de pacotes e o \textit{delay} perceptível no \textit{feedback} tátil.
 
 \subsection{Calibração de Eixos}
 \label{subsec:calibracao-simulador}
@@ -675,88 +722,107 @@ O \autoref{alg:calcular-forcas-g} apresenta a implementação do cálculo de for
 	}
 \end{algorithm}
 
-\subsubsection{Componentes do Force Feedback da Direção}
+\subsubsection{Componentes do Efeito FF\_CONSTANT}
 
-O sistema de force feedback da direção combina três componentes principais, conforme ilustrado na \autoref{fig:ff-componentes}: força lateral (curvas), rotação yaw e mola de centralização. A força base é calculada como a soma dos três componentes, limitada a 100\%.
+O efeito \texttt{FF\_CONSTANT} aplica um puxão direcional no volante proporcional às forças laterais experimentadas pelo veículo. Sua intensidade é calculada a partir de dois componentes, conforme ilustrado na \autoref{fig:ff-componentes}: força G lateral (curvas) e rotação yaw (giroscópio). A centralização do volante é tratada separadamente pelo efeito condicional \texttt{FF\_SPRING}, executado pelo \textit{firmware} do G923 a aproximadamente 1kHz. A força base do \texttt{FF\_CONSTANT} é a soma dos dois componentes, limitada a 100\%.
 
 \begin{figure}[h!]
 	\centering
 	\includegraphics[width=\linewidth]{figuras/ff_charts/ff_componentes.png}
-	\Caption{\label{fig:ff-componentes} Componentes do force feedback da direção: lateral, yaw e centralização}
+	\Caption{\label{fig:ff-componentes} Componentes do efeito FF\_CONSTANT: lateral e yaw}
 \end{figure}
 
-O componente lateral representa a força experimentada pelo volante durante curvas, proporcional à força G lateral. O componente yaw captura a rotação do veículo em torno do eixo vertical, detectada pelo giroscópio. O componente de centralização simula a mola de retorno do sistema de direção, aplicando força proporcional ao ângulo de esterçamento para retornar o volante à posição central.
-
-A \autoref{fig:ff-cenarios} apresenta a contribuição de cada componente em cenários típicos de condução, desde reta em velocidade constante até curvas no limite de aderência.
+O componente lateral é proporcional à força G lateral, saturando em 100\% quando a aceleração lateral atinge 2g. O componente yaw captura a rotação do veículo em torno do eixo vertical, saturando em 50\% a 60°/s. Após a soma dos componentes, a sensibilidade (padrão 75\%) é aplicada como multiplicador, e um filtro EMA suaviza variações bruscas. A \autoref{fig:ff-cenarios} apresenta a contribuição de cada componente em cenários típicos de condução.
 
 \begin{figure}[h!]
 	\centering
 	\includegraphics[width=0.9\linewidth]{figuras/ff_charts/ff_cenarios.png}
-	\Caption{\label{fig:ff-cenarios} Contribuição dos componentes de force feedback por cenário de condução}
+	\Caption{\label{fig:ff-cenarios} Contribuição dos componentes do FF\_CONSTANT por cenário de condução}
 \end{figure}
 
-O algoritmo é executado no cliente PC e envia comandos de force feedback diretamente ao motor integrado do simulador Logitech G923 via efeito \texttt{FF\_CONSTANT} do evdev:
+O \autoref{alg:ff-direcao} apresenta o algoritmo executado no cliente PC para cada pacote recebido do BMI160, enviando o resultado ao motor integrado do G923 via efeito \texttt{FF\_CONSTANT} do evdev:
 
 \begin{algorithm}[h!]
 	\SetSpacedAlgorithm
-	\caption{\label{alg:ff-direcao}Cálculo do force feedback da direção}
-	\Entrada{g\_lateral, gyro\_z, angulo\_direcao, sensibilidade, friccao, filtro, damping}
+	\caption{\label{alg:ff-direcao}Cálculo do efeito FF\_CONSTANT}
+	\Entrada{g\_lateral, gyro\_z, sensibilidade, filtro}
 	\Saida{intensidade\_ff, direcao\_ff}
 	\Inicio{
 		// Componente 1: Força lateral (curvas) - máximo 100\%\;
 		componente\_lateral $\leftarrow$ minimo(abs(g\_lateral) $\times$ 50, 100)\;
 		// Componente 2: Rotação yaw - máximo 50\%\;
 		componente\_yaw $\leftarrow$ minimo(abs(gyro\_z) / 60.0 $\times$ 50, 50)\;
-		// Componente 3: Mola de centralização - máximo 40\%\;
-		razao\_angulo $\leftarrow$ abs(angulo\_direcao) / 100.0\;
-		componente\_centragem $\leftarrow$ razao\_angulo $\times$ 40\;
 		// Força base combinada (0-100\%)\;
-		ff\_base $\leftarrow$ minimo(componente\_lateral + componente\_yaw + componente\_centragem, 100)\;
-		// Aplica sensibilidade\;
+		ff\_base $\leftarrow$ minimo(componente\_lateral + componente\_yaw, 100)\;
+		// Aplica sensibilidade (padrão 75\%)\;
 		ff\_ajustado $\leftarrow$ ff\_base $\times$ sensibilidade\;
-		// Aplica fricção baseada na rotação\;
-		forca\_friccao $\leftarrow$ minimo(abs(gyro\_z) / 100.0, 1.0) $\times$ friccao $\times$ 30\;
-		ff\_ajustado $\leftarrow$ minimo(ff\_ajustado + forca\_friccao, 100.0)\;
-		// Aplica filtro (suavização exponencial)\;
+		// Aplica filtro EMA (suavização exponencial, padrão 40\%)\;
 		ff\_ajustado $\leftarrow$ ff\_ajustado $\times$ (1.0 - filtro) + ff\_filtrado\_anterior $\times$ filtro\;
-		// Aplica damping (média móvel)\;
-		intensidade\_ff $\leftarrow$ ff\_ajustado $\times$ (1.0 - damping) + ff\_anterior $\times$ damping\;
-		// Determina direção do force feedback\;
-		valor\_direcao $\leftarrow$ (-angulo\_direcao) + (g\_lateral $\times$ 10) + gyro\_z\;
-		\Se{valor\_direcao > 5}{direcao\_ff $\leftarrow$ "DIREITA"\;}
-		\SenaoSe{valor\_direcao < -5}{direcao\_ff $\leftarrow$ "ESQUERDA"\;}
+		intensidade\_ff $\leftarrow$ limitar(ff\_ajustado, 0, 100)\;
+		// Determina direção do puxão lateral\;
+		valor\_direcao $\leftarrow$ (g\_lateral $\times$ 10) + gyro\_z\;
+		\Se{valor\_direcao > 1.5}{direcao\_ff $\leftarrow$ "DIREITA"\;}
+		\SenaoSe{valor\_direcao < -1.5}{direcao\_ff $\leftarrow$ "ESQUERDA"\;}
 		\Senao{direcao\_ff $\leftarrow$ "NEUTRO"\;}
+		// Rejeição de ruído: intensidade < 2\% força neutro\;
+		\Se{intensidade\_ff < 2.0}{direcao\_ff $\leftarrow$ "NEUTRO"\;}
 	}
 \end{algorithm}
 
-\subsubsection{Parâmetros Ajustáveis de Force Feedback}
+\subsubsection{Direção e Mapeamento do Force Feedback}
 
-O sistema permite ajuste em tempo real de quatro parâmetros que modificam a resposta do force feedback, conforme ilustrado na \autoref{fig:ff-parametros}. A sensibilidade (padrão 75\%) escala a intensidade geral da força. A fricção (padrão 30\%) adiciona resistência proporcional à velocidade angular do veículo, simulando o atrito dos pneus. O filtro (padrão 40\%) aplica suavização exponencial para eliminar oscilações de alta frequência. O damping (padrão 50\%) implementa média móvel para simular inércia mecânica do sistema de direção.
-
-\begin{figure}[h!]
-	\centering
-	\includegraphics[width=\linewidth]{figuras/ff_charts/ff_parametros.png}
-	\Caption{\label{fig:ff-parametros} Efeito dos parâmetros ajustáveis no force feedback}
-\end{figure}
-
-\subsubsection{Determinação da Direção do Force Feedback}
-
-A direção do force feedback é calculada combinando três componentes direcionais: centralização (força contrária ao ângulo de esterçamento), força lateral (proporcional à força G) e rotação yaw (velocidade angular). O valor resultante determina se a força será aplicada para esquerda, direita ou neutro, conforme ilustrado na \autoref{fig:ff-direcao}.
+A direção do \texttt{FF\_CONSTANT} é calculada combinando dois componentes direcionais: força G lateral (multiplicada por 10 para ajustar a escala) e velocidade angular yaw. O valor resultante determina se a força será aplicada para esquerda (\texttt{0x4000}), direita (\texttt{0xC000}) ou neutro, com limiar de $\pm$1,5 e rejeição de ruído abaixo de 2\% de intensidade, conforme ilustrado na \autoref{fig:ff-direcao}.
 
 \begin{figure}[h!]
 	\centering
 	\includegraphics[width=\linewidth]{figuras/ff_charts/ff_direcao.png}
-	\Caption{\label{fig:ff-direcao} Cálculo da direção do force feedback e mapa de zonas}
+	\Caption{\label{fig:ff-direcao} Cálculo da direção do FF\_CONSTANT e mapa de zonas}
 \end{figure}
 
-\subsubsection{Mapeamento PWM do Motor}
-
-O comando de intensidade calculado (0-100\%) é convertido para a faixa de intensidade do efeito \texttt{FF\_CONSTANT} do evdev (0 a 65535) e aplicado diretamente ao motor integrado do G923. A direção da força é determinada pelo sinal do valor: positivo para força horária e negativo para anti-horária.
+O comando de intensidade calculado (0--100\%) é convertido para a faixa de 16 bits do evdev (0 a 32.767) conforme a \autoref{eq:ff-level}, e aplicado diretamente ao motor integrado do G923.
 
 \begin{equation}
-\label{eq:pwm-saida}
-PWM = \frac{intensidade \times 255}{100}
+\label{eq:ff-level}
+level = \frac{intensidade \times 32767}{100}
 \end{equation}
+
+\subsubsection{Efeitos Condicionais e Parâmetros Ajustáveis}
+
+Os quatro efeitos condicionais são executados pelo \textit{firmware} do G923 a aproximadamente 1kHz, e controlados por \textit{sliders} na interface do operador. Cada \textit{slider} é convertido para um coeficiente de 16 bits ($0$ a $32.767$) via $coeff = slider \times 32767 / 100$. A \autoref{fig:ff-parametros} ilustra o mapeamento de cada parâmetro para o coeficiente correspondente.
+
+A sensibilidade (padrão 75\%) controla o coeficiente do efeito \texttt{FF\_SPRING}, que centraliza o volante proporcionalmente à sua posição, com mínimo de 5\% para manter a sensação de coluna de direção. A fricção (padrão 30\%) ajusta o \texttt{FF\_FRICTION}, que aplica resistência constante ao movimento simulando o \textit{grip} do pneu, com mínimo de 3\%. O \textit{damping} (padrão 50\%) configura o \texttt{FF\_DAMPER}, que aplica resistência proporcional à velocidade angular do volante. A força máxima (padrão 15\%) controla o \texttt{FF\_GAIN} global do evdev, que escala todos os 8 efeitos simultaneamente. Valores acima de 25\% podem travar o mecanismo do volante. O filtro (padrão 40\%) é aplicado exclusivamente ao \texttt{FF\_CONSTANT} em \textit{software}, conforme ilustrado na \autoref{fig:ff-filtro-ema}.
+
+\begin{figure}[h!]
+	\centering
+	\includegraphics[width=\linewidth]{figuras/ff_charts/ff_parametros.png}
+	\Caption{\label{fig:ff-parametros} Mapeamento dos \textit{sliders} para coeficientes evdev dos efeitos condicionais e ganho global}
+\end{figure}
+
+\begin{figure}[h!]
+	\centering
+	\includegraphics[width=0.85\linewidth]{figuras/ff_charts/ff_filtro_ema.png}
+	\Caption{\label{fig:ff-filtro-ema} Resposta ao degrau do filtro EMA aplicado ao FF\_CONSTANT}
+\end{figure}
+
+\subsubsection{Efeitos Dinâmicos de Vibração}
+
+Além do \texttt{FF\_CONSTANT} para forças direcionais, o sistema implementa efeitos de vibração que reproduzem a textura da pista, impactos e o funcionamento do motor. O efeito \texttt{FF\_RUMBLE} combina oito componentes sensoriais distribuídos nos dois motores de vibração do G923, conforme ilustrado na \autoref{fig:ff-rumble}: o motor forte (\textit{strong}) reproduz impactos bruscos como buracos, frenagens e colisões, enquanto o motor fraco (\textit{weak}) reproduz a textura contínua da pista e vibração do motor. Os componentes incluem vibração proporcional ao acelerador, desvio vertical da gravidade no acelerômetro (detecção de \textit{bumps}), impacto frontal, derivada temporal da aceleração (\textit{jerk}), mudanças bruscas nos controles do operador, rugosidade calculada pelo desvio padrão do acelerômetro vertical, estresse lateral em curvas e vibração contínua de frenagem. Cada componente possui um coeficiente de contribuição específico para cada motor, e a saída combinada é suavizada por filtro EMA com 60\% de peso para o valor novo.
+
+\begin{figure}[h!]
+	\centering
+	\includegraphics[width=\linewidth]{figuras/ff_charts/ff_rumble.png}
+	\Caption{\label{fig:ff-rumble} Componentes do FF\_RUMBLE e distribuição entre os motores forte e fraco}
+\end{figure}
+
+O efeito \texttt{FF\_PERIODIC} gera uma onda senoidal cuja frequência é proporcional à posição do acelerador, simulando a vibração do motor em diferentes rotações. A frequência varia de 5Hz em marcha lenta a 12,5Hz em aceleração total, com magnitude variando de 15\% (\textit{idle}) até 90\% (aceleração máxima). O efeito \texttt{FF\_INERTIA} simula o peso do volante, com coeficiente variando de 5\% (veículo parado) até 80\% (alta velocidade), calculado automaticamente a partir da velocidade estimada e posição do acelerador, suavizado por filtro EMA com 30\% de peso para o valor novo. A \autoref{fig:ff-periodic-inertia} apresenta o comportamento desses dois efeitos.
+
+\begin{figure}[h!]
+	\centering
+	\includegraphics[width=\linewidth]{figuras/ff_charts/ff_periodic_inertia.png}
+	\Caption{\label{fig:ff-periodic-inertia} FF\_PERIODIC (frequência e magnitude vs. acelerador) e FF\_INERTIA (peso do volante vs. velocidade)}
+\end{figure}
+
+O sistema implementa detecção de veículo parado: quando não há aceleração, frenagem nem movimento significativo, os efeitos dinâmicos (\texttt{FF\_CONSTANT}, \texttt{FF\_RUMBLE}) decaem rapidamente via multiplicadores de EMA reduzidos, o \texttt{FF\_PERIODIC} vai para 0\% e o \texttt{FF\_INERTIA} retorna ao mínimo de 5\%, evitando \textit{feedback} residual indesejado.
 
 \subsubsection{Cálculo de Velocidade por Integração}
 
