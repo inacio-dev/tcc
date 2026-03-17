@@ -44,9 +44,10 @@ def create_instrument_panel(console):
     )
     console.rpm_display.pack(pady=5)
 
-    tk.Label(
-        rpm_frame, text="% IDEAL", bg="#2c2c2c", fg="#cccccc", font=("Arial", 8)
-    ).pack()
+    console.zone_label = tk.Label(
+        rpm_frame, text="% IDEAL", bg="#2c2c2c", fg="#00ff00", font=("Arial", 8, "bold")
+    )
+    console.zone_label.pack()
 
     # Marcha - Centro
     gear_frame = tk.Frame(instruments_inner, bg="#2c2c2c", relief=tk.RAISED, bd=2)

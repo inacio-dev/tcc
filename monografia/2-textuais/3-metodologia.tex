@@ -334,36 +334,109 @@ O sistema de propulsão utiliza motor DC 775 de 24V controlado por ponte H BTS79
 
 \subsubsection{Motor de Propulsão}
 
-O motor DC 775 opera com transmissão manual de 5 marchas, simulando comportamento de veículo real. O controle de velocidade é realizado via PWM através do driver BTS7960. O sistema implementa zonas de eficiência inspiradas em veículos de Fórmula 1, onde cada marcha possui uma faixa ideal de operação em termos de PWM do motor. Operar fora dessa faixa resulta em penalização na taxa de aceleração, calculada conforme a equação:
+O motor DC 775 opera com transmissão manual de 5 marchas, simulando comportamento de veículo real. O controle de velocidade é realizado via PWM através do driver BTS7960. A dinâmica de aceleração é modelada como um sistema de 1ª ordem clássico conforme descrito por \citeonline{franklin2013sistemas} (ver \autoref{subsec:sistemas-primeira-ordem}), cuja função de transferência no domínio de Laplace é:
 
 \begin{equation}
-\label{eq:taxa-aceleracao}
-Taxa_{acel} = \frac{100\%}{T_{base}} \times M_{zona}
+\label{eq:funcao-transferencia}
+G(s) = \frac{Y(s)}{U(s)} = \frac{K}{\tau_{eff} \cdot s + 1}
 \end{equation}
 
-\noindent onde $T_{base} = 50s$ é o tempo base para atingir 100\% do PWM (equivalente a 2\%/s), e $M_{zona}$ é o multiplicador da zona de eficiência: $M_{IDEAL} = 1.0$, $M_{SUB} = 0.1$ (10× mais lento), e $M_{RUIM} = 0.04$ (25× mais lento). Isso resulta em taxas de 2\%/s na zona IDEAL, 0,2\%/s na zona SUBÓTIMA e 0,08\%/s na zona RUIM, conforme ilustrado na \autoref{fig:taxa-aceleracao-zonas}.
+\noindent onde $Y(s)$ é o PWM do motor (saída), $U(s)$ é a entrada degrau unitário, $K$ é o ganho estático (igual ao PWM alvo da marcha, ou seja, o limitador) e $\tau_{eff}$ é a constante de tempo efetiva. A equação diferencial ordinária correspondente no domínio do tempo é:
 
-\begin{figure}[!ht]
-	\captionsetup{width=16cm}
-	\Caption{\label{fig:taxa-aceleracao-zonas} Taxa de aceleração por zona de eficiência}
-	\UFCfig{}{
-		\includegraphics[width=12cm]{figuras/taxa_aceleracao_zonas}
+\begin{equation}
+\label{eq:ode-motor}
+\tau_{eff} \cdot \frac{dy}{dt} + y(t) = K \cdot u(t)
+\end{equation}
+
+\noindent cuja solução para entrada degrau é a resposta exponencial:
+
+\begin{equation}
+\label{eq:resposta-degrau}
+y(t) = K \cdot \left(1 - e^{-t/\tau_{eff}}\right)
+\end{equation}
+
+Nessa formulação, conforme as propriedades dos sistemas de primeira ordem \cite{franklin2013sistemas}, o PWM atinge 63,2\% do valor final em $t = \tau_{eff}$ e 95\% em $t = 3\tau_{eff}$, com convergência monotônica e sem overshoot. A implementação no software embarcado utiliza integração de Euler a 100~Hz, computando a cada iteração $\Delta y = (K - y) / \tau_{eff} \cdot \Delta t$.
+
+A constante de tempo efetiva combina dois fatores --- a marcha e a zona de eficiência:
+
+\begin{equation}
+\label{eq:tau-efetivo}
+\tau_{eff}(g, zona) = \tau_{base}(g) \times M_{zona}
+\end{equation}
+
+\noindent onde $\tau_{base}(g)$ cresce com a marcha (2~s na 1ª até 10~s na 5ª, refletindo maior inércia em marchas altas) e $M_{zona}$ é o multiplicador da zona de eficiência: $M_{IDEAL} = 1{,}0$, $M_{SUB} = 10{,}0$ e $M_{POOR} = 25{,}0$. Na zona IDEAL, o sistema responde com $\tau_{base}$; na zona SUBOPTIMAL, a resposta é 10 vezes mais lenta; na zona POOR, 25 vezes mais lenta. Essa penalização força o operador a utilizar a marcha adequada para a faixa de PWM desejada, reproduzindo o comportamento de uma transmissão real.
+
+A \autoref{tab:gear-params} resume os parâmetros por marcha. Os limitadores definem o ganho $K$ (PWM máximo quando o acelerador está em 100\%), e as faixas ideal\_low e ideal\_high delimitam a zona IDEAL. As zonas ideais de marchas adjacentes se sobrepõem (por exemplo, a 2ª cobre 10--25\% e a 1ª cobre 6--12\%), garantindo que no ponto de troca o PWM já esteja na zona IDEAL da próxima marcha.
+
+\begin{table}[!ht]
+	\centering
+	\Caption{\label{tab:gear-params} Parâmetros por marcha do sistema de transmissão}
+	\UFCtab{}{
+		\begin{tabular}{cccccc}
+			\toprule
+			Marcha & $K$ (limitador) & Zona IDEAL & $\tau_{base}$ & $\tau_{IDEAL}$ & $\tau_{POOR}$ \\
+			\midrule
+			1ª & 16\% & 6--12\% & 2,0~s & 2~s & 50~s \\
+			2ª & 30\% & 10--25\% & 4,0~s & 4~s & 100~s \\
+			3ª & 52\% & 22--45\% & 6,0~s & 6~s & 150~s \\
+			4ª & 78\% & 40--70\% & 8,0~s & 8~s & 200~s \\
+			5ª & 100\% & 64--95\% & 10,0~s & 10~s & 250~s \\
+			\bottomrule
+		\end{tabular}
 	}{
 		\Fonte{elaborado pelo autor.}
 	}
-\end{figure}
+\end{table}
 
-A \autoref{fig:zonas-eficiencia-marchas} ilustra as zonas de eficiência por marcha. Cada marcha possui uma zona IDEAL (verde) onde a aceleração ocorre em taxa normal, uma zona SUBÓTIMA (laranja) com aceleração 10 vezes mais lenta, e uma zona RUIM (vermelho) com aceleração 25 vezes mais lenta. Os limitadores de PWM restringem a potência máxima disponível em cada marcha com intervalos crescentes: 12\% na 1ª, 25\% na 2ª, 45\% na 3ª, 70\% na 4ª e 100\% na 5ª marcha. Todas as marchas possuem uma zona morta de 0 a 6\% do PWM (cinza), faixa na qual o motor não possui torque suficiente para movimentar o veículo, sendo atravessada automaticamente por uma rampa rápida com multiplicador de 20× quando o operador solicita aceleração. As zonas IDEAL de cada marcha são contíguas entre si, garantindo que a progressão de marchas cubra toda a faixa de PWM sem lacunas. Esse sistema força o operador a progredir pelas marchas para atingir velocidade máxima, reproduzindo o comportamento de uma transmissão real.
+A \autoref{fig:zonas-eficiencia-marchas} ilustra as zonas de eficiência por marcha. Cada marcha possui uma zona IDEAL (verde) onde $\tau_{eff} = \tau_{base}$, uma zona SUBOPTIMAL (laranja) onde $\tau_{eff} = 10 \times \tau_{base}$, e uma zona POOR (vermelho) onde $\tau_{eff} = 25 \times \tau_{base}$. A margem da zona SUBOPTIMAL corresponde a 25\% da largura da zona IDEAL em cada borda, com mínimo de 2\%. Todas as marchas possuem uma zona morta de 0 a 6\% do PWM (cinza), faixa na qual o motor não possui torque suficiente para movimentar o veículo, sendo atravessada automaticamente por uma rampa linear de 40~\%/s (tempo de travessia de 0,15~s).
 
 \begin{figure}[!ht]
 	\captionsetup{width=16cm}
-	\Caption{\label{fig:zonas-eficiencia-marchas} Zonas de eficiência F1 por marcha}
+	\Caption{\label{fig:zonas-eficiencia-marchas} Zonas de eficiência por marcha com constantes de tempo $\tau_{base}$}
 	\UFCfig{}{
 		\includegraphics[width=14cm]{figuras/zonas_eficiencia_marchas}
 	}{
 		\Fonte{elaborado pelo autor.}
 	}
 \end{figure}
+
+A \autoref{fig:tau-detalhado} detalha o cálculo de $\tau_{eff}$ para cada marcha, mostrando como a constante de tempo varia em função do PWM e da zona de eficiência. Os degraus entre zonas refletem os multiplicadores discretos $M_{zona}$, e o painel resumo apresenta a função de transferência, a resposta ao degrau e a tabela completa de $\tau_{eff}$.
+
+\begin{figure}[!ht]
+	\captionsetup{width=16cm}
+	\Caption{\label{fig:tau-detalhado} Constante de tempo $\tau_{eff}$ por marcha --- detalhamento dos cálculos com $G(s) = K/(\tau s + 1)$}
+	\UFCfig{}{
+		\includegraphics[width=16cm]{figuras/tau_detalhado_calculos}
+	}{
+		\Fonte{elaborado pelo autor.}
+	}
+\end{figure}
+
+A \autoref{fig:resposta-degrau} apresenta a resposta ao degrau $y(t) = K(1 - e^{-t/\tau_{eff}})$ para cada marcha com acelerador em 100\%. Na zona IDEAL (verde), o PWM sobe rapidamente até o limitador. Ao ultrapassar a zona IDEAL e entrar na zona SUBOPTIMAL (laranja) ou POOR (vermelho), $\tau_{eff}$ aumenta e a curva desacelera, evidenciando a penalização por operar na marcha errada.
+
+\begin{figure}[!ht]
+	\captionsetup{width=16cm}
+	\Caption{\label{fig:resposta-degrau} Resposta ao degrau por marcha --- $y(t) = K(1 - e^{-t/\tau_{eff}})$}
+	\UFCfig{}{
+		\includegraphics[width=16cm]{figuras/resposta_degrau_marchas}
+	}{
+		\Fonte{elaborado pelo autor.}
+	}
+\end{figure}
+
+A \autoref{fig:ode-decomposicao} decompõe os quatro componentes da equação diferencial durante uma simulação completa de aceleração da 1ª à 5ª marcha: o PWM $y(t)$ perseguindo o alvo $K$, o sinal de erro $e(t) = K - y(t)$, a constante de tempo $\tau_{eff}$ (que salta a cada troca de marcha e entre zonas), e a taxa de variação $\dot{y} = (K - y)/\tau_{eff}$, que determina a velocidade instantânea de resposta do sistema.
+
+\begin{figure}[!ht]
+	\captionsetup{width=16cm}
+	\Caption{\label{fig:ode-decomposicao} Decomposição da equação diferencial durante aceleração completa 1ª--5ª marcha}
+	\UFCfig{}{
+		\includegraphics[width=16cm]{figuras/ode_equacao_diferencial}
+	}{
+		\Fonte{elaborado pelo autor.}
+	}
+\end{figure}
+
+Para a desaceleração, o sistema utiliza a mesma formulação de 1ª ordem com $\tau$ reduzido: $\tau_{decel} = \tau_{eff} / 3$, tornando a resposta 3 vezes mais rápida ao soltar o acelerador. Quando o freio é acionado, um fator multiplicativo adicional é aplicado: $\tau_{decel} = \tau_{eff} / (3 \times boost_{freio})$, onde $boost_{freio} = 1 + 9 \times (freio/100)$, resultando em desaceleração até 30 vezes mais rápida com frenagem máxima.
 
 \subsubsection{Sistema de Direção e Freios}
 
@@ -537,6 +610,18 @@ O sistema de \textit{force feedback} explora a capacidade do G923 de executar 15
 
 Os efeitos condicionais (FF\_SPRING, FF\_DAMPER, FF\_FRICTION, FF\_INERTIA) são executados pelo \textit{firmware} do volante a aproximadamente 1kHz, proporcionando resposta mais suave e realista do que o cálculo equivalente em \textit{software}. Os efeitos de força e vibração são atualizados pelo \textit{software} a cada pacote recebido do BMI160. O ganho global (\texttt{FF\_GAIN}) limita todos os 8 efeitos simultaneamente, com valor padrão de 15\% para evitar forças excessivas que possam travar o mecanismo do volante.
 
+A \autoref{fig:ff-pipeline} apresenta o pipeline completo do sistema de force feedback, desde a aquisição dos dados do BMI160 no veículo até a aplicação dos efeitos nos motores do volante G923 via \textit{evdev ioctl}. O pipeline opera em duas camadas: efeitos condicionais processados pelo kernel a aproximadamente 1~kHz e controlados pelos sliders da interface, e efeitos de força e vibração calculados pelo software a 60~Hz com base nos dados sensoriais.
+
+\begin{figure}[!ht]
+	\captionsetup{width=16cm}
+	\Caption{\label{fig:ff-pipeline} Pipeline de force feedback --- fluxo dos dados do BMI160 até os efeitos no volante G923}
+	\UFCfig{}{
+		\includegraphics[width=14cm]{figuras/ff_charts/ff_pipeline}
+	}{
+		\Fonte{elaborado pelo autor.}
+	}
+\end{figure}
+
 Para minimizar a latência do \textit{force feedback}, três otimizações foram implementadas. A primeira é o \textit{cache} de valores: cada efeito armazena o último valor enviado ao dispositivo e só realiza a chamada de sistema (\texttt{ioctl}) quando o valor efetivamente muda. A segunda é a quantização dos valores de saída dos filtros de média exponencial (\gls{EMA}): os valores \textit{float} são arredondados para inteiro antes da comparação com o \textit{cache}, evitando atualizações desnecessárias causadas por variações decimais insignificantes. A terceira é a atualização \textit{in-place}: ao invés de recriar o efeito a cada atualização (operação de 4 chamadas: parar, apagar, criar e iniciar), o efeito é atualizado diretamente com uma única chamada \texttt{upload\_effect} reutilizando o mesmo identificador. Essas otimizações reduziram o bloqueio da \textit{thread} de sensores de 12 a 60ms por pacote para 0 a 15ms, eliminando a perda de pacotes e o \textit{delay} perceptível no \textit{feedback} tátil.
 
 \subsection{Calibração de Eixos}
@@ -676,7 +761,7 @@ O filtro por IP garante que apenas pacotes do veículo configurado sejam process
 
 Os algoritmos de force feedback são executados no cliente, utilizando dados do sensor BMI160 recebidos do veículo para calcular intensidade e direção da força a ser aplicada no volante.
 
-Embora algoritmos meta-heurísticos como LHHO e TLBO demonstrem vantagens conforme \citeonline{ayinla2024optimal}, optou-se por implementação direta dos algoritmos de force feedback devido às limitações computacionais e à necessidade de resposta em tempo real inferior a 5ms.
+Embora algoritmos meta-heurísticos como LHHO e TLBO demonstrem vantagens conforme \citeonline{ayinla2024optimal}, optou-se por implementação direta dos algoritmos de force feedback devido às limitações computacionais e à necessidade de resposta em tempo real inferior a 5ms. A arquitetura do pipeline de force feedback foi apresentada na \autoref{fig:ff-pipeline}. As subseções a seguir detalham os algoritmos de cálculo de cada efeito.
 
 \subsubsection{Cálculo das Forças G}
 

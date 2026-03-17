@@ -52,6 +52,22 @@ Para aplicações com limitações de hardware, \citeonline{gokce2025parameter} 
 
 A análise crítica dos algoritmos de controle de motores revela que, embora os métodos meta-heurísticos demonstrem superioridade em performance, sua implementação em sistemas embarcados de baixo custo apresenta desafios significativos de recursos computacionais e tempo de convergência. Controladores PID convencionais, apesar de menos otimizados, oferecem resposta determinística e implementação simplificada, sendo mais adequados para aplicações com restrições de hardware e tempo real.
 
+\subsection{Modelagem de Sistemas de Primeira Ordem}
+\label{subsec:sistemas-primeira-ordem}
+
+A teoria de sistemas de controle fornece modelos matemáticos fundamentais para descrever a dinâmica de sistemas físicos. Conforme \citeonline{franklin2013sistemas}, um sistema de primeira ordem possui um único polo real na função de transferência e é caracterizado por uma constante de tempo $\tau$ que determina a velocidade de resposta. A função de transferência de um sistema de primeira ordem no domínio de Laplace é:
+
+\begin{equation}
+\label{eq:ft-primeira-ordem-teoria}
+G(s) = \frac{K}{\tau s + 1}
+\end{equation}
+
+\noindent onde $K$ é o ganho estático (valor final da saída para entrada degrau unitário) e $\tau$ é a constante de tempo, definida como o inverso do polo: $\tau = 1/\sigma$ para um polo em $s = -\sigma$ \cite{franklin2013sistemas}. A equação diferencial ordinária correspondente no domínio do tempo é $\tau \dot{y} + y = K u(t)$, cuja solução para entrada degrau resulta na resposta exponencial $y(t) = K(1 - e^{-t/\tau})$.
+
+Ainda segundo \citeonline{franklin2013sistemas}, a constante de tempo $\tau$ possui interpretação física direta: em $t = \tau$, a saída atinge 63,2\% do valor final; em $t = 3\tau$, atinge 95\%; e em $t = 5\tau$, atinge 99,3\%. A reta tangente à curva exponencial em $t = 0$ intercepta o valor final exatamente em $t = \tau$, propriedade útil para estimação experimental de parâmetros. A resposta é monotônica (sem overshoot), o que distingue sistemas de primeira ordem de sistemas de segunda ordem, onde a resposta pode apresentar oscilações dependendo do coeficiente de amortecimento $\zeta$.
+
+A escolha entre modelo de primeira e segunda ordem depende da aplicação. Sistemas de segunda ordem, com função de transferência $G(s) = \omega_n^2 / (s^2 + 2\zeta\omega_n s + \omega_n^2)$, introduzem sobressinal quando $\zeta < 1$ e oscilação quando $\zeta < 0{,}7$ \cite{franklin2013sistemas}. Para aplicações de controle de motores DC via PWM em que overshoot é indesejável (oscilação no PWM causa vibração mecânica), o modelo de primeira ordem é preferível por garantir convergência monotônica ao valor de referência.
+
 \section{Tendências e Estado da Arte Atual}
 \label{sec:tendencias-estado-arte}
 

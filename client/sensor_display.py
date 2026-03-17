@@ -315,6 +315,7 @@ class SensorDisplay:
                 "current_gear",
                 "rpm_display",
                 "current_pwm",
+                "efficiency_zone",
                 "velocidade",
                 # ===== Temperatura DS18B20 =====
                 "temperatura",

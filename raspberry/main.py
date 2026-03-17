@@ -28,9 +28,7 @@ HARDWARE CONECTADO:
   ├── Servo Freio Tras.  -> Canal 1 do PCA9685
   └── Servo Direção      -> Canal 2 do PCA9685
 • Motor BTS7960 RPWM   -> GPIO18 (Pin 12)
-• Motor BTS7960 LPWM   -> GPIO27 (Pin 13)
 • Motor BTS7960 R_EN   -> GPIO22 (Pin 15)
-• Motor BTS7960 L_EN   -> GPIO23 (Pin 16)
 
 ALIMENTAÇÃO DO RASPBERRY PI (XL4015 5A + USB Breakout):
 ======================================================
@@ -67,10 +65,31 @@ Para parar: Ctrl+C
 import argparse
 import queue
 import signal
+import socket
 import sys
 import threading
 import time
+import traceback
 from typing import Any, Dict, Optional
+
+from managers import (
+    BMI160Manager,
+    BrakeManager,
+    CameraManager,
+    LogLevel,
+    MotorManager,
+    NetworkManager,
+    PowerMonitorManager,
+    RpiSystemMonitor,
+    SteeringManager,
+    TemperatureManager,
+    debug,
+    error,
+    info,
+    init_logger,
+    warn,
+)
+
 
 class PriorityI2CLock:
     """Lock I2C com intercalação justa (weighted fair queuing).
@@ -149,27 +168,6 @@ class PriorityI2CLock:
         with self._cond:
             self._busy = False
             self._cond.notify_all()
-
-
-# Importa todos os gerenciadores
-try:
-    from bmi160_manager import BMI160Manager
-    from brake_manager import BrakeManager
-    from camera_manager import CameraManager
-    from logger import LogLevel, debug, error, info, init_logger, warn
-    from motor_manager import MotorManager
-    from network_manager import NetworkManager
-    from power_monitor_manager import PowerMonitorManager
-    from rpi_system_monitor import RpiSystemMonitor
-    from steering_manager import SteeringManager
-    from temperature_manager import TemperatureManager
-except ImportError as e:
-    print(f"ERRO: Não foi possível importar módulos necessários: {e}")
-    print("\nVerifique se todos os arquivos estão na mesma pasta:")
-    print("  - camera_manager.py, bmi160_manager.py, brake_manager.py")
-    print("  - motor_manager.py, steering_manager.py, network_manager.py")
-    print("  - logger.py, main.py")
-    sys.exit(1)
 
 
 class F1CarMultiThreadSystem:
@@ -857,11 +855,10 @@ class F1CarMultiThreadSystem:
             return False
 
         # Resolve mDNS uma vez e guarda IP numérico (evita resolução por pacote)
-        import socket as _socket
         try:
-            self._client_ip = _socket.gethostbyname("f1client.local")
+            self._client_ip = socket.gethostbyname("f1client.local")
             info(f"mDNS resolvido: f1client.local → {self._client_ip}", "MAIN")
-        except _socket.gaierror:
+        except socket.gaierror:
             warn("Falha ao resolver f1client.local, usando hostname direto", "MAIN")
             self._client_ip = "f1client.local"
 
@@ -1106,8 +1103,6 @@ def main():
         info("Interrompido pelo usuário", "MAIN")
     except Exception as e:
         error(f"Erro crítico: {e}", "MAIN")
-        import traceback
-
         traceback.print_exc()
         sys.exit(1)
     finally:

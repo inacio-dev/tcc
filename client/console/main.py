@@ -972,6 +972,10 @@ class ConsoleInterface:
         except Exception as e:
             error(f"Erro ao atualizar cores do sistema RPi: {e}", "CONSOLE")
 
+    # Cores por zona de eficiência (IDEAL=verde, SUBOPTIMAL=amarelo, POOR=vermelho)
+    ZONE_COLORS = {"IDEAL": "#00ff00", "SUBOPTIMAL": "#ffaa00", "POOR": "#ff3333"}
+    ZONE_LABELS = {"IDEAL": "IDEAL", "SUBOPTIMAL": "SUBÓTIMA", "POOR": "RUIM"}
+
     def _update_motor_display(self, sensor_data):
         """Atualiza o painel de instrumentos do motor"""
         try:
@@ -987,6 +991,16 @@ class ConsoleInterface:
             if "current_pwm" in sensor_data:
                 throttle = sensor_data["current_pwm"]
                 self.throttle_var.set(f"{throttle:.1f}%")
+
+            # Atualiza cor do conta-giros pela zona de eficiência
+            if "efficiency_zone" in sensor_data:
+                zone = sensor_data["efficiency_zone"]
+                color = self.ZONE_COLORS.get(zone, "#00ff00")
+                label = self.ZONE_LABELS.get(zone, "IDEAL")
+                if hasattr(self, "rpm_display"):
+                    self.rpm_display.config(fg=color)
+                if hasattr(self, "zone_label"):
+                    self.zone_label.config(text=f"% {label}", fg=color)
 
         except Exception as e:
             error(f"Erro ao atualizar painel de instrumentos: {e}", "CONSOLE")
