@@ -533,6 +533,18 @@ class SensorDisplay:
                 self.raw_buffer[key] = [None] * n
             self.raw_buffer[key].append(value)
 
+    def inject_client_timings(self, timings: dict):
+        """Injeta timings do client no último registro do raw_buffer.
+        Chamado após o processamento do pacote mais recente."""
+        n = len(self.raw_buffer.get("timestamp", []))
+        if n == 0:
+            return
+        for key, value in timings.items():
+            if key not in self.raw_buffer:
+                self.raw_buffer[key] = [None] * n
+            # Sobrescreve o último valor (pacote processado)
+            self.raw_buffer[key][-1] = value
+
     def reset_statistics(self):
         """Reseta estatísticas do processador"""
         with self.data_lock:
