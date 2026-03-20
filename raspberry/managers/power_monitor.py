@@ -694,17 +694,18 @@ class PowerMonitorManager:
                 "voltage_battery_avg": round(avg_voltage_battery, 2),
                 "battery_percentage": round(self.battery_percentage, 1),
                 # Correntes instantâneas (A) - via Pro Micro (ACS758)
-                "current_servos": round(self.current_servos, 3),
-                "current_motor": round(self.current_motor, 3),
+                # abs() garante valores positivos independente da polaridade dos cabos
+                "current_servos": round(abs(self.current_servos), 3),
+                "current_motor": round(abs(self.current_motor), 3),
                 # Correntes médias (A)
-                "current_servos_avg": round(avg_current_servos, 3),
-                "current_motor_avg": round(avg_current_motor, 3),
+                "current_servos_avg": round(abs(avg_current_servos), 3),
+                "current_motor_avg": round(abs(avg_current_motor), 3),
                 # Tensão RPi (V) - via INA219
                 "voltage_rpi": round(self.voltage_rpi, 3),
                 "voltage_rpi_avg": round(avg_voltage_rpi, 3),
                 # INA219 direto (corrente e potência RPi)
-                "current_rpi": round(self.current_rpi_ina, 3),
-                "current_rpi_ina219": round(self.current_rpi_ina, 3),
+                "current_rpi": round(abs(self.current_rpi_ina), 3),
+                "current_rpi_ina219": round(abs(self.current_rpi_ina), 3),
                 "power_rpi": round(self.power_rpi, 3),
                 # Potências calculadas (W)
                 "power_motor": round(power_motor, 2),
