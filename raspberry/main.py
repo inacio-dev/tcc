@@ -270,6 +270,7 @@ class F1CarMultiThreadSystem:
         self.sensor_readings = 0
         self.packets_sent = 0
         self.commands_received = 0
+        self._last_state_cmd_ms = 0.0  # Timing do último STATE command
 
         # === STATUS DO SISTEMA ===
         self.system_status = {
@@ -517,6 +518,7 @@ class F1CarMultiThreadSystem:
 
                     if updated:
                         sensor_data = self.bmi160_mgr.get_sensor_data()
+                        sensor_data["timing_bmi160_read_ms"] = round(t_read * 1000, 2)
 
                         t_lock_start = time.monotonic()
                         with self.current_data_lock:
@@ -550,8 +552,10 @@ class F1CarMultiThreadSystem:
         while self.running:
             try:
                 if self.power_mgr and self.system_status["power"] == "Online":
+                    t_pwr = time.monotonic()
                     if self.power_mgr.update():
                         power_data = self.power_mgr.get_sensor_data()
+                        power_data["timing_power_ms"] = round((time.monotonic() - t_pwr) * 1000, 2)
 
                         with self.current_data_lock:
                             self.current_power_data = power_data
@@ -676,6 +680,7 @@ class F1CarMultiThreadSystem:
                 t_status = time.monotonic() - t_status_start
 
                 # === CONSOLIDA E TRANSMITE ===
+                t_consolidate = time.monotonic()
                 consolidated_data = {
                     **sensor_data,
                     **motor_status,
@@ -686,6 +691,11 @@ class F1CarMultiThreadSystem:
                     **rpi_sys_data,
                     "system_status": self.system_status.copy(),
                     "system_uptime": current_time - self.start_time,
+                    # Timings internos (ms) para diagnóstico no client
+                    "timing_lock_ms": round(t_lock * 1000, 2),
+                    "timing_status_ms": round(t_status * 1000, 2),
+                    "timing_state_cmd_ms": self._last_state_cmd_ms,
+                    "timing_total_pre_send_ms": round((time.monotonic() - t0) * 1000, 2),
                 }
 
                 t_send_start = time.monotonic()
@@ -752,6 +762,8 @@ class F1CarMultiThreadSystem:
                         if self.brake_mgr:
                             self.brake_mgr.apply_brake(brake)
                         t_state = time.monotonic() - t0
+                        # Salva timing do último STATE para incluir no pacote TX
+                        self._last_state_cmd_ms = round(t_state * 1000, 2)
                         if t_state > 0.050:
                             warn(
                                 f"[DIAG] STATE CMD LENTO: {t_state*1000:.0f}ms "
