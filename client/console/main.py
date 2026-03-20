@@ -1054,15 +1054,19 @@ class ConsoleInterface:
                                 self.sensor_display.display_data[_k] = sensor_data[_k]
                     t_wb = time.monotonic() - t_wb
 
-                    # Injeta timings do client no sensor_data para salvar no pickle
+                    # Injeta timings do client no display_data para que o
+                    # próximo update_history os salve no pickle
                     t_total_client = time.monotonic() - t0
-                    sensor_data["client_timing_queue_ms"] = round(t_queue * 1000, 2)
-                    sensor_data["client_timing_calc_ms"] = round(t_calc * 1000, 2)
-                    sensor_data["client_timing_ff_ms"] = round(t_ff * 1000, 2)
-                    sensor_data["client_timing_writeback_ms"] = round(t_wb * 1000, 2)
-                    sensor_data["client_timing_total_ms"] = round(t_total_client * 1000, 2)
+                    with self.sensor_display.data_lock:
+                        sd = self.sensor_display.display_data
+                        sd["client_timing_queue_ms"] = round(t_queue * 1000, 2)
+                        sd["client_timing_calc_ms"] = round(t_calc * 1000, 2)
+                        sd["client_timing_ff_ms"] = round(t_ff * 1000, 2)
+                        sd["client_timing_writeback_ms"] = round(t_wb * 1000, 2)
+                        sd["client_timing_total_ms"] = round(t_total_client * 1000, 2)
 
                     # Disponibiliza snapshot para a GUI thread
+                    sensor_data["client_timing_total_ms"] = round(t_total_client * 1000, 2)
                     with self._sensor_data_lock:
                         self._latest_sensor_data = sensor_data
             except Exception as e:
