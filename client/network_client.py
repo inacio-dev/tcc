@@ -591,11 +591,18 @@ class NetworkClient:
 
                 # Pacote de sensores: JSON direto
                 try:
+                    t_recv = time.time()
                     t_json = time.monotonic()
                     sensor_data = json.loads(packet.decode("utf-8"))
                     sensor_data["client_timing_json_decode_ms"] = round(
                         (time.monotonic() - t_json) * 1000, 2
                     )
+                    # Latência de rede: diferença entre timestamp RPi e momento de recepção
+                    # Inclui clock skew (offset constante) — o jitter é o que importa
+                    rpi_ts = sensor_data.get("timestamp")
+                    if rpi_ts:
+                        sensor_data["net_latency_ms"] = round((t_recv - rpi_ts) * 1000, 2)
+                    sensor_data["client_recv_timestamp"] = t_recv
                     self.sensor_packets_received += 1
                     self._send_sensor_data(sensor_data)
                 except (json.JSONDecodeError, UnicodeDecodeError):
