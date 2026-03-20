@@ -466,7 +466,142 @@ class SessionAnalyzer:
                 )
                 print(f"{'  Tensão RPi média:':<25} {self.stats.voltage_rpi_avg:.2f} V")
 
+        # Timing diagnostics (se disponível)
+        self._print_timing_stats()
+
         print("\n" + "=" * 60)
+
+    def _print_timing_stats(self):
+        """Imprime estatísticas de timing do RPi (se disponíveis nos dados)"""
+        if not self.sensor_data or not NUMPY_AVAILABLE:
+            return
+
+        rpi_keys = [k for k in self.sensor_data if k.startswith("timing_")]
+        client_keys = [k for k in self.sensor_data if k.startswith("client_timing_")]
+        timing_keys = rpi_keys + client_keys
+        if not timing_keys:
+            return
+
+        if rpi_keys:
+            print("\n--- Timing RPi (ms) ---")
+            self._print_timing_table(sorted(rpi_keys), prefix="timing_")
+
+        if client_keys:
+            print("\n--- Timing Client (ms) ---")
+            self._print_timing_table(sorted(client_keys), prefix="client_timing_")
+
+        # Resumo de jitter
+        total_key = "timing_total_pre_send_ms"
+        if total_key in self.sensor_data:
+            arr = np.array([v for v in self.sensor_data[total_key] if v is not None and v > 0])
+            if len(arr) > 0:
+                slow_count = np.sum(arr > 50)
+                print(f"\n  RPi pacotes > 50ms: {slow_count}/{len(arr)} ({slow_count/len(arr)*100:.1f}%)")
+
+        client_total = "client_timing_total_ms"
+        if client_total in self.sensor_data:
+            arr = np.array([v for v in self.sensor_data[client_total] if v is not None and v > 0])
+            if len(arr) > 0:
+                slow_count = np.sum(arr > 10)
+                print(f"  Client loops > 10ms: {slow_count}/{len(arr)} ({slow_count/len(arr)*100:.1f}%)")
+
+    def _print_timing_table(self, keys, prefix=""):
+        """Imprime tabela de timing para um conjunto de chaves"""
+        print(f"  {'Métrica':<30} {'Média':>8} {'P50':>8} {'P95':>8} {'P99':>8} {'Máx':>8}")
+        print("  " + "-" * 72)
+
+        for key in keys:
+            values = self.sensor_data[key]
+            if not values or not isinstance(values, list):
+                continue
+            arr = np.array([v for v in values if v is not None and v > 0])
+            if len(arr) == 0:
+                continue
+
+            label = key.replace(prefix, "").replace("_ms", "").replace("_", " ")
+            print(
+                f"  {label:<30} "
+                f"{np.mean(arr):8.2f} "
+                f"{np.percentile(arr, 50):8.2f} "
+                f"{np.percentile(arr, 95):8.2f} "
+                f"{np.percentile(arr, 99):8.2f} "
+                f"{np.max(arr):8.2f}"
+            )
+
+    def plot_timing(self, save_path: Optional[str] = None):
+        """Gera gráfico de timing do RPi ao longo da sessão"""
+        if not MATPLOTLIB_AVAILABLE or not NUMPY_AVAILABLE:
+            print("[ERRO] Matplotlib e NumPy necessários")
+            return
+
+        if not self.sensor_data:
+            print("[ERRO] Dados de sensores não carregados")
+            return
+
+        timing_keys = sorted(
+            [k for k in self.sensor_data if k.startswith("timing_") or k.startswith("client_timing_")]
+        )
+        if not timing_keys:
+            print("[INFO] Sem dados de timing (sessão anterior aos timings)")
+            return
+
+        timestamps = self.sensor_data.get("timestamp", [])
+        if not timestamps:
+            return
+
+        time_data = np.array(timestamps) - timestamps[0]
+
+        plt.style.use("dark_background")
+        fig, axes = plt.subplots(2, 1, figsize=(14, 8), facecolor=COLORS["background"])
+        fig.suptitle(
+            "Diagnóstico de Timing RPi",
+            color=COLORS["text"], fontsize=14, fontweight="bold",
+        )
+
+        # 1. Timeline de cada timing
+        ax1 = axes[0]
+        ax1.set_facecolor(COLORS["background"])
+        colors_cycle = ["#00D2BE", "#FF8700", "#0090FF", "#FF5555", "#55FF55", "#AA00FF"]
+        for i, key in enumerate(timing_keys):
+            values = self.sensor_data[key]
+            if not values or not isinstance(values, list):
+                continue
+            label = key.replace("timing_", "").replace("_ms", "")
+            color = colors_cycle[i % len(colors_cycle)]
+            ax1.plot(
+                time_data[:len(values)], values,
+                color=color, linewidth=0.6, alpha=0.8, label=label,
+            )
+
+        ax1.axhline(y=50, color="#FF0000", linestyle="--", alpha=0.5, label="Limite 50ms")
+        ax1.set_ylabel("Tempo (ms)", color=COLORS["text"])
+        ax1.set_title("Timing por Componente", color=COLORS["text"], fontsize=10)
+        ax1.legend(loc="upper right", facecolor=COLORS["background"], fontsize=8)
+        ax1.grid(True, color=COLORS["grid"], alpha=0.3)
+
+        # 2. Histograma do total
+        ax2 = axes[1]
+        ax2.set_facecolor(COLORS["background"])
+        total_key = "timing_total_pre_send_ms"
+        if total_key in self.sensor_data:
+            arr = np.array([v for v in self.sensor_data[total_key] if v is not None])
+            if len(arr) > 0:
+                ax2.hist(arr, bins=50, color="#00D2BE", alpha=0.7, edgecolor="white", linewidth=0.5)
+                ax2.axvline(x=np.mean(arr), color="#FFD700", linestyle="--", label=f"Média: {np.mean(arr):.1f}ms")
+                ax2.axvline(x=np.percentile(arr, 95), color="#FF5555", linestyle="--", label=f"P95: {np.percentile(arr, 95):.1f}ms")
+                ax2.legend(facecolor=COLORS["background"])
+        ax2.set_xlabel("Tempo (ms)", color=COLORS["text"])
+        ax2.set_ylabel("Frequência", color=COLORS["text"])
+        ax2.set_title("Distribuição do Tempo Total (pre-send)", color=COLORS["text"], fontsize=10)
+        ax2.grid(True, color=COLORS["grid"], alpha=0.3)
+
+        plt.tight_layout()
+
+        if save_path:
+            plt.savefig(save_path, dpi=150, facecolor=COLORS["background"], bbox_inches="tight")
+            print(f"[OK] Gráfico de timing salvo: {save_path}")
+        else:
+            plt.show()
 
     def plot_telemetry(self, save_path: Optional[str] = None):
         """Gera gráficos de telemetria estilo F1"""
@@ -1030,7 +1165,7 @@ Exemplos:
     )
 
     parser.add_argument(
-        "--dir", "-d", default="exports/auto", help="Diretório com arquivos de dados"
+        "--dir", "-d", default="client/exports/auto", help="Diretório com arquivos de dados"
     )
     parser.add_argument(
         "--timestamp", "-t", help="Timestamp específico (YYYYMMDD_HHMMSS)"
@@ -1140,11 +1275,13 @@ Exemplos:
                 analyzer.plot_telemetry(str(output_dir / f"telemetry_{timestamp}.png"))
             if analyzer.sensor_data:
                 analyzer.plot_sensors(str(output_dir / f"sensors_{timestamp}.png"))
+                analyzer.plot_timing(str(output_dir / f"timing_{timestamp}.png"))
         else:
             if analyzer.telemetry_data:
                 analyzer.plot_telemetry()
             if analyzer.sensor_data:
                 analyzer.plot_sensors()
+                analyzer.plot_timing()
 
     print("\n[OK] Análise concluída!")
 

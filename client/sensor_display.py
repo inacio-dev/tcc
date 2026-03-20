@@ -255,140 +255,24 @@ class SensorDisplay:
         try:
             timestamp = data.get("timestamp", time.time())
 
-            # Seleciona TODOS os campos para histórico (auto-save completo)
-            history_fields = [
-                # ===== BMI160 - Dados Raw (LSB) =====
-                "bmi160_accel_x_raw",
-                "bmi160_accel_y_raw",
-                "bmi160_accel_z_raw",
-                "bmi160_gyro_x_raw",
-                "bmi160_gyro_y_raw",
-                "bmi160_gyro_z_raw",
-                # ===== BMI160 - Dados Físicos =====
-                "bmi160_accel_x",
-                "bmi160_accel_y",
-                "bmi160_accel_z",
-                "bmi160_gyro_x",
-                "bmi160_gyro_y",
-                "bmi160_gyro_z",
-                # Aliases (alguns sistemas usam nomes diferentes)
-                "accel_x",
-                "accel_y",
-                "accel_z",
-                "gyro_x",
-                "gyro_y",
-                "gyro_z",
-                # ===== Forças G calculadas =====
-                "g_force_frontal",
-                "g_force_lateral",
-                "g_force_vertical",
-                # ===== Ângulos integrados =====
-                "roll_angle",
-                "pitch_angle",
-                "yaw_angle",
-                # ===== Eventos detectados =====
-                "is_turning_left",
-                "is_turning_right",
-                "is_accelerating",
-                "is_braking",
-                "is_bouncing",
-                "impact_detected",
-                # ===== Force Feedback =====
-                "steering_feedback_intensity",
-                "steering_feedback_direction",
-                "brake_pedal_resistance",
-                "accelerator_feedback",
-                "seat_vibration_intensity",
-                "seat_tilt_x",
-                "seat_tilt_y",
-                # ===== FF Efeitos Dinâmicos (calculados por force_feedback_calc) =====
-                "rumble_strong",
-                "rumble_weak",
-                "periodic_period_ms",
-                "periodic_magnitude",
-                "inertia",
-                # ===== G923 Inputs (volante/pedais) =====
-                "g923_steering",
-                "g923_throttle",
-                "g923_brake",
-                # ===== Motor / Veículo =====
-                "current_gear",
-                "rpm_display",
-                "current_pwm",
-                "efficiency_zone",
-                "velocidade",
-                # ===== Temperatura DS18B20 =====
-                "temperatura",
-                "temperature_c",
-                "temperature_f",
-                "thermal_status",
-                # ===== Métricas do Sistema Raspberry Pi - CPU =====
-                "rpi_cpu_usage_percent",
-                "rpi_cpu_temp_c",
-                "rpi_cpu_freq_mhz",
-                "rpi_cpu_cores",
-                # ===== Métricas do Sistema Raspberry Pi - Memória =====
-                "rpi_mem_total_mb",
-                "rpi_mem_used_mb",
-                "rpi_mem_free_mb",
-                "rpi_mem_usage_percent",
-                # ===== Métricas do Sistema Raspberry Pi - Disco =====
-                "rpi_disk_total_gb",
-                "rpi_disk_used_gb",
-                "rpi_disk_free_gb",
-                "rpi_disk_usage_percent",
-                # ===== Métricas do Sistema Raspberry Pi - Rede =====
-                "rpi_net_rx_mb",
-                "rpi_net_tx_mb",
-                "rpi_net_rx_rate_kbps",
-                "rpi_net_tx_rate_kbps",
-                # ===== Métricas do Sistema Raspberry Pi - Sistema =====
-                "rpi_load_1min",
-                "rpi_load_5min",
-                "rpi_load_15min",
-                "rpi_uptime_seconds",
-                # ===== Power Monitor (Pro Micro + INA219) =====
-                "voltage_battery",
-                "battery_percentage",
-                "current_rpi",
-                "current_servos",
-                "current_motor",
-                "voltage_rpi",
-                "power_rpi",
-                "power_motor",
-                "power_servos",
-                "power_total",
-                # ===== Métricas do Sistema Cliente (Notebook/PC) =====
-                "client_cpu_usage_percent",
-                "client_cpu_temp_c",
-                "client_cpu_freq_mhz",
-                "client_cpu_cores",
-                "client_mem_total_mb",
-                "client_mem_used_mb",
-                "client_mem_free_mb",
-                "client_mem_usage_percent",
-                "client_net_rx_rate_kbps",
-                "client_net_tx_rate_kbps",
-                # ===== Configurações do sensor =====
-                "accel_range_g",
-                "gyro_range_dps",
-                "sample_rate",
-                # ===== Metadados =====
-                "readings_count",
-                "frame_count",
-            ]
-
-            # Adiciona timestamp
+            # NÃO usar data_lock aqui — chamado de dentro de update_sensor_data
+            # que já segura o lock
             self.history["timestamp"].append(timestamp)
+            n = len(self.history["timestamp"])
 
-            # Adiciona dados dos campos selecionados
-            for field in history_fields:
-                if field in data:
-                    self.history[field].append(data[field])
-                elif field in self.display_data:
-                    self.history[field].append(self.display_data[field])
-                else:
-                    self.history[field].append(0.0)
+            # Salva TUDO que chega — sem lista fixa
+            # Campos novos do RPi (ex: timing_*) entram automaticamente
+            for key, value in data.items():
+                if key == "timestamp":
+                    continue
+                # Pula dicts/lists aninhados (ex: system_status)
+                if isinstance(value, (dict, list)):
+                    continue
+                if key not in self.history:
+                    # Novo campo: preenche com None para alinhar
+                    self.history[key] = [None] * (n - 1)
+                self.history[key].append(value)
+
 
         except Exception as e:
             self._log("ERROR", f"Erro ao atualizar histórico: {e}")

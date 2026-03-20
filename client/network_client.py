@@ -591,7 +591,11 @@ class NetworkClient:
 
                 # Pacote de sensores: JSON direto
                 try:
+                    t_json = time.monotonic()
                     sensor_data = json.loads(packet.decode("utf-8"))
+                    sensor_data["client_timing_json_decode_ms"] = round(
+                        (time.monotonic() - t_json) * 1000, 2
+                    )
                     self.sensor_packets_received += 1
                     self._send_sensor_data(sensor_data)
                 except (json.JSONDecodeError, UnicodeDecodeError):

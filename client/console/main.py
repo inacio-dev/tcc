@@ -1021,18 +1021,24 @@ class ConsoleInterface:
             try:
                 if (self.sensor_display and self.ff_calculator and self.velocity_calculator
                         and self.sensor_display.process_queue()):
+                    t_queue = time.monotonic() - t0
+
                     sensor_data = self.sensor_display.get_display_data()
 
                     # Cálculos (sem Tkinter — thread-safe)
+                    t_calc = time.monotonic()
                     self.velocity_calculator.calculate_velocity(sensor_data)
                     self.ff_calculator.calculate_g_forces_and_ff(sensor_data)
+                    t_calc = time.monotonic() - t_calc
 
                     ff_intensity = sensor_data.get("steering_feedback_intensity", 0.0)
                     ff_direction = sensor_data.get("steering_feedback_direction", "neutral")
 
                     # Envia FF via evdev (thread-safe)
+                    t_ff = time.monotonic()
                     self.ff_calculator.send_ff_command(ff_intensity, ff_direction)
                     self.ff_calculator.send_dynamic_effects(sensor_data)
+                    t_ff = time.monotonic() - t_ff
 
                     # Injeta inputs do G923 para exportação
                     if self.g923_manager:
@@ -1041,10 +1047,20 @@ class ConsoleInterface:
                         sensor_data["g923_brake"] = self.g923_manager._brake
 
                     # Writeback ao sensor_display para histórico/export
+                    t_wb = time.monotonic()
                     with self.sensor_display.data_lock:
                         for _k in _calculated:
                             if _k in sensor_data:
                                 self.sensor_display.display_data[_k] = sensor_data[_k]
+                    t_wb = time.monotonic() - t_wb
+
+                    # Injeta timings do client no sensor_data para salvar no pickle
+                    t_total_client = time.monotonic() - t0
+                    sensor_data["client_timing_queue_ms"] = round(t_queue * 1000, 2)
+                    sensor_data["client_timing_calc_ms"] = round(t_calc * 1000, 2)
+                    sensor_data["client_timing_ff_ms"] = round(t_ff * 1000, 2)
+                    sensor_data["client_timing_writeback_ms"] = round(t_wb * 1000, 2)
+                    sensor_data["client_timing_total_ms"] = round(t_total_client * 1000, 2)
 
                     # Disponibiliza snapshot para a GUI thread
                     with self._sensor_data_lock:
@@ -1060,6 +1076,8 @@ class ConsoleInterface:
     def process_queues(self):
         """Processa filas e atualiza GUI a 10Hz"""
         try:
+            t0_gui = time.monotonic()
+
             # Processar logs
             while self.log_queue and not self.log_queue.empty():
                 level, message = self.log_queue.get_nowait()
@@ -1071,10 +1089,16 @@ class ConsoleInterface:
                 self.update_connection_status(status_dict)
 
             # Atualiza GUI com último snapshot processado pela sensor thread
+            t_gui_update = time.monotonic()
             with self._sensor_data_lock:
                 sensor_data = dict(self._latest_sensor_data)
             if sensor_data:
                 self.update_sensor_data(sensor_data)
+                t_gui_update = time.monotonic() - t_gui_update
+                # Salva timing da GUI no sensor_data para histórico
+                with self.sensor_display.data_lock:
+                    self.sensor_display.display_data["client_timing_gui_ms"] = round(t_gui_update * 1000, 2)
+                    self.sensor_display.display_data["client_timing_gui_total_ms"] = round((time.monotonic() - t0_gui) * 1000, 2)
 
             # Atualizar status e sliders do G923
             if hasattr(self, "g923_manager") and self.g923_manager:
