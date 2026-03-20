@@ -6,6 +6,7 @@ Logging otimizado para performance em tempo real
 
 import sys
 import threading
+import time
 from enum import Enum
 
 
@@ -39,8 +40,9 @@ class SimpleLogger:
             symbol = symbols.get(level, "📝")
             comp_str = f"[{component}]" if component else ""
 
+            ts = time.strftime("%H:%M:%S", time.localtime())
             output = sys.stderr if level == LogLevel.ERROR else sys.stdout
-            print(f"{symbol} {comp_str} {message}", file=output, flush=True)
+            print(f"[{ts}] {symbol} {comp_str} {message}", file=output, flush=True)
 
     def error(self, message: str, component: str = ""):
         self._log(LogLevel.ERROR, message, component)

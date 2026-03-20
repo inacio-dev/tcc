@@ -167,12 +167,11 @@ def get_logger() -> F1Logger:
     """Obtém a instância global do logger"""
     global _global_logger
     if _global_logger is None:
-        # Nível padrão INFO - mostra apenas informações essenciais
-        _global_logger = F1Logger(LogLevel.INFO, enable_timestamp=False)
+        _global_logger = F1Logger(LogLevel.INFO, enable_timestamp=True)
     return _global_logger
 
 
-def init_logger(level: LogLevel = LogLevel.INFO, enable_timestamp: bool = False):
+def init_logger(level: LogLevel = LogLevel.INFO, enable_timestamp: bool = True):
     """Inicializa o logger global"""
     global _global_logger
     _global_logger = F1Logger(level, enable_timestamp)
