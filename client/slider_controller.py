@@ -7,12 +7,9 @@ Inclui sistema de calibração para eixos do G923
 
 import json
 import os
-import threading
-import time
 import tkinter as tk
 import tkinter.ttk as ttk
 from datetime import datetime
-from typing import Callable, Optional
 
 from simple_logger import debug, error, info, warn
 
@@ -20,7 +17,8 @@ from simple_logger import debug, error, info, warn
 class SliderController:
     """Gerenciador de controles analógicos (sliders) para acelerador, freio e direção"""
 
-    def __init__(self, network_client=None, log_callback=None, g923_manager=None):
+    def __init__(self, network_client=None, log_callback=None, g923_manager=None,
+                 state_callback=None):
         """
         Inicializa o controlador de sliders
 
@@ -28,10 +26,13 @@ class SliderController:
             network_client: Cliente de rede para enviar comandos
             log_callback: Função de callback para logging na interface
             g923_manager: Instância do G923Manager para calibração
+            state_callback: Callback para atualizar estado de controle compartilhado
+                           Recebe (steering, throttle, brake) como floats
         """
         self.network_client = network_client
         self.log_callback = log_callback
         self.g923_manager = g923_manager
+        self.state_callback = state_callback
 
         # Estado dos controles
         self.throttle_value = 0.0  # 0-100%
@@ -71,29 +72,9 @@ class SliderController:
 
         # Controle de envio
         self.is_active = False
-        self.send_thread = None
-        self.lock = threading.Lock()
-
-        # Configurações
-        self.send_rate = 60  # Comandos por segundo (~16.7ms)
-        self.min_change_threshold = 1.0  # Mínimo 1% de mudança para enviar
-
-        # Últimos valores enviados (para evitar spam)
-        self.last_sent_throttle = -1.0
-        self.last_sent_brake = -1.0
-        self.last_sent_steering = -999.0  # Valor impossível para forçar primeiro envio
-
-        # Estatísticas
-        self.commands_sent = 0
-        self.start_time = time.time()
 
         # Carrega calibração salva e aplica ao G923Manager
         self._load_calibration()
-
-    def set_network_client(self, network_client):
-        """Define o cliente de rede para envio de comandos"""
-        self.network_client = network_client
-        debug("Network client configurado no SliderController", "SLIDERS")
 
     def set_g923_manager(self, g923_manager):
         """Define o G923Manager para calibração"""
@@ -415,12 +396,7 @@ class SliderController:
             if self._updating_from_g923 or self._g923_connected():
                 return
 
-            if self.network_client:
-                threading.Thread(
-                    target=self._send_command_async,
-                    args=("THROTTLE", self.throttle_value),
-                    daemon=True,
-                ).start()
+            self._update_control_state()
 
         except Exception as e:
             self._log("ERROR", f"Erro ao processar mudança de acelerador: {e}")
@@ -435,12 +411,7 @@ class SliderController:
             if self._updating_from_g923 or self._g923_connected():
                 return
 
-            if self.network_client:
-                threading.Thread(
-                    target=self._send_command_async,
-                    args=("BRAKE", self.brake_value),
-                    daemon=True,
-                ).start()
+            self._update_control_state()
 
         except Exception as e:
             self._log("ERROR", f"Erro ao processar mudança de freio: {e}")
@@ -465,122 +436,35 @@ class SliderController:
             if self._updating_from_g923 or self._g923_connected():
                 return
 
-            if self.network_client:
-                threading.Thread(
-                    target=self._send_command_async,
-                    args=("STEERING", self.steering_value),
-                    daemon=True,
-                ).start()
+            self._update_control_state()
 
         except Exception as e:
             self._log("ERROR", f"Erro ao processar mudança de direção: {e}")
 
-    def _send_command_async(self, command_type: str, value: float):
-        """Envia comando em thread separada para não travar UI"""
-        try:
-            self._send_command(command_type, value)
-        except Exception as e:
-            self._log("ERROR", f"Erro no envio assíncrono: {e}")
-
-    def _send_command(self, command_type: str, value: float):
-        """Envia comando para o Raspberry Pi"""
-        try:
-            if self.network_client:
-                success = self.network_client.send_control_command(command_type, value)
-                if success:
-                    self.commands_sent += 1
-                    return True
-                else:
-                    self._log(
-                        "WARN", f"Falha ao enviar comando: {command_type}:{value}"
-                    )
-                    return False
-            else:
-                self._log("WARN", "Network client não disponível")
-                return False
-
-        except Exception as e:
-            self._log("ERROR", f"Erro ao enviar comando {command_type}: {e}")
-            return False
+    def _update_control_state(self):
+        """Atualiza estado de controle compartilhado via callback.
+        O loop 100Hz do main.py envia STATE:steering,throttle,brake ao RPi."""
+        if self.state_callback:
+            self.state_callback(
+                self.steering_value, self.throttle_value, self.brake_value
+            )
 
     def start(self):
         """Inicia o controlador de sliders"""
         if self.is_active:
             return
-
         self.is_active = True
-        self.send_thread = threading.Thread(target=self._send_loop, daemon=True)
-        self.send_thread.start()
-
         self._log("INFO", "Controlador de sliders iniciado")
 
     def stop(self):
         """Para o controlador de sliders"""
         if not self.is_active:
             return
-
         self.is_active = False
-
-        try:
-            # Envia comandos de parada
-            self._send_command("THROTTLE", 0.0)
-            self._send_command("BRAKE", 0.0)
-        except Exception:
-            pass
-
-        # Aguarda thread de envio parar
-        try:
-            if self.send_thread and self.send_thread.is_alive():
-                self.send_thread.join(timeout=1.0)
-                if self.send_thread.is_alive():
-                    self._log("WARN", "Thread de envio não finalizou no timeout")
-        except Exception as e:
-            self._log("ERROR", f"Erro ao parar thread de envio: {e}")
-
-        # Limpa referências
-        try:
-            self.network_client = None
-            self.log_callback = None
-        except Exception:
-            pass
-
-        try:
-            self._log("INFO", "Controlador de sliders parado")
-        except Exception:
-            pass
-
-    def _send_loop(self):
-        """Loop principal para envio contínuo de comandos (só sem G923)"""
-        while self.is_active:
-            try:
-                # G923 conectado → não envia, handle_g923_command cuida disso
-                if self._g923_connected():
-                    time.sleep(0.1)
-                    continue
-
-                with self.lock:
-                    # Envia throttle se mudou significativamente
-                    if (
-                        abs(self.throttle_value - self.last_sent_throttle)
-                        >= self.min_change_threshold
-                    ):
-                        if self._send_command("THROTTLE", self.throttle_value):
-                            self.last_sent_throttle = self.throttle_value
-
-                    # Envia brake se mudou significativamente
-                    if (
-                        abs(self.brake_value - self.last_sent_brake)
-                        >= self.min_change_threshold
-                    ):
-                        if self._send_command("BRAKE", self.brake_value):
-                            self.last_sent_brake = self.brake_value
-
-                # Aguarda próximo ciclo
-                time.sleep(1.0 / self.send_rate)
-
-            except Exception as e:
-                self._log("ERROR", f"Erro no loop de envio: {e}")
-                time.sleep(0.1)
+        # Zera estado ao parar
+        if self.state_callback:
+            self.state_callback(0, 0, 0)
+        self._log("INFO", "Controlador de sliders parado")
 
     # ===== G923 CALIBRATION METHODS =====
 

@@ -1426,7 +1426,10 @@ class ConsoleInterface:
         """Define o cliente de rede para envio de comandos"""
         self.network_client = network_client
         self.keyboard_controller.set_network_client(network_client)
-        self.slider_controller.set_network_client(network_client)
+
+    def set_slider_state_callback(self, callback):
+        """Define callback para sliders atualizarem o estado de controle compartilhado"""
+        self.slider_controller.state_callback = callback
 
     def stop(self):
         """Para a interface"""

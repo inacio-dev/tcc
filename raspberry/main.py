@@ -744,6 +744,11 @@ class F1CarMultiThreadSystem:
                         steering = float(parts[0])
                         throttle = float(parts[1])
                         brake = float(parts[2])
+                        debug(
+                            f"[CMD-RX] STATE dir={steering:.0f} "
+                            f"acel={throttle:.0f} freio={brake:.0f}",
+                            "CMD", rate_limit=1.0,
+                        )
                         if self.steering_mgr:
                             self.steering_mgr.set_steering_input(steering)
                         if self.motor_mgr:
@@ -758,6 +763,8 @@ class F1CarMultiThreadSystem:
                                 f"(steering+motor+brake com I2C lock)",
                                 "DIAG",
                             )
+                    else:
+                        warn(f"[CMD-RX] STATE malformado: '{control_cmd}'", "CMD")
 
                 elif control_cmd.startswith("BRAKE_BALANCE:"):
                     balance = float(control_cmd[14:])

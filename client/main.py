@@ -112,6 +112,14 @@ class F1ClientApplication:
         self._g923_last_log_time = 0.0
         self._g923_log_interval = 1.0  # Log a cada 1 segundo no máximo
 
+    def handle_slider_state(self, steering: float, throttle: float, brake: float):
+        """Atualiza estado de controle a partir dos sliders/teclado.
+        Mesmo formato que G923 — o loop 100Hz envia STATE:s,t,b ao RPi."""
+        state = f"{steering:.0f},{throttle:.0f},{brake:.0f}"
+        with self._control_state_lock:
+            self._control_state = state
+        log_queue.put(("DEBUG", f"[SLIDER] STATE={state}"))
+
     def handle_g923_command(self, command_type: str, value: str):
         """
         Trata comandos recebidos do G923 via evdev
@@ -200,8 +208,9 @@ class F1ClientApplication:
                 status_queue=status_queue,
                 sensor_display=self.sensor_display,
             )
-            # Conecta network client com console para envio de comandos
+            # Conecta network client e state callback com console
             self.console_interface.set_network_client(self.network_client)
+            self.console_interface.set_slider_state_callback(self.handle_slider_state)
 
             # 4.5. Conecta G923 manager com console
             debug("Conectando G923 manager com interface...", "CLIENT")
@@ -261,7 +270,9 @@ class F1ClientApplication:
         log_queue.put(("INFO", "Thread de comandos TX 100Hz iniciada"))
 
     def _command_tx_loop(self):
-        """Envia o estado de controle atual ao RPi a 100Hz continuamente"""
+        """Envia o estado de controle atual ao RPi a 100Hz continuamente.
+        Tanto G923 quanto sliders/teclado atualizam _control_state,
+        e este loop envia STATE:steering,throttle,brake uniformemente."""
         interval = 1.0 / 100.0  # 100Hz
         while self.running:
             try:
