@@ -156,8 +156,11 @@ class SensorDisplay:
             "is_initialized": False,
         }
 
-        # Histórico para gráficos
+        # Histórico para gráficos (pacote mais recente por ciclo — usado pela GUI)
         self.history = defaultdict(lambda: deque(maxlen=history_size))
+
+        # Buffer raw: salva TODOS os pacotes recebidos (sem drain) para pickle
+        self.raw_buffer = defaultdict(list)
 
         # Estatísticas
         self.stats = {
@@ -491,15 +494,19 @@ class SensorDisplay:
             }
 
     def process_queue(self):
-        """Processa fila de sensores — drena e usa apenas o pacote mais recente (tempo real)"""
+        """Processa fila de sensores — drena e usa apenas o pacote mais recente (tempo real).
+        Todos os pacotes são salvos no raw_buffer para exportação completa no pickle."""
         latest = None
         drained = 0
 
-        # Drena toda a fila, mantém apenas o mais recente
+        # Drena toda a fila, salva todos no raw_buffer, mantém apenas o mais recente
         while self.sensor_queue and not self.sensor_queue.empty():
             try:
-                latest = self.sensor_queue.get_nowait()
+                packet = self.sensor_queue.get_nowait()
                 drained += 1
+                # Salva no raw_buffer (todos os pacotes, sem perda)
+                self._append_raw(packet)
+                latest = packet
             except Exception:
                 break
 
@@ -507,10 +514,24 @@ class SensorDisplay:
             self.update_connection_status()
             return False
 
-        # Processa apenas o pacote mais recente
+        # Processa apenas o pacote mais recente (GUI em tempo real)
         self.process_sensor_data(latest)
         self.update_connection_status()
         return True
+
+    def _append_raw(self, data):
+        """Append pacote ao raw_buffer (todos os pacotes, sem drain)"""
+        ts = data.get("timestamp", time.time())
+        self.raw_buffer["timestamp"].append(ts)
+        for key, value in data.items():
+            if key == "timestamp":
+                continue
+            if isinstance(value, (dict, list)):
+                continue
+            if key not in self.raw_buffer:
+                n = len(self.raw_buffer["timestamp"]) - 1
+                self.raw_buffer[key] = [None] * n
+            self.raw_buffer[key].append(value)
 
     def reset_statistics(self):
         """Reseta estatísticas do processador"""
@@ -523,8 +544,9 @@ class SensorDisplay:
                 "start_time": time.time(),
             }
 
-            # Limpa histórico
+            # Limpa histórico e raw buffer
             self.history.clear()
+            self.raw_buffer.clear()
 
     def export_history(self, filename=None):
         """

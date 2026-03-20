@@ -139,11 +139,11 @@ class AutoSaveManager:
 
             current_sensor_count = 0
             if self.console.sensor_display and hasattr(
-                self.console.sensor_display, "history"
+                self.console.sensor_display, "raw_buffer"
             ):
                 try:
                     current_sensor_count = len(
-                        self.console.sensor_display.history.get("timestamp", [])
+                        self.console.sensor_display.raw_buffer.get("timestamp", [])
                     )
                 except Exception:
                     pass
@@ -191,7 +191,7 @@ class AutoSaveManager:
                 except Exception:
                     pass
 
-            # Snapshot de sensores (cópia sob lock — rápida, ~5ms)
+            # Snapshot de sensores — usa raw_buffer (todos os pacotes, sem drain)
             sensor_snapshot = None
             if (
                 current_sensor_count >= MIN_SENSORS_FOR_SAVE
@@ -199,11 +199,10 @@ class AutoSaveManager:
             ):
                 try:
                     sd = self.console.sensor_display
-                    with sd.data_lock:
-                        if len(sd.history.get("timestamp", [])) > 0:
-                            sensor_snapshot = {
-                                k: list(v) for k, v in sd.history.items()
-                            }
+                    if len(sd.raw_buffer.get("timestamp", [])) > 0:
+                        sensor_snapshot = {
+                            k: list(v) for k, v in sd.raw_buffer.items()
+                        }
                 except Exception:
                     pass
 
