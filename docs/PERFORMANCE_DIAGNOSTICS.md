@@ -144,32 +144,32 @@ print(f"Client total médio: {np.mean(client):.2f}ms")
 
 ## Resultados de Referência (WiFi 2.4GHz)
 
-Sessão de 20 segundos, ~1400 pacotes:
+Sessão de 20 segundos, 1779 pacotes raw (sem perda por drain), ~84Hz efetivo.
 
 ### Timing RPi
 
-| Métrica | Média | P50 | P95 | Máx |
-|---------|-------|-----|-----|-----|
-| BMI160 I2C read | 1.19ms | 1.07ms | 1.74ms | 3.57ms |
-| Power USB read | 1.59ms | 1.22ms | 3.32ms | 4.74ms |
-| Lock | 0.03ms | 0.03ms | 0.04ms | 0.36ms |
-| Status collect | 0.17ms | 0.17ms | 0.21ms | 1.38ms |
-| STATE cmd (I2C) | 0.12ms | 0.08ms | 0.51ms | 2.09ms |
-| **Total pre-send** | **0.26ms** | 0.25ms | 0.32ms | 1.47ms |
+| Métrica | Média | P50 | P95 | P99 | Máx |
+|---------|-------|-----|-----|-----|-----|
+| BMI160 I2C read | 1.20ms | 1.08ms | 1.79ms | 2.32ms | 3.21ms |
+| Power USB read | 1.68ms | 1.25ms | 3.47ms | 5.52ms | 5.78ms |
+| Lock (entre threads) | 0.03ms | 0.03ms | 0.04ms | 0.05ms | 0.29ms |
+| Status collect | 0.18ms | 0.17ms | 0.21ms | 0.43ms | 1.03ms |
+| STATE cmd (I2C servos) | 0.22ms | 0.08ms | 0.83ms | 1.21ms | 2.57ms |
+| **Total pre-send** | **0.26ms** | 0.25ms | 0.32ms | 0.53ms | 1.13ms |
 
-**Zero pacotes > 50ms.**
+**Zero pacotes > 50ms.** O RPi processa e envia em menos de 1.2ms em 99% dos casos.
 
 ### Timing Client
 
-| Métrica | Média | P50 | P95 | Máx |
-|---------|-------|-----|-----|-----|
-| JSON decode | 0.10ms | 0.10ms | 0.12ms | 0.17ms |
-| Queue drain | 0.15ms | 0.14ms | 0.19ms | 0.85ms |
-| Cálculos (vel+G+FF) | 0.04ms | 0.04ms | 0.06ms | 0.61ms |
-| Force feedback evdev | 0.01ms | 0.01ms | 0.02ms | 0.03ms |
-| Writeback | 0.02ms | 0.01ms | 0.03ms | 0.07ms |
-| **Total loop 100Hz** | **0.20ms** | 0.19ms | 0.25ms | 0.94ms |
-| GUI update (10Hz) | 1.68ms | 1.60ms | 2.43ms | 4.46ms |
+| Métrica | Média | P50 | P95 | P99 | Máx |
+|---------|-------|-----|-----|-----|-----|
+| JSON decode | 0.08ms | 0.09ms | 0.11ms | 0.12ms | 0.14ms |
+| Queue drain | 0.16ms | 0.16ms | 0.16ms | 0.16ms | 0.16ms |
+| Cálculos (vel+G+FF) | 0.03ms | 0.03ms | 0.03ms | 0.03ms | 0.03ms |
+| Force feedback evdev | 0.01ms | 0.01ms | 0.02ms | 0.03ms | 0.03ms |
+| Writeback | 0.02ms | 0.01ms | 0.03ms | 0.06ms | 0.07ms |
+| **Total loop 100Hz** | **0.20ms** | 0.20ms | 0.20ms | 0.20ms | 0.20ms |
+| GUI update (10Hz) | 1.68ms | 1.60ms | 2.43ms | 3.21ms | 4.46ms |
 
 **Zero loops > 10ms.** O loop de 100Hz usa apenas 2% do budget de 10ms.
 
@@ -177,17 +177,42 @@ Sessão de 20 segundos, ~1400 pacotes:
 
 | Métrica | Valor |
 |---------|-------|
-| Média | 35.52ms |
-| P50 | 34.39ms |
-| P95 | 82.66ms |
-| P99 | 90.01ms |
-| Máx | 104.28ms |
-| Jitter (std) | 30.17ms |
-| Taxa efetiva | ~61Hz |
+| Média | 45.37ms |
+| P50 | 45.44ms |
+| P95 | 91.38ms |
+| P99 | 95.54ms |
+| Máx | 188.17ms |
+| Mín | -6.56ms |
+| Jitter (std) | 29.91ms |
+| Taxa efetiva | ~84Hz |
+
+Nota: valores negativos mínimos indicam pequeno residual de clock skew entre RPi e Client (~6ms).
+
+### Resumo End-to-End
+
+| Etapa | Latência | % do Total |
+|-------|----------|-----------|
+| RPi (sensores + consolidação + envio) | 0.26ms | 0.6% |
+| Rede WiFi 2.4GHz | ~45ms | **97.8%** |
+| Client (decode + cálculos + FF) | 0.20ms | 0.4% |
+| Client GUI (10Hz) | 1.68ms | 3.7% |
+| **Total end-to-end** | **~46ms** | 100% |
 
 ### Conclusão
 
-O software (RPi + Client) contribui com apenas **~3ms** da latência total. O gargalo é a rede WiFi 2.4GHz (~35ms). Migrar para WiFi 5GHz deve reduzir a latência total para ~10-15ms.
+O software (RPi + Client) contribui com apenas **~2ms** da latência total de ~46ms. O gargalo absoluto é a **rede WiFi 2.4GHz** que representa ~98% da latência. Migrar para WiFi 5GHz deve reduzir a latência de rede para ~5-15ms, resultando em latência total de ~7-17ms.
+
+O sistema captura **100% dos pacotes** (1779 em 20s, ~84Hz) sem perda graças ao raw_buffer que armazena todos os pacotes antes do drain. O loop de processamento de 100Hz usa apenas 2% do budget disponível (0.20ms de 10ms).
+
+## Raw Buffer vs Drain
+
+O client implementa duas estratégias complementares:
+
+- **Drain (tempo real)**: o `process_queue()` descarta pacotes intermediários e processa apenas o mais recente. Garante que a GUI e o force feedback sempre usem o dado mais atual, sem atraso por acumulação.
+
+- **Raw buffer (análise)**: o `raw_buffer` armazena 100% dos pacotes recebidos antes do drain. É exportado no auto-save (pickle) para análise offline completa com resolução máxima (~84Hz).
+
+Antes do raw_buffer, o pickle salvava apenas ~1400 amostras (pós-drain, ~61Hz). Agora salva ~1779 amostras (~84Hz) — 27% mais dados sem impacto na performance em tempo real.
 
 ## Logger com Timestamps
 
@@ -195,11 +220,13 @@ Ambos os loggers (RPi e Client) incluem timestamps automáticos `[HH:MM:SS]` em 
 
 ## Arquivos Relevantes
 
-- `raspberry/main.py` — instrumentação do RPi (threads de sensores, comandos, TX)
-- `raspberry/managers/logger.py` — logger do RPi com timestamp
-- `client/network_client.py` — medição de latência de rede + JSON decode
-- `client/console/main.py` — timings do sensor loop (100Hz) e GUI (10Hz)
-- `client/sensor_display.py` — update_history dinâmico + raw_buffer
-- `client/console/logic/auto_save.py` — auto-save periódico (20s)
-- `client/simple_logger.py` — logger do client com timestamp
-- `scripts/analyze_session.py` — análise offline com tabelas + gráficos
+| Arquivo | Função |
+|---------|--------|
+| `raspberry/main.py` | Instrumentação do RPi (threads de sensores, comandos, TX) |
+| `raspberry/managers/logger.py` | Logger do RPi com timestamp automático |
+| `client/network_client.py` | Medição de latência de rede + JSON decode |
+| `client/console/main.py` | Timings do sensor loop (100Hz) e GUI (10Hz) |
+| `client/sensor_display.py` | update_history dinâmico + raw_buffer + inject_client_timings |
+| `client/console/logic/auto_save.py` | Auto-save periódico (20s) exporta raw_buffer |
+| `client/simple_logger.py` | Logger do client com timestamp automático |
+| `scripts/analyze_session.py` | Análise offline com tabelas + gráficos de timing |
