@@ -327,9 +327,7 @@ class NetworkManager:
     def has_connected_clients(self) -> bool:
         """Verifica se há clientes conectados"""
         with self.clients_lock:
-            count = len(self.connected_clients)
-            debug(f"has_connected_clients() -> {count > 0} (count: {count})", "NET")
-            return count > 0
+            return len(self.connected_clients) > 0
 
     def set_command_callback(self, callback):
         """Define callback para processar comandos personalizados"""

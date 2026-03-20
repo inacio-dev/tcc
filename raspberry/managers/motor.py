@@ -25,7 +25,8 @@ class MotorManager:
 
     # Pinos GPIO da ponte H BTS7960 (apenas frente)
     RPWM_PIN = 18  # GPIO18 - Pin 12 - PWM motor
-    R_EN_PIN = 22  # GPIO22 - Pin 15 - Enable
+    R_EN_PIN = 22  # GPIO22 - Pin 15 - Enable frente
+    L_EN_PIN = 23  # GPIO23 - Pin 16 - Enable ré (ambos HIGH = ponte H ativa)
 
     # Configurações PWM
     PWM_FREQUENCY = 2000  # 2kHz - boa para motores DC
@@ -41,9 +42,11 @@ class MotorManager:
         self,
         rpwm_pin: int = None,
         r_en_pin: int = None,
+        l_en_pin: int = None,
     ):
         self.rpwm_pin = rpwm_pin or self.RPWM_PIN
         self.r_en_pin = r_en_pin or self.R_EN_PIN
+        self.l_en_pin = l_en_pin or self.L_EN_PIN
 
         # Lock para thread-safety (acesso concorrente por threads de comando e TX)
         self.state_lock = threading.Lock()
@@ -94,7 +97,7 @@ class MotorManager:
         Returns:
             bool: True se inicializado com sucesso
         """
-        info(f"Inicializando motor BTS7960 | PWM=GPIO{self.rpwm_pin} EN=GPIO{self.r_en_pin} | 5 marchas", "MOTOR")
+        info(f"Inicializando motor BTS7960 | PWM=GPIO{self.rpwm_pin} R_EN=GPIO{self.r_en_pin} L_EN=GPIO{self.l_en_pin} | 5 marchas", "MOTOR")
 
         try:
             # Configura GPIO
@@ -104,12 +107,14 @@ class MotorManager:
             # Configura pinos como saída
             GPIO.setup(self.rpwm_pin, GPIO.OUT)
             GPIO.setup(self.r_en_pin, GPIO.OUT)
+            GPIO.setup(self.l_en_pin, GPIO.OUT)
 
             # Cria objeto PWM
             self.rpwm = GPIO.PWM(self.rpwm_pin, self.PWM_FREQUENCY)
 
-            # Habilita ponte H
+            # Habilita ponte H (AMBOS enables em HIGH — obrigatório no BTS7960)
             GPIO.output(self.r_en_pin, GPIO.HIGH)
+            GPIO.output(self.l_en_pin, GPIO.HIGH)
 
             # Inicia PWM com duty cycle zero
             self.rpwm.start(0)
@@ -587,11 +592,12 @@ class MotorManager:
             if self.rpwm:
                 self.rpwm.stop()
 
-            # Desabilita ponte H
+            # Desabilita ponte H (ambos enables)
             GPIO.output(self.r_en_pin, GPIO.LOW)
+            GPIO.output(self.l_en_pin, GPIO.LOW)
 
             # Cleanup GPIO
-            GPIO.cleanup([self.rpwm_pin, self.r_en_pin])
+            GPIO.cleanup([self.rpwm_pin, self.r_en_pin, self.l_en_pin])
 
             self.is_initialized = False
             info("Sistema de motor finalizado", "MOTOR")

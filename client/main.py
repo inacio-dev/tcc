@@ -115,10 +115,8 @@ class F1ClientApplication:
     def handle_slider_state(self, steering: float, throttle: float, brake: float):
         """Atualiza estado de controle a partir dos sliders/teclado.
         Mesmo formato que G923 — o loop 100Hz envia STATE:s,t,b ao RPi."""
-        state = f"{steering:.0f},{throttle:.0f},{brake:.0f}"
         with self._control_state_lock:
-            self._control_state = state
-        log_queue.put(("DEBUG", f"[SLIDER] STATE={state}"))
+            self._control_state = f"{steering:.0f},{throttle:.0f},{brake:.0f}"
 
     def handle_g923_command(self, command_type: str, value: str):
         """
