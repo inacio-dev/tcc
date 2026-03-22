@@ -17,6 +17,16 @@ from simple_logger import debug, error, info, warn
 class SliderController:
     """Gerenciador de controles analógicos (sliders) para acelerador, freio e direção"""
 
+    # UI Colors
+    _BG_COLOR = "#3c3c3c"
+    _BG_DARK = "#2d2d2d"
+    _BG_TROUGH = "#1a1a1a"
+    _FG_LABEL = "#888888"
+    _FG_TEXT = "#cccccc"
+    _FG_THROTTLE = "#00d477"
+    _FG_BRAKE = "#ff4444"
+    _FG_STEERING = "#4488ff"
+
     def __init__(self, network_client=None, log_callback=None, g923_manager=None,
                  state_callback=None):
         """
@@ -131,19 +141,19 @@ class SliderController:
         )
 
         # Frame interno para layout
-        inner_frame = tk.Frame(control_frame, bg="#3c3c3c")
+        inner_frame = tk.Frame(control_frame, bg=self._BG_COLOR)
         inner_frame.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
 
         # === THROTTLE SLIDER ===
-        throttle_frame = tk.Frame(inner_frame, bg="#3c3c3c")
+        throttle_frame = tk.Frame(inner_frame, bg=self._BG_COLOR)
         throttle_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=10)
 
         # Label do acelerador
         self.throttle_label = tk.Label(
             throttle_frame,
             text="🚀 Acelerador: 0%",
-            bg="#3c3c3c",
-            fg="#00d477",
+            bg=self._BG_COLOR,
+            fg=self._FG_THROTTLE,
             font=("Arial", 12, "bold"),
         )
         self.throttle_label.pack(pady=(0, 10))
@@ -156,36 +166,36 @@ class SliderController:
             orient=tk.VERTICAL,
             length=200,
             width=30,
-            bg="#2d2d2d",
+            bg=self._BG_DARK,
             fg="white",
-            activebackground="#00d477",
+            activebackground=self._FG_THROTTLE,
             highlightthickness=0,
-            troughcolor="#1a1a1a",
+            troughcolor=self._BG_TROUGH,
             sliderrelief=tk.FLAT,
             command=self._on_throttle_change,
         )
         self.throttle_slider.pack()
 
         # Marcações do throttle
-        throttle_marks = tk.Frame(throttle_frame, bg="#3c3c3c")
+        throttle_marks = tk.Frame(throttle_frame, bg=self._BG_COLOR)
         throttle_marks.pack(pady=(5, 0))
 
         for i, mark in enumerate(["100%", "75%", "50%", "25%", "0%"]):
             label = tk.Label(
-                throttle_marks, text=mark, bg="#3c3c3c", fg="#888888", font=("Arial", 8)
+                throttle_marks, text=mark, bg=self._BG_COLOR, fg=self._FG_LABEL, font=("Arial", 8)
             )
             label.pack()
 
         # === BRAKE SLIDER ===
-        brake_frame = tk.Frame(inner_frame, bg="#3c3c3c")
+        brake_frame = tk.Frame(inner_frame, bg=self._BG_COLOR)
         brake_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=10)
 
         # Label do freio
         self.brake_label = tk.Label(
             brake_frame,
             text="🛑 Freio: 0%",
-            bg="#3c3c3c",
-            fg="#ff4444",
+            bg=self._BG_COLOR,
+            fg=self._FG_BRAKE,
             font=("Arial", 12, "bold"),
         )
         self.brake_label.pack(pady=(0, 10))
@@ -198,36 +208,36 @@ class SliderController:
             orient=tk.VERTICAL,
             length=200,
             width=30,
-            bg="#2d2d2d",
+            bg=self._BG_DARK,
             fg="white",
-            activebackground="#ff4444",
+            activebackground=self._FG_BRAKE,
             highlightthickness=0,
-            troughcolor="#1a1a1a",
+            troughcolor=self._BG_TROUGH,
             sliderrelief=tk.FLAT,
             command=self._on_brake_change,
         )
         self.brake_slider.pack()
 
         # Marcações do brake
-        brake_marks = tk.Frame(brake_frame, bg="#3c3c3c")
+        brake_marks = tk.Frame(brake_frame, bg=self._BG_COLOR)
         brake_marks.pack(pady=(5, 0))
 
         for i, mark in enumerate(["100%", "75%", "50%", "25%", "0%"]):
             label = tk.Label(
-                brake_marks, text=mark, bg="#3c3c3c", fg="#888888", font=("Arial", 8)
+                brake_marks, text=mark, bg=self._BG_COLOR, fg=self._FG_LABEL, font=("Arial", 8)
             )
             label.pack()
 
         # === STEERING SLIDER ===
-        steering_container = tk.Frame(control_frame, bg="#3c3c3c")
+        steering_container = tk.Frame(control_frame, bg=self._BG_COLOR)
         steering_container.pack(pady=(20, 10), fill=tk.X, padx=10)
 
         # Label do steering
         self.steering_label = tk.Label(
             steering_container,
             text="🏎️ Direção: 0° (Centro)",
-            bg="#3c3c3c",
-            fg="#4488ff",
+            bg=self._BG_COLOR,
+            fg=self._FG_STEERING,
             font=("Arial", 12, "bold"),
         )
         self.steering_label.pack(pady=(0, 10))
@@ -240,11 +250,11 @@ class SliderController:
             orient=tk.HORIZONTAL,
             length=300,
             width=30,
-            bg="#2d2d2d",
+            bg=self._BG_DARK,
             fg="white",
-            activebackground="#4488ff",
+            activebackground=self._FG_STEERING,
             highlightthickness=0,
-            troughcolor="#1a1a1a",
+            troughcolor=self._BG_TROUGH,
             sliderrelief=tk.FLAT,
             command=self._on_steering_change,
         )
@@ -252,15 +262,15 @@ class SliderController:
         self.steering_slider.pack()
 
         # Marcações do steering
-        steering_marks = tk.Frame(steering_container, bg="#3c3c3c")
+        steering_marks = tk.Frame(steering_container, bg=self._BG_COLOR)
         steering_marks.pack(pady=(5, 0))
 
-        marks_frame = tk.Frame(steering_marks, bg="#3c3c3c")
+        marks_frame = tk.Frame(steering_marks, bg=self._BG_COLOR)
         marks_frame.pack()
 
         for mark in ["⬅️ ESQ", "⬅️", "🎯 CENTRO", "➡️", "➡️ DIR"]:
             label = tk.Label(
-                marks_frame, text=mark, bg="#3c3c3c", fg="#888888", font=("Arial", 8)
+                marks_frame, text=mark, bg=self._BG_COLOR, fg=self._FG_LABEL, font=("Arial", 8)
             )
             label.pack(side=tk.LEFT, padx=15)
 
@@ -268,8 +278,8 @@ class SliderController:
         instructions = tk.Label(
             control_frame,
             text="Arraste os sliders para controlar acelerador, freio e direção de forma suave",
-            bg="#3c3c3c",
-            fg="#cccccc",
+            bg=self._BG_COLOR,
+            fg=self._FG_TEXT,
             font=("Arial", 9),
         )
         instructions.pack(pady=5)
@@ -281,11 +291,11 @@ class SliderController:
         calibration_frame.pack(fill=tk.X, padx=10, pady=10)
 
         # Frame interno para layout
-        cal_inner = tk.Frame(calibration_frame, bg="#3c3c3c")
+        cal_inner = tk.Frame(calibration_frame, bg=self._BG_COLOR)
         cal_inner.pack(padx=10, pady=10, fill=tk.X)
 
         # Botões de calibração para cada componente
-        cal_buttons_frame = tk.Frame(cal_inner, bg="#3c3c3c")
+        cal_buttons_frame = tk.Frame(cal_inner, bg=self._BG_COLOR)
         cal_buttons_frame.pack(fill=tk.X, pady=5)
 
         self.cal_throttle_btn = tk.Button(
@@ -328,8 +338,8 @@ class SliderController:
         self.cal_status_label = tk.Label(
             cal_inner,
             text="Nenhuma calibração em andamento",
-            bg="#3c3c3c",
-            fg="#cccccc",
+            bg=self._BG_COLOR,
+            fg=self._FG_TEXT,
             font=("Arial", 9),
             wraplength=600,
             justify=tk.LEFT,
@@ -349,7 +359,7 @@ class SliderController:
         self.cal_raw_value_label.pack(pady=5)
 
         # Botões de ação de calibração
-        cal_action_frame = tk.Frame(cal_inner, bg="#3c3c3c")
+        cal_action_frame = tk.Frame(cal_inner, bg=self._BG_COLOR)
         cal_action_frame.pack(pady=5)
 
         self.cal_save_btn = tk.Button(
@@ -491,7 +501,7 @@ class SliderController:
             if self.cal_status_label:
                 self.cal_status_label.config(
                     text="G923 não conectado! Conecte o volante primeiro.",
-                    fg="#ff4444",
+                    fg=self._FG_BRAKE,
                 )
             return
 
@@ -591,7 +601,7 @@ class SliderController:
 
         # Atualiza UI
         self.cal_status_label.config(
-            text="Nenhuma calibração em andamento", fg="#cccccc"
+            text="Nenhuma calibração em andamento", fg=self._FG_TEXT
         )
         self.cal_raw_value_label.config(text="Valor bruto: --")
 

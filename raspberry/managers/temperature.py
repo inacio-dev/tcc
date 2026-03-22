@@ -65,6 +65,7 @@ CONFIGURAÇÃO NECESSÁRIA:
 
 import glob
 import os
+import subprocess
 import threading
 import time
 from dataclasses import dataclass
@@ -224,8 +225,8 @@ class TemperatureManager:
         """
         try:
             # Load required kernel modules
-            os.system("sudo modprobe w1-gpio")
-            os.system("sudo modprobe w1-therm")
+            subprocess.run(["sudo", "modprobe", "w1-gpio"], check=False, capture_output=True)
+            subprocess.run(["sudo", "modprobe", "w1-therm"], check=False, capture_output=True)
             time.sleep(2.0)  # Wait for modules to load
 
             # Check if w1 devices directory exists

@@ -35,6 +35,11 @@ from PIL import Image, ImageTk
 class VideoDisplay:
     """Gerencia a exibição de vídeo do veículo F1 (MJPEG + Tkinter)"""
 
+    # Overlay text positions
+    _OVERLAY_X = 10
+    _OVERLAY_Y_START = 25
+    _OVERLAY_Y_STEP = 25
+
     def __init__(self, video_queue=None, log_queue=None):
         """
         Inicializa o display de vídeo
@@ -282,16 +287,19 @@ class VideoDisplay:
             color = (0, 255, 0)
             thickness = 1
 
-            cv2.putText(frame, fps_text, (10, 25), font, font_scale, color, thickness)
+            y = self._OVERLAY_Y_START
+            cv2.putText(frame, fps_text, (self._OVERLAY_X, y), font, font_scale, color, thickness)
+            y += self._OVERLAY_Y_STEP
             cv2.putText(
-                frame, resolution_text, (10, 50), font, font_scale, color, thickness
+                frame, resolution_text, (self._OVERLAY_X, y), font, font_scale, color, thickness
             )
 
             if filter_text:
+                y += self._OVERLAY_Y_STEP
                 cv2.putText(
                     frame,
                     filter_text,
-                    (10, 75),
+                    (self._OVERLAY_X, y),
                     font,
                     font_scale,
                     (255, 255, 0),
