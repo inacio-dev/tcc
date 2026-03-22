@@ -5,11 +5,11 @@ Recebe vídeo + dados de sensores do Raspberry Pi e exibe interface completa
 
 SISTEMA COMPLETO:
 ================
-├── main_client.py        - Aplicação principal (este arquivo)
-├── network_client.py     - Gerencia recepção UDP
-├── video_display.py      - Gerencia janela de vídeo
-├── sensor_display.py     - Gerencia dados dos sensores
-└── console_interface.py  - Interface do console
+├── main.py                    - Aplicação principal (este arquivo)
+├── managers/network.py        - Gerencia recepção UDP
+├── managers/video.py          - Gerencia janela de vídeo
+├── managers/sensor.py         - Gerencia dados dos sensores
+└── console/                   - Interface do console
 
 CONFIGURAÇÃO:
 =============
@@ -29,25 +29,30 @@ O cliente está preparado para receber TODOS os dados do BMI160:
 """
 
 import argparse
+import gc
+import os
 import queue
 import socket
 import sys
 import threading
 import time
+import tkinter as tk
+import traceback
 
 # Importa nossos módulos
 try:
     from console import ConsoleInterface
-    from g923_manager import G923Manager
-    from network_client import NetworkClient
-    from sensor_display import SensorDisplay
+    from managers.g923 import G923Manager
+    from managers.network import NetworkClient
+    from managers.sensor import SensorDisplay
     from simple_logger import debug, error, info, warn
-    from video_display import VideoDisplay
+    from managers.video import VideoDisplay
+    from managers.constants import VIDEO_PORT, SENSOR_PORT, COMMAND_PORT
 except ImportError as e:
     print(f"❌ ERRO: Não foi possível importar módulos necessários: {e}")
     print("\nVerifique se os arquivos estão na mesma pasta:")
-    print("  - network_client.py, video_display.py, sensor_display.py")
-    print("  - console/, g923_manager.py, simple_logger.py, main.py")
+    print("  - managers/ (g923.py, network.py, video.py, sensor.py, ...)")
+    print("  - console/, simple_logger.py, main.py")
     sys.exit(1)
 
 # Filas para comunicação entre threads
@@ -57,7 +62,7 @@ sensor_queue = queue.Queue()
 video_queue = queue.Queue()
 
 # Configurações padrão
-DEFAULT_PORT = 9999
+DEFAULT_PORT = VIDEO_PORT
 DEFAULT_BUFFER_SIZE = 131072
 
 
@@ -168,8 +173,8 @@ class F1ClientApplication:
             debug("Inicializando cliente de rede...", "CLIENT")
             self.network_client = NetworkClient(
                 video_port=self.port,
-                sensor_port=9997,
-                command_port=9998,
+                sensor_port=SENSOR_PORT,
+                command_port=COMMAND_PORT,
                 buffer_size=self.buffer_size,
                 rpi_ip=self.rpi_ip,
                 client_ip=self.client_ip,
@@ -339,8 +344,6 @@ class F1ClientApplication:
             return True
         except Exception as e:
             error(f"Erro durante execução: {e}", "CLIENT")
-            import traceback
-
             traceback.print_exc()
             return False
         finally:
@@ -438,8 +441,6 @@ class F1ClientApplication:
 
         # Força finalização de threads daemon restantes
         try:
-            import threading
-
             active_threads = threading.active_count()
             if active_threads > 1:  # Main thread + outras
                 debug(f"Ainda há {active_threads} threads ativas", "CLIENT")
@@ -451,9 +452,6 @@ class F1ClientApplication:
                             f"Thread ativa: {thread.name} (daemon: {thread.daemon})",
                             "CLIENT",
                         )
-
-                # Aguarda um pouco mais para threads daemon finalizarem
-                import time
 
                 # Aguarda múltiplas vezes para threads daemon temporárias finalizarem
                 for i in range(5):  # Máximo 2.5 segundos
@@ -490,9 +488,6 @@ class F1ClientApplication:
             self.g923_manager = None
 
             # Força garbage collection múltiplas vezes
-            import gc
-            import tkinter as tk
-
             # Força limpeza de objetos Tkinter órfãos
             try:
                 # Destrói qualquer instância de Tkinter restante
@@ -528,9 +523,6 @@ class F1ClientApplication:
 
         # Última tentativa: força o Python a esperar todas as threads
         try:
-            import threading
-            import time
-
             # Aguarda até máximo 5 segundos para todas as threads não-daemon finalizarem
             for _ in range(50):  # 50 x 100ms = 5 segundos máximo
                 non_daemon_threads = [
@@ -628,7 +620,7 @@ def main():
         warn(f"Não foi possível resolver {rpi_hostname}, usando hostname direto")
         rpi_ip = rpi_hostname
 
-    info(f"Vídeo: {rpi_ip}:9999 | Sensores: {rpi_ip}:9997 | Comandos: {client_ip}:9998")
+    info(f"Vídeo: {rpi_ip}:{VIDEO_PORT} | Sensores: {rpi_ip}:{SENSOR_PORT} | Comandos: {client_ip}:{COMMAND_PORT}")
 
     # Criar e executar aplicação com IPs fixos
     app = F1ClientApplication(
@@ -647,8 +639,6 @@ def main():
         warn("Interrompido pelo usuário")
     except Exception as e:
         error(f"Erro crítico: {e}")
-        import traceback
-
         traceback.print_exc()
         sys.exit(1)
     finally:
@@ -661,8 +651,6 @@ def main():
 
         # Força saída limpa para evitar erro "Tcl_AsyncDelete" do Tkinter
         # Este erro ocorre quando objetos Tkinter são garbage-collected em threads secundárias
-        import os
-
         os._exit(0)
 
 

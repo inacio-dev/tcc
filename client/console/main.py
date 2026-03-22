@@ -23,15 +23,16 @@ DADOS EXIBIDOS:
 - Dados derivados do BMI160
 """
 
+import gc
 import threading
 import time
 import tkinter as tk
 from datetime import datetime
 from tkinter import ttk
 
-from keyboard_controller import KeyboardController
+from managers.keyboard import KeyboardController
 from simple_logger import debug, error
-from slider_controller import SliderController
+from managers.slider import SliderController
 
 from client_system_monitor import ClientSystemMonitor
 
@@ -1063,6 +1064,21 @@ class ConsoleInterface:
                         "client_timing_writeback_ms": round(t_wb * 1000, 2),
                         "client_timing_total_ms": round(t_total_client * 1000, 2),
                     }
+                    # Timing de vídeo (decode MJPEG + filtros PDI)
+                    if self.video_display:
+                        client_timings["client_timing_video_decode_ms"] = round(
+                            self.video_display._last_decode_ms, 2
+                        )
+                        client_timings["client_timing_video_filter_ms"] = round(
+                            self.video_display._last_filter_ms, 2
+                        )
+                        active = self.video_display._last_active_filters
+                        if active:
+                            client_timings["client_video_filters_active"] = ",".join(active)
+                        # Timing individual de cada filtro ativo
+                        if self.video_display.image_filter:
+                            for fk, fms in self.video_display.image_filter.last_filter_timings.items():
+                                client_timings[f"client_timing_filter_{fk}_ms"] = fms
                     self.sensor_display.inject_client_timings(client_timings)
                     with self.sensor_display.data_lock:
                         self.sensor_display.display_data.update(client_timings)
@@ -1283,8 +1299,6 @@ class ConsoleInterface:
 
             # Força garbage collection
             try:
-                import gc
-
                 gc.collect()
             except Exception:
                 pass

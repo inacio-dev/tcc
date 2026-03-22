@@ -24,6 +24,8 @@ from typing import Optional
 
 from simple_logger import debug, error, info, warn
 
+from .constants import MAX_VIDEO_QUEUE_FRAMES
+
 import cv2
 import numpy as np
 from PIL import Image, ImageTk
@@ -58,6 +60,11 @@ class VideoDisplay:
 
         # Lock para thread safety
         self.frame_lock = threading.Lock()
+
+        # Timing de vídeo (filtros PDI + decode)
+        self._last_filter_ms = 0.0
+        self._last_active_filters = []
+        self._last_decode_ms = 0.0
 
         # Integração com Tkinter
         self.tkinter_label = None
@@ -305,7 +312,13 @@ class VideoDisplay:
             with self.frame_lock:
                 # Aplica filtro PDI se configurado
                 if self.image_filter:
+                    t_filter = time.time()
                     frame = self.image_filter.apply(frame)
+                    self._last_filter_ms = (time.time() - t_filter) * 1000
+                    self._last_active_filters = list(self.image_filter.active_filters)
+                else:
+                    self._last_filter_ms = 0.0
+                    self._last_active_filters = []
 
                 frame_with_overlay = self.add_overlay_info(frame.copy())
 
@@ -345,8 +358,10 @@ class VideoDisplay:
 
         try:
             # Decodifica JPEG
+            t_dec = time.time()
             nparr = np.frombuffer(frame_data, dtype=np.uint8)
             frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            self._last_decode_ms = (time.time() - t_dec) * 1000
             return frame
         except Exception:
             return None
@@ -356,7 +371,7 @@ class VideoDisplay:
         try:
             latest_frame = None
             frames_decoded = 0
-            max_frames = 10  # Limita para não travar se fila acumular muito
+            max_frames = MAX_VIDEO_QUEUE_FRAMES  # Limita para não travar se fila acumular muito
 
             while not self.video_queue.empty() and frames_decoded < max_frames:
                 frame_data = self.video_queue.get_nowait()

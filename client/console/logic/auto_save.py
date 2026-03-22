@@ -8,6 +8,7 @@ Arquivos salvos em exports/auto/:
 """
 
 import os
+import pickle
 import threading
 import tkinter as tk
 from datetime import datetime
@@ -16,6 +17,7 @@ from simple_logger import error, info
 
 from ..utils.constants import (
     AUTO_EXPORT_DIR,
+    AUTO_SAVE_INTERVAL,
     MAX_LOG_LINES,
     MIN_LOGS_FOR_SAVE,
     MIN_SENSORS_FOR_SAVE,
@@ -89,8 +91,6 @@ class AutoSaveManager:
                             f.write(log_snapshot)
 
                     if sensor_snapshot is not None:
-                        import pickle
-
                         sensor_filename = os.path.join(
                             AUTO_EXPORT_DIR, f"sensors_{timestamp}.pkl"
                         )
@@ -102,8 +102,6 @@ class AutoSaveManager:
                             )
 
                     if telemetry_snapshot is not None:
-                        import pickle
-
                         telemetry_filename = os.path.join(
                             AUTO_EXPORT_DIR, f"telemetry_{timestamp}.pkl"
                         )
@@ -233,8 +231,6 @@ class AutoSaveManager:
                         saved_items.append(f"{current_log_count} logs")
 
                     if sensor_snapshot is not None:
-                        import pickle
-
                         sensor_filename = os.path.join(
                             AUTO_EXPORT_DIR, f"sensors_{timestamp}.pkl"
                         )
@@ -247,8 +243,6 @@ class AutoSaveManager:
                         saved_items.append(f"{current_sensor_count} sensores")
 
                     if telemetry_snapshot is not None:
-                        import pickle
-
                         telemetry_filename = os.path.join(
                             AUTO_EXPORT_DIR, f"telemetry_{timestamp}.pkl"
                         )
@@ -304,8 +298,6 @@ class AutoSaveManager:
         """Reagenda próximo auto-save"""
         if self.console.is_running and self.console.root:
             try:
-                from ..utils.constants import AUTO_SAVE_INTERVAL
-
                 self.console.root.after(AUTO_SAVE_INTERVAL, self.periodic_auto_save)
             except Exception:
                 pass

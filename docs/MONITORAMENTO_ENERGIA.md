@@ -29,7 +29,7 @@ Documento sobre o sistema de monitoramento de corrente e tensão do veículo.
 │         │   (20k/10k)                                                   │
 │         │                                                               │
 │         └── XL4015 (Buck 5V) ──► INA219 ──► USB-C ──► Raspberry Pi 4  │
-│                                  (I2C 0x41)                             │
+│                                  (I2C 0x40)                             │
 │                                                                         │
 │  Arduino Pro Micro (ATmega32U4)                                         │
 │         │                                                               │
@@ -52,7 +52,7 @@ diretamente ao Raspberry Pi para ler as saídas analógicas dos sensores ACS758:
 ACS758 (analógico) ──► ADS1115 (I2C, 0x48) ──► Raspberry Pi 4
                          │
                     Barramento I2C compartilhado com:
-                    BMI160 (0x68), PCA9685 (0x40), INA219 (0x41)
+                    BMI160 (0x68), PCA9685 (0x41), INA219 (0x40)
 ```
 
 ### Problemas Identificados
@@ -94,8 +94,8 @@ O ADS1115 compartilhava o barramento I2C (GPIO2/3) do Raspberry Pi com outros 3 
 | Dispositivo | Endereço | Taxa de Acesso |
 |-------------|----------|----------------|
 | BMI160 IMU | 0x68 | 100Hz |
-| PCA9685 PWM | 0x40 | Sob demanda |
-| INA219 | 0x41 | 10Hz |
+| PCA9685 PWM | 0x41 | Sob demanda |
+| INA219 | 0x40 | 10Hz |
 | ADS1115 | 0x48 | 10Hz (3 canais) |
 
 Cada leitura do ADS1115 envolve: escrever configuração (selecionar canal + iniciar
@@ -287,12 +287,11 @@ XL4015 OUT+ ─── VIN+ ───[Shunt 0.1 Ohm]─── VIN- ─── USB-
 ### Endereco I2C
 
 ```
-Padrao: 0x40 (conflita com PCA9685)
-Com A0=VCC: 0x41 (usado no projeto)
+Padrao: 0x40 (usado no projeto)
 ```
 
-O jumper A0 do INA219 e soldado para VCC, deslocando o endereco para 0x41 e evitando
-conflito com o PCA9685 (0x40) no mesmo barramento I2C.
+O INA219 usa o endereco padrao 0x40. O PCA9685 tem o jumper A0 soldado para VCC,
+deslocando seu endereco para 0x41, evitando conflito no mesmo barramento I2C.
 
 ---
 
@@ -511,7 +510,7 @@ Uso agressivo (media 20A):
 - `pro_micro/pro_micro.ino` - Firmware de aquisicao (ADC + calibracao + serial)
 
 ### Raspberry Pi
-- `raspberry/power_monitor_manager.py` - Recebe dados serial + INA219
+- `raspberry/managers/power_monitor.py` - Recebe dados serial + INA219
 - `raspberry/MODULOS.md` - Especificacoes dos sensores
 
 ### Cliente

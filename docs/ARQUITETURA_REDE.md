@@ -22,7 +22,7 @@ Documento sobre as escolhas de comunicação UDP entre Raspberry Pi e Cliente.
 │  Camera Thread ──► Vídeo MJPEG ─────────────────────┐               │
 │  Power Thread ───► Energia     ──┐                  │               │
 │  Temp Thread ────► Temperatura ──┼──► UDP 9999 ─────┼──► Recepção   │
-│                                  │    (~30Hz)       │    Principal  │
+│                                  │    (~60Hz)       │    Principal  │
 │                                  │                  │               │
 │  BMI160 Thread ──► Accel/Gyro ──────► UDP 9997 ─────┼──► Thread     │
 │                                       (100Hz)       │    Sensores   │
@@ -42,7 +42,7 @@ Documento sobre as escolhas de comunicação UDP entre Raspberry Pi e Cliente.
 | Característica | Valor |
 |----------------|-------|
 | Direção | RPi → Cliente |
-| Taxa | ~30Hz (sync com câmera) |
+| Taxa | ~60Hz (sync com câmera) |
 | Tamanho pacote | 10-50 KB (frame MJPEG) |
 | Conteúdo | Frame + energia + temperatura |
 
@@ -308,7 +308,7 @@ if time.time() - self.last_pong_time > 30:
 
 ### Análise por Caso de Uso
 
-**Para Vídeo (30Hz, pacotes grandes):**
+**Para Vídeo (60Hz, pacotes grandes):**
 
 | Protocolo | Veredicto | Motivo |
 |-----------|-----------|--------|
@@ -428,7 +428,7 @@ Priorizar porta 9998 (comandos) sobre 9999 (vídeo) nas configurações do rotea
 ## Arquivos Relacionados
 
 ### Raspberry Pi
-- `raspberry/network_manager.py` - Transmissão UDP
+- `raspberry/managers/network.py` - Transmissão UDP
 - `raspberry/main.py` - Orquestração de threads
 
 ### Cliente

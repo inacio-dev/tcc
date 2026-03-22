@@ -21,7 +21,7 @@ Documento sobre as decisões técnicas da interface Tkinter e sistema de auto-sa
 │  ├─────────────────────────┤  ├─────────────────────────┤          │
 │  │ ┌─────────────────────┐ │  │ ┌─────────────────────┐ │          │
 │  │ │  Connection Status  │ │  │ │    Video Frame      │ │          │
-│  │ │  (UDP, FPS, pkts)   │ │  │ │  (H.264 + filtros)  │ │          │
+│  │ │  (UDP, FPS, pkts)   │ │  │ │  (MJPEG + filtros)  │ │          │
 │  │ └─────────────────────┘ │  │ └─────────────────────┘ │          │
 │  │ ┌─────────────────────┐ │  │ ┌─────────────────────┐ │          │
 │  │ │  Instrument Panel   │ │  │ │  Slider Controls    │ │          │
@@ -430,7 +430,7 @@ def shutdown(self):
 - `client/console/main.py` - Interface principal
 - `client/console/frames/*.py` - Widgets modulares
 - `client/console/logic/auto_save.py` - Sistema auto-save
-- `client/console/utils/simple_logger.py` - Logger para UI
+- `client/simple_logger.py` - Logger para UI
 
 ### Exports
 - `exports/auto/` - Diretório de auto-save

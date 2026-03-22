@@ -63,8 +63,8 @@ class SliderController:
         self.cal_save_btn = None
         self.cal_cancel_btn = None
 
-        # Arquivo de calibração
-        client_dir = os.path.dirname(os.path.abspath(__file__))
+        # Arquivo de calibração (em client/, não em managers/)
+        client_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self._cal_config_file = os.path.join(client_dir, "g923_calibration.json")
 
         # Flag para evitar envio duplo quando G923 atualiza sliders

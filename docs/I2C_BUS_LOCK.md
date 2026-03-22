@@ -164,7 +164,7 @@ Quando o volante está parado, zero escritas I2C. Quando está em movimento ativ
 ## Arquivos modificados
 
 - `raspberry/main.py`: Cria `PriorityI2CLock` e passa para todos os managers
-- `raspberry/bmi160_manager.py`: `acquire(priority=1)` em `_write_register`, `_read_register`, `_read_sensor_registers`
-- `raspberry/steering_manager.py`: `acquire(priority=0)` em `set_steering_input` e `initialize`
-- `raspberry/brake_manager.py`: `acquire(priority=0)` em `_apply_brake_to_servos` e `initialize`
-- `raspberry/power_monitor_manager.py`: `acquire(priority=2)` em `_write_ina219_register` e `_read_ina219_register`
+- `raspberry/managers/bmi160.py`: `acquire(priority=1)` em `_write_register`, `_read_register`, `_read_sensor_registers`
+- `raspberry/managers/steering.py`: `acquire(priority=0)` em `set_steering_input` e `initialize`
+- `raspberry/managers/brake.py`: `acquire(priority=0)` em `_apply_brake_to_servos` e `initialize`
+- `raspberry/managers/power_monitor.py`: `acquire(priority=2)` em `_write_ina219_register` e `_read_ina219_register`

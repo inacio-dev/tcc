@@ -35,6 +35,18 @@ from collections import defaultdict
 
 from simple_logger import debug, error, info, warn
 
+from .constants import (
+    COMMAND_PORT,
+    CONNECTION_TIMEOUT,
+    MAX_FRAME_SIZE,
+    MAX_SENSOR_SIZE,
+    SENSOR_PORT,
+    SENSOR_SOCKET_RCVBUF,
+    UDP_SOCKET_TIMEOUT,
+    VIDEO_PORT,
+    VIDEO_SOCKET_RCVBUF,
+)
+
 
 class NetworkClient:
     """Cliente de rede para comunicação UDP bidirecional"""
@@ -46,9 +58,9 @@ class NetworkClient:
 
     def __init__(
         self,
-        video_port=9999,
-        sensor_port=9997,
-        command_port=9998,
+        video_port=VIDEO_PORT,
+        sensor_port=SENSOR_PORT,
+        command_port=COMMAND_PORT,
         buffer_size=131072,
         host="0.0.0.0",
         rpi_ip=None,
@@ -99,7 +111,7 @@ class NetworkClient:
         self.raspberry_pi_ip = None
         self.is_connected_to_rpi = False
         self.last_packet_time = time.time()
-        self.connection_timeout = 10.0  # segundos (aumentado para tolerar perdas UDP)
+        self.connection_timeout = CONNECTION_TIMEOUT  # segundos (aumentado para tolerar perdas UDP)
 
         # Estatísticas
         self.packets_received = 0
@@ -157,15 +169,15 @@ class NetworkClient:
             # Socket para receber vídeo (porta 9999)
             self.receive_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             self.receive_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            self.receive_socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 65536)
-            self.receive_socket.settimeout(1.0)
+            self.receive_socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, VIDEO_SOCKET_RCVBUF)
+            self.receive_socket.settimeout(UDP_SOCKET_TIMEOUT)
             self.receive_socket.bind((self.host, self.port))
 
             # Socket para receber sensores (porta 9997)
             self.sensor_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             self.sensor_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            self.sensor_socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 32768)
-            self.sensor_socket.settimeout(1.0)
+            self.sensor_socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, SENSOR_SOCKET_RCVBUF)
+            self.sensor_socket.settimeout(UDP_SOCKET_TIMEOUT)
             self.sensor_socket.bind((self.host, self.sensor_port))
 
             # Socket para enviar comandos (porta 9998)
@@ -274,11 +286,11 @@ class NetworkClient:
                 return "TERMINATE", None
 
             # Valida tamanhos
-            if frame_size < 0 or frame_size > 1000000:  # Máximo 1MB para frame
+            if frame_size < 0 or frame_size > MAX_FRAME_SIZE:  # Máximo 1MB para frame
                 self._log("ERROR", f"Tamanho de frame inválido: {frame_size}")
                 return None, None
 
-            if sensor_size < 0 or sensor_size > 50000:  # Máximo 50KB para sensores
+            if sensor_size < 0 or sensor_size > MAX_SENSOR_SIZE:  # Máximo 50KB para sensores
                 self._log("ERROR", f"Tamanho de sensor inválido: {sensor_size}")
                 return None, None
 
@@ -582,7 +594,7 @@ class NetworkClient:
         """Recebe dados de sensores (porta 9997)"""
         while self.is_running:
             try:
-                packet, addr = self.sensor_socket.recvfrom(32768)
+                packet, addr = self.sensor_socket.recvfrom(SENSOR_SOCKET_RCVBUF)
 
                 if self.rpi_ip and addr[0] != self.rpi_ip:
                     continue

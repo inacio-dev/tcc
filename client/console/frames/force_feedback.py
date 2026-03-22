@@ -3,8 +3,16 @@ force_feedback.py - Frame com dados do force feedback da direção
 """
 
 import threading
+import time
 import tkinter as tk
 from tkinter import ttk
+
+try:
+    from evdev import ecodes, ff as evff
+
+    EVDEV_AVAILABLE = True
+except ImportError:
+    EVDEV_AVAILABLE = False
 
 
 def create_force_feedback_frame(console):
@@ -352,8 +360,6 @@ def _run_ff_test(console):
     Teste de FF criando efeitos do ZERO (como test_g923.py).
     Não usa g923_manager — acessa o device diretamente para diagnóstico.
     """
-    import time
-
     g923 = getattr(console, "g923_manager", None)
     if not g923 or not g923.is_connected():
         console.ff_test_status.config(text="G923 não conectado!", fg="#ff4444")
@@ -373,8 +379,6 @@ def _run_ff_test(console):
             text=m, fg="#ffcc00"))
 
     def _test_sequence():
-        from evdev import ecodes, ff as evff
-
         test_ids = []
         try:
             # FF_GAIN 100% para o teste

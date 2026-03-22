@@ -89,85 +89,7 @@ from managers import (
     init_logger,
     warn,
 )
-
-
-class PriorityI2CLock:
-    """Lock I2C com intercalação justa (weighted fair queuing).
-
-    Prioridades com peso (turnos consecutivos permitidos):
-        0 = Alta  (steering/brake): 3 turnos seguidos
-        1 = Média (BMI160):         2 turnos seguidos
-        2 = Baixa (INA219):         1 turno seguido
-
-    Após esgotar seus turnos, a prioridade cede vez para as demais.
-    Isso evita starvation: BMI160 nunca fica bloqueado indefinidamente.
-
-    Exemplo de intercalação com servo e BMI160 disputando:
-        servo → servo → servo → BMI160 → BMI160 → servo → ...
-    """
-
-    PRIORITY_HIGH = 0    # Steering, Brake
-    PRIORITY_MEDIUM = 1  # BMI160
-    PRIORITY_LOW = 2     # INA219
-
-    # Turnos consecutivos antes de ceder vez
-    WEIGHT = {0: 3, 1: 2, 2: 1}
-
-    def __init__(self):
-        self._lock = threading.Lock()
-        self._cond = threading.Condition(self._lock)
-        self._waiting = [0, 0, 0]  # Contadores por prioridade
-        self._busy = False
-        self._run_count = 0   # Acessos consecutivos da mesma prioridade
-        self._run_prio = -1   # Última prioridade que executou
-
-    def _can_acquire(self, priority: int) -> bool:
-        """Verifica se esta prioridade pode adquirir o lock agora."""
-        if self._busy:
-            return False
-
-        others_waiting = any(
-            self._waiting[p] > 0 for p in range(3) if p != priority
-        )
-
-        # Se excedeu peso e outros estão esperando → ceder vez
-        if (self._run_prio == priority
-                and self._run_count >= self.WEIGHT.get(priority, 1)
-                and others_waiting):
-            return False
-
-        # Se prioridade maior está esperando e NÃO excedeu seu peso → esperar
-        for p in range(priority):
-            if self._waiting[p] > 0:
-                higher_exceeded = (
-                    self._run_prio == p
-                    and self._run_count >= self.WEIGHT.get(p, 1)
-                )
-                if not higher_exceeded:
-                    return False
-
-        return True
-
-    def acquire(self, priority: int = 1):
-        """Adquire o lock com intercalação justa por peso."""
-        with self._cond:
-            self._waiting[priority] += 1
-            while not self._can_acquire(priority):
-                self._cond.wait()
-            self._waiting[priority] -= 1
-            self._busy = True
-
-            if self._run_prio == priority:
-                self._run_count += 1
-            else:
-                self._run_count = 1
-                self._run_prio = priority
-
-    def release(self):
-        """Libera o lock e notifica threads esperando."""
-        with self._cond:
-            self._busy = False
-            self._cond.notify_all()
+from utils import PriorityI2CLock
 
 
 class F1CarMultiThreadSystem:
@@ -178,13 +100,13 @@ class F1CarMultiThreadSystem:
         target_ip: Optional[str] = None,
         target_port: int = 9999,
         camera_resolution: tuple = (640, 480),
-        camera_fps: int = 30,
+        camera_fps: int = 60,
         camera_quality: int = 85,
         camera_sharpness: float = 1.0,
         camera_contrast: float = 1.0,
         camera_saturation: float = 1.0,
         camera_brightness: float = 0.0,
-        sensor_rate: int = 60,
+        sensor_rate: int = 100,
         brake_balance: float = 60.0,
         calibrate_power: bool = False,
     ):
@@ -455,8 +377,8 @@ class F1CarMultiThreadSystem:
     # === THREADS DE AQUISIÇÃO ===
 
     def _camera_thread_loop(self):
-        """Thread dedicada para captura de câmera (60Hz)"""
-        debug("Thread de câmera iniciada", "CAM")
+        """Thread dedicada para captura de câmera"""
+        debug(f"Thread de câmera iniciada ({self.camera_fps}Hz)", "CAM")
         interval = 1.0 / self.camera_fps
         SLOW_THRESHOLD = 0.100  # 100ms (capture pode ser mais lento)
 
@@ -497,11 +419,11 @@ class F1CarMultiThreadSystem:
         debug("Thread de câmera finalizada", "CAM")
 
     def _sensor_thread_loop(self):
-        """Thread dedicada para sensores BMI160 (60Hz)
+        """Thread dedicada para sensores BMI160.
 
         Atualiza current_sensor_data para a thread TX incluir no pacote consolidado.
         """
-        debug("Thread de sensores iniciada (60Hz)", "BMI160")
+        debug(f"Thread de sensores iniciada ({self.sensor_rate}Hz)", "BMI160")
         interval = 1.0 / self.sensor_rate
         SLOW_THRESHOLD = 0.050  # 50ms
 
@@ -605,9 +527,9 @@ class F1CarMultiThreadSystem:
         debug("Thread de temperatura finalizada", "TEMP")
 
     def _video_tx_thread_loop(self):
-        """Thread dedicada para transmissão de vídeo (60Hz, porta 9999)"""
-        debug("Thread TX vídeo iniciada (60Hz)", "NET-TX")
-        interval = 1.0 / 60.0  # 60Hz
+        """Thread dedicada para transmissão de vídeo (porta 9999)"""
+        debug(f"Thread TX vídeo iniciada ({self.camera_fps}Hz)", "NET-TX")
+        interval = 1.0 / self.camera_fps
         SLOW_THRESHOLD = 0.050  # 50ms
 
         while self.running:
@@ -643,9 +565,9 @@ class F1CarMultiThreadSystem:
         debug("Thread TX vídeo finalizada", "NET-TX")
 
     def _sensor_tx_thread_loop(self):
-        """Thread dedicada para transmissão de sensores (100Hz, porta 9997)"""
-        debug("Thread TX sensores iniciada (100Hz)", "NET-TX")
-        interval = 1.0 / 100.0  # 100Hz
+        """Thread dedicada para transmissão de sensores (porta 9997)"""
+        debug(f"Thread TX sensores iniciada ({self.sensor_rate}Hz)", "NET-TX")
+        interval = 1.0 / self.sensor_rate
         last_stats_time = time.time()
         last_connect_ping = time.time()
         SLOW_THRESHOLD = 0.050  # 50ms

@@ -55,6 +55,8 @@ from typing import Callable, Optional
 
 from simple_logger import debug, error, info, warn
 
+from .constants import G923_SEND_RATE_HZ
+
 try:
     import evdev
     from evdev import InputDevice, ecodes, ff
@@ -172,7 +174,7 @@ class G923Manager:
         self._last_constant_key = None
 
         # Rate limiting — envia apenas quando estado muda (max 60Hz)
-        self._SEND_INTERVAL = 1.0 / 60.0  # ~16.7ms = 60Hz
+        self._SEND_INTERVAL = 1.0 / G923_SEND_RATE_HZ  # ~16.7ms = 60Hz
         self._last_state_send = 0.0  # Timestamp do último envio STATE
         self._state_dirty = False  # True quando eixo/botão mudou
 

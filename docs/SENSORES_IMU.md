@@ -150,9 +150,9 @@ gyro_dps = raw * (250.0 / 32768.0)
 ```
 I2C Bus 1 (GPIO2/3):
 ├── BMI160      @ 0x68 (SAO=GND)
-├── PCA9685     @ 0x40 (PWM servos)
+├── PCA9685     @ 0x41 (PWM servos, A0 soldado)
 ├── ADS1115     @ 0x48 (ADC energia)
-└── INA219      @ 0x41 (monitor RPi)
+└── INA219      @ 0x40 (monitor RPi)
 ```
 
 ### Por que compartilhar?
@@ -315,7 +315,7 @@ yaw_ff = min(abs(gyro_z) / 60.0 * 50, 50)
 ## Arquivos Relacionados
 
 ### Raspberry Pi
-- `raspberry/bmi160_manager.py` - Driver do sensor
+- `raspberry/managers/bmi160.py` - Driver do sensor
 
 ### Cliente
 - `client/sensor_display.py` - Processamento e validação

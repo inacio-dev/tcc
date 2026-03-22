@@ -24,17 +24,22 @@ CARACTERÍSTICAS:
 - Estatísticas em tempo real
 """
 
+import csv
+import pickle
 import threading
 import time
 from collections import defaultdict, deque
+from datetime import datetime
 
 from simple_logger import debug, error, info, warn
+
+from .constants import DEFAULT_SENSOR_HISTORY_SIZE
 
 
 class SensorDisplay:
     """Gerencia processamento e exibição de dados de sensores"""
 
-    def __init__(self, sensor_queue=None, log_queue=None, history_size=10000):
+    def __init__(self, sensor_queue=None, log_queue=None, history_size=DEFAULT_SENSOR_HISTORY_SIZE):
         """
         Inicializa o processador de sensores
 
@@ -571,9 +576,6 @@ class SensorDisplay:
             str: Caminho do arquivo criado
         """
         try:
-            import csv
-            from datetime import datetime
-
             if filename is None:
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 filename = f"sensor_history_{timestamp}.csv"
@@ -620,9 +622,6 @@ class SensorDisplay:
             str: Caminho do arquivo criado
         """
         try:
-            import pickle
-            from datetime import datetime
-
             if filename is None:
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 filename = f"sensor_history_{timestamp}.pkl"

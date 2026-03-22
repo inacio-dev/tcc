@@ -37,13 +37,13 @@ Loop Principal (120Hz):
 ├───────────────────────────────────────────────────────────────────┤
 │  RASPBERRY PI                                                     │
 │  ────────────                                                     │
-│  Thread Câmera (30Hz)     ──► current_frame ──┐                   │
+│  Thread Câmera (60Hz)     ──► current_frame ──┐                   │
 │  Thread Sensores (100Hz)  ──┬► current_sensor ─┼──► TX Rede ──┐   │
 │                             └──────────────────┼──► UDP 9997 ─┼─┐ │
 │  Thread Energia (10Hz)    ──► current_power ───┤              │ │ │
 │  Thread Temperatura (1Hz) ──► current_temp ────┘              │ │ │
 │                                                               │ │ │
-│  Thread TX Rede (120Hz)  ◄── Consolida ◄── Lê dados ──────────┘ │ │
+│  Thread TX Vídeo (camera_fps Hz) ◄── frame + dados ──────────┘ │ │
 │       │                                                         │ │
 │       └──► UDP 9999 (Vídeo + Dados consolidados) ───────────────┘ │
 │                                                                   │
@@ -63,7 +63,7 @@ Loop Principal (120Hz):
 
 | Porta | Direção | Conteúdo | Taxa |
 |-------|---------|----------|------|
-| 9999 | RPi → Cliente | Vídeo H.264 + dados consolidados | ~30Hz |
+| 9999 | RPi → Cliente | Vídeo MJPEG + dados consolidados | ~60Hz |
 | 9997 | RPi → Cliente | Sensores BMI160 (accel/gyro) | 100Hz |
 | 9998 | Cliente → RPi | Comandos de controle | On-demand |
 
@@ -75,18 +75,19 @@ Loop Principal (120Hz):
 
 | Thread | Taxa | Função | Daemon |
 |--------|------|--------|--------|
-| `CameraThread` | 30Hz | Captura frames da OV5647 | Sim |
+| `CameraThread` | 60Hz | Captura frames da OV5647 | Sim |
 | `SensorThread` | 100Hz | Lê BMI160 + envia UDP 9997 | Sim |
 | `PowerThread` | 10Hz | Lê ADS1115 + INA219 | Sim |
 | `TempThread` | 1Hz | Lê DS18B20 | Sim |
-| `NetworkTXThread` | 120Hz | Consolida e transmite UDP 9999 | Sim |
+| `VideoTXThread` | camera_fps Hz | Consolida e transmite UDP 9999 | Sim |
+| `SensorTXThread` | sensor_rate Hz | Transmite sensores UDP 9997 | Sim |
 | RX Comandos | - | Recebe comandos do cliente (9998) | Sim |
 
 ### Cliente
 
 | Thread | Taxa | Função | Daemon |
 |--------|------|--------|--------|
-| Main Loop | ~30Hz | Recebe vídeo + dados (9999) | Não |
+| Main Loop | ~60Hz | Recebe vídeo + dados (9999) | Não |
 | `FastSensorThread` | 100Hz | Recebe sensores BMI160 (9997) | Sim |
 
 ---
@@ -129,7 +130,7 @@ def _network_tx_thread_loop(self):
             sensor_data = self.current_sensor_data.copy()
 
         self.network_mgr.send_frame_with_sensors(frame_data, sensor_data)
-        time.sleep(1.0 / 120.0)
+        time.sleep(1.0 / self.camera_fps)
 ```
 
 ---
@@ -138,7 +139,7 @@ def _network_tx_thread_loop(self):
 
 Cada manager tem seu próprio lock para proteger acesso concorrente:
 
-### motor_manager.py
+### managers/motor.py
 
 ```python
 self.state_lock = threading.Lock()
@@ -150,7 +151,7 @@ self.state_lock = threading.Lock()
 - shift_gear_down()
 ```
 
-### brake_manager.py
+### managers/brake.py
 
 ```python
 self.state_lock = threading.Lock()
@@ -161,7 +162,7 @@ self.state_lock = threading.Lock()
 - get_brake_status()
 ```
 
-### steering_manager.py
+### managers/steering.py
 
 ```python
 self.state_lock = threading.Lock()
@@ -171,7 +172,7 @@ self.state_lock = threading.Lock()
 - get_steering_status()
 ```
 
-### bmi160_manager.py
+### managers/bmi160.py
 
 ```python
 self.state_lock = threading.Lock()
@@ -181,7 +182,7 @@ self.state_lock = threading.Lock()
 - get_sensor_data()
 ```
 
-### power_monitor_manager.py
+### managers/power_monitor.py
 
 ```python
 self.state_lock = threading.Lock()
@@ -192,9 +193,9 @@ self.state_lock = threading.Lock()
 
 ### Managers que já tinham locks:
 
-- `camera_manager.py` → `self.lock`
-- `temperature_manager.py` → `self.thread_lock`
-- `network_manager.py` → `self.clients_lock`
+- `managers/camera.py` → `self.lock`
+- `managers/temperature.py` → `self.thread_lock`
+- `managers/network.py` → `self.clients_lock`
 
 ---
 
@@ -207,7 +208,7 @@ BMI160 ──► SensorThread ──┬► current_sensor_data ──┐
                           │                        │
                           └──► send_fast_sensors() ──► UDP 9997 (100Hz)
                                                    │
-OV5647 ──► CameraThread ──► current_frame ─────────┼──► NetworkTXThread ──► UDP 9999 (30Hz)
+OV5647 ──► CameraThread ──► current_frame ─────────┼──► VideoTXThread ──► UDP 9999 (60Hz)
 ADS1115 ─► PowerThread ──► current_power_data ─────┤
 DS18B20 ─► TempThread ──► current_temp_data ───────┘
 ```
@@ -234,7 +235,7 @@ Cliente ──► UDP 9998 ──► RX Comandos ──► command_callback ─�
 | Aspecto | Antes | Depois |
 |---------|-------|--------|
 | Câmera | Bloqueava sensores | Independente |
-| Sensores BMI160 | ~30Hz (junto com vídeo) | 100Hz real (porta dedicada) |
+| Sensores BMI160 | ~60Hz (junto com vídeo) | 100Hz real (porta dedicada) |
 | Latência de sensores | ~33ms (espera frame) | ~10ms (envio direto) |
 | Falhas | Afetavam todo sistema | Isoladas |
 | Escalabilidade | Difícil | Fácil adicionar threads |
@@ -252,7 +253,7 @@ cd ~/tcc/raspberry && python3 main.py
 python3 main.py --debug
 
 # Parâmetros customizados
-python3 main.py --fps 30 --sensor-rate 100
+python3 main.py --fps 60 --sensor-rate 100
 ```
 
 ---
@@ -319,14 +320,14 @@ def stop(self):
 ### Raspberry Pi
 
 - `raspberry/main.py` - Orquestrador multi-thread
-- `raspberry/network_manager.py` - Rede UDP (3 portas: 9999, 9998, 9997)
-- `raspberry/motor_manager.py` - Controle do motor (thread-safe)
-- `raspberry/brake_manager.py` - Controle de freios (thread-safe)
-- `raspberry/steering_manager.py` - Controle de direção (thread-safe)
-- `raspberry/bmi160_manager.py` - Sensor IMU (thread-safe)
-- `raspberry/power_monitor_manager.py` - Monitor de energia (thread-safe)
-- `raspberry/camera_manager.py` - Câmera (thread-safe)
-- `raspberry/temperature_manager.py` - Temperatura (thread-safe)
+- `raspberry/managers/network.py` - Rede UDP (3 portas: 9999, 9998, 9997)
+- `raspberry/managers/motor.py` - Controle do motor (thread-safe)
+- `raspberry/managers/brake.py` - Controle de freios (thread-safe)
+- `raspberry/managers/steering.py` - Controle de direção (thread-safe)
+- `raspberry/managers/bmi160.py` - Sensor IMU (thread-safe)
+- `raspberry/managers/power_monitor.py` - Monitor de energia (thread-safe)
+- `raspberry/managers/camera.py` - Câmera (thread-safe)
+- `raspberry/managers/temperature.py` - Temperatura (thread-safe)
 
 ### Cliente
 

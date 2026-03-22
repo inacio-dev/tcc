@@ -23,6 +23,7 @@ Referências teóricas:
 - Máscaras de convolução para realce espacial
 """
 
+import time
 from typing import Dict, List, Optional
 
 import cv2
@@ -129,6 +130,7 @@ class ImageFilters:
         """
         self.current_filter = "original"
         self.active_filters = set()  # Filtros ativos (para modo checkbox)
+        self.last_filter_timings = {}  # Timing individual por filtro (ms)
         self.use_gpu = use_gpu and GPU_AVAILABLE
         self.clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
 
@@ -256,12 +258,17 @@ class ImageFilters:
                 "high_boost",
             ]
 
+            self.last_filter_timings = {}
             for filter_key in order:
                 if filter_key in self.active_filters:
                     try:
                         method = getattr(self, f"_apply_{filter_key}", None)
                         if method:
+                            t = time.time()
                             frame = method(frame)
+                            self.last_filter_timings[filter_key] = round(
+                                (time.time() - t) * 1000, 2
+                            )
                     except Exception as e:
                         error(f"Erro ao aplicar {filter_key}: {e}", "FILTER")
 

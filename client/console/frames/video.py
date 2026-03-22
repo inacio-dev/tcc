@@ -9,7 +9,7 @@ from simple_logger import error
 
 # Importação do módulo de filtros PDI
 try:
-    from image_filters import ImageFilters, get_filters
+    from managers.image_filters import ImageFilters, get_filters
 
     FILTERS_AVAILABLE = True
 except ImportError:
