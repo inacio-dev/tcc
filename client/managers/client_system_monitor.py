@@ -47,7 +47,6 @@ class ClientSystemMonitor:
         self._prev_net_time: float = 0.0
 
         # Contadores
-        self.readings_count = 0
         self.start_time = time.time()
 
         # Interface de rede primária
@@ -145,7 +144,6 @@ class ClientSystemMonitor:
                 self.current_data.update(net_data)
 
                 # Metadados
-                self.readings_count += 1
                 self.current_data["client_sys_timestamp"] = round(time.time(), 3)
 
             return True

@@ -70,14 +70,15 @@ Documento sobre as escolhas de comunicação UDP entre Raspberry Pi e Cliente.
 | Característica | Valor |
 |----------------|-------|
 | Direção | Cliente ↔ RPi |
-| Taxa | On-demand |
+| Taxa | 100Hz (STATE contínuo) + on-demand (gear shifts) |
 | Tamanho pacote | ~50 bytes (texto) |
-| Conteúdo | CONTROL:THROTTLE:50, PING, etc. |
+| Conteúdo | CONTROL:STATE:s,t,b (100Hz), GEAR_UP/DOWN, PING |
 
-**Por que bidirecional?**
-- Cliente envia comandos de controle
-- RPi responde com PONG, status
-- Não compete com streams de dados
+**Arquitetura de comandos:**
+- G923/sliders atualizam `_control_state` (string "steering,throttle,brake")
+- Thread TX dedicada envia `CONTROL:STATE:s,t,b` a 100Hz com timing compensado
+- Gear shifts (G923 paddles e teclas M/N) são enviados imediatamente
+- Teclado verifica `packets_received > 0` antes de enviar (mesma regra do G923)
 
 ---
 
@@ -400,14 +401,16 @@ data = struct.pack("<6f", ax, ay, az, gx, gy, gz)
 
 **Trade-off**: Menor tamanho vs. menor legibilidade para debug.
 
-### 2. Sequence Numbers
+### 2. Frame ID Counter (Implementado)
+
+O RPi inclui um `frame_id_counter` nos pacotes de vídeo para detecção de perda:
 
 ```python
-# Detectar pacotes fora de ordem ou perdidos
-packet = struct.pack("<I", self.sequence_number)
-packet += data
-self.sequence_number += 1
+self.frame_id_counter = (self.frame_id_counter + 1) & 0xFFFFFFFF
 ```
+
+Nota: usa `& 0xFFFFFFFF` (bitwise AND) em vez de `% 0xFFFFFFFF` (módulo) para
+incluir o valor máximo no range.
 
 ### 3. Redundância de Comandos Críticos
 
@@ -432,8 +435,8 @@ Priorizar porta 9998 (comandos) sobre 9999 (vídeo) nas configurações do rotea
 - `raspberry/main.py` - Orquestração de threads
 
 ### Cliente
-- `client/network_client.py` - Recepção UDP
-- `client/main.py` - Threads de recepção
+- `client/managers/network.py` - Recepção UDP + `_stats_lock` para contadores thread-safe
+- `client/main.py` - Threads de recepção + TX 100Hz com timing compensado
 
 ---
 
@@ -445,3 +448,4 @@ Priorizar porta 9998 (comandos) sobre 9999 (vídeo) nas configurações do rotea
 | 2025-12-17 | Separação: porta 9997 para sensores 100Hz |
 | 2025-12-17 | Adicionado filtro de IP |
 | 2025-12-18 | Documentação de decisões técnicas |
+| 2026-03-22 | Timing compensado nos TX loops, _stats_lock, frame_id fix, protocolo STATE 100Hz |

@@ -11,12 +11,6 @@ RESOLUTION_HEIGHTS = {
     "720p": 540,   # 960x540 - proporção 16:9 (720p escalado)
 }
 
-# Proporções de aspecto por resolução
-RESOLUTION_ASPECTS = {
-    "480p": (4, 3),    # 640x480
-    "720p": (16, 9),   # 1280x720
-}
-
 
 def create_camera_controls_frame(console, parent=None):
     """

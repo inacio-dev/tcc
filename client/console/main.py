@@ -31,10 +31,10 @@ from datetime import datetime
 from tkinter import ttk
 
 from managers.keyboard import KeyboardController
-from simple_logger import debug, error
+from managers.simple_logger import debug, error
 from managers.slider import SliderController
 
-from client_system_monitor import ClientSystemMonitor
+from managers.client_system_monitor import ClientSystemMonitor
 
 from .frames.bmi160 import create_bmi160_frame
 from .frames.camera_controls import create_camera_controls_frame
@@ -91,9 +91,6 @@ class ConsoleInterface:
         self.log_queue = log_queue
         self.status_queue = status_queue
         self.sensor_display = sensor_display
-        self.window_width = window_width
-        self.window_height = window_height
-
         # Tkinter
         self.root = None
         self.is_running = False
@@ -127,10 +124,6 @@ class ConsoleInterface:
 
         # Controles de veículo
         self.brake_balance_var = None
-        self.current_brake_force = 0.0
-        self.current_throttle = 0.0
-        self.current_steering = 0.0
-
         # Parâmetros de Force Feedback
         self.ff_damping_var = None
         self.ff_friction_var = None

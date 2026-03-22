@@ -341,6 +341,27 @@ Dado bruto (Pro Micro) → Mediana (5 amostras) → EMA (alpha=0.2) → Buffer m
 | EMA | Suaviza ruido HF | Lag minimo (alpha=0.2) |
 | Media movel | Estabiliza display | Lag medio, leitura limpa |
 
+#### Fórmula EMA
+
+```python
+# Correto: alpha * novo + (1 - alpha) * antigo
+# alpha = 0.2 → 20% peso ao novo, 80% ao histórico (suavização forte)
+ema = 0.2 * new_value + 0.8 * ema_previous
+```
+
+Nota: a fórmula estava invertida antes da correção (80% peso ao novo, 20% ao
+histórico), o que praticamente anulava o efeito de suavização.
+
+#### abs() nas correntes
+
+As correntes dos ACS758 são envolvidas com `abs()` no cálculo de potência para
+segurança contra inversão de polaridade dos cabos:
+
+```python
+power_motor = abs(current_motor) * voltage_battery
+power_servos = abs(current_servos) * 5.25
+```
+
 ---
 
 ## Protocolo Serial (Pro Micro para RPi)
@@ -531,3 +552,4 @@ Uso agressivo (media 20A):
 | 2026-02-14 | Adicionado divisor de tensao para bateria (A0) |
 | 2026-02-14 | Configuracao high-side para ACS758 |
 | 2026-02-14 | Painel de energia dedicado na interface |
+| 2026-03-22 | Correção fórmula EMA (estava invertida) + abs() nas correntes |

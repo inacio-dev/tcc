@@ -119,8 +119,6 @@ class SteeringManager:
     PWM_FREQUENCY = 50  # 50Hz para servos
     PULSE_MIN = 1.0  # 1.0ms = 0° (máximo esquerda)
     PULSE_MAX = 2.0  # 2.0ms = 180° (máximo direita)
-    PULSE_CENTER = 1.5  # 1.5ms = 90° (centro)
-
     # Limites mecânicos da direção (em graus) - RANGE COMPLETO 0° a 180°
     STEERING_MIN_ANGLE = 0    # 0° = máximo à esquerda
     STEERING_MAX_ANGLE = 180  # 180° = máximo à direita
@@ -361,44 +359,6 @@ class SteeringManager:
                 # === TIMESTAMP ===
                 "timestamp": round(time.time(), 3),
             }
-
-    def get_wheel_angles(self) -> Dict[str, float]:
-        """
-        Calcula ângulos individuais das rodas (Ackermann)
-
-        Returns:
-            dict: Ângulos das rodas esquerda e direita
-        """
-        # Retorna ângulos simples (Ackermann desabilitado)
-        return {
-            "left_wheel": round(self.current_angle, 1),
-            "right_wheel": round(self.current_angle, 1),
-            "turn_radius": float("inf"),
-        }
-
-    def get_statistics(self) -> Dict[str, Any]:
-        """
-        Obtém estatísticas de uso da direção
-
-        Returns:
-            dict: Estatísticas de operação
-        """
-        elapsed = time.time() - self.start_time
-
-        return {
-            "total_movements": self.total_steering_movements,
-            "total_steering_angle": round(self.total_steering_angle, 1),
-            "max_angle_reached": round(self.max_angle_reached, 1),
-            "average_angle": round(
-                self.total_steering_angle / max(1, self.total_steering_movements), 1
-            ),
-            "movements_per_minute": (
-                round(self.total_steering_movements / (elapsed / 60), 1)
-                if elapsed > 0
-                else 0
-            ),
-            "system_uptime": round(elapsed, 2),
-        }
 
     def cleanup(self):
         """Libera recursos da direção"""

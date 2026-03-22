@@ -255,46 +255,84 @@ class MotorManager:
 - Evita deadlock (cada lock é independente)
 - Granularidade fina: só bloqueia o necessário
 
+### Race Conditions Corrigidas (Motor)
+
+O motor tem uma thread interna (`_acceleration_loop`, 100Hz) que lê e modifica
+estado. Todos os pontos de acesso agora estão protegidos:
+
+- `_acceleration_loop()` — roda `_apply_f1_acceleration()`, `_apply_motor_pwm()` e
+  `_update_statistics()` sob `state_lock`
+- `shift_gear_up()/down()` — executa `_shift_gear()` DENTRO do `state_lock`
+  (antes era fora, causando race com acceleration loop)
+- `emergency_stop()` — zera `target_pwm`, `current_pwm`, `is_running` sob `state_lock`
+- `brake_input` — escrito pelo main.py também sob `state_lock` do motor
+
+### Lock Ordering (Brake)
+
+O brake manager precisa de dois locks: `state_lock` (cálculos) e I2C lock
+(hardware). Para evitar inversão de locks:
+
+```python
+def apply_brake(self, brake_input):
+    with self.state_lock:
+        self._calculate_brake_angles(brake_input)  # CPU only
+        front_angle = self.front_brake_angle
+        rear_angle = self.rear_brake_angle
+    # I2C write FORA do state_lock
+    self._write_brake_servos(front_angle, rear_angle)
+```
+
+Se o I2C fosse feito dentro do `state_lock`, a thread TX ficaria bloqueada
+esperando o I2C terminar quando quisesse ler o brake status.
+
+### Hardware Compartilhado (PCA9685)
+
+Brake e steering usam o mesmo PCA9685 (endereço I2C 0x41). Ambos criam
+instâncias independentes de `busio.I2C()` e `PCA9685()`. No cleanup:
+- `steering.cleanup()` — NÃO chama `pca9685.deinit()` (evita invalidar o brake)
+- `brake.cleanup()` — chama `pca9685.deinit()` e `i2c.deinit()` (último a limpar)
+
 ---
 
 ## Comandos UDP
 
 ### Protocolo
 
+O cliente envia comandos unificados STATE a 100Hz e gear shifts imediatos:
+
+```
+CONTROL:STATE:-30,75,50  → Steering=-30%, Throttle=75%, Brake=50% (100Hz)
+CONTROL:GEAR_UP          → Subir marcha (imediato)
+CONTROL:GEAR_DOWN        → Descer marcha (imediato)
+CONTROL:BRAKE_BALANCE:55 → 55% frente (on-demand)
+```
+
+Comandos individuais (legado, mantidos para extensibilidade):
 ```
 CONTROL:THROTTLE:50      → Motor 50%
 CONTROL:BRAKE:100        → Freio máximo
 CONTROL:STEERING:-30     → 30% esquerda
-CONTROL:BRAKE_BALANCE:55 → 55% frente
-CONTROL:GEAR_UP          → Subir marcha
-CONTROL:GEAR_DOWN        → Descer marcha
 ```
 
-### Callback de Processamento
+### Processamento do STATE
+
+O comando STATE é o principal: atualiza steering, motor e brake atomicamente.
 
 ```python
-def handle_command(self, command):
-    parts = command.split(":")
-    if parts[0] != "CONTROL":
-        return
+def _process_client_command(self, client_ip, command):
+    if command.startswith("CONTROL:STATE:"):
+        parts = command[14:].split(",")
+        steering, throttle, brake = float(parts[0]), float(parts[1]), float(parts[2])
 
-    action = parts[1]
-    value = int(parts[2]) if len(parts) > 2 else None
-
-    with self.motor_lock:
-        if action == "THROTTLE":
-            self.motor_mgr.set_throttle(value)
-        elif action == "GEAR_UP":
-            self.motor_mgr.shift_gear_up()
-
-    with self.brake_lock:
-        if action == "BRAKE":
-            self.brake_mgr.apply_brake(value)
-
-    with self.steering_lock:
-        if action == "STEERING":
-            self.steering_mgr.set_steering(value)
+        self.steering_mgr.set_steering_input(steering)
+        with self.motor_mgr.state_lock:
+            self.motor_mgr.brake_input = brake
+        self.motor_mgr.set_throttle(throttle)
+        self.brake_mgr.apply_brake(brake)
 ```
+
+O timing de cada STATE é medido e incluído no pacote de sensores (`timing_state_cmd_ms`)
+para diagnóstico. Se > 50ms, emite warning de contention de I2C.
 
 ---
 
@@ -307,8 +345,8 @@ def handle_command(self, command):
 - `raspberry/main.py` - Callback de comandos
 
 ### Cliente
-- `client/slider_controller.py` - Controles de interface
-- `client/keyboard_controller.py` - Teclado WASD/MN
+- `client/managers/slider.py` - Controles de interface (sliders de throttle/brake/steering)
+- `client/managers/keyboard.py` - Teclado M/N (gear shift apenas, sem WASD)
 
 ### Documentação
 - `raspberry/MODULOS.md` - Especificações de hardware
@@ -323,3 +361,4 @@ def handle_command(self, command):
 | 2025-12-17 | Adicionado sistema de marchas |
 | 2025-12-17 | Zonas de eficiência F1 |
 | 2025-12-18 | Documentação de decisões |
+| 2026-03-22 | Race conditions motor, lock ordering brake, PCA9685 cleanup, protocolo STATE |

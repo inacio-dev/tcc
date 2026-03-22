@@ -29,7 +29,7 @@ from typing import Dict, List, Optional
 import cv2
 import numpy as np
 
-from simple_logger import debug, error, info, warn
+from .simple_logger import debug, error, info, warn
 
 # Tenta importar CuPy para aceleração GPU
 GPU_AVAILABLE = False
@@ -182,26 +182,6 @@ class ImageFilters:
             self.current_filter = filter_key
             return True
         return False
-
-    def toggle_filter(self, filter_key: str) -> bool:
-        """
-        Ativa/desativa um filtro (modo checkbox)
-
-        Args:
-            filter_key: Chave do filtro
-
-        Returns:
-            bool: True se filtro está ativo após toggle
-        """
-        if filter_key not in self.FILTERS or filter_key == "original":
-            return False
-
-        if filter_key in self.active_filters:
-            self.active_filters.discard(filter_key)
-            return False
-        else:
-            self.active_filters.add(filter_key)
-            return True
 
     def set_filter_active(self, filter_key: str, active: bool):
         """
@@ -537,10 +517,6 @@ class ImageFilters:
                 frame, (w * 2, h * 2), interpolation=cv2.INTER_LANCZOS4
             )
             return cv2.resize(upscaled, (w, h), interpolation=cv2.INTER_AREA)
-
-    def is_gpu_enabled(self) -> bool:
-        """Retorna se GPU está sendo usada"""
-        return self.use_gpu
 
 
 # Instância global para uso fácil

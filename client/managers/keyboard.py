@@ -25,9 +25,7 @@ import time
 import tkinter as tk
 from tkinter import ttk
 
-from simple_logger import debug, error, info, warn
-
-from .constants import KEYBOARD_COMMAND_RATE
+from .simple_logger import debug, error, info, warn
 
 
 class KeyboardController:
@@ -88,8 +86,6 @@ class KeyboardController:
         self.root = None  # Será definido quando vincular controles
 
         # Configurações
-        self.command_rate = KEYBOARD_COMMAND_RATE  # Comandos por segundo (~16.7ms)
-        self.key_repeat_delay = 100  # ms entre repetições
 
         # Estatísticas
         self.commands_sent = 0

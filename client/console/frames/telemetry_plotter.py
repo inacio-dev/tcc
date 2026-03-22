@@ -8,7 +8,7 @@ import time
 import tkinter as tk
 from collections import deque
 from tkinter import ttk
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 try:
     import matplotlib
@@ -21,7 +21,7 @@ try:
 except ImportError:
     MATPLOTLIB_AVAILABLE = False
 
-from simple_logger import debug, error, info
+from managers.simple_logger import debug, error, info
 
 
 class F1TelemetryPlotter:
@@ -380,27 +380,3 @@ class F1TelemetryPlotter:
         except Exception as e:
             error(f"Erro ao exportar telemetria: {e}", "PLOTTER")
             return False
-
-
-def create_telemetry_frame(console) -> Optional[ttk.LabelFrame]:
-    """
-    Cria o frame de telemetria e integra com o console
-
-    Args:
-        console: Instância de ConsoleInterface
-
-    Returns:
-        Frame de telemetria ou None se falhar
-    """
-    try:
-        plotter = F1TelemetryPlotter(max_points=500, update_interval=100)
-        frame = plotter.create_frame(console.right_column)
-
-        # Armazena referência no console
-        console.telemetry_plotter = plotter
-
-        return frame
-
-    except Exception as e:
-        error(f"Erro ao criar frame de telemetria: {e}", "PLOTTER")
-        return None

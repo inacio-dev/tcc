@@ -24,7 +24,6 @@ CARACTERÍSTICAS:
 - Estatísticas em tempo real
 """
 
-import csv
 import pickle
 import queue
 import threading
@@ -32,7 +31,7 @@ import time
 from collections import defaultdict, deque
 from datetime import datetime
 
-from simple_logger import debug, error, info, warn
+from .simple_logger import debug, error, info, warn
 
 from .constants import DEFAULT_SENSOR_HISTORY_SIZE
 
@@ -573,52 +572,6 @@ class SensorDisplay:
             # Limpa histórico e raw buffer
             self.history.clear()
             self.raw_buffer.clear()
-
-    def export_history(self, filename=None):
-        """
-        Exporta histórico para arquivo CSV
-
-        Args:
-            filename (str): Nome do arquivo (opcional)
-
-        Returns:
-            str: Caminho do arquivo criado
-        """
-        try:
-            if filename is None:
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                filename = f"sensor_history_{timestamp}.csv"
-
-            with self.data_lock:
-                if len(self.history["timestamp"]) == 0:
-                    self._log("WARNING", "Nenhum histórico disponível para exportar")
-                    return None
-
-                # Prepara dados para CSV
-                fields = list(self.history.keys())
-                rows = []
-
-                for i in range(len(self.history["timestamp"])):
-                    row = {}
-                    for field in fields:
-                        if i < len(self.history[field]):
-                            row[field] = self.history[field][i]
-                        else:
-                            row[field] = ""
-                    rows.append(row)
-
-                # Escreve CSV
-                with open(filename, "w", newline="") as csvfile:
-                    writer = csv.DictWriter(csvfile, fieldnames=fields)
-                    writer.writeheader()
-                    writer.writerows(rows)
-
-                self._log("INFO", f"Histórico exportado para: {filename}")
-                return filename
-
-        except Exception as e:
-            self._log("ERROR", f"Erro ao exportar histórico: {e}")
-            return None
 
     def export_history_fast(self, filename=None):
         """

@@ -4,7 +4,7 @@ velocity_calc.py - Calculador de velocidade baseado no BMI160
 
 import time
 
-from simple_logger import error
+from managers.simple_logger import error
 
 from ..utils.constants import (
     ACCEL_THRESHOLD,

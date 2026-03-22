@@ -151,18 +151,6 @@ class F1Logger:
         """Log de debug"""
         self._log(LogLevel.DEBUG, message, component, rate_limit)
 
-    def verbose(self, message: str, component: str = "", rate_limit: float = 0):
-        """Log verboso"""
-        self._log(LogLevel.VERBOSE, message, component, rate_limit)
-
-    def set_level(self, level: LogLevel):
-        """Altera o nível de logging"""
-        self.level = level
-
-    def set_timestamp(self, enabled: bool):
-        """Habilita/desabilita timestamp"""
-        self.enable_timestamp = enabled
-
 
 # Instância global do logger
 _global_logger = None
@@ -203,27 +191,3 @@ def debug(message: str, component: str = "", rate_limit: float = 0):
     get_logger().debug(message, component, rate_limit)
 
 
-def verbose(message: str, component: str = "", rate_limit: float = 0):
-    """Log verboso"""
-    get_logger().verbose(message, component, rate_limit)
-
-
-# Funções para controlar o logging
-def set_log_level(level: LogLevel):
-    """Define nível global de logging"""
-    get_logger().set_level(level)
-
-
-def silence_all():
-    """Silencia todos os logs (apenas errors críticos)"""
-    set_log_level(LogLevel.ERROR)
-
-
-def enable_debug():
-    """Habilita modo debug"""
-    set_log_level(LogLevel.DEBUG)
-
-
-def enable_verbose():
-    """Habilita modo verboso (tudo)"""
-    set_log_level(LogLevel.VERBOSE)

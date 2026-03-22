@@ -53,7 +53,7 @@ import threading
 import time
 from typing import Callable, Optional
 
-from simple_logger import debug, error, info, warn
+from .simple_logger import debug, error, info, warn
 
 from .constants import G923_SEND_RATE_HZ
 
@@ -659,10 +659,6 @@ class G923Manager:
                 )
                 self._recreate_effect('_ff_constant_id', effect)
                 self._last_constant_key = key
-
-    def apply_force_feedback(self, intensity: float, direction: str):
-        """Wrapper de compatibilidade — chama apply_constant_force"""
-        self.apply_constant_force(intensity, direction)
 
     def _update_endstop(self):
         """

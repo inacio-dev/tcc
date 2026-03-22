@@ -731,27 +731,6 @@ class PowerMonitorManager:
         """Retorna status resumido de energia (compatibilidade)"""
         return self.get_sensor_data()
 
-    def get_statistics(self) -> Dict[str, Any]:
-        """Retorna estatísticas de operação"""
-        elapsed = time.time() - self.start_time
-        actual_rate = self.readings_count / elapsed if elapsed > 0 else 0
-
-        return {
-            "readings_count": self.readings_count,
-            "errors_count": self.errors_count,
-            "elapsed_time": round(elapsed, 2),
-            "actual_sample_rate": round(actual_rate, 2),
-            "target_sample_rate": self.sample_rate,
-            "pro_micro_connected": self.pro_micro_connected,
-            "ina219_available": self.ina219_available,
-            "buffer_fill": {
-                "voltage_battery": len(self.buffer_voltage_battery),
-                "current_servos": len(self.buffer_current_servos),
-                "current_motor": len(self.buffer_current_motor),
-                "voltage_rpi": len(self.buffer_voltage_rpi),
-            },
-        }
-
     def cleanup(self):
         """Libera recursos"""
         self._running = False

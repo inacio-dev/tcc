@@ -11,7 +11,7 @@ import tkinter as tk
 import tkinter.ttk as ttk
 from datetime import datetime
 
-from simple_logger import debug, error, info, warn
+from .simple_logger import debug, error, info, warn
 
 
 class SliderController:

@@ -33,24 +33,3 @@ FF_MAX_FORCE_DEFAULT = 15.0  # Limite máximo de força no motor (% do max do G9
 
 # Valores padrão de controle
 BRAKE_BALANCE_DEFAULT = 60.0  # 60% dianteiro
-
-# Cores do tema escuro
-COLORS = {
-    "bg_dark": "#2b2b2b",
-    "bg_medium": "#3c3c3c",
-    "bg_light": "#4c4c4c",
-    "bg_panel": "#2c2c2c",
-    "bg_log": "#1e1e1e",
-    "fg_white": "#ffffff",
-    "fg_gray": "#cccccc",
-    "fg_dark_gray": "#808080",
-    "fg_green": "#00ff00",
-    "fg_red": "#ff0000",
-    "fg_yellow": "#ffff00",
-    "fg_orange": "#ffaa00",
-    "fg_blue": "#0078d4",
-    "fg_cyan": "#00aaff",
-    "fg_temp_normal": "#00ff88",
-    "fg_temp_warning": "#ffaa00",
-    "fg_temp_critical": "#ff4444",
-}

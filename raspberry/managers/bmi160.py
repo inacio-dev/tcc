@@ -658,25 +658,6 @@ class BMI160Manager:
                 "is_initialized": self.is_initialized,
             }
 
-    def get_statistics(self):
-        """
-        Obtém estatísticas do sensor
-
-        Returns:
-            dict: Estatísticas de operação
-        """
-        elapsed = time.time() - self.start_time
-        actual_sample_rate = self.readings_count / elapsed if elapsed > 0 else 0
-
-        return {
-            "readings_count": self.readings_count,
-            "elapsed_time": round(elapsed, 2),
-            "actual_sample_rate": round(actual_sample_rate, 2),
-            "target_sample_rate": self.sample_rate,
-            "accel_range_g": self._get_accel_range_g(),
-            "gyro_range_dps": self._get_gyro_range_dps(),
-        }
-
     def cleanup(self):
         """Libera recursos do sensor"""
         try:

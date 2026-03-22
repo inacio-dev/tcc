@@ -23,7 +23,7 @@ import time
 import tkinter as tk
 from typing import Optional
 
-from simple_logger import debug, error, info, warn
+from .simple_logger import debug, error, info, warn
 
 from .constants import MAX_VIDEO_QUEUE_FRAMES
 

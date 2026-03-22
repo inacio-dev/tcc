@@ -36,7 +36,6 @@ import socket
 import sys
 import threading
 import time
-import tkinter as tk
 import traceback
 
 # Importa nossos módulos
@@ -45,14 +44,14 @@ try:
     from managers.g923 import G923Manager
     from managers.network import NetworkClient
     from managers.sensor import SensorDisplay
-    from simple_logger import debug, error, info, warn
+    from managers.simple_logger import debug, error, info, warn
     from managers.video import VideoDisplay
     from managers.constants import VIDEO_PORT, SENSOR_PORT, COMMAND_PORT
 except ImportError as e:
     print(f"❌ ERRO: Não foi possível importar módulos necessários: {e}")
     print("\nVerifique se os arquivos estão na mesma pasta:")
     print("  - managers/ (g923.py, network.py, video.py, sensor.py, ...)")
-    print("  - console/, simple_logger.py, main.py")
+    print("  - console/, main.py")
     sys.exit(1)
 
 # Filas para comunicação entre threads
@@ -111,7 +110,7 @@ class F1ClientApplication:
         self._control_state_lock = threading.Lock()
 
         # Estatísticas
-        self.start_time = time.time()
+
 
         # Logging throttle para G923 (evita spam no console)
         self._g923_last_log_time = 0.0

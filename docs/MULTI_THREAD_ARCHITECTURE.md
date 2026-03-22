@@ -89,6 +89,10 @@ Loop Principal (120Hz):
 |--------|------|--------|--------|
 | Main Loop | ~60Hz | Recebe vídeo + dados (9999) | Não |
 | `FastSensorThread` | 100Hz | Recebe sensores BMI160 (9997) | Sim |
+| `CommandTX` | 100Hz | Envia STATE:s,t,b ao RPi | Sim |
+| `SensorProcessing` | 100Hz | Cálculos + Force Feedback | Sim |
+| `G923 Input` | ~1kHz | Lê eventos evdev do volante | Sim |
+| `KeyWorker` | On-demand | Processa teclas M/N (gear shift) | Sim |
 
 ---
 
@@ -120,18 +124,33 @@ def _sensor_thread_loop(self):
         time.sleep(1.0 / self.sensor_rate)
 ```
 
-### Padrão de Leitura (Thread TX)
+### Padrão de Leitura (Thread TX) — Timing Compensado
+
+Os loops TX usam timing compensado com `next_tick` para manter a taxa real precisa.
+O padrão `time.sleep(interval)` simples causa drift porque não desconta o tempo de
+processamento (ex: envio UDP leva ~2ms, ciclo real seria 12ms em vez de 10ms).
 
 ```python
 def _network_tx_thread_loop(self):
+    interval = 1.0 / self.camera_fps
+    next_tick = time.monotonic()
+
     while self.running:
         with self.current_data_lock:
             frame_data = self.current_frame
             sensor_data = self.current_sensor_data.copy()
 
         self.network_mgr.send_frame_with_sensors(frame_data, sensor_data)
-        time.sleep(1.0 / self.camera_fps)
+
+        next_tick += interval
+        sleep_time = next_tick - time.monotonic()
+        if sleep_time > 0:
+            time.sleep(sleep_time)
+        else:
+            next_tick = time.monotonic()  # Reset se ficou muito atrasado
 ```
+
+Este padrão é usado nos 3 loops TX: vídeo (RPi), sensores (RPi) e comandos (Client).
 
 ---
 
@@ -147,9 +166,13 @@ self.state_lock = threading.Lock()
 # Métodos protegidos:
 - set_throttle()
 - get_motor_status()
-- shift_gear_up()
-- shift_gear_down()
+- shift_gear_up() / shift_gear_down()  # _shift_gear() executado dentro do lock
+- _acceleration_loop()                  # Loop 100Hz roda sob state_lock
+- emergency_stop()                      # Zera PWM sob state_lock
 ```
+
+Nota: `brake_input` é escrito pelo main.py também sob `state_lock` para
+consistência com a leitura em `_apply_f1_acceleration()`.
 
 ### managers/brake.py
 
@@ -158,9 +181,13 @@ self.state_lock = threading.Lock()
 
 # Métodos protegidos:
 - set_brake_balance()
-- apply_brake()
+- apply_brake()   # Calcula ângulos sob state_lock, I2C FORA do lock
 - get_brake_status()
 ```
+
+**Lock ordering**: `apply_brake()` adquire `state_lock` para calcular ângulos,
+copia os valores, libera o lock, e só então faz as escritas I2C. Isso evita que
+a thread TX fique bloqueada esperando o I2C lock enquanto segura o `state_lock`.
 
 ### managers/steering.py
 
@@ -171,6 +198,9 @@ self.state_lock = threading.Lock()
 - set_steering_input()
 - get_steering_status()
 ```
+
+Nota: `cleanup()` NÃO chama `pca9685.deinit()` — o brake_manager é responsável
+por desligar o PCA9685 compartilhado (endereço 0x41), pois é o último no cleanup.
 
 ### managers/bmi160.py
 
@@ -191,11 +221,24 @@ self.state_lock = threading.Lock()
 - get_sensor_data()
 ```
 
-### Managers que já tinham locks:
+### managers/network.py (RPi)
+
+```python
+self.clients_lock = threading.Lock()
+
+# Métodos protegidos:
+- _send_to_client()      # Adquire clients_lock
+- _send_to_client_unlocked()  # Versão sem lock para uso interno
+```
+
+Nota: `cleanup()` usa `_send_to_client_unlocked()` para evitar deadlock, pois
+já segura `clients_lock` quando precisa enviar mensagem de desconexão.
+
+### Outros managers com locks:
 
 - `managers/camera.py` → `self.lock`
-- `managers/temperature.py` → `self.thread_lock`
-- `managers/network.py` → `self.clients_lock`
+- `managers/temperature.py` → `self.thread_lock` + `deque(maxlen=)` para histórico
+- `managers/logger.py` → `last_log_times` limitado a 500 entries (auto-cleanup)
 
 ---
 
@@ -359,4 +402,5 @@ def stop(self):
 
 - **Implementação inicial**: 2025-12-17
 - **Atualização (dual-port)**: 2025-12-17
+- **Correções de race conditions e timing**: 2026-03-22
 - **Status**: Produção

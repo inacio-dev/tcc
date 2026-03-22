@@ -193,7 +193,6 @@ class BrakeManager:
 
         # Estatísticas
         self.brake_applications = 0
-        self.total_brake_time = 0.0
         self.last_brake_time = 0.0
         self.start_time = time.time()
         self._last_log_time = 0.0
@@ -390,11 +389,6 @@ class BrakeManager:
         self.apply_brake(0.0)
         debug("Freios liberados", "BRAKE")
 
-    def emergency_brake(self):
-        """Aplica freio de emergência (força máxima)"""
-        self.apply_brake(100.0)
-        warn("FREIO DE EMERGÊNCIA ATIVADO!", "BRAKE")
-
     def _test_servos(self):
         """Executa teste rápido dos servos - MOVIMENTO DIRETO"""
         debug("Executando teste dos servos...", "BRAKE")
@@ -438,7 +432,6 @@ class BrakeManager:
                 "is_initialized": self.is_initialized,
                 # === ESTATÍSTICAS ===
                 "brake_applications": self.brake_applications,
-                "total_brake_time": round(self.total_brake_time, 2),
                 "is_braking": self.total_brake_input > 0,
                 # === HARDWARE ===
                 "front_channel": self.front_channel,
@@ -449,27 +442,6 @@ class BrakeManager:
                 # === TIMESTAMP ===
                 "timestamp": round(time.time(), 3),
             }
-
-    def get_statistics(self) -> dict:
-        """
-        Obtém estatísticas de uso dos freios
-
-        Returns:
-            dict: Estatísticas de operação
-        """
-        elapsed = time.time() - self.start_time
-
-        return {
-            "brake_applications": self.brake_applications,
-            "total_runtime": round(elapsed, 2),
-            "average_brake_per_minute": (
-                round(self.brake_applications / (elapsed / 60.0), 2)
-                if elapsed > 0
-                else 0
-            ),
-            "last_brake_time": self.last_brake_time,
-            "system_uptime": round(elapsed, 2),
-        }
 
     def cleanup(self):
         """Libera recursos do sistema de freios"""

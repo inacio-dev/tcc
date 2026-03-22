@@ -34,7 +34,7 @@ import threading
 import time
 from collections import defaultdict
 
-from simple_logger import debug, error, info, warn
+from .simple_logger import debug, error, info, warn
 
 from .constants import (
     COMMAND_PORT,

@@ -155,6 +155,17 @@ Depois:  0-3 ioctls/pacote (1 por efeito, só quando valor muda) = 0-15ms bloque
 Quando inputs são estáveis (volante parado, throttle constante), o cache acerta e
 zero ioctls são feitos. Quando há mudança real, 1 ioctl por efeito ao invés de 4.
 
+### Thread Safety
+
+Todas as operações de FF são protegidas por `_ff_lock` (threading.Lock) no g923_manager.
+Isso é necessário porque:
+- **Thread de sensores (100Hz)**: atualiza FF_CONSTANT, FF_RUMBLE, FF_PERIODIC, FF_INERTIA
+- **Thread GUI (10Hz)**: atualiza FF_SPRING, FF_DAMPER, FF_FRICTION via sliders
+- **Stop/cleanup**: `_stop_force_feedback()` para todos os efeitos sob `_ff_lock`
+
+O `_ff_lock` serializa os uploads ao dispositivo evdev, prevenindo race conditions entre
+atualizações de sliders e efeitos dinâmicos dos sensores.
+
 ---
 
 ## Componentes da Força (FF_CONSTANT dinâmico)
@@ -268,3 +279,4 @@ Quando o veículo está parado (sem throttle, sem brake, sem movimento significa
 | 2025-12-17 | Implementação inicial (ESP32 + BTS7960 via serial) |
 | 2026-02-18 | Migração para G923 nativo via evdev (8 efeitos simultâneos) |
 | 2026-03-10 | Otimização de latência: cache FF_CONSTANT, quantização EMA, upload in-place |
+| 2026-03-22 | Thread safety: _ff_lock em _stop_force_feedback e todas as operações FF |

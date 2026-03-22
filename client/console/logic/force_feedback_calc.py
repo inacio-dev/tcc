@@ -27,7 +27,7 @@ import math
 import time
 from collections import deque
 
-from simple_logger import error
+from managers.simple_logger import error
 
 
 class ForceFeedbackCalculator:

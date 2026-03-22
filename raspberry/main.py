@@ -63,7 +63,6 @@ Para parar: Ctrl+C
 """
 
 import argparse
-import queue
 import signal
 import socket
 import sys
@@ -129,7 +128,6 @@ class F1CarMultiThreadSystem:
         """
         self.target_ip = target_ip
         self.target_port = target_port
-        self.use_auto_discovery = target_ip is None
         self.camera_resolution = camera_resolution
         self.camera_fps = camera_fps
         self.camera_quality = camera_quality
@@ -159,12 +157,6 @@ class F1CarMultiThreadSystem:
         # Prioridade: 0=alta (steering/brake), 1=média (BMI160), 2=baixa (INA219)
         self.i2c_lock = PriorityI2CLock()
 
-        # === FILAS THREAD-SAFE ===
-        self.frame_queue = queue.Queue(maxsize=2)  # Últimos 2 frames
-        self.sensor_queue = queue.Queue(maxsize=10)  # Últimas 10 leituras
-        self.power_queue = queue.Queue(maxsize=5)  # Últimas 5 leituras
-        self.temp_queue = queue.Queue(maxsize=3)  # Últimas 3 leituras
-
         # === DADOS ATUAIS (thread-safe via locks) ===
         self.current_data_lock = threading.Lock()
         self.current_frame = None
@@ -172,10 +164,6 @@ class F1CarMultiThreadSystem:
         self.current_power_data = {}
         self.current_temp_data = {}
         self.current_rpi_sys_data = {}  # Métricas do sistema Raspberry Pi (CPU, memória, disco, rede)
-        self.current_motor_status = {}
-        self.current_brake_status = {}
-        self.current_steering_status = {}
-
         # === THREADS ===
         self.camera_thread: Optional[threading.Thread] = None
         self.sensor_thread: Optional[threading.Thread] = None
@@ -909,23 +897,6 @@ class F1CarMultiThreadSystem:
                     warn(f"Erro ao parar {name}: {e}", "STOP")
 
         info("Sistema parado com sucesso", "MAIN")
-
-    def get_system_status(self) -> Dict[str, Any]:
-        """Obtém status completo do sistema"""
-        elapsed = time.time() - self.start_time
-
-        with self.stats_lock:
-            return {
-                "system_uptime": round(elapsed, 2),
-                "frames_captured": self.frames_captured,
-                "sensor_readings": self.sensor_readings,
-                "packets_sent": self.packets_sent,
-                "commands_received": self.commands_received,
-                "components_status": self.system_status.copy(),
-                "components_online": sum(
-                    1 for s in self.system_status.values() if s == "Online"
-                ),
-            }
 
 
 def create_argument_parser():

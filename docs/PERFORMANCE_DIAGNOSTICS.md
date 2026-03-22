@@ -78,9 +78,14 @@ sudo timedatectl set-ntp true
 
 O `sensor_display.update_history()` foi alterado de uma lista fixa de ~100 campos para salvar **tudo** que chega dinamicamente. Qualquer campo novo do RPi (ex: novos `timing_*`) é incluído automaticamente no pickle sem alteração de código.
 
-### Fase 6 — Raw Buffer (todos os pacotes)
+### Fase 6 — Raw Buffer (todos os pacotes, com limite)
 
 O `process_queue` do client faz drain (descarta pacotes intermediários, usa só o último) para manter a GUI em tempo real. Para não perder dados no pickle, adicionamos um `raw_buffer` que armazena **100% dos pacotes recebidos** sem perda. O auto-save exporta o raw_buffer.
+
+O raw_buffer é limitado a **12.000 rows** (~2 minutos a 100Hz) para evitar memory leak
+em sessões longas. Quando excede o limite, as primeiras 2.000 entries são descartadas.
+O `inject_client_timings` que insere timings do client no raw_buffer é protegido por
+`data_lock` para thread-safety.
 
 ## Como Coletar Dados
 
@@ -202,7 +207,9 @@ Nota: valores negativos mínimos indicam pequeno residual de clock skew entre RP
 
 O software (RPi + Client) contribui com apenas **~2ms** da latência total de ~46ms. O gargalo absoluto é a **rede WiFi 2.4GHz** que representa ~98% da latência. Migrar para WiFi 5GHz deve reduzir a latência de rede para ~5-15ms, resultando em latência total de ~7-17ms.
 
-O sistema captura **100% dos pacotes** (1779 em 20s, ~84Hz) sem perda graças ao raw_buffer que armazena todos os pacotes antes do drain. O loop de processamento de 100Hz usa apenas 2% do budget disponível (0.20ms de 10ms).
+O sistema captura **100% dos pacotes** (1779 em 20s, ~84Hz) sem perda graças ao raw_buffer que armazena todos os pacotes antes do drain (limitado a 12.000 rows para evitar memory leak). O loop de processamento de 100Hz usa apenas 2% do budget disponível (0.20ms de 10ms).
+
+Os loops TX do RPi e client usam timing compensado (`next_tick` pattern) para manter a taxa real precisa. Sem compensação, o `time.sleep(interval)` simples causava drift de ~15-20% (ex: 85Hz em vez de 100Hz).
 
 ## Raw Buffer vs Drain
 

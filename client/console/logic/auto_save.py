@@ -13,7 +13,7 @@ import threading
 import tkinter as tk
 from datetime import datetime
 
-from simple_logger import error, info
+from managers.simple_logger import error, info
 
 from ..utils.constants import (
     AUTO_EXPORT_DIR,

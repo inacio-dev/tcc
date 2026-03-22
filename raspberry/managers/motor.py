@@ -84,12 +84,6 @@ class MotorManager:
         self.start_time = time.time()
         self._last_throttle_log = 0.0
 
-        # Limitadores de segurança
-        self.temperature_limit = 85.0  # °C simulado
-        self.current_limit = 12.0  # A simulado
-        self.overheat_protection = True
-        self.current_protection = True
-
     def initialize(self) -> bool:
         """
         Inicializa o sistema de motor
@@ -138,29 +132,6 @@ class MotorManager:
 
             self.is_initialized = False
             return False
-
-    def _gpio_to_pin(self, gpio_num: int) -> int:
-        """Converte número GPIO para número do pino físico"""
-        gpio_to_pin_map = {
-            18: 12,
-            27: 13,
-            22: 15,
-            23: 16,
-            4: 7,
-            17: 11,
-            24: 18,
-            25: 22,
-            5: 29,
-            6: 31,
-            12: 32,
-            13: 33,
-            19: 35,
-            16: 36,
-            26: 37,
-            20: 38,
-            21: 40,
-        }
-        return gpio_to_pin_map.get(gpio_num, 0)
 
     def _start_acceleration_thread(self):
         """Inicia thread para controle de aceleração suave"""
@@ -433,21 +404,6 @@ class MotorManager:
             self.current_pwm = 0.0
         warn("PARADA DE EMERGÊNCIA DO MOTOR!", "MOTOR")
 
-    def manual_shift(self, gear: int):
-        """
-        Troca marcha manualmente
-
-        Args:
-            gear (int): Marcha desejada (1-5)
-        """
-        if gear < 1 or gear > 5:
-            warn(f"Marcha inválida: {gear} (válido: 1-5)", "MOTOR")
-            return
-
-        # Modo sempre manual - permite troca a qualquer momento
-        with self.state_lock:
-            self._shift_gear(gear)
-
     def shift_gear_up(self) -> bool:
         """
         Sobe uma marcha (controle manual via teclado)
@@ -516,59 +472,6 @@ class MotorManager:
                 # === TIMESTAMP ===
                 "timestamp": round(time.time(), 3),
             }
-
-    def get_tachometer_data(self) -> Dict[str, Any]:
-        """
-        Dados específicos para conta-giros
-
-        Returns:
-            dict: Dados do conta-giros
-        """
-        zone = self._classify_zone(self.current_pwm)
-        tach = self._tachometer_percent(self.current_pwm)
-        _, ideal_low, ideal_high, tau_base = self.GEAR_PARAMS[self.current_gear]
-        tau = self._get_tau(self.current_pwm)
-
-        zone_colors = {"IDEAL": "GREEN", "SUBOPTIMAL": "YELLOW", "POOR": "RED"}
-
-        return {
-            "rpm": round(tach, 0),
-            "rpm_zone": zone_colors[zone],
-            "gear": self.current_gear,
-            "shift_light": zone != "IDEAL",
-            "efficiency_zone": zone,
-            "tau_effective": round(tau, 1),
-            "tau_base": tau_base,
-            "ideal_pwm_range": f"{ideal_low}-{ideal_high}%",
-            "current_pwm": round(self.current_pwm, 1),
-        }
-
-    def get_statistics(self) -> Dict[str, Any]:
-        """
-        Obtém estatísticas de operação
-
-        Returns:
-            dict: Estatísticas completas
-        """
-        elapsed = time.time() - self.start_time
-
-        return {
-            "total_runtime": round(self.total_runtime, 2),
-            "system_uptime": round(elapsed, 2),
-            "total_distance": round(self.total_distance, 4),
-            "gear_changes": self.gear_changes,
-            "engine_starts": self.engine_starts,
-            "average_speed": (
-                round(self.total_distance / (self.total_runtime / 3600), 1)
-                if self.total_runtime > 0
-                else 0
-            ),
-            "gear_changes_per_minute": (
-                round(self.gear_changes / (elapsed / 60), 2) if elapsed > 0 else 0
-            ),
-            "current_gear": self.current_gear,
-            "transmission_mode": "manual",
-        }
 
     def cleanup(self):
         """Libera recursos do motor"""

@@ -3,7 +3,7 @@
 
 Será realizado um desenvolvimento incremental e modular de um sistema completo de \gls{teleoperacao} de um veículo de Fórmula 1 com simulador (volante e pedais), sendo o veículo controlado via protocolo \gls{UDP}. A metodologia adotada é a prototipagem evolutiva, que busca o teste individual de cada componente antes da integração final. O projeto busca um objetivo semelhante ao artigo de \citeonline{shaik2025design}, conforme apresentado na fundamentação teórica.
 
-O projeto seguirá uma arquitetura de três camadas. A primeira corresponde ao veículo teleoperado, tendo como elemento principal o Raspberry Pi 4, responsável por receber mensagens de controle via UDP e enviar mensagens de vídeo e status de sensores. A segunda camada é o cliente (PC), que receberá as mensagens do veículo, exibirá a interface de telemetria e encaminhará as mensagens de controle oriundas do simulador para o veículo. A terceira camada é o simulador Logitech G923, um volante profissional com rotação de 900°, pedais progressivos (acelerador e freio), paddle shifters para troca de marchas e motor de force feedback integrado, conectado diretamente ao cliente PC via \gls{USB} e acessado através da biblioteca evdev no Linux. A integração de múltiplos sensores segue a abordagem de \citeonline{bobrovsky2023development}, visando um bom resultado de feedback ao usuário. A \autoref{fig:arquitetura-projeto} apresenta o diagrama da arquitetura proposta.
+O projeto seguirá uma arquitetura de três camadas. A primeira corresponde ao veículo teleoperado, tendo como elemento principal o Raspberry Pi 4, responsável por receber mensagens de controle via UDP e enviar mensagens de vídeo e status de sensores. A segunda camada é o cliente (PC), que receberá as mensagens do veículo, exibirá a interface de telemetria e encaminhará as mensagens de controle oriundas do simulador para o veículo. A terceira camada é o simulador Logitech G923, um volante profissional com rotação de 900°, pedais progressivos (acelerador e freio), paddle shifters para troca de marchas e motor de force feedback integrado, conectado diretamente ao cliente PC via \gls{USB} e acessado através da biblioteca evdev no Linux. A integração de múltiplos sensores segue a abordagem de \citeonline{bobrovsky2023development}. A \autoref{fig:arquitetura-projeto} apresenta o diagrama da arquitetura proposta.
 
 O desenvolvimento inicia com a modelagem, impressão e montagem do chassi do veículo teleoperado, seguido por testes de desempenho e comunicação entre o Raspberry Pi e o cliente (PC). Na sequência, ocorre a integração gradual dos sensores e atuadores do veículo teleoperado com o Raspberry Pi e os testes de comunicação do veículo completo com o PC. A etapa seguinte compreende a integração do simulador Logitech G923 com o cliente PC, incluindo o mapeamento de eixos analógicos, leitura de botões e configuração do force feedback via evdev. Por fim, realiza-se o teste completo de comunicação entre o veículo teleoperado e o simulador.
 
@@ -37,7 +37,7 @@ Para melhorar o processamento, o Arduino Mega com ESP8266 foi substituído por u
 
 \subsubsection{Testes com Módulo NRF24L01}
 
-Buscando comunicação mais rápida entre servidor e veículo, foram realizados testes com módulos de rádio NRF24L01 com antena externa, capazes de alcançar até 800 metros com boa qualidade de sinal. Os resultados foram expressivos: latência de apenas 2ms entre os dispositivos. Porém, essa abordagem implica comunicação direta ponto-a-ponto entre servidor e veículo, aumentando a complexidade para adicionar novos veículos ao sistema.
+Buscando comunicação mais rápida entre servidor e veículo, foram realizados testes com módulos de rádio NRF24L01 com antena externa, capazes de alcançar até 800 metros com boa qualidade de sinal. A latência medida foi de 2ms entre os dispositivos. Porém, essa abordagem implica comunicação direta ponto-a-ponto entre servidor e veículo, aumentando a complexidade para adicionar novos veículos ao sistema.
 
 \subsubsection{Avaliação de Redes Mesh}
 
@@ -47,7 +47,7 @@ O protocolo ESP-NOW foi considerado como alternativa para comunicação mesh ent
 
 \subsubsection{Decisão Final: Arquitetura UDP com Raspberry Pi e Logitech G923}
 
-A análise comparativa dos testes, sumarizada na \autoref{tab:comparativo-comunicacao}, conduziu à definição da arquitetura final baseada em três pilares: protocolo UDP, Raspberry Pi 4 embarcado no veículo e simulador Logitech G923. O princípio norteador foi manter o sistema simples e funcional.
+A análise comparativa dos testes (\autoref{tab:comparativo-comunicacao}) definiu a arquitetura final: protocolo UDP, Raspberry Pi 4 embarcado no veículo e simulador Logitech G923.
 
 \begin{table}[!h]
 \captionsetup{width=16cm}
@@ -77,7 +77,7 @@ A análise comparativa dos testes, sumarizada na \autoref{tab:comparativo-comuni
 
 A comunicação via rádio NRF24L01, apesar de apresentar excelente latência (2ms) e alcance (800m), exigiria a implementação de um broker intermediário para traduzir os pacotes de rádio para o protocolo UDP do servidor. Essa camada adicional aumentaria a complexidade do sistema, introduziria novos pontos de falha e demandaria desenvolvimento de firmware específico para gerenciamento da comunicação bidirecional entre rádio e rede IP. Além disso, embora o NRF24L01 seja adequado para transmissão de comandos de controle (pacotes pequenos de dezenas de bytes), a transmissão de vídeo em tempo real seria inviável: o módulo opera com taxa máxima de 2 Mbps e payload limitado a 32 bytes por pacote, tornando a fragmentação e remontagem de frames \gls{MJPEG} (10 a 50 KB cada) excessivamente complexa e propensa a erros. Implementar um protocolo confiável de transmissão de imagem sobre rádio demandaria esforço de desenvolvimento incompatível com o cronograma do projeto.
 
-A decisão de embarcar o Raspberry Pi 4 diretamente no veículo eliminou essas limitações, permitindo comunicação UDP nativa sobre WiFi. Com o Raspberry Pi embarcado, a captura de vídeo, codificação MJPEG e transmissão UDP ocorrem internamente no mesmo dispositivo, simplificando drasticamente a arquitetura. O Raspberry Pi atua simultaneamente como controlador do veículo e servidor UDP, processando vídeo da câmera OV5647, dados do sensor BMI160 e comandos de controle em uma única plataforma. Para simplificar a descoberta de dispositivos na rede local, foi adotado o protocolo mDNS, permitindo que o veículo seja acessado pelo nome \texttt{f1car.local} e o cliente por \texttt{f1client.local}, eliminando a necessidade de configuração manual de endereços IP. Para evitar bloqueios durante a transmissão, duas otimizações foram aplicadas à camada de rede. A primeira é a resolução antecipada do \textit{hostname} mDNS: ao estabelecer conexão, o \textit{hostname} \texttt{f1client.local} é resolvido uma única vez para endereço IP numérico via \texttt{socket.gethostbyname()}, e todas as chamadas \texttt{sendto()} subsequentes utilizam o IP em cache. Sem essa otimização, cada chamada \texttt{sendto()} com \textit{hostname} dispara resolução mDNS pelo daemon Avahi, que possui \textit{timeout} padrão de 5 segundos --- com 90 pacotes por segundo (60Hz de sensores e 30Hz de vídeo), qualquer expiração do \textit{cache} mDNS bloqueava ambos os \textit{sockets} simultaneamente por 5 segundos. A re-resolução periódica (a cada 10 segundos) garante atualização do IP em caso de mudança pelo DHCP. A segunda otimização é a desativação do gerenciamento de energia WiFi do Raspberry Pi 4: o \textit{driver} \texttt{brcmfmac} ativa por padrão o modo de economia de energia, desligando periodicamente a antena WiFi e bloqueando chamadas \texttt{sendto()} até a reativação. A configuração permanente via NetworkManager (\texttt{wifi.powersave = 2}) elimina esses bloqueios.
+A decisão de embarcar o Raspberry Pi 4 diretamente no veículo eliminou essas limitações, permitindo comunicação UDP nativa sobre WiFi. Com o Raspberry Pi embarcado, a captura de vídeo, codificação MJPEG e transmissão UDP ocorrem internamente no mesmo dispositivo, o que simplifica a arquitetura. O Raspberry Pi atua simultaneamente como controlador do veículo e servidor UDP, processando vídeo da câmera OV5647, dados do sensor BMI160 e comandos de controle em uma única plataforma. Para simplificar a descoberta de dispositivos na rede local, foi adotado o protocolo mDNS, permitindo que o veículo seja acessado pelo nome \texttt{f1car.local} e o cliente por \texttt{f1client.local}, eliminando a necessidade de configuração manual de endereços IP. Para evitar bloqueios durante a transmissão, duas otimizações foram aplicadas à camada de rede. A primeira é a resolução antecipada do \textit{hostname} mDNS: ao estabelecer conexão, o \textit{hostname} \texttt{f1client.local} é resolvido uma única vez para endereço IP numérico via \texttt{socket.gethostbyname()}, e todas as chamadas \texttt{sendto()} subsequentes utilizam o IP em cache. Sem essa otimização, cada chamada \texttt{sendto()} com \textit{hostname} dispara resolução mDNS pelo daemon Avahi, que possui \textit{timeout} padrão de 5 segundos --- com 160 pacotes por segundo (100Hz de sensores e 60Hz de vídeo), qualquer expiração do \textit{cache} mDNS bloqueava ambos os \textit{sockets} simultaneamente por 5 segundos. A re-resolução periódica (a cada 10 segundos) garante atualização do IP em caso de mudança pelo DHCP. A segunda otimização é a desativação do gerenciamento de energia WiFi do Raspberry Pi 4: o \textit{driver} \texttt{brcmfmac} ativa por padrão o modo de economia de energia, desligando periodicamente a antena WiFi e bloqueando chamadas \texttt{sendto()} até a reativação. A configuração permanente via NetworkManager (\texttt{wifi.powersave = 2}) elimina esses bloqueios.
 
 A arquitetura de comunicação utiliza três portas UDP separadas para otimizar o desempenho de cada tipo de dado, conforme detalhado na \autoref{tab:arquitetura-portas-udp}. Essa separação é necessária porque pacotes de vídeo grandes (50 KB) bloqueariam os pacotes pequenos de sensores (200 bytes) se compartilhassem a mesma porta, e o sistema de \gls{forcefeedback} requer taxa consistente de 100Hz com latência inferior a 10ms para resposta tátil adequada no volante.
 
@@ -89,7 +89,7 @@ A arquitetura de comunicação utiliza três portas UDP separadas para otimizar 
 		\toprule
 		Porta & Direção & Conteúdo & Taxa & Pacote & Buffer \\
 		\midrule \midrule
-		9999 & RPi $\rightarrow$ PC & Vídeo MJPEG + energia + temperatura & 30Hz & 10--50 KB & 64 KB \\
+		9999 & RPi $\rightarrow$ PC & Vídeo MJPEG + energia + temperatura & 60Hz & 10--50 KB & 64 KB \\
 		\midrule
 		9997 & RPi $\rightarrow$ PC & Sensores BMI160 (aceleração e giroscópio) & 100Hz & 200 B & 8 KB \\
 		\midrule
@@ -101,19 +101,19 @@ A arquitetura de comunicação utiliza três portas UDP separadas para otimizar 
 }
 \end{table}
 
-Para o simulador, optou-se pelo volante Logitech G923, um dispositivo \gls{USB} \gls{HID} profissional que integra volante com rotação de 900°, pedais progressivos, paddle shifters e motor de force feedback em um único periférico. O G923 é acessado no Linux através da biblioteca evdev, que permite leitura dos eixos analógicos (\texttt{ABS\_X} para direção, \texttt{ABS\_Y} para acelerador e \texttt{ABS\_Z} para freio) e botões digitais (paddle shifters para troca de marchas) a taxas superiores a 100Hz, além de upload de efeitos de \textit{force feedback} diretamente ao motor integrado do volante. Essa abordagem elimina a necessidade de firmware customizado, encoders e ponte H externa, simplificando significativamente a arquitetura do simulador.
+Para o simulador, optou-se pelo volante Logitech G923, um dispositivo \gls{USB} \gls{HID} profissional que integra volante com rotação de 900°, pedais progressivos, paddle shifters e motor de force feedback em um único periférico. O G923 é acessado no Linux através da biblioteca evdev, que permite leitura dos eixos analógicos (\texttt{ABS\_X} para direção, \texttt{ABS\_Y} para acelerador e \texttt{ABS\_Z} para freio) e botões digitais (paddle shifters para troca de marchas) a taxas superiores a 100Hz, além de upload de efeitos de \textit{force feedback} diretamente ao motor integrado do volante. Essa abordagem elimina a necessidade de firmware customizado, encoders e ponte H externa, o que simplifica a arquitetura do simulador.
 
-Essa arquitetura resultou em um sistema com apenas dois saltos de comunicação (Veículo $\leftrightarrow$ Cliente $\leftrightarrow$ Simulador), maximizando a confiabilidade e minimizando a latência total do loop de controle.
+Essa arquitetura resultou em um sistema com apenas dois saltos de comunicação (Veículo $\leftrightarrow$ Cliente $\leftrightarrow$ Simulador), o que reduz a latência total do loop de controle.
 
 \subsection{Justificativa para UDP Simples}
 \label{subsec:justificativa-udp}
 
-A escolha do UDP simples sobre protocolos mais avançados como UDP-RT \citeonline{lu2023udprt} é justificada pela necessidade de simplicidade de implementação e recursos limitados do Raspberry Pi 4. Embora o UDP-RT ofereça vantagens em redes congestionadas, sua implementação requer mecanismos adicionais de correção de erros e detecção na camada de aplicação, aumentando significativamente a complexidade do sistema. Conforme demonstrado nos resultados, a latência obtida de 1,94ms com UDP simples supera os targets típicos de 5ms, validando que esta abordagem é adequada para o projeto.
+A escolha do UDP simples sobre protocolos mais avançados como UDP-RT \citeonline{lu2023udprt} é justificada pela necessidade de simplicidade de implementação e recursos limitados do Raspberry Pi 4. Embora o UDP-RT ofereça vantagens em redes congestionadas, sua implementação requer mecanismos adicionais de correção de erros e detecção na camada de aplicação, o que aumenta a complexidade do sistema. Conforme demonstrado nos resultados, a latência obtida de 1,94ms com UDP simples supera os targets típicos de 5ms, validando que esta abordagem é adequada para o projeto.
 
 \subsection{Limitações de Alcance e Considerações de Escala}
 \label{subsec:limitacoes-alcance}
 
-O alcance da comunicação WiFi constitui uma limitação relevante para operação do veículo em pistas de maior extensão. Considerando que o veículo foi construído na escala 1:5 e que circuitos de Fórmula 1 reais possuem extensões entre 3 km (Mônaco) e 7 km (Spa-Francorchamps), uma pista em escala correspondente teria entre 600 m e 1.400 m de comprimento.
+O alcance da comunicação WiFi é uma limitação para operação do veículo em pistas de maior extensão. Considerando que o veículo foi construído na escala 1:5 e que circuitos de Fórmula 1 reais possuem extensões entre 3 km (Mônaco) e 7 km (Spa-Francorchamps), uma pista em escala correspondente teria entre 600 m e 1.400 m de comprimento.
 
 A \autoref{tab:alcance-wifi-pistas} apresenta a análise de viabilidade de cobertura WiFi para pistas em escala 1:5, considerando as características de roteadores comerciais e possíveis extensões de alcance.
 
@@ -149,7 +149,7 @@ O projeto atual foi validado em ambiente de teste com dimensões de 5 m $\times$
 \section{Arquitetura do Veículo (Raspberry Pi 4)}
 \label{sec:arquitetura-veiculo}
 
-O Raspberry Pi 4 Model B com 8GB de \gls{RAM} constitui o núcleo de processamento embarcado no veículo, responsável por todas as operações de controle, sensoriamento e comunicação. A escolha deste hardware foi motivada pela capacidade de processamento suficiente para codificação de vídeo MJPEG em tempo real, comunicação UDP nativa e controle de múltiplos periféricos via \gls{I2C}, conforme validado nos testes de arquitetura descritos na \autoref{subsec:evolucao-decisoes-comunicacao}. O diagrama elétrico completo das conexões do Raspberry Pi 4 com todos os componentes do sistema está disponível no \autoref{apendice:diagrama-rpi}.
+O Raspberry Pi 4 Model B com 8GB de \gls{RAM} é o processador embarcado no veículo, responsável pelo controle, sensoriamento e comunicação. A escolha deste hardware foi motivada pela capacidade de processamento suficiente para codificação de vídeo MJPEG em tempo real, comunicação UDP nativa e controle de múltiplos periféricos via \gls{I2C}, conforme validado nos testes de arquitetura descritos na \autoref{subsec:evolucao-decisoes-comunicacao}. O diagrama elétrico completo das conexões do Raspberry Pi 4 com todos os componentes do sistema está disponível no \autoref{apendice:diagrama-rpi}.
 
 O software embarcado foi desenvolvido em Python 3.11.2 utilizando o editor Visual Studio Code, aproveitando bibliotecas nativas para controle de GPIO, comunicação I2C e captura de vídeo via interface \gls{CSI}. A \autoref{tab:bibliotecas-rpi} apresenta as principais bibliotecas utilizadas no desenvolvimento do software embarcado.
 
@@ -191,9 +191,9 @@ A \autoref{tab:componentes-veiculo} apresenta os componentes embarcados no veíc
 		\midrule \midrule
 		Raspberry Pi 4 Model B & Broadcom BCM2711, Quad core Cortex-A72 64-bit @ 1.8GHz, 8GB RAM & Núcleo de controle e comunicação do veículo, servidor UDP, processamento de vídeo e controle de sensores \\
 		\midrule
-		Câmera OV5647 & 5MP, 2592×1944 pixels, vídeo até 1080p/30fps, interface CSI & Captura de vídeo em 640×480/30fps para transmissão via UDP \\
+		Câmera OV5647 & 5MP, 2592×1944 pixels, vídeo até 1080p/30fps, interface CSI & Captura de vídeo em 640×480/60fps para transmissão via UDP \\
 		\midrule
-		Sensor BMI160 \cite{bosch2015bmi160} & \gls{IMU} 6 eixos, ±4g/±500°/s, 16 bits, I2C, 100Hz sampling & Detecção de \glspl{forcag}, aceleração e velocidade angular para force feedback \\
+		Sensor BMI160 \cite{bosch2015bmi160} & \gls{IMU} 6 eixos, ±2g/±250°/s, 16 bits, I2C, 100Hz sampling & Detecção de \glspl{forcag}, aceleração e velocidade angular para force feedback \\
 		\midrule
 		Motor DC 775 & 24V, 12.000 RPM, com transmissão manual de 5 marchas & Propulsão principal do veículo com zonas de eficiência F1 \\
 		\midrule
@@ -238,7 +238,7 @@ A \autoref{tab:componentes-veiculo} apresenta os componentes embarcados no veíc
 
 O veículo utiliza o chassi FV01, um modelo de carro de Fórmula 1 projetado para impressão 3D por \citeonline{velocityprojects2024fv01}. O modelo original possui escala 1:7, porém foi modificado para escala 1:5 neste projeto para acomodar o Raspberry Pi 4, sensores, drivers e demais componentes eletrônicos. O chassi foi impresso em PLA com pneus de borracha para melhor aderência.
 
-O modelo apresenta características que o tornam adequado para teleoperação com feedback háptico. A suspensão push rod independente reproduz o comportamento de carros de F1 reais, permitindo detecção precisa de forças G pelo sensor BMI160. O diferencial operacional proporciona comportamento realista em curvas, enquanto a modularidade do projeto facilita manutenção e substituição de peças.
+A suspensão push rod independente permite que o sensor BMI160 detecte variações de força G em curvas e frenagens. O diferencial operacional gera comportamento diferenciado entre rodas internas e externas em curvas, e o chassi modular permite substituição individual de peças danificadas.
 
 A impressão das peças do chassi foi realizada em uma impressora Creality Ender 3 S1, equipada com extrusora direta Sprite de engrenagem dupla e nivelamento automático CR Touch de 16 pontos. A impressora possui volume de construção de 220 $\times$ 220 $\times$ 270 mm, resolução mínima de 0,05 mm e velocidade máxima de 150 mm/s, sendo compatível com diversos materiais como PLA, PETG, TPU e ABS\@. O fatiamento foi realizado utilizando o software Ultimaker Cura 5.11 \cite{ultimaker2024cura} com perfil de qualidade padrão. A \autoref{tab:config-impressao-3d} apresenta os principais parâmetros de impressão utilizados, selecionados para balancear resistência mecânica, tempo de impressão e consumo de material.
 
@@ -278,7 +278,7 @@ A impressão das peças do chassi foi realizada em uma impressora Creality Ender
 }
 \end{table}
 
-A densidade de preenchimento de 15\% com padrão Cubic Subdivision foi escolhida por oferecer boa resistência estrutural com economia de material, enquanto o suporte tipo Tree minimiza o contato com a superfície da peça, facilitando a remoção e melhorando o acabamento. O uso de Raft como adesão à mesa garante estabilidade durante a impressão de peças maiores, evitando empenamento nas bordas. A \autoref{fig:chassi-fv01} apresenta o modelo original do chassi FV01.
+A densidade de preenchimento de 15\% com padrão Cubic Subdivision oferece boa resistência estrutural com economia de material. O suporte tipo Tree minimiza o contato com a superfície da peça, o que facilita a remoção e melhora o acabamento. O Raft como adesão à mesa evita empenamento nas bordas de peças maiores. A \autoref{fig:chassi-fv01} apresenta o modelo original do chassi FV01.
 
 \begin{figure}[!ht]
 	\captionsetup{width=16cm}
@@ -305,17 +305,21 @@ Para realizar as modificações de escala e planejar a disposição interna dos 
 \subsection{Sistema de Sensoriamento}
 \label{subsec:sensoriamento-veiculo}
 
-O veículo incorpora múltiplos sensores para captura de dados em tempo real, transmitidos ao cliente via UDP para processamento e geração de feedback háptico.
+O veículo possui múltiplos sensores para captura de dados em tempo real, transmitidos ao cliente via UDP para processamento e geração de feedback háptico.
 
 \subsubsection{Câmera OV5647}
 
-A câmera OV5647 conectada via interface CSI captura vídeo em resolução 640x480 a 30 \gls{FPS}. O stream de vídeo é codificado em MJPEG (Motion JPEG), onde cada frame é comprimido independentemente como imagem JPEG. Essa escolha foi motivada pela robustez contra perda de pacotes UDP: enquanto codecs como H.264 utilizam P-frames que dependem de frames anteriores (causando distorção em cascata quando há perda de pacotes), o MJPEG transmite frames independentes, limitando o impacto de perdas a um único frame. O trade-off é maior uso de banda (aproximadamente 4x mais que H.264), compensado pela qualidade de imagem consistente e simplicidade de decodificação via OpenCV.
+A câmera OV5647 conectada via interface CSI captura vídeo em resolução 640x480 a 60 \gls{FPS}. O stream de vídeo é codificado em MJPEG (Motion JPEG), onde cada frame é comprimido independentemente como imagem JPEG. Essa escolha foi motivada pela robustez contra perda de pacotes UDP: enquanto codecs como H.264 utilizam P-frames que dependem de frames anteriores (causando distorção em cascata quando há perda de pacotes), o MJPEG transmite frames independentes, limitando o impacto de perdas a um único frame. O trade-off é maior uso de banda (aproximadamente 4x mais que H.264), compensado pela qualidade de imagem consistente e simplicidade de decodificação via OpenCV.
 
 \subsubsection{Sensor IMU BMI160}
 
-O sensor inercial BMI160 conectado via barramento I2C (endereço \texttt{0x68}) fornece dados de aceleração (3 eixos) e velocidade angular (3 eixos) a 100Hz. A configuração utiliza faixa de $\pm$4g para acelerômetro e $\pm$500°/s para giroscópio, adequadas para captura de forças G em manobras típicas de veículos RC. Os dados são transmitidos ao cliente em formato JSON via UDP, onde são processados para cálculo de force feedback e estimativa de velocidade.
+O sensor inercial BMI160 conectado via barramento I2C (endereço \texttt{0x68}) fornece dados de aceleração (3 eixos) e velocidade angular (3 eixos) a 100Hz. A configuração utiliza faixa de $\pm$2g para acelerômetro e $\pm$250°/s para giroscópio, que oferecem maior resolução (61~$\mu$g/LSB e 7,6~m°/s/LSB) para captura de forças G em manobras típicas de veículos RC. Os dados são transmitidos ao cliente em formato JSON via UDP, onde são processados para cálculo de force feedback e estimativa de velocidade.
 
 O BMI160 é suscetível a \textit{brown-out} elétrico durante picos de corrente do motor DC 775, que causam quedas momentâneas de tensão no barramento 3,3V do Raspberry Pi. Quando isso ocorre, o sensor realiza um \textit{power-on reset} interno e entra em modo \textit{suspend}, onde os registradores de dados retornam zero indefinidamente apesar de o barramento I2C continuar funcionando. Para mitigar esse problema, o software implementa um \textit{watchdog} que monitora leituras consecutivas zeradas. Após 3 leituras zeradas consecutivas (30ms a 100Hz), o sistema executa uma rotina de recuperação que reativa a unidade de gerenciamento de energia (PMU) do sensor, reconfigura os parâmetros de faixa e taxa de amostragem, e verifica o sucesso da recuperação. Os tempos de recuperação seguem as especificações do \textit{datasheet} BST-BMI160-DS000-09: 3,8ms para ativação do acelerômetro e 80ms para o giroscópio. Caso a reativação da PMU falhe, o sistema executa um \textit{soft reset} completo do sensor como segunda tentativa de recuperação.
+
+\subsubsection{Monitoramento de Temperatura}
+
+O sensor digital DS18B20 \cite{maxim2019ds18b20} conectado via protocolo 1-Wire (GPIO4) monitora a temperatura do motor e da eletrônica embarcada a 1Hz. O sensor possui faixa de $-55$°C a $+125$°C com precisão de $\pm0{,}5$°C e validação de dados por CRC. O software implementa alertas térmicos em três níveis: aviso a 65°C, crítico a 80°C e desligamento automático a 85°C. Os dados de temperatura são incluídos nos pacotes UDP da porta 9999 e exibidos na interface do cliente.
 
 \subsubsection{Monitoramento de Energia}
 
@@ -451,14 +455,14 @@ O driver BTS7960 foi selecionado para o sistema de propulsão do veículo especi
 
 No veículo, uma proteção mecânica adicional foi implementada através de rolamento unidirecional no eixo de transmissão. Esse componente permite que as rodas girem livremente sem transmitir rotação reversa ao motor, reduzindo a geração de back-EMF quando o veículo está em movimento com motor desligado.
 
-Essa arquitetura de proteção elimina a necessidade de componentes externos adicionais, como diodos flyback ou capacitores de supressão de transientes, simplificando o projeto eletrônico e aumentando a confiabilidade do sistema.
+Essa arquitetura de proteção elimina a necessidade de componentes externos adicionais, como diodos flyback ou capacitores de supressão de transientes.
 
 \subsection{Arquitetura Multi-Thread}
 \label{subsec:multithread-veiculo}
 
 O software embarcado no Raspberry Pi foi refatorado de uma arquitetura sequencial para uma arquitetura multi-thread, permitindo que cada subsistema opere de forma independente e em sua taxa ideal de amostragem. Na arquitetura sequencial original, o loop principal executava todas as operações em sequência (captura de frame, leitura de sensores, transmissão de dados), resultando em latência acumulada onde o componente mais lento limitava todo o sistema.
 
-A arquitetura multi-thread implementada utiliza cinco threads principais: a thread de câmera opera a 30Hz para captura de frames da OV5647; a thread de sensores opera a 100Hz para leitura do BMI160 e envio direto pela porta UDP 9997; a thread de energia opera a 10Hz para monitoramento via Arduino Pro Micro (USB serial) e INA219 (I2C); a thread de temperatura opera a 1Hz para leitura do DS18B20; e a thread de transmissão principal verifica dados a 120Hz, consolidando e enviando pacotes pela porta 9999 quando há novos frames disponíveis (efetivamente 30Hz). Essa separação permite que a captura de vídeo não atrase a leitura de sensores e vice-versa, reduzindo a latência de sensores de aproximadamente 33ms (espera por frame) para aproximadamente 10ms (envio direto pela porta dedicada).
+A arquitetura multi-thread implementada utiliza sete threads. Quatro são de aquisição: câmera a 60Hz (captura de frames da OV5647), sensores a 100Hz (leitura do BMI160), energia a 10Hz (Arduino Pro Micro via USB serial e INA219 via I2C) e temperatura a 1Hz (DS18B20 e métricas do sistema operacional como uso de CPU, memória RAM, disco e rede). Duas são de transmissão: vídeo a 60Hz, que consolida frame MJPEG com dados de energia, temperatura e métricas do sistema e envia pela porta UDP 9999; e sensores a 100Hz, que envia dados do BMI160 pela porta UDP 9997. A sétima thread é a de recepção de comandos, que opera como daemon no gerenciador de rede pela porta UDP 9998. Essa separação evita que a captura de vídeo atrase a leitura de sensores e vice-versa, reduzindo a latência de sensores de aproximadamente 16ms (espera por frame a 60Hz) para aproximadamente 10ms (envio direto pela porta dedicada). Para diagnóstico de latência, cada pacote UDP inclui campos de instrumentação de tempo (\texttt{timing\_bmi160\_read}, \texttt{timing\_lock}, \texttt{timing\_total\_pre\_send}), que medem a duração de cada etapa do pipeline.
 
 A comunicação entre threads utiliza filas \gls{threadsafe} (classe \texttt{Queue} do Python) para transferência de dados e locks (\texttt{threading.Lock}) para proteção de variáveis compartilhadas. Cada gerenciador de componente implementa seu próprio lock interno para garantir acesso seguro em ambiente concorrente. A thread de transmissão consolida os dados mais recentes de todas as threads de aquisição antes de cada envio, garantindo pacotes com informações sincronizadas.
 
@@ -481,7 +485,7 @@ O barramento I2C foi configurado para operar a 400kHz (\textit{Fast mode}) em ve
 \section{Arquitetura do Simulador (Logitech G923)}
 \label{sec:arquitetura-simulador}
 
-O simulador utiliza o volante Logitech G923, um dispositivo profissional de simulação que integra volante com rotação de 900°, pedais progressivos de acelerador e freio, paddle shifters para troca de marchas e motor de force feedback com sistema TRUEFORCE, em um único periférico USB, conforme ilustrado na \autoref{fig:g923-volante}. A escolha do G923 como dispositivo de entrada do simulador foi motivada pela superior precisão dos sensores internos, \textit{force feedback} nativo sem necessidade de ponte H externa, e eliminação de \textit{firmware} customizado e calibração manual. O G923 é reconhecido pelo sistema operacional Linux como dispositivo de entrada padrão, acessível através da interface evdev do kernel.
+O simulador utiliza o volante Logitech G923, um dispositivo profissional de simulação que integra volante com rotação de 900°, pedais progressivos de acelerador e freio, paddle shifters para troca de marchas e motor de force feedback com sistema TRUEFORCE, em um único periférico USB, conforme ilustrado na \autoref{fig:g923-volante}. O G923 foi escolhido por ter sensores internos de maior precisão, \textit{force feedback} nativo sem necessidade de ponte H externa, e por não exigir \textit{firmware} customizado nem calibração manual. O G923 é reconhecido pelo sistema operacional Linux como dispositivo de entrada padrão, acessível através da interface evdev do kernel.
 
 \begin{figure}[!ht]
 	\captionsetup{width=16cm}
@@ -600,7 +604,7 @@ O sistema de \textit{force feedback} explora a capacidade do G923 de executar 15
 		\midrule
 		FF\_RUMBLE & Vibração & Dados BMI160 & Vibração de impactos e textura da pista (motor forte + fraco) \\
 		\midrule
-		FF\_PERIODIC & Vibração & Acelerador & Vibração senoidal simulando RPM do motor (5 a 12Hz) \\
+		FF\_PERIODIC & Vibração & Acelerador & Vibração senoidal simulando RPM do motor (5 a 12,5Hz) \\
 		\bottomrule
 	\end{tabular}%
 }{%
@@ -635,7 +639,7 @@ Embora o G923 possua calibração interna de fábrica, o software do cliente imp
 \section{Arquitetura do Cliente (PC)}
 \label{sec:arquitetura-cliente}
 
-O cliente PC atua como hub central do sistema, recebendo dados do veículo via UDP, processando telemetria, calculando force feedback e transmitindo comandos para simulador e veículo. O software foi desenvolvido em Python 3.11.2 utilizando o editor Visual Studio Code, com interface gráfica Tkinter. O Python foi escolhido devido à facilidade de prototipagem e disponibilidade de bibliotecas para decodificação de vídeo, interface gráfica, processamento de imagens e comunicação. A \autoref{tab:bibliotecas-cliente} apresenta as principais bibliotecas utilizadas no desenvolvimento do cliente.
+O cliente PC é o ponto central do sistema: recebe dados do veículo via UDP, processa telemetria, calcula force feedback e transmite comandos para simulador e veículo. O software foi desenvolvido em Python 3.11.2 utilizando o editor Visual Studio Code, com interface gráfica Tkinter. O Python foi escolhido devido à facilidade de prototipagem e disponibilidade de bibliotecas para decodificação de vídeo, interface gráfica, processamento de imagens e comunicação. A \autoref{tab:bibliotecas-cliente} apresenta as principais bibliotecas utilizadas no desenvolvimento do cliente.
 
 \begin{table}[!h]
 \captionsetup{width=16cm}
@@ -710,14 +714,14 @@ A interface gráfica utiliza layout de duas colunas: telemetria à esquerda e v�
 	}
 \end{figure}
 
-A coluna esquerda apresenta o status da conexão UDP e do simulador G923, painel de instrumentos com zona de eficiência, marcha atual, informações de energia, bateria e temperatura, dados brutos e físicos do sensor BMI160, forças G calculadas, velocidade estimada e componentes do cálculo de force feedback. A coluna direita exibe o vídeo da câmera em tempo real, filtros de processamento de imagem e gráficos de telemetria F1.
+A coluna esquerda apresenta o status da conexão UDP e do simulador G923, painel de instrumentos com zona de eficiência, marcha atual, painel de energia (tensão da bateria, corrente e potência do motor, servos e Raspberry Pi com indicadores coloridos por faixa de operação), temperatura do motor e eletrônica, dados brutos e físicos do sensor BMI160, forças G calculadas, velocidade estimada e componentes do cálculo de force feedback. A coluna esquerda também exibe métricas de sistema do Raspberry Pi (uso de CPU, temperatura, memória RAM, disco e taxa de transferência de rede) e do cliente PC (CPU, memória e rede), o que permite acompanhar o estado de ambos os dispositivos durante a operação. A coluna direita exibe o vídeo da câmera em tempo real, filtros de processamento de imagem e gráficos de telemetria F1.
 
 O painel de instrumentos exibe a porcentagem dentro da zona IDEAL de eficiência, marcha atual, posição do acelerador e velocidade estimada, atualizados em tempo real conforme dados recebidos do veículo e simulador. A visualização de vídeo utiliza OpenCV para decodificação MJPEG e Pillow para renderização no canvas Tkinter.
 
 \subsection{Filtros de Processamento Digital de Imagens}
 \label{subsec:filtros-pdi}
 
-O cliente implementa um sistema de filtros de \gls{PDI} combináveis, permitindo ao operador ativar múltiplos filtros simultaneamente via checkboxes na interface. Os filtros são aplicados em ordem otimizada para maximizar a qualidade visual do vídeo recebido do veículo.
+O cliente implementa um sistema de filtros de \gls{PDI} combináveis, permitindo ao operador ativar múltiplos filtros simultaneamente via checkboxes na interface. Os filtros são aplicados em ordem otimizada para melhorar a qualidade visual do vídeo recebido do veículo.
 
 A \autoref{tab:filtros-pdi} apresenta os filtros disponíveis no sistema, baseados em técnicas clássicas de processamento de imagens conforme \citeonline{gonzalez2010processamento}.
 
@@ -750,11 +754,11 @@ O sistema suporta aceleração por \gls{GPU} NVIDIA via biblioteca CuPy quando d
 
 O cliente PC implementa uma arquitetura multi-thread para garantir processamento paralelo e responsividade da interface gráfica. A separação em threads especializadas permite que operações de I/O (rede e evdev) não bloqueiem a renderização de vídeo ou a atualização da interface.
 
-A thread principal executa o loop de eventos do Tkinter, responsável pela renderização da interface gráfica e atualização dos widgets em tempo real. A thread de rede opera como daemon e recebe pacotes UDP do veículo na porta 9999, decodificando frames MJPEG e dados de telemetria consolidados a aproximadamente 30Hz. A thread do G923 recebe dados dos eixos do simulador Logitech G923 via evdev, processando comandos de acelerador, freio, direção e troca de marchas em tempo real. Adicionalmente, uma thread de sensores rápidos recebe exclusivamente dados do BMI160 na porta UDP 9997 a 100Hz, permitindo cálculo de force feedback com baixa latência.
+A thread principal executa o loop de eventos do Tkinter, responsável pela renderização da interface gráfica e atualização dos widgets em tempo real. A thread de rede opera como daemon e recebe pacotes UDP do veículo na porta 9999, decodificando frames MJPEG e dados de telemetria consolidados a aproximadamente 60Hz. A thread do G923 recebe dados dos eixos do simulador Logitech G923 via evdev, processando comandos de acelerador, freio, direção e troca de marchas em tempo real. Adicionalmente, uma thread de sensores rápidos recebe exclusivamente dados do BMI160 na porta UDP 9997 a 100Hz, permitindo cálculo de force feedback com baixa latência.
 
 A comunicação entre threads utiliza filas \gls{threadsafe} (\texttt{queue.Queue}) para transferência de dados à thread principal. Filas separadas são mantidas para logs, status de conexão, dados de sensores e frames de vídeo. A thread principal consome essas filas periodicamente via callbacks do Tkinter (\texttt{root.after()}), garantindo que atualizações de interface ocorram apenas na thread principal conforme exigido pelo toolkit gráfico.
 
-O filtro por IP garante que apenas pacotes do veículo configurado sejam processados, ignorando tráfego de rede não relacionado. Essa arquitetura permite que o cliente mantenha taxa de atualização de interface de 30Hz para vídeo, 100Hz para dados de sensores e resposta imediata a comandos do operador, mesmo durante picos de processamento de filtros de imagem ou cálculos de force feedback.
+O filtro por IP garante que apenas pacotes do veículo configurado sejam processados, ignorando tráfego de rede não relacionado. Essa arquitetura permite que o cliente mantenha taxa de atualização de interface de 60Hz para vídeo, 100Hz para dados de sensores e resposta imediata a comandos do operador, mesmo durante picos de processamento de filtros de imagem ou cálculos de force feedback.
 
 \subsection{Algoritmos de Cálculo de Force Feedback}
 \label{subsec:algoritmos-ff-cliente}
@@ -1042,7 +1046,7 @@ O sistema implementa salvamento automático periódico para garantir a preserva�
 \section{Armazenamento de Logs e Validação}
 \label{sec:logs-validacao}
 
-O sistema de armazenamento de dados implementa salvamento automático periódico para garantir a preservação de informações de telemetria durante as sessões de operação. Os dados armazenados permitem validação das telemetrias entre corridas e análise posterior, de forma similar às equipes de Fórmula 1 que utilizam dados de sessões para otimização de desempenho.
+Os dados coletados pelo auto-save permitem validação entre sessões e análise posterior, de forma similar às equipes de Fórmula 1 que utilizam dados de sessões para otimização de desempenho.
 
 \subsection{Formatos de Armazenamento}
 \label{subsec:formatos-armazenamento}
@@ -1087,7 +1091,7 @@ O processamento combina múltiplos arquivos Pickle em estruturas unificadas, con
 
 A visualização gráfica utiliza a biblioteca Matplotlib com estilo visual inspirado nas telemetrias de Fórmula 1, apresentando gráficos de velocidade ao longo do tempo, utilização de pedais, forças G, distribuição de velocidade em histograma e diagrama G-G (\textit{scatter plot} de força lateral versus frontal). A análise de logs identifica padrões de erros, avisos, conexões e desconexões através de expressões regulares.
 
-O script também suporta exportação de relatório HTML formatado contendo todas as estatísticas e metadados da sessão, facilitando documentação e compartilhamento dos resultados experimentais. A \autoref{alg:analise-sessao} apresenta o fluxo principal do processamento.
+O script também exporta relatório HTML formatado com as estatísticas e metadados da sessão. A \autoref{alg:analise-sessao} apresenta o fluxo principal do processamento.
 
 \begin{algorithm}[h!]
 	\SetSpacedAlgorithm
@@ -1170,12 +1174,12 @@ Os dados armazenados pelo sistema de auto-save permitem a extração de métrica
 
 O script \texttt{analyze\_session.py} calcula automaticamente as estatísticas principais a partir dos dados armazenados. Para métricas de comunicação, o intervalo entre timestamps consecutivos permite estimar a latência efetiva do sistema, enquanto o desvio padrão desses intervalos caracteriza o jitter. A análise de logs por expressões regulares identifica eventos de erro, permitindo cálculo da taxa de perda de pacotes.
 
-Para validação estatística dos resultados, o volume de dados coletado pelo sistema de auto-save garante robustez. Considerando taxa de amostragem de 100Hz para sensores e sessões típicas de 15 minutos, cada sessão gera aproximadamente 90.000 pontos de telemetria. Esse volume supera significativamente o mínimo de 384 amostras requerido para população infinita com 95\% de confiança e margem de erro de 5\%, proporcionando poder estatístico superior a 99\% para detectar diferenças com tamanho de efeito médio nas comparações com o estado da arte.
+Para validação estatística dos resultados, o volume de dados coletado pelo sistema de auto-save garante robustez. Considerando taxa de amostragem de 100Hz para sensores e sessões típicas de 15 minutos, cada sessão gera aproximadamente 90.000 pontos de telemetria. Esse volume é muito superior ao mínimo de 384 amostras requerido para população infinita com 95\% de confiança e margem de erro de 5\%, resultando em poder estatístico superior a 99\% para detectar diferenças com tamanho de efeito médio.
 
 \section{Reprodutibilidade e Transparência Experimental}
 \label{sec:reprodutibilidade-transparencia}
 
-A garantia de reprodutibilidade científica constitui um pilar fundamental para a validação e evolução do conhecimento em engenharia de sistemas embarcados. Seguindo as diretrizes estabelecidas por \citeonline{graf2024monitoring} para avaliação de desempenho de sistemas wireless, este trabalho adota protocolos rigorosos de documentação e disponibilização de recursos para permitir a replicação completa dos experimentos realizados.
+Para permitir a replicação dos experimentos, este trabalho segue as diretrizes de \citeonline{graf2024monitoring} para avaliação de desempenho de sistemas wireless, documentando configurações, código fonte e dados utilizados.
 
 \subsection{Disponibilização de Código Fonte e Datasets}
 \label{subsec:codigo-datasets}
@@ -1215,17 +1219,17 @@ Conforme demonstrado por \citeonline{bobrovsky2023development}, a transparência
 \subsection{Protocolo Detalhado de Replicação}
 \label{subsec:protocolo-replicacao}
 
-O protocolo de replicação experimental documentado contempla todos os aspectos críticos para reprodução fidedigna dos resultados obtidos. As especificações de hardware incluem números de modelo exatos, versões de firmware e configurações específicas de cada componente utilizado no sistema. Para o Raspberry Pi 4, documenta-se a versão do Raspberry Pi OS (Bullseye 64-bit), kernel utilizado (5.15.84-v8+) e configurações específicas do arquivo config.txt para otimização da câmera OV5647.
+As especificações de hardware incluem números de modelo exatos, versões de firmware e configurações específicas de cada componente utilizado no sistema. Para o Raspberry Pi 4, documenta-se a versão do Raspberry Pi OS (Bullseye 64-bit), kernel utilizado (5.15.84-v8+) e configurações específicas do arquivo config.txt para otimização da câmera OV5647.
 
 As configurações de rede wireless seguem padrões reproduzíveis, especificando canal WiFi (2.4GHz canal 6), potência de transmissão (20dBm), tipo de roteador utilizado (TP-Link Archer C6) e posicionamento físico dos equipamentos. As condições ambientais durante os experimentos são registradas detalhadamente, incluindo temperatura ambiente (22±2°C), umidade relativa (45±5\%), interferências eletromagnéticas medidas e layout físico do ambiente de teste.
 
 \subsection{Documentação de Configurações Ambientais}
 \label{subsec:configuracoes-ambientais}
 
-As configurações ambientais experimentais são registradas sistematicamente para garantir reprodutibilidade das condições de teste. O ambiente de rede é caracterizado através de medições de potência de sinal WiFi utilizando ferramentas como iwconfig e wavemon, documentando valores de \gls{RSSI} em múltiplos pontos do ambiente experimental.
+O ambiente de rede é caracterizado através de medições de potência de sinal WiFi utilizando ferramentas como iwconfig e wavemon, documentando valores de \gls{RSSI} em múltiplos pontos do ambiente experimental.
 
 As características do ambiente físico incluem dimensões precisas do local de teste (5m × 8m), materiais de construção das paredes (alvenaria com reboco), presença de obstáculos metálicos e fontes potenciais de interferência eletromagnética. O posicionamento relativo entre veículo teleoperado e estação de controle é documentado com coordenadas precisas, utilizando sistema de referência baseado em marcos físicos permanentes.
 
-As condições de iluminação para os testes de câmera são padronizadas utilizando iluminação artificial controlada (lâmpadas LED 6500K, 1000 lúmens), minimizando variações devido à iluminação natural. Os padrões de teste visual incluem alvos de calibração com dimensões conhecidas, permitindo validação da qualidade de captura de vídeo independente das condições específicas do ambiente.
+As condições de iluminação para os testes de câmera são padronizadas utilizando iluminação artificial controlada (lâmpadas LED 6500K, 1000 lúmens), o que reduz variações devido à iluminação natural. Os padrões de teste visual incluem alvos de calibração com dimensões conhecidas, permitindo validação da qualidade de captura de vídeo independente das condições específicas do ambiente.
 
-O controle de temperatura ambiente utiliza sistema de climatização para manter estabilidade térmica durante as sessões experimentais, evitando drift térmico excessivo nos sensores. Registros contínuos de temperatura e umidade são mantidos através de datalogger dedicado, correlacionando variações ambientais com performance do sistema.
+O controle de temperatura ambiente utiliza sistema de climatização para manter estabilidade térmica durante as sessões experimentais, evitando drift térmico excessivo nos sensores. Registros contínuos de temperatura e umidade são mantidos através de datalogger dedicado, para correlacionar variações ambientais com a performance do sistema.
