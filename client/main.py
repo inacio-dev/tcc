@@ -277,6 +277,7 @@ class F1ClientApplication:
         Tanto G923 quanto sliders/teclado atualizam _control_state,
         e este loop envia STATE:steering,throttle,brake uniformemente."""
         interval = 1.0 / 100.0  # 100Hz
+        next_tick = time.monotonic()
         while self.running:
             try:
                 if (
@@ -286,9 +287,14 @@ class F1ClientApplication:
                     with self._control_state_lock:
                         state = self._control_state
                     self.network_client.send_control_command("STATE", state)
-                time.sleep(interval)
             except Exception:
-                time.sleep(interval)
+                pass
+            next_tick += interval
+            sleep_time = next_tick - time.monotonic()
+            if sleep_time > 0:
+                time.sleep(sleep_time)
+            else:
+                next_tick = time.monotonic()  # Reset se ficou muito atrasado
 
     def start_console_thread(self):
         """Inicia thread do console (interface principal)"""

@@ -79,7 +79,6 @@ class KeyboardController:
 
         # Controle de threads
         self.is_active = False
-        self.command_thread = None
         self._key_worker_thread = None
         self._key_queue = queue.Queue()
         self.lock = threading.Lock()
@@ -221,7 +220,7 @@ class KeyboardController:
     def _send_command(self, command_type: str, value: float):
         """Envia comando para o Raspberry Pi"""
         try:
-            if self.network_client:
+            if self.network_client and getattr(self.network_client, 'packets_received', 0) > 0:
                 success = self.network_client.send_control_command(command_type, value)
                 if success:
                     self.commands_sent += 1
@@ -241,8 +240,6 @@ class KeyboardController:
             return
 
         self.is_active = True
-        self.command_thread = threading.Thread(target=self._command_loop, daemon=True)
-        self.command_thread.start()
         self._key_worker_thread = threading.Thread(target=self._key_worker_loop, daemon=True)
         self._key_worker_thread.start()
 
@@ -264,15 +261,6 @@ class KeyboardController:
         except Exception:
             pass
 
-        # Aguarda thread de comando parar
-        try:
-            if self.command_thread and self.command_thread.is_alive():
-                self.command_thread.join(timeout=1.0)
-                if self.command_thread.is_alive():
-                    self._log("WARN", "Thread de comando não finalizou no timeout")
-        except Exception as e:
-            self._log("ERROR", f"Erro ao parar thread de comando: {e}")
-
         try:
             # Limpa widgets de status
             if hasattr(self, "status_widgets"):
@@ -293,22 +281,6 @@ class KeyboardController:
             self._log("INFO", "Controlador de teclado parado")
         except Exception:
             pass
-
-    def _command_loop(self):
-        """Loop principal para envio contínuo de comandos"""
-        while self.is_active:
-            try:
-                with self.lock:
-                    # Envia comandos ativos
-                    for command_type, value in self.active_commands.items():
-                        self._send_command(command_type, value)
-
-                # Aguarda próximo ciclo
-                time.sleep(1.0 / self.command_rate)
-
-            except Exception as e:
-                self._log("ERROR", f"Erro no loop de comandos: {e}")
-                time.sleep(0.1)
 
     def _flash_instant_command(self, command_type: str):
         """Cria feedback visual flash para comandos instantâneos"""

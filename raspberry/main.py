@@ -534,6 +534,7 @@ class F1CarMultiThreadSystem:
         debug(f"Thread TX vídeo iniciada ({self.camera_fps}Hz)", "NET-TX")
         interval = 1.0 / self.camera_fps
         SLOW_THRESHOLD = 0.050  # 50ms
+        next_tick = time.monotonic()
 
         while self.running:
             try:
@@ -559,11 +560,15 @@ class F1CarMultiThreadSystem:
                         "DIAG",
                     )
 
-                time.sleep(interval)
-
             except Exception as e:
                 warn(f"Erro na thread TX vídeo: {e}", "NET-TX", rate_limit=5.0)
-                time.sleep(0.01)
+
+            next_tick += interval
+            sleep_time = next_tick - time.monotonic()
+            if sleep_time > 0:
+                time.sleep(sleep_time)
+            else:
+                next_tick = time.monotonic()
 
         debug("Thread TX vídeo finalizada", "NET-TX")
 
@@ -574,6 +579,7 @@ class F1CarMultiThreadSystem:
         last_stats_time = time.time()
         last_connect_ping = time.time()
         SLOW_THRESHOLD = 0.050  # 50ms
+        next_tick = time.monotonic()
 
         while self.running:
             try:
@@ -650,11 +656,15 @@ class F1CarMultiThreadSystem:
                         "DIAG",
                     )
 
-                time.sleep(interval)
-
             except Exception as e:
                 warn(f"Erro na thread TX sensores: {e}", "NET-TX", rate_limit=5.0)
-                time.sleep(0.01)
+
+            next_tick += interval
+            sleep_time = next_tick - time.monotonic()
+            if sleep_time > 0:
+                time.sleep(sleep_time)
+            else:
+                next_tick = time.monotonic()
 
         debug("Thread TX sensores finalizada", "NET-TX")
 
@@ -682,7 +692,8 @@ class F1CarMultiThreadSystem:
                         if self.steering_mgr:
                             self.steering_mgr.set_steering_input(steering)
                         if self.motor_mgr:
-                            self.motor_mgr.brake_input = brake
+                            with self.motor_mgr.state_lock:
+                                self.motor_mgr.brake_input = brake
                             self.motor_mgr.set_throttle(throttle)
                         if self.brake_mgr:
                             self.brake_mgr.apply_brake(brake)
@@ -707,7 +718,8 @@ class F1CarMultiThreadSystem:
                 elif control_cmd.startswith("BRAKE:"):
                     force = float(control_cmd[6:])
                     if self.motor_mgr:
-                        self.motor_mgr.brake_input = force
+                        with self.motor_mgr.state_lock:
+                            self.motor_mgr.brake_input = force
                     if self.brake_mgr:
                         self.brake_mgr.apply_brake(force)
                         debug(f"Freio: {force:.1f}%", "CMD")
