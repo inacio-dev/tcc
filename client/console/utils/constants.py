@@ -2,11 +2,13 @@
 constants.py - Constantes compartilhadas do console
 """
 
+from pathlib import Path
+
 # Limites do console de log
 MAX_LOG_LINES = 5000
 
-# Diretório de auto-export
-AUTO_EXPORT_DIR = "exports/auto"
+# Diretório de auto-export (relativo ao diretório do projeto client/)
+AUTO_EXPORT_DIR = str(Path(__file__).resolve().parents[3] / "exports" / "auto")
 
 # Intervalos de atualização (ms)
 UPDATE_INTERVAL = 100  # Taxa de atualização da GUI

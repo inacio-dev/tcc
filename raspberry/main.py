@@ -152,6 +152,9 @@ class F1CarMultiThreadSystem:
         self.power_mgr: Optional[PowerMonitorManager] = None
         self.rpi_sys_mgr: Optional[RpiSystemMonitor] = None
 
+        # === REDE ===
+        self._client_ip = None
+
         # === LOCK I2C COM PRIORIDADE (bus 1: BMI160 + PCA9685 + INA219) ===
         # Prioridade: 0=alta (steering/brake), 1=média (BMI160), 2=baixa (INA219)
         self.i2c_lock = PriorityI2CLock()
@@ -734,9 +737,9 @@ class F1CarMultiThreadSystem:
                 elif control_cmd.startswith("CAMERA_QUALITY:"):
                     quality = int(control_cmd[15:])
                     if self.camera_mgr:
-                        # Atualiza a qualidade via recriação do encoder
+                        # TODO: recriação do encoder necessária para efetivar mudança
                         self.camera_mgr.quality = max(1, min(100, quality))
-                        info(f"Qualidade MJPEG: {quality}", "CMD")
+                        info(f"Qualidade MJPEG: {quality} (requer restart do encoder)", "CMD")
 
                 elif control_cmd.startswith("CAMERA_CONTROLS:"):
                     # Formato: CAMERA_CONTROLS:sharpness:contrast:saturation:brightness

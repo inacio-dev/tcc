@@ -293,8 +293,8 @@ class BrakeManager:
         with self.state_lock:
             self.total_brake_input = brake_input
 
-            # Calcula distribuição entre dianteiro e traseiro
-            self._calculate_brake_distribution(brake_input)
+            # Calcula distribuição (sem I2C ainda)
+            self._calculate_brake_angles(brake_input)
 
             # Atualiza estatísticas
             if brake_input > 0:
@@ -309,18 +309,23 @@ class BrakeManager:
                 self._last_log_time = now
                 debug(f"Freio: {brake_input:.1f}% (Diant: {self.front_brake_force:.1f}%, Tras: {self.rear_brake_force:.1f}%)", "BRAKE")
 
-    def _calculate_brake_distribution(self, total_input: float):
+            # Copia valores para I2C fora do lock
+            front_angle = self.front_brake_angle
+            rear_angle = self.rear_brake_angle
+            last_front = self._last_front_angle
+            last_rear = self._last_rear_angle
+
+        # I2C write fora do state_lock para não bloquear TX thread
+        self._write_brake_servos(front_angle, rear_angle, last_front, last_rear)
+
+    def _calculate_brake_angles(self, total_input: float):
         """
-        Calcula a distribuição de freio entre dianteiro e traseiro
+        Calcula a distribuição de freio e ângulos dos servos (sem I2C).
+        Caller deve segurar state_lock.
 
         Args:
             total_input (float): Input total de freio 0-100%
         """
-        # Calcula distribuição baseada no balanço
-        # balance = 0%   -> 100% dianteiro, 0% traseiro
-        # balance = 50%  -> distribuição igual
-        # balance = 100% -> 0% dianteiro, 100% traseiro
-
         front_ratio = (100.0 - self.brake_balance) / 100.0
         rear_ratio = self.brake_balance / 100.0
 
@@ -333,56 +338,52 @@ class BrakeManager:
         self.rear_brake_force = limited_input * rear_ratio
 
         # Converte força para ângulo do servo
-        # 0% força = BRAKE_MIN_ANGLE (0° = freio solto)
-        # 100% força = BRAKE_MAX_ANGLE (180° = freio máximo)
-
         front_range = self.BRAKE_MAX_ANGLE - self.BRAKE_MIN_ANGLE
         rear_range = self.BRAKE_MAX_ANGLE - self.BRAKE_MIN_ANGLE
 
-        front_angle = (
+        self.front_brake_angle = (
             self.BRAKE_MIN_ANGLE + (self.front_brake_force / 100.0) * front_range
         )
-        rear_angle = self.BRAKE_MIN_ANGLE + (self.rear_brake_force / 100.0) * rear_range
+        self.rear_brake_angle = self.BRAKE_MIN_ANGLE + (self.rear_brake_force / 100.0) * rear_range
 
-        # MOVIMENTO DIRETO - igual aos testes funcionais
-        self.front_brake_angle = front_angle
-        self.rear_brake_angle = rear_angle
+    def _write_brake_servos(self, front_angle: float, rear_angle: float,
+                            last_front, last_rear):
+        """Escreve ângulos nos servos via I2C (fora do state_lock)."""
+        if not (self.front_servo and self.rear_servo):
+            return
 
-        if self.front_servo and self.rear_servo:
-            # Limita ângulos ao range válido (0° a 180°)
-            front_angle = max(
-                self.BRAKE_MIN_ANGLE,
-                min(self.BRAKE_MAX_ANGLE, self.front_brake_angle),
-            )
-            rear_angle = max(
-                self.BRAKE_MIN_ANGLE,
-                min(self.BRAKE_MAX_ANGLE, self.rear_brake_angle),
-            )
+        # Limita ângulos ao range válido (0° a 180°)
+        front_angle = max(
+            self.BRAKE_MIN_ANGLE,
+            min(self.BRAKE_MAX_ANGLE, front_angle),
+        )
+        rear_angle = max(
+            self.BRAKE_MIN_ANGLE,
+            min(self.BRAKE_MAX_ANGLE, rear_angle),
+        )
 
-            # Só escreve no I2C se o ângulo mudou (dedup)
-            front_changed = self._last_front_angle is None or abs(front_angle - self._last_front_angle) >= 0.1
-            rear_changed = self._last_rear_angle is None or abs(rear_angle - self._last_rear_angle) >= 0.1
-            if front_changed or rear_changed:
-                if self.i2c_lock:
-                    self.i2c_lock.acquire(priority=0)  # Alta
-                    try:
-                        if front_changed:
-                            self.front_servo.angle = front_angle
-                        if rear_changed:
-                            self.rear_servo.angle = rear_angle
-                    finally:
-                        self.i2c_lock.release()
-                else:
+        # Só escreve no I2C se o ângulo mudou (dedup)
+        front_changed = last_front is None or abs(front_angle - last_front) >= 0.1
+        rear_changed = last_rear is None or abs(rear_angle - last_rear) >= 0.1
+        if front_changed or rear_changed:
+            if self.i2c_lock:
+                self.i2c_lock.acquire(priority=0)  # Alta
+                try:
                     if front_changed:
                         self.front_servo.angle = front_angle
                     if rear_changed:
                         self.rear_servo.angle = rear_angle
+                finally:
+                    self.i2c_lock.release()
+            else:
                 if front_changed:
-                    self._last_front_angle = front_angle
+                    self.front_servo.angle = front_angle
                 if rear_changed:
-                    self._last_rear_angle = rear_angle
-        else:
-            warn("Servos de freio não inicializados!", "BRAKE")
+                    self.rear_servo.angle = rear_angle
+            if front_changed:
+                self._last_front_angle = front_angle
+            if rear_changed:
+                self._last_rear_angle = rear_angle
 
     def release_brakes(self):
         """Libera completamente os freios"""

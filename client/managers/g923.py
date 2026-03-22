@@ -753,32 +753,33 @@ class G923Manager:
 
     def _stop_force_feedback(self):
         """Para e remove todos os 8 efeitos de force feedback"""
-        effect_ids = [
-            ("spring", self._ff_spring_id),
-            ("damper", self._ff_damper_id),
-            ("friction", self._ff_friction_id),
-            ("inertia", self._ff_inertia_id),
-            ("constant", self._ff_constant_id),
-            ("rumble", self._ff_rumble_id),
-            ("periodic", self._ff_periodic_id),
-            ("endstop", self._ff_endstop_id),
-        ]
-        for name, eid in effect_ids:
-            if eid >= 0 and self.device:
-                try:
-                    self.device.write(ecodes.EV_FF, eid, 0)
-                    self.device.erase_effect(eid)
-                except Exception:
-                    pass
-        self._ff_spring_id = -1
-        self._ff_damper_id = -1
-        self._ff_friction_id = -1
-        self._ff_inertia_id = -1
-        self._ff_constant_id = -1
-        self._ff_rumble_id = -1
-        self._ff_periodic_id = -1
-        self._ff_endstop_id = -1
-        self._endstop_active = False
+        with self._ff_lock:
+            effect_ids = [
+                ("spring", self._ff_spring_id),
+                ("damper", self._ff_damper_id),
+                ("friction", self._ff_friction_id),
+                ("inertia", self._ff_inertia_id),
+                ("constant", self._ff_constant_id),
+                ("rumble", self._ff_rumble_id),
+                ("periodic", self._ff_periodic_id),
+                ("endstop", self._ff_endstop_id),
+            ]
+            for name, eid in effect_ids:
+                if eid >= 0 and self.device:
+                    try:
+                        self.device.write(ecodes.EV_FF, eid, 0)
+                        self.device.erase_effect(eid)
+                    except Exception:
+                        pass
+            self._ff_spring_id = -1
+            self._ff_damper_id = -1
+            self._ff_friction_id = -1
+            self._ff_inertia_id = -1
+            self._ff_constant_id = -1
+            self._ff_rumble_id = -1
+            self._ff_periodic_id = -1
+            self._ff_endstop_id = -1
+            self._endstop_active = False
 
     # ================================================================
     # LEITURA DE INPUTS

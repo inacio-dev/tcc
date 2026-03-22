@@ -417,10 +417,10 @@ class ImageFilters:
 
     def get_current_filter_info(self) -> Dict:
         """Retorna informações do filtro atual"""
-        info = {"key": self.current_filter, **self.FILTERS.get(self.current_filter, {})}
+        filter_info = {"key": self.current_filter, **self.FILTERS.get(self.current_filter, {})}
         if self.use_gpu:
-            info["gpu"] = True
-        return info
+            filter_info["gpu"] = True
+        return filter_info
 
     def _gpu_convolve(self, frame: np.ndarray, kernel_name: str) -> np.ndarray:
         """

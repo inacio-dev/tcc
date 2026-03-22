@@ -213,10 +213,6 @@ class ConsoleInterface:
             "g_force_frontal": tk.StringVar(value="0.000"),
             "g_force_lateral": tk.StringVar(value="0.000"),
             "g_force_vertical": tk.StringVar(value="0.000"),
-            # Ângulos
-            "roll_angle": tk.StringVar(value="0.0"),
-            "pitch_angle": tk.StringVar(value="0.0"),
-            "yaw_angle": tk.StringVar(value="0.0"),
             # Force Feedback
             "steering_feedback": tk.StringVar(value="0.0"),
             "brake_resistance": tk.StringVar(value="0.0"),
@@ -1306,7 +1302,6 @@ class ConsoleInterface:
             # Destrói a janela principal
             if hasattr(self, "root") and self.root:
                 try:
-                    self.root.after_cancel("all")
                     try:
                         self.root.update_idletasks()
                     except Exception:

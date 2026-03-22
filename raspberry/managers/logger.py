@@ -84,6 +84,10 @@ class F1Logger:
 
                 self.last_log_times[key] = current_time
 
+                # Evita crescimento indefinido do dict de rate limiting
+                if len(self.last_log_times) > 500:
+                    self.last_log_times.clear()
+
         return True
 
     def _format_message(

@@ -588,7 +588,7 @@ class PowerMonitorManager:
         """Aplica filtro EMA (Exponential Moving Average)"""
         if not self.ema_initialized:
             return new_value
-        return self.ema_alpha * ema_value + (1 - self.ema_alpha) * new_value
+        return self.ema_alpha * new_value + (1 - self.ema_alpha) * ema_value
 
     def _apply_median_filter(self, value: float, buffer: deque) -> float:
         """Aplica filtro de mediana para rejeitar spikes"""

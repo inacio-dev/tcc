@@ -166,6 +166,7 @@ class SensorDisplay:
         self.history = defaultdict(lambda: deque(maxlen=history_size))
 
         # Buffer raw: salva TODOS os pacotes recebidos (sem drain) para pickle
+        self.MAX_RAW_BUFFER_ROWS = 12000  # ~2 min a 100Hz
         self.raw_buffer = defaultdict(list)
 
         # Estatísticas
@@ -278,8 +279,8 @@ class SensorDisplay:
                 if isinstance(value, (dict, list)):
                     continue
                 if key not in self.history:
-                    # Novo campo: preenche com None para alinhar
-                    self.history[key] = [None] * (n - 1)
+                    # Novo campo: preenche com None para alinhar (mantém deque com maxlen)
+                    self.history[key] = deque([None] * (n - 1), maxlen=self.history_size)
                 self.history[key].append(value)
 
 
@@ -506,7 +507,7 @@ class SensorDisplay:
         drained = 0
 
         # Drena toda a fila, salva todos no raw_buffer, mantém apenas o mais recente
-        while self.sensor_queue:
+        while True:
             try:
                 packet = self.sensor_queue.get_nowait()
                 drained += 1
@@ -539,17 +540,24 @@ class SensorDisplay:
                 self.raw_buffer[key] = [None] * n
             self.raw_buffer[key].append(value)
 
+        # Trim para evitar crescimento ilimitado de memória
+        if len(self.raw_buffer["timestamp"]) > self.MAX_RAW_BUFFER_ROWS:
+            trim = 2000  # Remove os 2000 mais antigos
+            for key in self.raw_buffer:
+                self.raw_buffer[key] = self.raw_buffer[key][trim:]
+
     def inject_client_timings(self, timings: dict):
         """Injeta timings do client no último registro do raw_buffer.
         Chamado após o processamento do pacote mais recente."""
-        n = len(self.raw_buffer.get("timestamp", []))
-        if n == 0:
-            return
-        for key, value in timings.items():
-            if key not in self.raw_buffer:
-                self.raw_buffer[key] = [None] * n
-            # Sobrescreve o último valor (pacote processado)
-            self.raw_buffer[key][-1] = value
+        with self.data_lock:
+            n = len(self.raw_buffer.get("timestamp", []))
+            if n == 0:
+                return
+            for key, value in timings.items():
+                if key not in self.raw_buffer:
+                    self.raw_buffer[key] = [None] * n
+                # Sobrescreve o último valor (pacote processado)
+                self.raw_buffer[key][-1] = value
 
     def reset_statistics(self):
         """Reseta estatísticas do processador"""

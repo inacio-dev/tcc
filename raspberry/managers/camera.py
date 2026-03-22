@@ -47,8 +47,10 @@ class CircularBuffer(io.BufferedIOBase):
         self.frames = deque(maxlen=max_frames)
         self.current_frame = io.BytesIO()
         self.lock = threading.Lock()
-        self.frame_count = 0
+        self.frame_count = 0  # Contagem na janela de 1s (para FPS)
         self.total_bytes = 0
+        self.total_frames_ever = 0
+        self._fps_start_time = time.time()
 
     def write(self, data):
         """Recebe dados do encoder MJPEG"""
@@ -69,6 +71,7 @@ class CircularBuffer(io.BufferedIOBase):
                             }
                         )
                         self.frame_count += 1
+                        self.total_frames_ever += 1
                         self.total_bytes += len(frame_data)
 
                 # Inicia novo frame
@@ -356,14 +359,14 @@ class CameraManager:
 
         # Estatísticas do buffer
         if self.buffer:
-            stats["encoder_frames"] = self.buffer.frame_count
+            stats["encoder_frames"] = self.buffer.total_frames_ever
             stats["encoder_bytes"] = self.buffer.total_bytes
 
             if self.start_time:
                 elapsed = time.time() - self.start_time
                 if elapsed > 0:
                     stats["bytes_per_second"] = self.buffer.total_bytes / elapsed
-                    stats["actual_fps"] = self.buffer.frame_count / elapsed
+                    stats["actual_fps"] = self.buffer.total_frames_ever / elapsed
 
         return stats
 

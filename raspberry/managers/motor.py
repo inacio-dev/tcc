@@ -179,14 +179,15 @@ class MotorManager:
                 current_time = time.time()
                 dt = current_time - self.last_update_time
 
-                # SISTEMA F1: Aceleração baseada em zonas de eficiência
-                self._apply_f1_acceleration(dt)
+                with self.state_lock:
+                    # SISTEMA F1: Aceleração baseada em zonas de eficiência
+                    self._apply_f1_acceleration(dt)
 
-                # Aplica PWM ao motor
-                self._apply_motor_pwm()
+                    # Aplica PWM ao motor
+                    self._apply_motor_pwm()
 
-                # Atualiza estatísticas
-                self._update_statistics(dt)
+                    # Atualiza estatísticas
+                    self._update_statistics(dt)
 
                 self.last_update_time = current_time
                 time.sleep(0.01)  # 100Hz de atualização
@@ -426,9 +427,10 @@ class MotorManager:
 
     def emergency_stop(self):
         """Para motor imediatamente"""
-        self.is_running = False
-        self.target_pwm = 0.0
-        self.current_pwm = 0.0
+        with self.state_lock:
+            self.is_running = False
+            self.target_pwm = 0.0
+            self.current_pwm = 0.0
         warn("PARADA DE EMERGÊNCIA DO MOTOR!", "MOTOR")
 
     def manual_shift(self, gear: int):
@@ -436,15 +438,15 @@ class MotorManager:
         Troca marcha manualmente
 
         Args:
-            gear (int): Marcha desejada (1-8)
+            gear (int): Marcha desejada (1-5)
         """
         if gear < 1 or gear > 5:
             warn(f"Marcha inválida: {gear} (válido: 1-5)", "MOTOR")
             return
 
         # Modo sempre manual - permite troca a qualquer momento
-
-        self._shift_gear(gear)
+        with self.state_lock:
+            self._shift_gear(gear)
 
     def shift_gear_up(self) -> bool:
         """
@@ -456,10 +458,7 @@ class MotorManager:
         with self.state_lock:
             if self.current_gear >= 5:
                 return False  # Já está na marcha máxima
-            new_gear = self.current_gear + 1
-
-        # Troca manual - sem alterar modo de transmissão
-        self._shift_gear(new_gear)
+            self._shift_gear(self.current_gear + 1)
         return True
 
     def shift_gear_down(self) -> bool:
@@ -472,10 +471,7 @@ class MotorManager:
         with self.state_lock:
             if self.current_gear <= 1:
                 return False  # Já está na marcha mínima
-            new_gear = self.current_gear - 1
-
-        # Troca manual - sem alterar modo de transmissão
-        self._shift_gear(new_gear)
+            self._shift_gear(self.current_gear - 1)
         return True
 
     def get_motor_status(self) -> Dict[str, Any]:

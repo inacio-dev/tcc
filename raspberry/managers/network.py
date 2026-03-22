@@ -317,12 +317,16 @@ class NetworkManager:
     def _send_to_client(self, client_ip: str, data: bytes):
         """Envia dados para um cliente específico"""
         with self.clients_lock:
-            if client_ip in self.connected_clients:
-                client_port = self.connected_clients[client_ip]["port"]
-                try:
-                    self.send_socket.sendto(data, (client_ip, client_port))
-                except Exception as e:
-                    warn(f"Erro ao enviar para {client_ip}: {e}", "NET", rate_limit=5.0)
+            self._send_to_client_unlocked(client_ip, data)
+
+    def _send_to_client_unlocked(self, client_ip: str, data: bytes):
+        """Envia dados para um cliente (caller deve segurar clients_lock)"""
+        if client_ip in self.connected_clients:
+            client_port = self.connected_clients[client_ip]["port"]
+            try:
+                self.send_socket.sendto(data, (client_ip, client_port))
+            except Exception as e:
+                warn(f"Erro ao enviar para {client_ip}: {e}", "NET", rate_limit=5.0)
 
     def get_connected_clients(self) -> list:
         """Retorna lista de clientes conectados"""
@@ -543,7 +547,7 @@ class NetworkManager:
         | FRAG_MAGIC | frame_id | chunk_index | total_chunks | chunk_data |
         """
         # Incrementa contador de frame
-        self.frame_id_counter = (self.frame_id_counter + 1) % 0xFFFFFFFF
+        self.frame_id_counter = (self.frame_id_counter + 1) & 0xFFFFFFFF
         frame_id = self.frame_id_counter
 
         # Calcula tamanho do chunk (dados úteis por fragmento)
@@ -735,101 +739,6 @@ class NetworkManager:
             "last_send_time": self.last_send_time,
         }
 
-    def get_network_info(self) -> Dict[str, Any]:
-        """
-        Obtém informações da rede local
-
-        Returns:
-            dict: Informações de rede
-        """
-        try:
-            # Obtém IP local
-            result = subprocess.run(["hostname", "-I"], capture_output=True, text=True)
-            local_ip = (
-                result.stdout.strip().split()[0] if result.stdout else "Desconhecido"
-            )
-
-            # Testa conectividade com ping
-            ping_result = subprocess.run(
-                ["ping", "-c", "1", "-W", "1", self.target_ip],
-                capture_output=True,
-                text=True,
-            )
-            ping_ok = ping_result.returncode == 0
-
-            return {
-                "local_ip": local_ip,
-                "target_ip": self.target_ip,
-                "target_port": self.target_port,
-                "ping_ok": ping_ok,
-                "buffer_size_kb": self.buffer_size // 1024,
-            }
-
-        except Exception as e:
-            return {
-                "error": str(e),
-                "local_ip": "Erro ao obter",
-                "target_ip": self.target_ip,
-                "ping_ok": False,
-            }
-
-    def monitor_bandwidth(self, duration: float = 5.0) -> Dict[str, float]:
-        """
-        Monitora uso de banda por um período
-
-        Args:
-            duration (float): Duração do monitoramento em segundos
-
-        Returns:
-            dict: Estatísticas de banda
-        """
-        start_packets = self.packets_sent
-        start_bytes = self.bytes_sent
-        start_time = time.time()
-
-        time.sleep(duration)
-
-        end_packets = self.packets_sent
-        end_bytes = self.bytes_sent
-        end_time = time.time()
-
-        elapsed = end_time - start_time
-        packets_diff = end_packets - start_packets
-        bytes_diff = end_bytes - start_bytes
-
-        return {
-            "duration": round(elapsed, 2),
-            "packets": packets_diff,
-            "bytes": bytes_diff,
-            "packets_per_second": round(packets_diff / elapsed, 2),
-            "bytes_per_second": round(bytes_diff / elapsed, 2),
-            "kbps": round((bytes_diff * 8) / (elapsed * 1024), 2),
-            "mbps": round((bytes_diff * 8) / (elapsed * 1024 * 1024), 3),
-        }
-
-    def test_connection(self) -> bool:
-        """
-        Testa conectividade com o destino
-
-        Returns:
-            bool: True se conectividade OK
-        """
-        try:
-            # Envia pacote de teste
-            test_data = (
-                struct.pack("<I", 4) + struct.pack("<I", 10) + b"test" + b'{"test":1}'
-            )
-            self.socket.sendto(test_data, (self.target_ip, self.target_port))
-
-            info(
-                f"Teste de conectividade OK para {self.target_ip}:{self.target_port}", "NET"
-            )
-            return True
-
-        except Exception as e:
-            error(f"Falha no teste de conectividade: {e}", "NET")
-            return False
-
     def cleanup(self):
         """Libera recursos de rede"""
         try:
@@ -845,7 +754,7 @@ class NetworkManager:
                 debug("Notificando clientes sobre desconexão", "NET")
                 with self.clients_lock:
                     for client_ip in list(self.connected_clients.keys()):
-                        self._send_to_client(client_ip, b"SERVER_DISCONNECT")
+                        self._send_to_client_unlocked(client_ip, b"SERVER_DISCONNECT")
 
             # Envia sinal de terminação
             if self.is_initialized:

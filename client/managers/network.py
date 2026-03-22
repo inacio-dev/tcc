@@ -114,7 +114,8 @@ class NetworkClient:
         self.last_packet_time = time.time()
         self.connection_timeout = CONNECTION_TIMEOUT  # segundos (aumentado para tolerar perdas UDP)
 
-        # Estatísticas
+        # Estatísticas (protegidas por _stats_lock)
+        self._stats_lock = threading.Lock()
         self.packets_received = 0
         self.bytes_received = 0
         self.frames_received = 0
@@ -218,7 +219,7 @@ class NetworkClient:
             self.send_socket.sendto(connect_msg, (rpi_ip, self.command_port))
             self._log("INFO", f"📡 Enviando CONNECT para {rpi_ip}:{self.command_port}")
 
-            # Marca como conectado diretamente
+            # Marca como conectado (confirmação real é gated por packets_received > 0 no TX loop)
             self.raspberry_pi_ip = rpi_ip
             self.is_connected_to_rpi = True
             self._update_status(
@@ -299,7 +300,7 @@ class NetworkClient:
                 return "TERMINATE", None
 
             # Valida tamanhos
-            if frame_size < 0 or frame_size > MAX_FRAME_SIZE:  # Máximo 1MB para frame
+            if frame_size > MAX_FRAME_SIZE:  # Máximo 1MB para frame
                 self._log("ERROR", f"Tamanho de frame inválido: {frame_size}")
                 return None, None
 
@@ -335,7 +336,8 @@ class NetworkClient:
                     sensor_data = json.loads(sensor_json)
                 except (json.JSONDecodeError, UnicodeDecodeError) as e:
                     self._log("ERROR", f"Erro ao decodificar dados de sensores: {e}")
-                    self.decode_errors += 1
+                    with self._stats_lock:
+                        self.decode_errors += 1
 
             return frame_data, sensor_data
 
@@ -344,7 +346,8 @@ class NetworkClient:
             if current_time - self.last_error_log > 2.0:  # Log a cada 2 segundos
                 self._log("ERROR", f"Erro ao analisar pacote: {e}")
                 self.last_error_log = current_time
-            self.packet_errors += 1
+            with self._stats_lock:
+                self.packet_errors += 1
             return None, None
 
     def _handle_fragment(self, packet):
@@ -565,8 +568,9 @@ class NetworkClient:
                     continue
 
                 self._confirm_connection(addr)
-                self.packets_received += 1
-                self.bytes_received += len(packet)
+                with self._stats_lock:
+                    self.packets_received += 1
+                    self.bytes_received += len(packet)
                 self.update_connection_status(addr)
 
                 # Verifica comando de texto (SERVER_CONNECT)
@@ -589,7 +593,8 @@ class NetworkClient:
                 if frame_data == "TERMINATE":
                     break
                 if frame_data is not None:
-                    self.frames_received += 1
+                    with self._stats_lock:
+                        self.frames_received += 1
                     self._send_video_frame(frame_data)
 
                 self.update_statistics()
@@ -628,10 +633,12 @@ class NetworkClient:
                     if rpi_ts:
                         sensor_data["net_latency_ms"] = round((t_recv - rpi_ts) * 1000, 2)
                     sensor_data["client_recv_timestamp"] = t_recv
-                    self.sensor_packets_received += 1
+                    with self._stats_lock:
+                        self.sensor_packets_received += 1
                     self._send_sensor_data(sensor_data)
                 except (json.JSONDecodeError, UnicodeDecodeError):
-                    self.decode_errors += 1
+                    with self._stats_lock:
+                        self.decode_errors += 1
 
             except socket.timeout:
                 continue
@@ -671,7 +678,8 @@ class NetworkClient:
 
             return None
         except (struct.error, IndexError):
-            self.packet_errors += 1
+            with self._stats_lock:
+                self.packet_errors += 1
             return None
 
     def get_statistics(self):
@@ -719,6 +727,10 @@ class NetworkClient:
                 self.send_command_to_rpi("DISCONNECT")
             except OSError:
                 pass
+
+        # Aguarda threads de recepção pararem antes de fechar sockets
+        if hasattr(self, '_sensor_rx_thread') and self._sensor_rx_thread.is_alive():
+            self._sensor_rx_thread.join(timeout=2.0)
 
         # Fecha sockets
         if self.receive_socket:

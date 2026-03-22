@@ -68,6 +68,7 @@ import os
 import subprocess
 import threading
 import time
+from collections import deque
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, Optional
@@ -158,7 +159,7 @@ class TemperatureManager:
         self.reading_count = 0
 
         # Temperature history
-        self.temperature_history = []
+        self.temperature_history = deque(maxlen=self.history_size)
         self.min_temperature = float("inf")
         self.max_temperature = float("-inf")
         self.avg_temperature = 0.0
@@ -444,10 +445,6 @@ class TemperatureManager:
     def _add_to_history(self, reading: TemperatureReading):
         """Add reading to temperature history"""
         self.temperature_history.append(reading)
-
-        # Maintain history size limit
-        if len(self.temperature_history) > self.history_size:
-            self.temperature_history.pop(0)
 
     def _check_thermal_alerts(self, temperature: float):
         """Check for thermal alert conditions"""

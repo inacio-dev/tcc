@@ -53,7 +53,8 @@ class VideoDisplay:
 
         # Estatísticas
         self.start_time = time.time()
-        self.frame_count = 0
+        self.frame_count = 0  # Contagem na janela de 1s (para FPS)
+        self.total_frames_ever = 0
         self.last_fps_time = time.time()
         self.current_fps = 0
 
@@ -87,9 +88,12 @@ class VideoDisplay:
         self._log("INFO", "VideoDisplay inicializado (MJPEG)")
 
     def _log(self, level, message):
-        """Envia mensagem para fila de log"""
+        """Envia mensagem para fila de log (não-bloqueante)"""
         if self.log_queue:
-            self.log_queue.put((level, message))
+            try:
+                self.log_queue.put_nowait((level, message))
+            except queue.Full:
+                pass
         else:
             _fn = {"ERROR": error, "WARN": warn, "DEBUG": debug}.get(level, info)
             _fn(message, "VIDEO")
@@ -120,7 +124,7 @@ class VideoDisplay:
             self._log("INFO", f"Filtro PDI: {info.get('name', 'Desconhecido')}")
 
     def update_tkinter_frame(self, frame):
-        """Atualiza frame no label Tkinter (otimizado para baixo delay)"""
+        """Atualiza frame no label Tkinter via main thread (thread-safe)"""
         try:
             # Verifica se ainda está rodando e se o label existe
             if not self.is_running or not self.tkinter_label:
@@ -149,28 +153,29 @@ class VideoDisplay:
             # PhotoImage
             photo = ImageTk.PhotoImage(image=pil_image)
 
-            # Atualizar label
-            try:
-                self.tkinter_label.configure(image=photo)
-                self.tkinter_label.image = photo
-            except (tk.TclError, RuntimeError):
-                # Tkinter foi destruído
-                return
+            # Agenda atualização na main thread do Tkinter (thread-safe)
+            fps = self.current_fps
+            status_cb = self.status_callback
 
-            # Atualizar status
-            if self.status_callback and self.is_running:
-                status = {
-                    "connected": True,
-                    "width": width,
-                    "height": height,
-                    "resolution": f"{width}x{height}",
-                    "fps": self.current_fps,
-                    "codec": "MJPEG",
-                }
+            def _do_update():
                 try:
-                    self.status_callback(status)
-                except tk.TclError:
+                    if not self.tkinter_label or not self.tkinter_label.winfo_exists():
+                        return
+                    self.tkinter_label.configure(image=photo)
+                    self.tkinter_label.image = photo
+                    if status_cb and self.is_running:
+                        status_cb({
+                            "connected": True,
+                            "width": width,
+                            "height": height,
+                            "resolution": f"{width}x{height}",
+                            "fps": fps,
+                            "codec": "MJPEG",
+                        })
+                except (tk.TclError, RuntimeError):
                     pass
+
+            self.tkinter_label.after(0, _do_update)
 
         except (tk.TclError, RuntimeError):
             # Ignora erros durante shutdown
@@ -345,6 +350,7 @@ class VideoDisplay:
         """Atualiza estatísticas de FPS"""
         current_time = time.time()
         self.frame_count += 1
+        self.total_frames_ever += 1
 
         if current_time - self.last_fps_time >= 1.0:
             elapsed = current_time - self.last_fps_time
@@ -483,9 +489,9 @@ class VideoDisplay:
 
         stats = {
             "fps": self.current_fps,
-            "total_frames": self.frame_count,
+            "total_frames": self.total_frames_ever,
             "runtime_seconds": runtime,
-            "avg_fps": self.frame_count / runtime if runtime > 0 else 0,
+            "avg_fps": self.total_frames_ever / runtime if runtime > 0 else 0,
             "last_frame_time": self.last_frame_time,
             "is_running": self.is_running,
             "codec": "MJPEG",

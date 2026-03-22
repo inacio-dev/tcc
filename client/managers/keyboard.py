@@ -138,13 +138,12 @@ class KeyboardController:
         self._log("INFO", "Controles de teclado vinculados à interface")
 
     def _on_key_press(self, event):
-        """Callback para tecla pressionada - otimizado para não travar"""
+        """Callback para tecla pressionada"""
         key = event.keysym
 
-        # Processamento rápido sem locks demorados
-        if key in self.KEY_MAPPINGS and key not in self.pressed_keys:
-            # Envia para worker thread em vez de criar thread por tecla
-            self._key_queue.put(("press", key))
+        with self.lock:
+            if key in self.KEY_MAPPINGS and key not in self.pressed_keys:
+                self._key_queue.put(("press", key))
 
     def _key_worker_loop(self):
         """Worker thread que processa todos os eventos de tecla sequencialmente"""
@@ -187,13 +186,12 @@ class KeyboardController:
             self._log("ERROR", f"Erro ao processar key press: {e}")
 
     def _on_key_release(self, event):
-        """Callback para tecla liberada - otimizado para não travar"""
+        """Callback para tecla liberada"""
         key = event.keysym
 
-        # Processamento rápido sem locks demorados
-        if key in self.pressed_keys:
-            # Envia para worker thread em vez de criar thread por tecla
-            self._key_queue.put(("release", key))
+        with self.lock:
+            if key in self.pressed_keys:
+                self._key_queue.put(("release", key))
 
     def _process_key_release(self, key):
         """Processa key release em thread separada"""

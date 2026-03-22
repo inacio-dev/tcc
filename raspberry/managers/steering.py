@@ -409,14 +409,13 @@ class SteeringManager:
             self.center_steering()
             time.sleep(0.2)
 
-            # Libera recursos do PCA9685
+            # Libera referências (NÃO faz deinit — brake_manager faz deinit do PCA9685/I2C
+            # pois ambos compartilham o mesmo barramento físico e endereço 0x41)
             if self.steering_servo:
                 self.steering_servo = None
             if self.pca9685:
-                self.pca9685.deinit()
                 self.pca9685 = None
             if self.i2c:
-                self.i2c.deinit()
                 self.i2c = None
 
             self.is_initialized = False

@@ -487,31 +487,8 @@ class F1ClientApplication:
             self.network_client = None
             self.g923_manager = None
 
-            # Força garbage collection múltiplas vezes
-            # Força limpeza de objetos Tkinter órfãos
-            try:
-                # Destrói qualquer instância de Tkinter restante
-                for obj in gc.get_objects():
-                    if isinstance(
-                        obj,
-                        (
-                            tk.Variable,
-                            tk.StringVar,
-                            tk.IntVar,
-                            tk.DoubleVar,
-                            tk.BooleanVar,
-                        ),
-                    ):
-                        try:
-                            obj._tk = None
-                        except Exception:
-                            pass
-            except Exception:
-                pass
-
-            # Múltiplas passadas de garbage collection
-            for _ in range(3):
-                gc.collect()
+            # Garbage collection
+            gc.collect()
 
         except Exception:
             pass
