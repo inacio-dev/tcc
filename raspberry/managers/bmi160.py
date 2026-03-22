@@ -221,9 +221,17 @@ class BMI160Manager:
         self.start_time = time.time()
         self.readings_count = 0
 
+        # Cache de últimos dados válidos (fallback se leitura falhar)
+        self._last_accel_data = [0, 0, 0, 0, 0, 0]
+        self._last_gyro_data = [0, 0, 0, 0, 0, 0]
+
         # Watchdog: detecta zeros consecutivos (brown-out recovery)
         self._consecutive_zeros = 0
         self._ZERO_THRESHOLD = 3  # Re-inicializa após 3 leituras zeradas
+
+        # Contador de erros I2C (com reset periódico)
+        self._error_count = 0
+        self._debug_counter = 0
 
     def _get_odr_value(self, sample_rate):
         """Converte sample_rate para valor ODR do registrador"""
@@ -306,15 +314,11 @@ class BMI160Manager:
                         time.sleep(0.001)
                     elif attempt == 1:
                         time.sleep(0.005)
-                        try:
-                            self.i2c_bus = smbus2.SMBus(1)
-                            time.sleep(0.001)
-                        except Exception:
-                            pass
                     else:
-                        if not hasattr(self, "_error_count"):
-                            self._error_count = 0
                         self._error_count += 1
+                        # Reset counter periodically to avoid unbounded growth
+                        if self._error_count >= 1000:
+                            self._error_count = 0
 
                         if self._error_count % 50 == 0:
                             warn(f"I2C Error (erro #{self._error_count}): reg 0x{start_reg:02X}", "BMI160")
@@ -532,18 +536,16 @@ class BMI160Manager:
             # Ler dados do acelerômetro (6 bytes a partir do 0x12)
             accel_data = self._read_sensor_registers(self.REG_ACCEL_DATA, 6)
             if accel_data is None:
-                # Usa dados anteriores ou zeros se não houver
-                accel_data = getattr(self, "_last_accel_data", [0, 0, 0, 0, 0, 0])
+                accel_data = self._last_accel_data
             else:
-                self._last_accel_data = accel_data
+                self._last_accel_data = list(accel_data)
 
             # Ler dados do giroscópio (6 bytes a partir do 0x0C)
             gyro_data = self._read_sensor_registers(self.REG_GYRO_DATA, 6)
             if gyro_data is None:
-                # Usa dados anteriores ou zeros se não houver
-                gyro_data = getattr(self, "_last_gyro_data", [0, 0, 0, 0, 0, 0])
+                gyro_data = self._last_gyro_data
             else:
-                self._last_gyro_data = gyro_data
+                self._last_gyro_data = list(gyro_data)
 
             # Watchdog: detecta brown-out (todos bytes zero = sensor em suspend)
             all_zero = all(b == 0 for b in accel_data) and all(b == 0 for b in gyro_data)
@@ -556,10 +558,7 @@ class BMI160Manager:
                 self._consecutive_zeros = 0
 
             # Debug: mostrar dados raw lidos do I2C
-            if hasattr(self, "_debug_counter"):
-                self._debug_counter += 1
-            else:
-                self._debug_counter = 1
+            self._debug_counter += 1
 
             if self._debug_counter % 200 == 0:  # A cada ~3s
                 debug(f"RAW I2C: accel={accel_data}, gyro={gyro_data}", "BMI160")

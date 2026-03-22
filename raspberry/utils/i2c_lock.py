@@ -4,7 +4,10 @@ Resolve o problema de starvation no barramento I2C compartilhado
 entre PCA9685 (servos), BMI160 (IMU) e INA219 (energia).
 """
 
+import logging
 import threading
+
+_logger = logging.getLogger(__name__)
 
 
 class PriorityI2CLock:
@@ -69,7 +72,8 @@ class PriorityI2CLock:
         with self._cond:
             self._waiting[priority] += 1
             while not self._can_acquire(priority):
-                self._cond.wait()
+                if not self._cond.wait(timeout=1.0):
+                    _logger.warning("I2C lock wait timeout (1s) for priority %d, retrying", priority)
             self._waiting[priority] -= 1
             self._busy = True
 

@@ -135,11 +135,16 @@ class NetworkManager:
 
             # Cria socket para receber comandos
             self.receive_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            self.receive_socket.setsockopt(
-                socket.SOL_SOCKET, socket.SO_RCVBUF, self.buffer_size
-            )
-            self.receive_socket.bind(("", self.command_port))
-            self.receive_socket.settimeout(1.0)
+            try:
+                self.receive_socket.setsockopt(
+                    socket.SOL_SOCKET, socket.SO_RCVBUF, self.buffer_size
+                )
+                self.receive_socket.bind(("", self.command_port))
+                self.receive_socket.settimeout(1.0)
+            except Exception:
+                self.receive_socket.close()
+                self.receive_socket = None
+                raise
 
             debug("Sockets criados com sucesso (dados + comandos)", "NET")
 

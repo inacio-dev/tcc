@@ -26,6 +26,7 @@ CARACTERÍSTICAS:
 
 import csv
 import pickle
+import queue
 import threading
 import time
 from collections import defaultdict, deque
@@ -505,14 +506,14 @@ class SensorDisplay:
         drained = 0
 
         # Drena toda a fila, salva todos no raw_buffer, mantém apenas o mais recente
-        while self.sensor_queue and not self.sensor_queue.empty():
+        while self.sensor_queue:
             try:
                 packet = self.sensor_queue.get_nowait()
                 drained += 1
                 # Salva no raw_buffer (todos os pacotes, sem perda)
                 self._append_raw(packet)
                 latest = packet
-            except Exception:
+            except queue.Empty:
                 break
 
         if latest is None:

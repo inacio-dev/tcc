@@ -77,11 +77,12 @@ class F1Logger:
             current_time = time.time()
             key = f"{level.name}:{message[:50]}"  # Usa primeiros 50 chars como chave
 
-            if key in self.last_log_times:
-                if current_time - self.last_log_times[key] < rate_limit:
-                    return False
+            with self.lock:
+                if key in self.last_log_times:
+                    if current_time - self.last_log_times[key] < rate_limit:
+                        return False
 
-            self.last_log_times[key] = current_time
+                self.last_log_times[key] = current_time
 
         return True
 

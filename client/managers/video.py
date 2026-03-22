@@ -17,6 +17,7 @@ MJPEG transmite frames independentes, eliminando este problema.
 Ver: docs/CAMERA_VIDEO_ISSUES.md
 """
 
+import queue
 import threading
 import time
 import tkinter as tk
@@ -124,7 +125,7 @@ class VideoDisplay:
             try:
                 if not self.tkinter_label.winfo_exists():
                     return
-            except Exception:
+            except tk.TclError:
                 return
 
             height, width = frame.shape[:2]
@@ -163,10 +164,10 @@ class VideoDisplay:
                 }
                 try:
                     self.status_callback(status)
-                except Exception:
+                except tk.TclError:
                     pass
 
-        except Exception:
+        except (tk.TclError, RuntimeError):
             # Ignora erros durante shutdown
             pass
 
@@ -189,7 +190,7 @@ class VideoDisplay:
             try:
                 container_width = self.tkinter_container.winfo_width()
                 container_height = self.tkinter_container.winfo_height()
-            except Exception:
+            except tk.TclError:
                 return pil_image
 
             # Container ainda não foi renderizado
@@ -231,7 +232,7 @@ class VideoDisplay:
             try:
                 if not self.tkinter_label.winfo_exists():
                     return
-            except Exception:
+            except tk.TclError:
                 return
 
             self.tkinter_label.configure(
@@ -252,10 +253,10 @@ class VideoDisplay:
                 }
                 try:
                     self.status_callback(status)
-                except Exception:
+                except tk.TclError:
                     pass
 
-        except Exception:
+        except (tk.TclError, RuntimeError):
             # Ignora erros durante shutdown
             pass
 
@@ -373,8 +374,11 @@ class VideoDisplay:
             frames_decoded = 0
             max_frames = MAX_VIDEO_QUEUE_FRAMES  # Limita para não travar se fila acumular muito
 
-            while not self.video_queue.empty() and frames_decoded < max_frames:
-                frame_data = self.video_queue.get_nowait()
+            while frames_decoded < max_frames:
+                try:
+                    frame_data = self.video_queue.get_nowait()
+                except queue.Empty:
+                    break
                 frames_decoded += 1
 
                 if frame_data is None:
@@ -408,7 +412,15 @@ class VideoDisplay:
             while self.is_running:
                 try:
                     # Aguarda frame com timeout de 100ms (bloqueia até chegar frame)
-                    frame_data = self.video_queue.get(timeout=0.1)
+                    try:
+                        frame_data = self.video_queue.get(timeout=0.1)
+                    except queue.Empty:
+                        # Timeout - verifica se precisa mostrar "sem sinal"
+                        current_time = time.time()
+                        if current_time - last_frame_time > 2.0 and not no_signal_displayed:
+                            self.display_no_signal()
+                            no_signal_displayed = True
+                        continue
                     latest_frame = None
 
                     # Processa o frame recebido
@@ -423,7 +435,7 @@ class VideoDisplay:
                     # Se há mais frames na fila, processa todos
                     # (mas só exibe o último para não travar)
                     frames_extra = 0
-                    while not self.video_queue.empty() and frames_extra < 5:
+                    while frames_extra < 5:
                         try:
                             extra_data = self.video_queue.get_nowait()
                             frames_extra += 1
@@ -434,7 +446,7 @@ class VideoDisplay:
                                     frame = extra_data
                                 if frame is not None:
                                     latest_frame = frame
-                        except Exception:
+                        except queue.Empty:
                             break
 
                     # Exibe o frame mais recente
@@ -444,7 +456,7 @@ class VideoDisplay:
                         no_signal_displayed = False
 
                 except Exception:
-                    # Timeout ou fila vazia - verifica se precisa mostrar "sem sinal"
+                    # Erro real no processamento de frame
                     current_time = time.time()
                     if current_time - last_frame_time > 2.0 and not no_signal_displayed:
                         self.display_no_signal()

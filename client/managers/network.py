@@ -27,6 +27,7 @@ O cliente está preparado para receber TODOS os 37+ campos do BMI160:
 """
 
 import json
+import queue
 import socket
 import struct
 import threading
@@ -135,7 +136,10 @@ class NetworkClient:
     def _log(self, level, message):
         """Envia mensagem para fila de log"""
         if self.log_queue:
-            self.log_queue.put((level, message))
+            try:
+                self.log_queue.put_nowait((level, message))
+            except queue.Full:
+                pass
         else:
             _fn = {"ERROR": error, "WARN": warn, "DEBUG": debug}.get(level, info)
             _fn(message, "NET")
@@ -143,17 +147,26 @@ class NetworkClient:
     def _update_status(self, status_dict):
         """Envia atualizações de status"""
         if self.status_queue:
-            self.status_queue.put(status_dict)
+            try:
+                self.status_queue.put_nowait(status_dict)
+            except queue.Full:
+                pass
 
     def _send_sensor_data(self, sensor_data):
         """Envia dados de sensores para a interface"""
         if self.sensor_queue:
-            self.sensor_queue.put(sensor_data)
+            try:
+                self.sensor_queue.put_nowait(sensor_data)
+            except queue.Full:
+                pass  # Descarta dado antigo — consumer vai drenar a fila
 
     def _send_video_frame(self, frame_data):
         """Envia frame de vídeo para exibição"""
         if self.video_queue:
-            self.video_queue.put(frame_data)
+            try:
+                self.video_queue.put_nowait(frame_data)
+            except queue.Full:
+                pass  # Descarta frame — consumer exibe apenas o mais recente
 
     def initialize(self):
         """
@@ -657,7 +670,7 @@ class NetworkClient:
                 return packet[4:4 + frame_size]
 
             return None
-        except Exception:
+        except (struct.error, IndexError):
             self.packet_errors += 1
             return None
 
@@ -704,26 +717,26 @@ class NetworkClient:
         if self.is_connected_to_rpi:
             try:
                 self.send_command_to_rpi("DISCONNECT")
-            except Exception:
+            except OSError:
                 pass
 
         # Fecha sockets
         if self.receive_socket:
             try:
                 self.receive_socket.close()
-            except Exception:
+            except OSError:
                 pass
 
         if self.sensor_socket:
             try:
                 self.sensor_socket.close()
-            except Exception:
+            except OSError:
                 pass
 
         if self.send_socket:
             try:
                 self.send_socket.close()
-            except Exception:
+            except OSError:
                 pass
 
         # Envia estatísticas finais

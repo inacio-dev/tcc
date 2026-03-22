@@ -820,13 +820,14 @@ class G923Manager:
         if self._input_thread and self._input_thread.is_alive():
             self._input_thread.join(timeout=2.0)
 
-        # Fecha dispositivo
-        if self.device:
+        # Fecha dispositivo (thread-safe: captura ref local antes de limpar)
+        device = self.device
+        self.device = None
+        if device:
             try:
-                self.device.close()
+                device.close()
             except Exception:
                 pass
-            self.device = None
 
         self._log("INFO", f"G923 parado - {self.commands_sent} comandos enviados")
 

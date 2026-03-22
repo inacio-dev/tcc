@@ -56,10 +56,10 @@ except ImportError as e:
     sys.exit(1)
 
 # Filas para comunicação entre threads
-log_queue = queue.Queue()
-status_queue = queue.Queue()
-sensor_queue = queue.Queue()
-video_queue = queue.Queue()
+log_queue = queue.Queue(maxsize=1000)
+status_queue = queue.Queue(maxsize=100)
+sensor_queue = queue.Queue(maxsize=200)
+video_queue = queue.Queue(maxsize=30)
 
 # Configurações padrão
 DEFAULT_PORT = VIDEO_PORT

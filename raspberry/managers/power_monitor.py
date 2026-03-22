@@ -223,6 +223,13 @@ class PowerMonitorManager:
             if self.i2c_bus:
                 self.ina219_available = self._init_ina219()
                 info(f"INA219: {'Online' if self.ina219_available else 'Offline'}", "POWER")
+                # Close I2C bus if INA219 init failed and no other use for it
+                if not self.ina219_available:
+                    try:
+                        self.i2c_bus.close()
+                    except Exception:
+                        pass
+                    self.i2c_bus = None
 
             # Inicializa Pro Micro (USB Serial)
             self.pro_micro_connected = self._init_pro_micro()

@@ -113,6 +113,7 @@ class RpiSystemMonitor:
 
         except Exception as e:
             error(f"Erro ao inicializar RpiSystemMonitor: {e}", "RPI_SYS")
+            self.is_initialized = False
             return False
 
     def _detect_primary_interface(self):

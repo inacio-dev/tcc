@@ -19,6 +19,7 @@ FUNCIONALIDADES:
 - Thread-safe e tolerante a falhas
 """
 
+import queue
 import threading
 import time
 import tkinter as tk
@@ -79,6 +80,8 @@ class KeyboardController:
         # Controle de threads
         self.is_active = False
         self.command_thread = None
+        self._key_worker_thread = None
+        self._key_queue = queue.Queue()
         self.lock = threading.Lock()
 
         # Widgets visuais (para feedback)
@@ -140,10 +143,22 @@ class KeyboardController:
 
         # Processamento rápido sem locks demorados
         if key in self.KEY_MAPPINGS and key not in self.pressed_keys:
-            # Processa em thread separada para não bloquear interface
-            threading.Thread(
-                target=self._process_key_press, args=(key,), daemon=True
-            ).start()
+            # Envia para worker thread em vez de criar thread por tecla
+            self._key_queue.put(("press", key))
+
+    def _key_worker_loop(self):
+        """Worker thread que processa todos os eventos de tecla sequencialmente"""
+        while self.is_active:
+            try:
+                action, key = self._key_queue.get(timeout=0.5)
+                if action == "press":
+                    self._process_key_press(key)
+                elif action == "release":
+                    self._process_key_release(key)
+            except queue.Empty:
+                continue
+            except Exception as e:
+                self._log("ERROR", f"Erro no worker de teclado: {e}")
 
     def _process_key_press(self, key):
         """Processa key press em thread separada"""
@@ -177,10 +192,8 @@ class KeyboardController:
 
         # Processamento rápido sem locks demorados
         if key in self.pressed_keys:
-            # Processa em thread separada para não bloquear interface
-            threading.Thread(
-                target=self._process_key_release, args=(key,), daemon=True
-            ).start()
+            # Envia para worker thread em vez de criar thread por tecla
+            self._key_queue.put(("release", key))
 
     def _process_key_release(self, key):
         """Processa key release em thread separada"""
@@ -232,6 +245,8 @@ class KeyboardController:
         self.is_active = True
         self.command_thread = threading.Thread(target=self._command_loop, daemon=True)
         self.command_thread.start()
+        self._key_worker_thread = threading.Thread(target=self._key_worker_loop, daemon=True)
+        self._key_worker_thread.start()
 
         self._log("INFO", "Controlador de teclado iniciado")
         self._log("INFO", "Use M/N para marchas e sliders para controles")

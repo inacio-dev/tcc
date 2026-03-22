@@ -260,8 +260,8 @@ class SteeringManager:
             self.current_angle = target_angle
             self.servo_angle = self.STEERING_CENTER + self.current_angle
 
-            # Aplica movimento DIRETO ao servo
-            if self.steering_servo:
+            # Aplica movimento DIRETO ao servo (null check)
+            if self.steering_servo is not None:
                 # Limita ângulo ao range válido do servo (0° a 180°)
                 final_angle = max(
                     self.STEERING_MIN_ANGLE,
