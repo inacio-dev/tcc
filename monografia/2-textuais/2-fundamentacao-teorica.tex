@@ -30,7 +30,42 @@ Caso necessitemos de redundância e robustez, poderíamos implementar soluções
 
 A análise crítica dos protocolos de comunicação evidencia trade-offs fundamentais: o UDP oferece latência mínima mas sacrifica confiabilidade; o TCP garante entrega mas introduz overhead; protocolos híbridos como UDP-RT e QUIC oferecem compromissos balanceados, porém com complexidade de implementação significativamente maior. Para aplicações de controle em tempo real com recursos limitados, o UDP simples permanece como escolha pragmática, especialmente quando combinado com mecanismos de redundância no nível da aplicação. A descoberta de dispositivos em redes locais pode ser simplificada através do protocolo mDNS (Multicast DNS), que permite resolução de nomes sem servidor DNS centralizado, facilitando a configuração de sistemas embarcados em ambientes de prototipagem.
 
-A diversificação de protocolos mostra que o UDP mantém-se como base para tempo real, mas com mecanismos avançados de mitigação de perdas. \citeonline{graf2024monitoring} contribuíram com métricas padronizadas para avaliação de desempenho de sistemas wireless de baixa potência, destacando a importância de métricas padronizadas para avaliação de desempenho. Adicionalmente, \citeonline{kumari2025latency} propuseram uma arquitetura IIoT baseada em edge computing utilizando Raspberry Pi 4 e protocolo CoAP, alcançando redução de 88,28\% no delay de comunicação comparado a abordagens cloud tradicionais, demonstrando a viabilidade de arquiteturas de baixa latência em sistemas embarcados de custo reduzido.
+Estudos comparativos entre UDP e TCP reforçam essa análise. \citeonline{aldhief2018performance} compararam os dois protocolos via simulação em NS2, variando tamanho de pacote e largura de banda. O TCP apresentou maior taxa de entrega de pacotes, mas o UDP tem menor overhead de cabeçalho (8 bytes contra no mínimo 20 do TCP), sendo preferível quando a retransmissão de pacotes antigos é indesejável. \citeonline{bekele2024performance} avaliaram o UDP em redes de sensores IoT com microcontroladores CC2650 (IEEE 802.15.4) e mostraram que adicionar um mecanismo de ACK ao UDP reduz a perda de pacotes de 5--30\% para 1--12\%, ao custo de 28 a 33\% de aumento no consumo de CPU. Em uma comparação de implementações, \citeonline{machado2021comparacao} observou que a biblioteca CoAPthon (UDP, escrita em Python) leva em média 41~ms para enviar mensagens pequenas, enquanto o Mosquitto (MQTT sobre TCP, escrito em C) leva 3,8~ms, indicando que a linguagem de programação e a maturidade da implementação pesam tanto quanto a escolha do protocolo de transporte.
+
+A \autoref{tab:comparativo-latencia-literatura} reúne valores de latência UDP e TCP reportados na literatura em diferentes configurações de hardware e rede, permitindo comparação direta entre os estudos.
+
+\begin{table}[!ht]
+\captionsetup{width=16cm}
+\Caption{\label{tab:comparativo-latencia-literatura} Latência UDP e TCP reportada na literatura para diferentes configurações}
+\IBGEtab{}{%
+	\begin{tabular}{p{4cm}p{2.5cm}p{3cm}p{5cm}}
+		\toprule
+		Referência & Protocolo & Latência & Contexto \\
+		\midrule \midrule
+		\cite{lu2023udprt} & UDP-RT & 1,33 ms & Rede WAPS, sem congestionamento \\
+		\midrule
+		\cite{lu2023udprt} & UDP-RT & 76 ms & Rede WAPS, sob congestionamento \\
+		\midrule
+		\cite{bekele2024performance} & UDP & 62--362 ms (RTT) & CC2650, IEEE 802.15.4, 1--7 saltos \\
+		\midrule
+		\cite{bekele2024performance} & UDP + ACK & 2--3 ms (SPT) & CC2650, simulação Cooja \\
+		\midrule
+		\cite{machado2021comparacao} & CoAP/UDP & 41 ms & Localhost, CoAPthon (Python) \\
+		\midrule
+		\cite{machado2021comparacao} & MQTT/TCP & 3,8 ms & Localhost, Mosquitto (C) \\
+		\midrule
+		\cite{aldhief2018performance} & UDP & 984 ms & Simulação NS2, 8 nós, 64 B \\
+		\midrule
+		\cite{aldhief2018performance} & TCP & 620 ms & Simulação NS2, 8 nós, 64 B \\
+		\bottomrule
+	\end{tabular}%
+}{%
+\Fonte{elaborado pelo autor com dados da literatura citada.}%
+\Nota{Os valores não são diretamente comparáveis entre si, pois cada estudo utiliza hardware, topologia e métricas diferentes (RTT, SPT, tempo de envio). A tabela serve para contextualizar a ordem de grandeza da latência em cada cenário.}%
+}
+\end{table}
+
+A diversificação de protocolos mostra que o UDP se mantém como base para tempo real, mas com mecanismos avançados de mitigação de perdas. \citeonline{graf2024monitoring} contribuíram com métricas padronizadas para avaliação de desempenho de sistemas wireless de baixa potência, destacando a importância de métricas padronizadas para avaliação de desempenho. Adicionalmente, \citeonline{kumari2025latency} propuseram uma arquitetura IIoT baseada em edge computing utilizando Raspberry Pi 4 e protocolo CoAP, alcançando redução de 88,28\% no delay de comunicação comparado a abordagens cloud tradicionais, demonstrando a viabilidade de arquiteturas de baixa latência em sistemas embarcados de custo reduzido.
 
 \section{Sistemas Embarcados e Processamento}
 \label{sec:sistemas-embarcados}
@@ -66,7 +101,29 @@ G(s) = \frac{K}{\tau s + 1}
 
 Ainda segundo \citeonline{franklin2013sistemas}, a constante de tempo $\tau$ possui interpretação física direta: em $t = \tau$, a saída atinge 63,2\% do valor final; em $t = 3\tau$, atinge 95\%; e em $t = 5\tau$, atinge 99,3\%. A reta tangente à curva exponencial em $t = 0$ intercepta o valor final exatamente em $t = \tau$, propriedade útil para estimação experimental de parâmetros. A resposta é monotônica (sem overshoot), o que distingue sistemas de primeira ordem de sistemas de segunda ordem, onde a resposta pode apresentar oscilações dependendo do coeficiente de amortecimento $\zeta$.
 
-A escolha entre modelo de primeira e segunda ordem depende da aplicação. Sistemas de segunda ordem, com função de transferência $G(s) = \omega_n^2 / (s^2 + 2\zeta\omega_n s + \omega_n^2)$, introduzem sobressinal quando $\zeta < 1$ e oscilação quando $\zeta < 0{,}7$ \cite{franklin2013sistemas}. Para aplicações de controle de motores DC via PWM em que overshoot é indesejável (oscilação no PWM causa vibração mecânica), o modelo de primeira ordem é preferível por garantir convergência monotônica ao valor de referência.
+A \autoref{fig:resposta-primeira-ordem} mostra as respostas ao impulso $h(t)$ e ao degrau $y(t)$ de um sistema de primeira ordem. A curva $y(t)$ sobe monotonicamente de zero ao valor final sem oscilação, comportamento que se assemelha à aceleração de um motor DC: ao receber um comando de aceleração (entrada degrau), o motor aumenta progressivamente a rotação até estabilizar na velocidade correspondente ao PWM aplicado, sem ultrapassar esse valor.
+
+\begin{figure}[!ht]
+	\captionsetup{width=16cm}
+	\Caption{\label{fig:resposta-primeira-ordem} Resposta ao impulso $h(t)$ e ao degrau $y(t)$ de um sistema de primeira ordem}
+	\UFCfig{}{
+		\includegraphics[width=10cm]{figuras/Figura 3.13(b) da página 94}
+	}{
+		\Fonte{Figura 3.13(b) de \citeonline{franklin2013sistemas}, p.~94.}
+	}
+\end{figure}
+
+A escolha entre modelo de primeira e segunda ordem depende da aplicação. Sistemas de segunda ordem, com função de transferência $G(s) = \omega_n^2 / (s^2 + 2\zeta\omega_n s + \omega_n^2)$, introduzem sobressinal quando $\zeta < 1$ e oscilação quando $\zeta < 0{,}7$ \cite{franklin2013sistemas}. A \autoref{fig:resposta-degrau-segunda-ordem} mostra as respostas ao degrau de um sistema de segunda ordem para diferentes valores do coeficiente de amortecimento $\zeta$: para $\zeta < 0{,}7$ a resposta apresenta overshoot e oscilações antes de convergir, enquanto para $\zeta = 1{,}0$ a resposta é monotônica, semelhante à de um sistema de primeira ordem. Para controle de motores DC via PWM, o overshoot é indesejável porque oscilações no sinal PWM causam vibração mecânica no motor e na transmissão. Por essa razão, o modelo de primeira ordem foi adotado neste projeto, garantindo convergência monotônica ao valor de referência.
+
+\begin{figure}[!ht]
+	\captionsetup{width=16cm}
+	\Caption{\label{fig:resposta-degrau-segunda-ordem} Respostas ao degrau de um sistema de segunda ordem em função do coeficiente de amortecimento $\zeta$}
+	\UFCfig{}{
+		\includegraphics[width=12cm]{figuras/Figura 3.18(b) (página 98)}
+	}{
+		\Fonte{Figura 3.18(b) de \citeonline{franklin2013sistemas}, p.~98.}
+	}
+\end{figure}
 
 \section{Tendências e Estado da Arte Atual}
 \label{sec:tendencias-estado-arte}
