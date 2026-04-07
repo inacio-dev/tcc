@@ -125,6 +125,15 @@ A escolha entre modelo de primeira e segunda ordem depende da aplicação. Siste
 	}
 \end{figure}
 
+A solução analítica $y(t) = K(1 - e^{-t/\tau})$ assume que $\tau$ é constante ao longo do tempo. Quando a constante de tempo varia durante a operação, como no caso de um sistema com zonas de eficiência que alteram $\tau$ dinamicamente, a solução analítica não se aplica diretamente. Nessas situações, a equação diferencial pode ser resolvida numericamente pelo método de Euler \cite{ruggiero1996calculo}, que discretiza a derivada em passos finitos:
+
+\begin{equation}
+\label{eq:metodo-euler}
+y_{k+1} = y_k + h \cdot f(y_k), \qquad k = 0, 1, 2, \ldots
+\end{equation}
+
+\noindent onde $h$ é o passo de tempo (intervalo entre iterações) e $f(y_k)$ é a derivada avaliada no ponto atual. Para a equação de 1ª ordem $\tau \dot{y} + y = K$, a derivada é $f(y) = (K - y) / \tau$, e o Euler fica $y_{k+1} = y_k + h \cdot (K - y_k) / \tau$. A cada passo, o método usa a inclinação no ponto atual para estimar o próximo valor, como ilustrado na Figura~8.3 de \citeonline{ruggiero1996calculo} (p.~321). O erro local é proporcional a $h^2$, de modo que passos menores produzem maior precisão. Para um sistema embarcado operando a 100~Hz ($h = 0{,}01$~s), o erro por iteração é da ordem de $10^{-4}$, suficiente para controle de PWM em tempo real.
+
 \section{Tendências e Estado da Arte Atual}
 \label{sec:tendencias-estado-arte}
 

@@ -207,9 +207,9 @@ Para pistas de até 600 m (circuitos compactos como Mônaco), um sistema mesh Wi
 \section{Arquitetura do Veículo (Raspberry Pi 4)}
 \label{sec:arquitetura-veiculo}
 
-O Raspberry Pi 4 Model B com 8GB de \gls{RAM} é o processador embarcado no veículo, responsável pelo controle, sensoriamento e comunicação. A escolha deste hardware foi motivada pela capacidade de processamento suficiente para codificação de vídeo \gls{MJPEG} em tempo real, comunicação \gls{UDP} nativa e controle de múltiplos periféricos via \gls{I2C}, conforme validado nos testes de arquitetura descritos na \autoref{subsec:evolucao-decisoes-comunicacao}. O diagrama elétrico completo das conexões do Raspberry Pi 4 com todos os componentes do sistema está disponível no \autoref{apendice:diagrama-rpi}.
+O processador embarcado no veículo é um Raspberry Pi 4 Model B com 8GB de \gls{RAM}. O hardware foi escolhido porque consegue codificar vídeo \gls{MJPEG} em tempo real, comunicar via \gls{UDP} nativo e controlar múltiplos periféricos \gls{I2C} simultaneamente, conforme validado nos testes descritos na \autoref{subsec:evolucao-decisoes-comunicacao}. O diagrama elétrico completo está no \autoref{apendice:diagrama-rpi}.
 
-O software embarcado foi desenvolvido em Python 3.11.2 utilizando o editor Visual Studio Code, aproveitando bibliotecas nativas para controle de GPIO, comunicação \gls{I2C} e captura de vídeo via interface \gls{CSI}. A \autoref{tab:bibliotecas-rpi} apresenta as principais bibliotecas utilizadas no desenvolvimento do software embarcado.
+O software embarcado foi escrito em Python 3.11.2 no Visual Studio Code. A \autoref{tab:bibliotecas-rpi} lista as bibliotecas utilizadas.
 
 \begin{table}[!h]
 \captionsetup{width=16cm}
@@ -219,14 +219,14 @@ O software embarcado foi desenvolvido em Python 3.11.2 utilizando o editor Visua
 \toprule
 \textbf{Biblioteca} & \textbf{Função} \\
 \midrule
-picamera2 & Captura de vídeo via interface CSI com codificação \gls{MJPEG} por hardware \\
+picamera2 & Captura de vídeo via interface \gls{CSI} com codificação \gls{MJPEG} por hardware \\
 smbus2 & Comunicação \gls{I2C} direta com sensores BMI160 e INA219 \\
-pyserial & Comunicação serial USB com Arduino Pro Micro para monitoramento de energia \\
+pyserial & Comunicação serial \gls{USB} com Arduino Pro Micro para monitoramento de energia \\
 adafruit-circuitpython-pca9685 & Controle do driver \gls{PWM} PCA9685 para acionamento de servos \\
-adafruit-circuitpython-servokit & Abstração de alto nível para controle de servomotores \\
-RPi.GPIO & Controle de pinos GPIO para \gls{ponteh} BTS7960 do motor DC \\
+adafruit-circuitpython-motor & Controle de servomotores via classe \texttt{Servo} do módulo \texttt{adafruit\_motor} \\
+adafruit-blinka & Camada de compatibilidade CircuitPython para Raspberry Pi (módulos \texttt{board} e \texttt{busio}) \\
+RPi.GPIO & Controle de pinos \gls{GPIO} para \gls{ponteh} BTS7960 do motor DC \\
 numpy & Processamento numérico de dados de sensores e cálculos de telemetria \\
-socket & Comunicação \gls{UDP} nativa para transmissão de dados ao cliente \\
 \bottomrule
 \end{tabular}
 }{
@@ -234,10 +234,7 @@ socket & Comunicação \gls{UDP} nativa para transmissão de dados ao cliente \\
 }
 \end{table}
 
-\subsection{Especificações dos Componentes do Veículo}
-\label{subsec:componentes-veiculo}
-
-A \autoref{tab:componentes-veiculo} apresenta os componentes embarcados no veículo teleoperado, responsáveis pelo controle de propulsão, sensoriamento e comunicação via \gls{UDP}.
+A \autoref{tab:componentes-veiculo} lista os componentes embarcados no veículo.
 
 \begin{table}[!h]
 \captionsetup{width=16cm}
@@ -296,7 +293,7 @@ A \autoref{tab:componentes-veiculo} apresenta os componentes embarcados no veíc
 
 O veículo utiliza o chassi FV01, um modelo de carro de Fórmula 1 projetado para impressão 3D por \citeonline{velocityprojects2024fv01}. O modelo original possui escala 1:7, porém foi modificado para escala 1:5 neste projeto para acomodar o Raspberry Pi 4, sensores, drivers e demais componentes eletrônicos. O chassi foi impresso em PLA com pneus de borracha para melhor aderência.
 
-A suspensão push rod independente permite que o sensor BMI160 detecte variações de força G em curvas e frenagens. O diferencial operacional gera comportamento diferenciado entre rodas internas e externas em curvas, e o chassi modular permite substituição individual de peças danificadas.
+A suspensão push rod independente transmite as forças de curva e frenagem ao chassi, onde o sensor BMI160 as detecta como variações de força G. O diferencial gera comportamento diferenciado entre rodas internas e externas em curvas. O chassi é modular: peças danificadas podem ser substituídas individualmente.
 
 A impressão das peças do chassi foi realizada em uma impressora Creality Ender 3 S1, equipada com extrusora direta Sprite de engrenagem dupla e nivelamento automático CR Touch de 16 pontos. A impressora possui volume de construção de 220 $\times$ 220 $\times$ 270 mm, resolução mínima de 0,05 mm e velocidade máxima de 150 mm/s, sendo compatível com diversos materiais como PLA, PETG, TPU e ABS\@. O fatiamento foi realizado utilizando o software Ultimaker Cura 5.11 \cite{ultimaker2024cura} com perfil de qualidade padrão. A \autoref{tab:config-impressao-3d} apresenta os principais parâmetros de impressão utilizados, selecionados para balancear resistência mecânica, tempo de impressão e consumo de material.
 
@@ -336,7 +333,7 @@ A impressão das peças do chassi foi realizada em uma impressora Creality Ender
 }
 \end{table}
 
-A densidade de preenchimento de 15\% com padrão Cubic Subdivision oferece boa resistência estrutural com economia de material. O suporte tipo Tree minimiza o contato com a superfície da peça, o que facilita a remoção e melhora o acabamento. O Raft como adesão à mesa evita empenamento nas bordas de peças maiores. A \autoref{fig:chassi-fv01} apresenta o modelo original do chassi FV01.
+O preenchimento de 15\% em Cubic Subdivision equilibra resistência e consumo de material. Suporte Tree foi usado por deixar menos marcas na superfície, e Raft como adesão à mesa evita empenamento em peças maiores. A \autoref{fig:chassi-fv01} mostra o modelo original do chassi FV01.
 
 \begin{figure}[!ht]
 	\captionsetup{width=16cm}
@@ -348,7 +345,7 @@ A densidade de preenchimento de 15\% com padrão Cubic Subdivision oferece boa r
 	}
 \end{figure}
 
-Para realizar as modificações de escala e planejar a disposição interna dos componentes, utilizou-se o Tinkercad \cite{autodesk2024tinkercad}, uma ferramenta de modelagem 3D gratuita baseada em navegador. A \autoref{fig:tinkercad-layout} apresenta a simulação realizada, onde a bateria LiPo 3S (em vermelho) ocupa a região central inferior e o motor DC 775 com a transmissão (em laranja) está posicionado na parte traseira. Essa simulação prévia demonstrou que a escala 1:5 proporciona espaço adequado para os demais componentes eletrônicos.
+As modificações de escala e a disposição interna dos componentes foram planejadas no Tinkercad \cite{autodesk2024tinkercad}. Na \autoref{fig:tinkercad-layout}, a bateria LiPo 3S (em vermelho) ocupa a região central inferior e o motor DC 775 com a transmissão (em laranja) fica na parte traseira. A simulação confirmou que a escala 1:5 deixa espaço suficiente para os componentes eletrônicos.
 
 \begin{figure}[!ht]
 	\captionsetup{width=16cm}
@@ -363,11 +360,11 @@ Para realizar as modificações de escala e planejar a disposição interna dos 
 \subsection{Sistema de Sensoriamento}
 \label{subsec:sensoriamento-veiculo}
 
-O veículo possui múltiplos sensores para captura de dados em tempo real, transmitidos ao cliente via \gls{UDP} para processamento e geração de feedback háptico.
+Os sensores do veículo capturam dados em tempo real e os transmitem ao cliente via \gls{UDP}, onde são processados para telemetria e cálculo de \textit{force feedback}.
 
 \subsubsection{Câmera OV5647}
 
-A câmera OV5647 conectada via interface CSI captura vídeo em resolução 640x480 a 60 \gls{FPS}. O stream de vídeo é codificado em \gls{MJPEG} (Motion JPEG), onde cada frame é comprimido independentemente como imagem JPEG. Essa escolha foi motivada pela robustez contra perda de pacotes \gls{UDP}: enquanto codecs como H.264 utilizam P-frames que dependem de frames anteriores (causando distorção em cascata quando há perda de pacotes), o \gls{MJPEG} transmite frames independentes, limitando o impacto de perdas a um único frame. O trade-off é maior uso de banda (aproximadamente 4x mais que H.264), compensado pela qualidade de imagem consistente e simplicidade de decodificação via OpenCV.
+A câmera OV5647, conectada via interface \gls{CSI}, opera em duas resoluções selecionáveis: 480p (640$\times$480) e 720p (1280$\times$720). A resolução padrão é 480p a 30 \gls{FPS}, por consumir menos banda na transmissão \gls{UDP}. O operador pode alternar entre 480p e 720p pela interface do cliente, que envia o comando ao Raspberry Pi via \gls{UDP}. O stream de vídeo é codificado em \gls{MJPEG} (Motion JPEG), onde cada frame é comprimido independentemente como imagem JPEG. Essa escolha foi motivada pela robustez contra perda de pacotes \gls{UDP}: enquanto codecs como H.264 utilizam P-frames que dependem de frames anteriores (causando distorção em cascata quando há perda de pacotes), o \gls{MJPEG} transmite frames independentes, limitando o impacto de perdas a um único frame. O trade-off é maior uso de banda (aproximadamente 4x mais que H.264), compensado pela qualidade de imagem consistente e simplicidade de decodificação via OpenCV.
 
 \subsubsection{Sensor IMU BMI160}
 
@@ -417,7 +414,7 @@ G(s) = \frac{Y(s)}{U(s)} = \frac{K}{\tau_{eff} \cdot s + 1}
 y(t) = K \cdot \left(1 - e^{-t/\tau_{eff}}\right)
 \end{equation}
 
-Nessa formulação, conforme as propriedades dos sistemas de primeira ordem \cite{franklin2013sistemas}, o PWM atinge 63,2\% do valor final em $t = \tau_{eff}$ e 95\% em $t = 3\tau_{eff}$, com convergência monotônica e sem overshoot. A implementação no software embarcado utiliza integração de Euler a 100~Hz, computando a cada iteração $\Delta y = (K - y) / \tau_{eff} \cdot \Delta t$.
+Nessa formulação, conforme as propriedades dos sistemas de primeira ordem \cite{franklin2013sistemas}, o PWM atinge 63,2\% do valor final em $t = \tau_{eff}$ e 95\% em $t = 3\tau_{eff}$, com convergência monotônica e sem overshoot. A implementação no software embarcado utiliza o método de Euler \cite{ruggiero1996calculo} a 100~Hz (ver \autoref{eq:metodo-euler}): a cada iteração ($\Delta t = 0{,}01$~s), o software calcula a diferença entre o PWM atual e o target, divide pelo $\tau_{eff}$ e multiplica pelo passo de tempo, obtendo o incremento $\Delta y = (K - y) / \tau_{eff} \cdot \Delta t$. Quando o PWM está longe do target o passo é grande; conforme se aproxima, o passo diminui, o que produz a curva exponencial. A solução analítica ($y(t) = K(1 - e^{-t/\tau})$) assume $\tau$ constante, mas neste sistema o $\tau_{eff}$ muda toda vez que o PWM cruza de uma zona de eficiência para outra. O Euler resolve isso: recalcula o $\tau$ a cada iteração e aplica o passo correto naquele instante.
 
 A constante de tempo efetiva combina dois fatores --- a marcha e a zona de eficiência:
 
@@ -426,7 +423,7 @@ A constante de tempo efetiva combina dois fatores --- a marcha e a zona de efici
 \tau_{eff}(g, zona) = \tau_{base}(g) \times M_{zona}
 \end{equation}
 
-\noindent onde $\tau_{base}(g)$ cresce com a marcha (2~s na 1ª até 10~s na 5ª, refletindo maior inércia em marchas altas) e $M_{zona}$ é o multiplicador da zona de eficiência: $M_{IDEAL} = 1{,}0$, $M_{SUB} = 10{,}0$ e $M_{POOR} = 25{,}0$. Na zona IDEAL, o sistema responde com $\tau_{base}$; na zona SUBOPTIMAL, a resposta é 10 vezes mais lenta; na zona POOR, 25 vezes mais lenta. Essa penalização força o operador a utilizar a marcha adequada para a faixa de PWM desejada, reproduzindo o comportamento de uma transmissão real.
+\noindent onde $\tau_{base}(g)$ cresce com a marcha (2~s na 1ª até 10~s na 5ª, refletindo maior inércia em marchas altas) e $M_{zona}$ é o multiplicador da zona de eficiência: $M_{IDEAL} = 1{,}0$, $M_{SUB} = 10{,}0$ e $M_{POOR} = 25{,}0$. Na zona IDEAL, o sistema responde com $\tau_{base}$; na zona SUBOPTIMAL, a resposta é 10 vezes mais lenta; na zona POOR, 25 vezes mais lenta. A zona é classificada pelo PWM atual do motor (não pelo target), de modo que a penalização ocorre em tempo real conforme o motor sai da faixa ideal. Isso força o operador a utilizar a marcha adequada para a faixa em que o motor está operando, reproduzindo o comportamento de uma transmissão real.
 
 A \autoref{tab:gear-params} resume os parâmetros por marcha. Os limitadores definem o ganho $K$ (PWM máximo quando o acelerador está em 100\%), e as faixas ideal\_low e ideal\_high delimitam a zona IDEAL. As zonas ideais de marchas adjacentes se sobrepõem (por exemplo, a 2ª cobre 10--25\% e a 1ª cobre 6--12\%), garantindo que no ponto de troca o PWM já esteja na zona IDEAL da próxima marcha.
 
@@ -498,11 +495,15 @@ A \autoref{fig:ode-decomposicao} decompõe os quatro componentes da equação di
 	}
 \end{figure}
 
+O \autoref{apendice:exemplo-transmissao} apresenta um exemplo numérico completo com todos os cálculos para a 1ª marcha com acelerador a 60\%, incluindo a travessia da zona morta, a integração de Euler iteração por iteração e a comparação entre zonas IDEAL e POOR\@.
+
 Para a desaceleração, o sistema utiliza a mesma formulação de 1ª ordem com $\tau$ reduzido: $\tau_{decel} = \tau_{eff} / 3$, tornando a resposta 3 vezes mais rápida ao soltar o acelerador. Quando o freio é acionado, um fator multiplicativo adicional é aplicado: $\tau_{decel} = \tau_{eff} / (3 \times boost_{freio})$, onde $boost_{freio} = 1 + 9 \times (freio/100)$, resultando em desaceleração até 30 vezes mais rápida com frenagem máxima.
 
 \subsubsection{Sistema de Direção e Freios}
 
-A direção utiliza servo MG996R no canal 0 do PCA9685, com rotação de 0° a 180° e centro mecânico em 90°. O mapeamento converte a entrada do operador ($-100\%$ a $+100\%$) para o ângulo correspondente: $-100\%$ resulta em 0° (máximo à esquerda), $0\%$ resulta em 90° (centro) e $+100\%$ resulta em 180° (máximo à direita). Os pulsos PWM do servo variam de 1,0ms (0°) a 2,0ms (180°) com centro em 1,5ms (90°), operando a 50Hz. O sistema de freio emprega dois servos MG996R (canais 4 e 8) para controle independente de freio dianteiro e traseiro, permitindo ajuste de balanceamento de frenagem. O balanceamento padrão é 60\% dianteiro e 40\% traseiro, ajustável via comandos do cliente.
+A direção usa um servo MG996R no canal 0 do PCA9685. O servo gira de 0° a 180° com centro mecânico em 90°, e o software mapeia a entrada do operador ($-100\%$ a $+100\%$) linearmente para essa faixa: $-100\%$ vai para 0° (esquerda máxima), $0\%$ para 90° (centro) e $+100\%$ para 180° (direita máxima). Os pulsos \gls{PWM} vão de 1,0ms a 2,0ms a 50Hz.
+
+O freio usa dois servos MG996R separados: um para o freio dianteiro (canal 4) e outro para o traseiro (canal 8). O balanceamento padrão é 40\% dianteiro e 60\% traseiro (\texttt{brake\_balance = 60}, onde o valor é a porcentagem traseira). O operador pode ajustar esse balanceamento pelo cliente.
 
 \subsection{Proteção contra Força Eletromotriz de Retorno}
 \label{subsec:protecao-backemf-veiculo}
@@ -513,29 +514,31 @@ O driver BTS7960 foi selecionado para o sistema de propulsão do veículo especi
 
 No veículo, uma proteção mecânica adicional foi implementada através de rolamento unidirecional no eixo de transmissão. Esse componente permite que as rodas girem livremente sem transmitir rotação reversa ao motor, reduzindo a geração de back-EMF quando o veículo está em movimento com motor desligado.
 
-Essa arquitetura de proteção elimina a necessidade de componentes externos adicionais, como diodos flyback ou capacitores de supressão de transientes.
+Com essas proteções, não foi necessário adicionar diodos flyback ou capacitores de supressão de transientes externos.
 
 \subsection{Arquitetura Multi-Thread}
 \label{subsec:multithread-veiculo}
 
-O software embarcado no Raspberry Pi foi refatorado de uma arquitetura sequencial para uma arquitetura multi-thread, permitindo que cada subsistema opere de forma independente e em sua taxa ideal de amostragem. Na arquitetura sequencial original, o loop principal executava todas as operações em sequência (captura de frame, leitura de sensores, transmissão de dados), resultando em latência acumulada onde o componente mais lento limitava todo o sistema.
+O software embarcado no Raspberry Pi foi refatorado de uma arquitetura sequencial para multi-thread. Na versão sequencial, o loop principal executava captura de frame, leitura de sensores e transmissão em sequência, e o componente mais lento travava todos os outros. Com threads separadas, cada subsistema opera na sua própria taxa de amostragem.
 
-A arquitetura multi-thread implementada utiliza sete threads. Quatro são de aquisição: câmera a 60Hz (captura de frames da OV5647), sensores a 100Hz (leitura do BMI160), energia a 10Hz (Arduino Pro Micro via USB serial e INA219 via \gls{I2C}) e temperatura a 1Hz (DS18B20 e métricas do sistema operacional como uso de CPU, memória RAM, disco e rede). Duas são de transmissão: vídeo a 60Hz, que consolida frame \gls{MJPEG} com dados de energia, temperatura e métricas do sistema e envia pela porta \gls{UDP} 9999; e sensores a 100Hz, que envia dados do BMI160 pela porta \gls{UDP} 9997. A sétima thread é a de recepção de comandos, que opera como daemon no gerenciador de rede pela porta \gls{UDP} 9998. Essa separação evita que a captura de vídeo atrase a leitura de sensores e vice-versa, reduzindo a latência de sensores de aproximadamente 16ms (espera por frame a 60Hz) para aproximadamente 10ms (envio direto pela porta dedicada). Para diagnóstico de latência, cada pacote UDP inclui campos de instrumentação de tempo (\texttt{timing\_bmi160\_read}, \texttt{timing\_lock}, \texttt{timing\_total\_pre\_send}), que medem a duração de cada etapa do pipeline.
+São sete threads no total. Do lado da aquisição, quatro threads coletam dados em paralelo: câmera a 60Hz (frames da OV5647), sensores a 100Hz (BMI160), energia a 10Hz (Arduino Pro Micro via \gls{USB} serial e INA219 via \gls{I2C}) e temperatura a 1Hz (DS18B20 e métricas do sistema operacional). Do lado da transmissão, duas threads enviam dados ao cliente: vídeo a 60Hz pela porta \gls{UDP} 9999 (frame \gls{MJPEG} consolidado com dados de energia e temperatura) e sensores a 100Hz pela porta \gls{UDP} 9997. A sétima thread recebe comandos do cliente pela porta \gls{UDP} 9998.
 
-A comunicação entre threads utiliza filas \gls{threadsafe} (classe \texttt{Queue} do Python) para transferência de dados e locks (\texttt{threading.Lock}) para proteção de variáveis compartilhadas. Cada gerenciador de componente implementa seu próprio lock interno para garantir acesso seguro em ambiente concorrente. A thread de transmissão consolida os dados mais recentes de todas as threads de aquisição antes de cada envio, garantindo pacotes com informações sincronizadas.
+Na versão sequencial, a leitura de sensores esperava a captura de vídeo terminar (até 16ms a 60Hz). Com a separação em threads, a latência de sensores caiu para aproximadamente 10ms. Para diagnóstico, cada pacote \gls{UDP} inclui campos de tempo (\texttt{timing\_bmi160\_read}, \texttt{timing\_lock}, \texttt{timing\_total\_pre\_send}) que medem cada etapa do pipeline.
 
-O tratamento de erros é isolado por thread, onde exceções em um subsistema não afetam os demais. Cada thread implementa tratamento de exceção com logging e continuação de execução, evitando que falhas temporárias (como timeout de \gls{I2C}) interrompam todo o sistema. O shutdown coordenado define uma flag de parada, aguarda cada thread finalizar com timeout de 2 segundos, para componentes na ordem inversa de dependência e libera recursos de \gls{GPIO}, \gls{I2C} e sockets.
+As threads se comunicam por filas \gls{threadsafe} (\texttt{Queue}) e locks para proteger variáveis compartilhadas. Cada gerenciador de componente tem seu próprio lock interno. Antes de cada envio, a thread de transmissão coleta os dados mais recentes de todas as threads de aquisição.
+
+Erros são isolados por thread: uma exceção na leitura do BMI160, por exemplo, não derruba a transmissão de vídeo. Cada thread faz logging do erro e continua executando. No shutdown, uma flag de parada é ativada, cada thread tem 2 segundos para finalizar, e os recursos (\gls{GPIO}, \gls{I2C}, sockets) são liberados na ordem inversa de dependência.
 
 \subsection{Gerenciamento do Barramento \gls{I2C}}
 \label{subsec:gerenciamento-i2c}
 
-O barramento \gls{I2C}-1 do Raspberry Pi 4 (GPIO2/GPIO3) é compartilhado entre três dispositivos com diferentes padrões de acesso: o PCA9685 (endereço \texttt{0x41}) controlado pela thread de recepção de comandos com escritas de até 100Hz para direção e freios, o BMI160 (endereço \texttt{0x68}) lido pela thread de sensores a 100Hz, e o INA219 (endereço \texttt{0x40}) lido pela thread de energia a 10Hz. Sem coordenação, acessos simultâneos ao barramento resultam em colisões que geram erros de I/O (\texttt{errno 5}) no kernel, corrompendo leituras do BMI160.
+Três dispositivos compartilham o barramento \gls{I2C}-1 do Raspberry Pi 4: o PCA9685, que recebe comandos de direção e freio a até 100Hz; o BMI160, lido a 100Hz pela thread de sensores; e o INA219, lido a 10Hz. Quando duas threads tentam acessar o barramento ao mesmo tempo, o resultado são colisões que geram \texttt{errno 5} (erro de entrada/saída do kernel Linux) e corrompem as leituras do BMI160.
 
-Para resolver esse problema, foi implementado um mecanismo de \textit{lock} com prioridades ponderadas (\textit{weighted fair queuing}). O sistema atribui três níveis de prioridade: alta (peso 3) para direção e freios, que são críticos para segurança; média (peso 2) para o BMI160, cujos dados alimentam a telemetria e o \textit{force feedback}; e baixa (peso 1) para o INA219, cujo monitoramento de energia tolera maior latência. O peso define quantas transações consecutivas uma prioridade pode executar antes de ceder o barramento para outras prioridades que estejam aguardando. Dessa forma, sob carga máxima, a direção executa no máximo 3 transações consecutivas e depois cede para o BMI160 executar 2 transações, garantindo que nenhum dispositivo fique indefinidamente bloqueado.
+A solução foi um \textit{lock} com prioridades ponderadas (\textit{weighted fair queuing}). Direção e freios têm prioridade alta (peso 3, por serem críticos para segurança), o BMI160 tem prioridade média (peso 2, alimenta telemetria e \textit{force feedback}) e o INA219 tem prioridade baixa (peso 1, monitoramento de energia tolera mais latência). Sob carga máxima, a direção executa 3 transações seguidas e depois cede para o BMI160 fazer 2. Nenhum dispositivo fica bloqueado indefinidamente.
 
-A implementação inicial utilizava prioridade estrita, onde a prioridade mais alta sempre era atendida primeiro. Essa abordagem causava \textit{starvation} do BMI160 durante aceleração contínua: como a thread de direção enviava comandos ininterruptamente ao PCA9685, o BMI160 ficava completamente bloqueado, resultando em leituras zeradas que o \textit{watchdog} interpretava como \textit{brown-out}, desencadeando recuperações desnecessárias. A migração para \textit{fair queuing} ponderado eliminou esse problema ao garantir acesso intercalado ao barramento. Adicionalmente, cada gerenciador implementa deduplicação de escritas ao PCA9685: o último ângulo enviado é armazenado em cache e a escrita \gls{I2C} só ocorre quando a diferença é superior a 0,1°, eliminando transações redundantes quando o volante está parado.
+A versão anterior usava prioridade estrita, e o resultado era previsível: durante aceleração contínua, a thread de direção monopolizava o barramento com comandos ao PCA9685, e o BMI160 ficava sem leitura. O \textit{watchdog} interpretava as leituras zeradas como \textit{brown-out} e disparava recuperações desnecessárias. O \textit{fair queuing} ponderado resolveu o problema. Além disso, cada gerenciador faz deduplicação de escritas ao PCA9685: o último ângulo enviado fica em cache, e a escrita \gls{I2C} só acontece quando a diferença é maior que 0,1°. Quando o volante está parado, isso elimina transações desnecessárias.
 
-O barramento \gls{I2C} foi configurado para operar a 400kHz (\textit{Fast mode}) em vez dos 100kHz padrão, reduzindo o tempo de cada transação por um fator de 4 e diminuindo a janela de contenção entre dispositivos. Todos os três dispositivos no barramento (BMI160, PCA9685 e INA219) suportam essa velocidade conforme seus respectivos \textit{datasheets}. A utilização calculada do barramento é de aproximadamente 27,5 kbps dos 400 kbps disponíveis (6,9\%), confirmando que o gargalo não é largura de banda, mas sim a contenção temporal entre transações simultâneas.
+O barramento opera a 400kHz (\textit{Fast mode}) em vez dos 100kHz padrão, o que reduz o tempo de cada transação por 4. BMI160, PCA9685 e INA219 suportam essa velocidade. A utilização medida é de 27,5 kbps dos 400 kbps disponíveis (6,9\%), então largura de banda não é o problema. O problema é temporal: duas threads querendo o barramento no mesmo instante.
 
 % ============================================================================
 % ARQUITETURA DO SIMULADOR (LOGITECH G923)
