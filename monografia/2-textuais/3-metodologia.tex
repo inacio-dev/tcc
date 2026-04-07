@@ -209,7 +209,7 @@ Para pistas de até 600 m (circuitos compactos como Mônaco), um sistema mesh Wi
 
 O processador embarcado no veículo é um Raspberry Pi 4 Model B com 8GB de \gls{RAM}. O hardware foi escolhido porque consegue codificar vídeo \gls{MJPEG} em tempo real, comunicar via \gls{UDP} nativo e controlar múltiplos periféricos \gls{I2C} simultaneamente, conforme validado nos testes descritos na \autoref{subsec:evolucao-decisoes-comunicacao}. O diagrama elétrico completo está no \autoref{apendice:diagrama-rpi}.
 
-O software embarcado foi escrito em Python 3.11.2 no Visual Studio Code. A \autoref{tab:bibliotecas-rpi} lista as bibliotecas utilizadas.
+O software embarcado foi escrito em Python 3.11.2 no Visual Studio Code. A \autoref{tab:bibliotecas-rpi} lista as bibliotecas utilizadas e a \autoref{tab:componentes-veiculo} lista os componentes embarcados no veículo.
 
 \begin{table}[!h]
 \captionsetup{width=16cm}
@@ -233,8 +233,6 @@ numpy & Processamento numérico de dados de sensores e cálculos de telemetria \
 \Fonte{elaborado pelo autor.}
 }
 \end{table}
-
-A \autoref{tab:componentes-veiculo} lista os componentes embarcados no veículo.
 
 \begin{table}[!h]
 \captionsetup{width=16cm}
@@ -293,9 +291,9 @@ A \autoref{tab:componentes-veiculo} lista os componentes embarcados no veículo.
 
 O veículo utiliza o chassi FV01, um modelo de carro de Fórmula 1 projetado para impressão 3D por \citeonline{velocityprojects2024fv01}. O modelo original possui escala 1:7, porém foi modificado para escala 1:5 neste projeto para acomodar o Raspberry Pi 4, sensores, drivers e demais componentes eletrônicos. O chassi foi impresso em PLA com pneus de borracha para melhor aderência.
 
-A suspensão push rod independente transmite as forças de curva e frenagem ao chassi, onde o sensor BMI160 as detecta como variações de força G. O diferencial gera comportamento diferenciado entre rodas internas e externas em curvas. O chassi é modular: peças danificadas podem ser substituídas individualmente.
+A suspensão push rod independente transmite as forças de curva e frenagem ao chassi, onde o sensor BMI160 as detecta como variações de força G. O diferencial gera comportamento diferenciado entre rodas internas e externas em curvas.
 
-A impressão das peças do chassi foi realizada em uma impressora Creality Ender 3 S1, equipada com extrusora direta Sprite de engrenagem dupla e nivelamento automático CR Touch de 16 pontos. A impressora possui volume de construção de 220 $\times$ 220 $\times$ 270 mm, resolução mínima de 0,05 mm e velocidade máxima de 150 mm/s, sendo compatível com diversos materiais como PLA, PETG, TPU e ABS\@. O fatiamento foi realizado utilizando o software Ultimaker Cura 5.11 \cite{ultimaker2024cura} com perfil de qualidade padrão. A \autoref{tab:config-impressao-3d} apresenta os principais parâmetros de impressão utilizados, selecionados para balancear resistência mecânica, tempo de impressão e consumo de material.
+A impressão das peças do chassi foi realizada em uma impressora Creality Ender 3 S1. O fatiamento foi realizado no software Ultimaker Cura 5.11 \cite{ultimaker2024cura} com perfil de qualidade padrão. A \autoref{tab:config-impressao-3d} apresenta os parâmetros de impressão utilizados.
 
 \begin{table}[!h]
 \captionsetup{width=16cm}
@@ -333,7 +331,7 @@ A impressão das peças do chassi foi realizada em uma impressora Creality Ender
 }
 \end{table}
 
-O preenchimento de 15\% em Cubic Subdivision equilibra resistência e consumo de material. Suporte Tree foi usado por deixar menos marcas na superfície, e Raft como adesão à mesa evita empenamento em peças maiores. A \autoref{fig:chassi-fv01} mostra o modelo original do chassi FV01.
+O preenchimento de 15\% em Cubic Subdivision foi escolhido por oferecer resistência suficiente sem consumo excessivo de material. Suporte Tree foi usado por deixar menos marcas na superfície, e Raft como adesão à mesa evita empenamento em peças maiores. A \autoref{fig:chassi-fv01} mostra o modelo original do chassi FV01.
 
 \begin{figure}[!ht]
 	\captionsetup{width=16cm}
@@ -380,9 +378,9 @@ O sensor digital DS18B20 \cite{maxim2019ds18b20} conectado via protocolo 1-Wire 
 
 O sistema de monitoramento de energia utiliza uma arquitetura híbrida com dois subsistemas complementares: um Arduino Pro Micro (ATmega32U4) dedicado à leitura dos sensores de corrente ACS758 e tensão da bateria, e um sensor INA219 (endereço \gls{I2C} \texttt{0x40}) para monitoramento de corrente e tensão do Raspberry Pi.
 
-Inicialmente, o projeto utilizava um ADC externo ADS1115 (16 bits, \gls{I2C}) conectado diretamente ao Raspberry Pi para leitura dos sensores ACS758. Essa abordagem apresentava três limitações fundamentais. A primeira era a incompatibilidade de referência de tensão: os ACS758 possuem saída ratiométrica (ponto zero em VCC/2), porém o ADS1115 opera com referência interna própria (PGA configurável), incapaz de acompanhar variações na alimentação dos sensores. Na prática, uma queda de 5,00V para 4,90V no VCC dos ACS758 deslocava o offset zero em 50mV, introduzindo erro de 2,5A no sensor de 100A (sensibilidade de 20mV/A). A segunda limitação era o congestionamento do barramento \gls{I2C}, compartilhado com BMI160 (100Hz), PCA9685 e INA219, onde cada ciclo de leitura do ADS1115 (três canais multiplexados) ocupava aproximadamente 25ms do barramento. A terceira era a ausência de canal disponível para medição da tensão da bateria.
+Inicialmente, o projeto utilizava um ADC externo ADS1115 (16 bits, \gls{I2C}) conectado diretamente ao Raspberry Pi para leitura dos sensores ACS758. Essa abordagem foi abandonada por incompatibilidade de referência de tensão: os ACS758 possuem saída ratiométrica (ponto zero em VCC/2), porém o ADS1115 opera com referência interna própria (PGA configurável), incapaz de acompanhar variações na alimentação dos sensores. Na prática, uma queda de 5,00V para 4,90V no VCC dos ACS758 deslocava o offset zero em 50mV, introduzindo erro de 2,5A no sensor de 100A (sensibilidade de 20mV/A). Além disso, cada ciclo de leitura do ADS1115 (três canais multiplexados) ocupava aproximadamente 25ms do barramento \gls{I2C}, já compartilhado com BMI160 (100Hz), PCA9685 e INA219. O ADS1115 também não dispunha de canal livre para medição da tensão da bateria.
 
-A migração para o Arduino Pro Micro resolveu essas limitações através de medição ratiométrica: como o Pro Micro e os ACS758 compartilham a mesma alimentação de 5V, qualquer variação de tensão afeta o ADC e os sensores igualmente, cancelando automaticamente o erro. O Pro Micro realiza oversampling de 50 amostras por leitura em cada canal analógico, reduzindo o ruído por um fator de $\sqrt{50} \approx 7$. Os dados são transmitidos ao Raspberry Pi via USB serial dedicado a 115200 baud no formato \texttt{PWR:<v\_bat>,<i\_servos>,<i\_motor>} a 10Hz, liberando completamente o barramento \gls{I2C} para os demais sensores. A tensão da bateria LiPo 3S é medida através de um divisor resistivo (20k$\Omega$/10k$\Omega$) no pino A0, com razão de 1:3 que mantém a tensão no ADC dentro da faixa segura de 0--5V. Os valores de calibração (offset zero de cada ACS758) são armazenados na EEPROM do ATmega32U4, persistindo entre reinicializações.
+A migração para o Arduino Pro Micro eliminou esses problemas através de medição ratiométrica: como o Pro Micro e os ACS758 compartilham a mesma alimentação de 5V, qualquer variação de tensão afeta o ADC e os sensores igualmente, cancelando automaticamente o erro. O Pro Micro realiza oversampling de 50 amostras por leitura em cada canal analógico, reduzindo o ruído por um fator de $\sqrt{50} \approx 7$. Os dados são transmitidos ao Raspberry Pi via USB serial dedicado a 115200 baud no formato \texttt{PWR:<v\_bat>,<i\_servos>,<i\_motor>} a 10Hz, liberando completamente o barramento \gls{I2C} para os demais sensores. A tensão da bateria LiPo 3S é medida através de um divisor resistivo (20k$\Omega$/10k$\Omega$) no pino A0, com razão de 1:3 que mantém a tensão no ADC dentro da faixa segura de 0--5V. Os valores de calibração (offset zero de cada ACS758) são armazenados na EEPROM do ATmega32U4, persistindo entre reinicializações.
 
 O sensor INA219 permanece no barramento \gls{I2C} para monitoramento do Raspberry Pi, pois opera na faixa de corrente de 0--3,2A com resolução de 0,8mA, muito superior à precisão dos ACS758 nessa faixa. Cada saída dos sensores ACS758 possui um filtro RC de hardware (1k$\Omega$ + 100nF, frequência de corte de 1,6kHz) para remoção de ruído eletromagnético do motor e chaveamento da ponte H antes da amostragem pelo ADC.
 
@@ -393,7 +391,7 @@ O sistema de propulsão utiliza motor DC 775 de 24V controlado por ponte H BTS79
 
 \subsubsection{Motor de Propulsão}
 
-O motor DC 775 opera com transmissão manual de 5 marchas, simulando comportamento de veículo real. O controle de velocidade é realizado via PWM através do driver BTS7960. A dinâmica de aceleração é modelada como um sistema de 1ª ordem clássico conforme descrito por \citeonline{franklin2013sistemas} (ver \autoref{subsec:sistemas-primeira-ordem}), cuja função de transferência no domínio de Laplace é:
+O motor DC 775 opera com transmissão manual de 5 marchas, simulando comportamento de veículo real. O controle de velocidade é realizado via PWM através do driver BTS7960. A dinâmica de aceleração é modelada como um sistema de 1ª ordem conforme descrito por \citeonline{franklin2013sistemas} (ver \autoref{subsec:sistemas-primeira-ordem}), cuja função de transferência no domínio de Laplace é:
 
 \begin{equation}
 \label{eq:funcao-transferencia}
@@ -414,7 +412,23 @@ G(s) = \frac{Y(s)}{U(s)} = \frac{K}{\tau_{eff} \cdot s + 1}
 y(t) = K \cdot \left(1 - e^{-t/\tau_{eff}}\right)
 \end{equation}
 
-Nessa formulação, conforme as propriedades dos sistemas de primeira ordem \cite{franklin2013sistemas}, o PWM atinge 63,2\% do valor final em $t = \tau_{eff}$ e 95\% em $t = 3\tau_{eff}$, com convergência monotônica e sem overshoot. A implementação no software embarcado utiliza o método de Euler \cite{ruggiero1996calculo} a 100~Hz (ver \autoref{eq:metodo-euler}): a cada iteração ($\Delta t = 0{,}01$~s), o software calcula a diferença entre o PWM atual e o target, divide pelo $\tau_{eff}$ e multiplica pelo passo de tempo, obtendo o incremento $\Delta y = (K - y) / \tau_{eff} \cdot \Delta t$. Quando o PWM está longe do target o passo é grande; conforme se aproxima, o passo diminui, o que produz a curva exponencial. A solução analítica ($y(t) = K(1 - e^{-t/\tau})$) assume $\tau$ constante, mas neste sistema o $\tau_{eff}$ muda toda vez que o PWM cruza de uma zona de eficiência para outra. O Euler resolve isso: recalcula o $\tau$ a cada iteração e aplica o passo correto naquele instante.
+Nessa formulação, conforme as propriedades dos sistemas de primeira ordem \cite{franklin2013sistemas}, o PWM atinge 63,2\% do valor final em $t = \tau_{eff}$ e 95\% em $t = 3\tau_{eff}$, com convergência monotônica e sem \textit{overshoot}. A solução analítica da \autoref{eq:resposta-degrau} assume $\tau$ constante durante toda a resposta, mas neste sistema o $\tau_{eff}$ muda toda vez que o PWM cruza de uma zona de eficiência para outra. Para lidar com essa variação, a implementação utiliza o método de Euler \cite{ruggiero1996calculo}, que recalcula $\tau_{eff}$ a cada iteração.
+
+Isolando a derivada na \autoref{eq:ode-motor}:
+
+\begin{equation}
+\label{eq:derivada-isolada}
+\frac{dy}{dt} = \frac{K \cdot u(t) - y(t)}{\tau_{eff}}
+\end{equation}
+
+\noindent O método de Euler (ver \autoref{eq:metodo-euler}) aproxima a derivada por uma diferença finita, $\frac{dy}{dt} \approx \frac{\Delta y}{\Delta t}$. Substituindo na \autoref{eq:derivada-isolada} e multiplicando ambos os lados por $\Delta t$:
+
+\begin{equation}
+\label{eq:euler-motor}
+\Delta y = \frac{K - y}{\tau_{eff}} \cdot \Delta t
+\end{equation}
+
+\noindent A cada iteração do software embarcado ($\Delta t = 0{,}01$~s, 100~Hz), o incremento $\Delta y$ é calculado e somado ao PWM atual. Quando o PWM está longe do target, o erro $(K - y)$ é grande e o passo é grande; conforme se aproxima, o passo diminui, produzindo a curva exponencial. Como o $\tau_{eff}$ é recalculado a cada iteração, o sistema responde corretamente mesmo quando o PWM cruza de uma zona de eficiência para outra durante a resposta.
 
 A constante de tempo efetiva combina dois fatores --- a marcha e a zona de eficiência:
 
@@ -423,7 +437,7 @@ A constante de tempo efetiva combina dois fatores --- a marcha e a zona de efici
 \tau_{eff}(g, zona) = \tau_{base}(g) \times M_{zona}
 \end{equation}
 
-\noindent onde $\tau_{base}(g)$ cresce com a marcha (2~s na 1ª até 10~s na 5ª, refletindo maior inércia em marchas altas) e $M_{zona}$ é o multiplicador da zona de eficiência: $M_{IDEAL} = 1{,}0$, $M_{SUB} = 10{,}0$ e $M_{POOR} = 25{,}0$. Na zona IDEAL, o sistema responde com $\tau_{base}$; na zona SUBOPTIMAL, a resposta é 10 vezes mais lenta; na zona POOR, 25 vezes mais lenta. A zona é classificada pelo PWM atual do motor (não pelo target), de modo que a penalização ocorre em tempo real conforme o motor sai da faixa ideal. Isso força o operador a utilizar a marcha adequada para a faixa em que o motor está operando, reproduzindo o comportamento de uma transmissão real.
+\noindent onde $\tau_{base}(g)$ cresce com a marcha (2~s na 1ª até 10~s na 5ª, refletindo maior inércia em marchas altas) e $M_{zona}$ é o multiplicador da zona de eficiência: $M_{IDEAL} = 1{,}0$, $M_{SUB} = 10{,}0$ e $M_{POOR} = 25{,}0$. Na zona IDEAL, o sistema responde com $\tau_{base}$; na zona SUBOPTIMAL, a resposta é 10 vezes mais lenta; na zona POOR, 25 vezes mais lenta. A zona é classificada pelo PWM atual do motor (não pelo target), de modo que a penalização ocorre em tempo real conforme o motor sai da faixa ideal. Isso força o operador a utilizar a marcha adequada para a faixa em que o motor está operando. O efeito reproduz o comportamento de uma transmissão real, onde manter uma marcha alta em baixa rotação resulta em resposta lenta.
 
 A \autoref{tab:gear-params} resume os parâmetros por marcha. Os limitadores definem o ganho $K$ (PWM máximo quando o acelerador está em 100\%), e as faixas ideal\_low e ideal\_high delimitam a zona IDEAL. As zonas ideais de marchas adjacentes se sobrepõem (por exemplo, a 2ª cobre 10--25\% e a 1ª cobre 6--12\%), garantindo que no ponto de troca o PWM já esteja na zona IDEAL da próxima marcha.
 
@@ -431,15 +445,15 @@ A \autoref{tab:gear-params} resume os parâmetros por marcha. Os limitadores def
 	\centering
 	\Caption{\label{tab:gear-params} Parâmetros por marcha do sistema de transmissão}
 	\UFCtab{}{
-		\begin{tabular}{cccccc}
+		\begin{tabular}{ccccccc}
 			\toprule
-			Marcha & $K$ (limitador) & Zona IDEAL & $\tau_{base}$ & $\tau_{IDEAL}$ & $\tau_{POOR}$ \\
+			Marcha & $K$ (limitador) & Zona IDEAL & $\tau_{base}$ & $\tau_{IDEAL}$ & $\tau_{SUB}$ & $\tau_{POOR}$ \\
 			\midrule
-			1ª & 16\% & 6--12\% & 2,0~s & 2~s & 50~s \\
-			2ª & 30\% & 10--25\% & 4,0~s & 4~s & 100~s \\
-			3ª & 52\% & 22--45\% & 6,0~s & 6~s & 150~s \\
-			4ª & 78\% & 40--70\% & 8,0~s & 8~s & 200~s \\
-			5ª & 100\% & 64--95\% & 10,0~s & 10~s & 250~s \\
+			1ª & 16\% & 6--12\% & 2,0~s & 2~s & 20~s & 50~s \\
+			2ª & 30\% & 10--25\% & 4,0~s & 4~s & 40~s & 100~s \\
+			3ª & 52\% & 22--45\% & 6,0~s & 6~s & 60~s & 150~s \\
+			4ª & 78\% & 40--70\% & 8,0~s & 8~s & 80~s & 200~s \\
+			5ª & 100\% & 64--95\% & 10,0~s & 10~s & 100~s & 250~s \\
 			\bottomrule
 		\end{tabular}
 	}{
@@ -447,7 +461,7 @@ A \autoref{tab:gear-params} resume os parâmetros por marcha. Os limitadores def
 	}
 \end{table}
 
-A \autoref{fig:zonas-eficiencia-marchas} ilustra as zonas de eficiência por marcha. Cada marcha possui uma zona IDEAL (verde) onde $\tau_{eff} = \tau_{base}$, uma zona SUBOPTIMAL (laranja) onde $\tau_{eff} = 10 \times \tau_{base}$, e uma zona POOR (vermelho) onde $\tau_{eff} = 25 \times \tau_{base}$. A margem da zona SUBOPTIMAL corresponde a 25\% da largura da zona IDEAL em cada borda, com mínimo de 2\%. Todas as marchas possuem uma zona morta de 0 a 6\% do PWM (cinza), faixa na qual o motor não possui torque suficiente para movimentar o veículo, sendo atravessada automaticamente por uma rampa linear de 40~\%/s (tempo de travessia de 0,15~s).
+A \autoref{fig:zonas-eficiencia-marchas} ilustra as zonas de eficiência por marcha. Na zona IDEAL (verde), $\tau_{eff} = \tau_{base}$; na SUBOPTIMAL (laranja), $\tau_{eff} = 10 \times \tau_{base}$; na POOR (vermelho), $\tau_{eff} = 25 \times \tau_{base}$. A margem da zona SUBOPTIMAL corresponde a 25\% da largura da zona IDEAL em cada borda, com mínimo de 2\%. Todas as marchas possuem uma zona morta de 0 a 6\% do PWM (cinza), faixa na qual o motor não possui torque suficiente para movimentar o veículo. Essa faixa é atravessada automaticamente por uma rampa linear de 40~\%/s (tempo de travessia de 0,15~s).
 
 \begin{figure}[!ht]
 	\captionsetup{width=16cm}
@@ -483,7 +497,7 @@ A \autoref{fig:resposta-degrau} apresenta a resposta ao degrau $y(t) = K(1 - e^{
 	}
 \end{figure}
 
-A \autoref{fig:ode-decomposicao} decompõe os quatro componentes da equação diferencial durante uma simulação completa de aceleração da 1ª à 5ª marcha: o PWM $y(t)$ perseguindo o alvo $K$, o sinal de erro $e(t) = K - y(t)$, a constante de tempo $\tau_{eff}$ (que salta a cada troca de marcha e entre zonas), e a taxa de variação $\dot{y} = (K - y)/\tau_{eff}$, que determina a velocidade instantânea de resposta do sistema.
+A \autoref{fig:ode-decomposicao} decompõe a equação diferencial durante uma simulação de aceleração da 1ª à 5ª marcha. O painel superior mostra o PWM $y(t)$ perseguindo o alvo $K$; o segundo mostra o erro $e(t) = K - y(t)$; o terceiro mostra $\tau_{eff}$, que salta a cada troca de marcha e entre zonas; o inferior mostra a taxa de variação $\dot{y} = (K - y)/\tau_{eff}$.
 
 \begin{figure}[!ht]
 	\captionsetup{width=16cm}
@@ -499,22 +513,13 @@ O \autoref{apendice:exemplo-transmissao} apresenta um exemplo numérico completo
 
 Para a desaceleração, o sistema utiliza a mesma formulação de 1ª ordem com $\tau$ reduzido: $\tau_{decel} = \tau_{eff} / 3$, tornando a resposta 3 vezes mais rápida ao soltar o acelerador. Quando o freio é acionado, um fator multiplicativo adicional é aplicado: $\tau_{decel} = \tau_{eff} / (3 \times boost_{freio})$, onde $boost_{freio} = 1 + 9 \times (freio/100)$, resultando em desaceleração até 30 vezes mais rápida com frenagem máxima.
 
+Quando as rodas giram livremente com o motor desligado, o motor atua como gerador e produz uma tensão conhecida como \gls{backemf}. O driver BTS7960 possui proteções integradas contra esse fenômeno: conforme o datasheet do fabricante \citeonline{infineon2013btn7960}, o BTN7960 incorpora \textit{active freewheeling} com frequência PWM de até 25 kHz, sobrecorrente, sobretemperatura e curto-circuito. No eixo de transmissão, um rolamento unidirecional permite que as rodas girem sem transmitir rotação reversa ao motor. Com essas proteções, não foi necessário adicionar diodos flyback ou capacitores de supressão externos.
+
 \subsubsection{Sistema de Direção e Freios}
 
 A direção usa um servo MG996R no canal 0 do PCA9685. O servo gira de 0° a 180° com centro mecânico em 90°, e o software mapeia a entrada do operador ($-100\%$ a $+100\%$) linearmente para essa faixa: $-100\%$ vai para 0° (esquerda máxima), $0\%$ para 90° (centro) e $+100\%$ para 180° (direita máxima). Os pulsos \gls{PWM} vão de 1,0ms a 2,0ms a 50Hz.
 
 O freio usa dois servos MG996R separados: um para o freio dianteiro (canal 4) e outro para o traseiro (canal 8). O balanceamento padrão é 40\% dianteiro e 60\% traseiro (\texttt{brake\_balance = 60}, onde o valor é a porcentagem traseira). O operador pode ajustar esse balanceamento pelo cliente.
-
-\subsection{Proteção contra Força Eletromotriz de Retorno}
-\label{subsec:protecao-backemf-veiculo}
-
-Quando um motor DC gira, seja por acionamento elétrico ou por força mecânica externa, ele atua como gerador e produz uma tensão conhecida como \gls{backemf}. No contexto deste projeto, essa situação ocorre no veículo quando as rodas giram livremente com o motor desligado.
-
-O driver BTS7960 foi selecionado para o sistema de propulsão do veículo especificamente por possuir proteções integradas contra esse fenômeno. Conforme especificado no datasheet do fabricante \citeonline{infineon2013btn7960}, o circuito integrado BTN7960 (chip utilizado no módulo BTS7960) incorpora capacidade de \textit{active freewheeling} com frequência PWM de até 25 kHz, minimizando a dissipação de potência nos diodos integrados quando o motor opera como gerador. Além disso, o BTN7960 oferece proteção contra sobrecorrente, proteção térmica com desligamento automático em temperaturas elevadas e proteção contra curto-circuito.
-
-No veículo, uma proteção mecânica adicional foi implementada através de rolamento unidirecional no eixo de transmissão. Esse componente permite que as rodas girem livremente sem transmitir rotação reversa ao motor, reduzindo a geração de back-EMF quando o veículo está em movimento com motor desligado.
-
-Com essas proteções, não foi necessário adicionar diodos flyback ou capacitores de supressão de transientes externos.
 
 \subsection{Arquitetura Multi-Thread}
 \label{subsec:multithread-veiculo}
@@ -546,7 +551,7 @@ O barramento opera a 400kHz (\textit{Fast mode}) em vez dos 100kHz padrão, o qu
 \section{Arquitetura do Simulador (Logitech G923)}
 \label{sec:arquitetura-simulador}
 
-O simulador utiliza o volante Logitech G923, um dispositivo profissional de simulação que integra volante com rotação de 900°, pedais progressivos de acelerador e freio, paddle shifters para troca de marchas e motor de force feedback com sistema TRUEFORCE, em um único periférico USB, conforme ilustrado na \autoref{fig:g923-volante}. O G923 foi escolhido por ter sensores internos de maior precisão, \textit{force feedback} nativo sem necessidade de ponte H externa, e por não exigir \textit{firmware} customizado nem calibração manual. O G923 é reconhecido pelo sistema operacional Linux como dispositivo de entrada padrão, acessível através da interface evdev do kernel.
+O simulador utiliza o volante Logitech G923 (\autoref{fig:g923-volante}), que combina volante de 900°, pedais de acelerador e freio, paddle shifters e motor de force feedback em um único periférico USB. O G923 foi escolhido por ter sensores internos de maior precisão, \textit{force feedback} nativo sem necessidade de ponte H externa, e por não exigir \textit{firmware} customizado nem calibração manual. O Linux reconhece o G923 como dispositivo de entrada padrão, acessível pela interface evdev do kernel.
 
 \begin{figure}[!ht]
 	\captionsetup{width=16cm}
@@ -558,23 +563,7 @@ O simulador utiliza o volante Logitech G923, um dispositivo profissional de simu
 	}
 \end{figure}
 
-O software de interface com o G923 foi desenvolvido em Python utilizando a biblioteca evdev, que fornece acesso direto aos eventos de entrada do kernel Linux sem necessidade de drivers proprietários. A \autoref{tab:bibliotecas-g923} apresenta as bibliotecas utilizadas na integração do simulador.
-
-\begin{table}[!h]
-\captionsetup{width=16cm}
-\Caption{\label{tab:bibliotecas-g923} Bibliotecas Python utilizadas na integração do G923}
-\IBGEtab{}{
-\begin{tabular}{p{4cm}p{10.5cm}}
-\toprule
-\textbf{Biblioteca} & \textbf{Função} \\
-\midrule
-evdev & Interface com dispositivos de entrada Linux: leitura de eixos, botões e upload de efeitos de force feedback \\
-\bottomrule
-\end{tabular}
-}{
-\Fonte{elaborado pelo autor.}
-}
-\end{table}
+O software de interface foi desenvolvido em Python com a biblioteca evdev, que fornece acesso direto aos eventos de entrada do kernel Linux (leitura de eixos, botões e upload de efeitos de force feedback) sem necessidade de drivers proprietários.
 
 \subsection{Especificações do Simulador}
 \label{subsec:componentes-simulador}
@@ -673,7 +662,7 @@ O sistema de \textit{force feedback} explora a capacidade do G923 de executar 15
 }
 \end{table}
 
-Os efeitos condicionais (FF\_SPRING, FF\_DAMPER, FF\_FRICTION, FF\_INERTIA) são executados pelo \textit{firmware} do volante a aproximadamente 1kHz, proporcionando resposta mais suave e realista do que o cálculo equivalente em \textit{software}. Os efeitos de força e vibração são atualizados pelo \textit{software} a cada pacote recebido do BMI160. O ganho global (\texttt{FF\_GAIN}) limita todos os 8 efeitos simultaneamente, com valor padrão de 15\% para evitar forças excessivas que possam travar o mecanismo do volante.
+Os efeitos condicionais (FF\_SPRING, FF\_DAMPER, FF\_FRICTION, FF\_INERTIA) são executados pelo \textit{firmware} do volante a aproximadamente 1kHz, o que resulta em resposta mais suave do que o cálculo equivalente em \textit{software} a 60Hz. Os efeitos de força e vibração são atualizados pelo \textit{software} a cada pacote recebido do BMI160. O ganho global (\texttt{FF\_GAIN}) limita todos os 8 efeitos simultaneamente, com valor padrão de 15\% para evitar forças excessivas que possam travar o mecanismo do volante.
 
 A \autoref{fig:ff-pipeline} apresenta o pipeline completo do sistema de force feedback, desde a aquisição dos dados do BMI160 no veículo até a aplicação dos efeitos nos motores do volante G923 via \textit{evdev ioctl}. O pipeline opera em duas camadas: efeitos condicionais processados pelo kernel a aproximadamente 1~kHz e controlados pelos sliders da interface, e efeitos de força e vibração calculados pelo software a 60~Hz com base nos dados sensoriais.
 
@@ -687,12 +676,12 @@ A \autoref{fig:ff-pipeline} apresenta o pipeline completo do sistema de force fe
 	}
 \end{figure}
 
-Para minimizar a latência do \textit{force feedback}, três otimizações foram implementadas. A primeira é o \textit{cache} de valores: cada efeito armazena o último valor enviado ao dispositivo e só realiza a chamada de sistema (\texttt{ioctl}) quando o valor efetivamente muda. A segunda é a quantização dos valores de saída dos filtros de média exponencial (\gls{EMA}): os valores \textit{float} são arredondados para inteiro antes da comparação com o \textit{cache}, evitando atualizações desnecessárias causadas por variações decimais insignificantes. A terceira é a atualização \textit{in-place}: ao invés de recriar o efeito a cada atualização (operação de 4 chamadas: parar, apagar, criar e iniciar), o efeito é atualizado diretamente com uma única chamada \texttt{upload\_effect} reutilizando o mesmo identificador. Essas otimizações reduziram o bloqueio da \textit{thread} de sensores de 12 a 60ms por pacote para 0 a 15ms, eliminando a perda de pacotes e o \textit{delay} perceptível no \textit{feedback} tátil.
+Para minimizar a latência do \textit{force feedback}, cada efeito mantém um \textit{cache} do último valor enviado ao dispositivo e só realiza a chamada de sistema (\texttt{ioctl}) quando o valor efetivamente muda. Os valores de saída dos filtros \gls{EMA} são arredondados para inteiro antes da comparação com o \textit{cache}, evitando atualizações por variações decimais insignificantes. Os efeitos também são atualizados \textit{in-place} com uma única chamada \texttt{upload\_effect}, ao invés de recriados a cada atualização (que exigiria 4 chamadas: parar, apagar, criar e iniciar). Com essas otimizações, o bloqueio da \textit{thread} de sensores caiu de 12--60ms por pacote para 0--15ms.
 
 \subsection{Calibração de Eixos}
 \label{subsec:calibracao-simulador}
 
-Embora o G923 possua calibração interna de fábrica, o software do cliente implementa um sistema de calibração adicional para permitir ajuste fino dos limites operacionais de cada eixo. O processo de calibração registra os valores mínimo e máximo observados durante movimentação completa de cada controle, armazenando os resultados em arquivo \gls{JSON} persistente (\texttt{g923\_calibration.json}). Os valores calibrados são aplicados automaticamente na inicialização seguinte, ajustando as faixas de normalização para compensar eventuais variações do dispositivo.
+Embora o G923 possua calibração de fábrica, o software do cliente implementa uma calibração adicional para ajustar os limites de cada eixo. O processo de calibração registra os valores mínimo e máximo observados durante movimentação completa de cada controle, armazenando os resultados em arquivo \gls{JSON} persistente (\texttt{g923\_calibration.json}). Os valores calibrados são aplicados automaticamente na inicialização seguinte, ajustando as faixas de normalização para compensar eventuais variações do dispositivo.
 
 % ============================================================================
 % ARQUITETURA DO CLIENTE (PC)
@@ -1127,61 +1116,27 @@ O formato Pickle foi escolhido para dados numéricos por oferecer serialização
 \subsection{Estrutura dos Dados Armazenados}
 \label{subsec:estrutura-dados-armazenados}
 
-Os arquivos de sensores contêm dicionários Python com listas de valores para cada canal do sensor BMI160 e do sistema de monitoramento de energia: \texttt{timestamp}, \texttt{bmi160\_accel\_x}, \texttt{bmi160\_accel\_y}, \texttt{bmi160\_accel\_z}, \texttt{bmi160\_gyro\_x}, \texttt{bmi160\_gyro\_y}, \texttt{bmi160\_gyro\_z}, \texttt{g\_force\_lateral}, \texttt{g\_force\_frontal}, \texttt{current\_motor}, \texttt{current\_servos}, \texttt{current\_rpi}, \texttt{power\_total} e \texttt{voltage\_rpi}. Cada lista contém valores correspondentes ao mesmo índice temporal, permitindo correlação entre diferentes grandezas.
+Os arquivos de sensores contêm dicionários Python com listas de valores para cada canal do sensor BMI160 e do sistema de monitoramento de energia. Cada lista contém valores correspondentes ao mesmo índice temporal, permitindo correlação entre diferentes grandezas. A \autoref{tab:chaves-sensores} lista as chaves disponíveis.
 
-Os arquivos de telemetria armazenam dados processados para os gráficos da interface: \texttt{time}, \texttt{speed}, \texttt{throttle}, \texttt{brake}, \texttt{g\_lateral}, \texttt{g\_frontal} e metadados como \texttt{start\_time}, \texttt{points\_count} e \texttt{export\_time}. Esses dados representam valores já filtrados e normalizados, prontos para visualização.
+\begin{table}[!h]
+\captionsetup{width=16cm}
+\Caption{\label{tab:chaves-sensores} Chaves dos dicionários nos arquivos de sensores e telemetria}
+\IBGEtab{}{%
+	\begin{tabular}{p{3.5cm}p{11.5cm}}
+		\toprule
+		Arquivo & Chaves \\
+		\midrule
+		\texttt{sensors\_*.pkl} & \texttt{timestamp}, \texttt{bmi160\_accel\_\{x,y,z\}}, \texttt{bmi160\_gyro\_\{x,y,z\}}, \texttt{g\_force\_lateral}, \texttt{g\_force\_frontal}, \texttt{current\_motor}, \texttt{current\_servos}, \texttt{current\_rpi}, \texttt{power\_total}, \texttt{voltage\_rpi} \\
+		\midrule
+		\texttt{telemetry\_*.pkl} & \texttt{time}, \texttt{speed}, \texttt{throttle}, \texttt{brake}, \texttt{g\_lateral}, \texttt{g\_frontal}, \texttt{start\_time}, \texttt{points\_count}, \texttt{export\_time} \\
+		\bottomrule
+	\end{tabular}%
+}{%
+\Fonte{elaborado pelo autor.}%
+}
+\end{table}
 
-\subsection{Script de Análise de Sessões}
-\label{subsec:script-analise-sessoes}
-
-O script \texttt{analyze\_session.py} foi desenvolvido para processar os arquivos gerados pelo sistema de auto-save, oferecendo análise estatística e visualização gráfica das sessões de operação. O script suporta três modos de operação: análise combinada de todos os arquivos do diretório (padrão), análise apenas dos arquivos mais recentes e análise de timestamp específico.
-
-O processamento combina múltiplos arquivos Pickle em estruturas unificadas, concatenando as listas de cada canal para formar séries temporais contínuas. As estatísticas calculadas incluem duração total da sessão, velocidade máxima, média e mínima, tempo em aceleração total (\textit{full throttle}), tempo em frenagem, forças G laterais e frontais máximas, acelerações e velocidades angulares extremas, e consumo de energia quando disponível.
-
-A visualização gráfica utiliza a biblioteca Matplotlib com estilo visual inspirado nas telemetrias de Fórmula 1, apresentando gráficos de velocidade ao longo do tempo, utilização de pedais, forças G, distribuição de velocidade em histograma e diagrama G-G (\textit{scatter plot} de força lateral versus frontal). A análise de logs identifica padrões de erros, avisos, conexões e desconexões através de expressões regulares.
-
-O script também exporta relatório HTML formatado com as estatísticas e metadados da sessão. A \autoref{alg:analise-sessao} apresenta o fluxo principal do processamento.
-
-\begin{algorithm}[h!]
-	\SetSpacedAlgorithm
-	\caption{\label{alg:analise-sessao}Análise de sessão de telemetria}
-	\Entrada{diretório de dados, modo de operação}
-	\Saida{estatísticas, gráficos, relatório}
-	\Inicio{
-		// Localiza arquivos por padrão de nomenclatura\;
-		arquivos\_telemetria $\leftarrow$ glob("telemetry\_*.pkl")\;
-		arquivos\_sensores $\leftarrow$ glob("sensors\_*.pkl")\;
-		arquivos\_logs $\leftarrow$ glob("logs\_*.txt")\;
-		// Carrega e combina dados de múltiplos arquivos\;
-		dados\_combinados $\leftarrow$ dicionário vazio\;
-		\Para{cada arquivo em arquivos\_telemetria}{
-			dados $\leftarrow$ pickle.load(arquivo)\;
-			\Para{cada chave, valores em dados}{
-				dados\_combinados[chave].estender(valores)\;
-			}
-		}
-		// Calcula estatísticas com NumPy\;
-		velocidade $\leftarrow$ array(dados\_combinados["speed"])\;
-		estatisticas.velocidade\_max $\leftarrow$ max(velocidade)\;
-		estatisticas.velocidade\_media $\leftarrow$ media(velocidade)\;
-		// Gera gráficos estilo F1\;
-		plotar\_telemetria(dados\_combinados)\;
-		plotar\_sensores(dados\_sensores)\;
-		// Exporta relatório HTML\;
-		exportar\_html(estatisticas, analise\_logs)\;
-	}
-\end{algorithm}
-
-A leitura dos arquivos Pickle para análise externa pode ser realizada através do seguinte código Python:
-
-\begin{verbatim}
-import pickle
-with open("sensors_20241216_143000.pkl", "rb") as f:
-    dados = pickle.load(f)
-# dados contém dicionário com listas de cada sensor
-print(dados.keys())  # ['timestamp', 'bmi160_accel_x', ...]
-print(len(dados['timestamp']))  # Quantidade de amostras
-\end{verbatim}
+\noindent Os arquivos de telemetria contêm valores já filtrados e normalizados, prontos para visualização nos gráficos da interface.
 
 \subsection{Métricas de Validação Extraídas}
 \label{subsec:metricas-validacao}
@@ -1272,13 +1227,3 @@ As especificações de hardware incluem números de modelo exatos, versões de f
 
 As configurações de rede wireless seguem padrões reproduzíveis, especificando canal WiFi (5~GHz), tipo de roteador utilizado (TP-Link Deco M4 V4, sistema mesh Wi-Fi 5 AC1200 Dual-Band com duas unidades interligadas via cabo Ethernet Gigabit, potência $<$23~dBm em 5~GHz, cobertura de até 350~m²) e posicionamento físico dos equipamentos. As condições ambientais durante os experimentos são registradas detalhadamente, incluindo temperatura ambiente (22±2°C), umidade relativa (45±5\%), interferências eletromagnéticas medidas e layout físico do ambiente de teste.
 
-\subsection{Documentação de Configurações Ambientais}
-\label{subsec:configuracoes-ambientais}
-
-O ambiente de rede é caracterizado através de medições de potência de sinal WiFi utilizando ferramentas como iwconfig e wavemon, documentando valores de \gls{RSSI} em múltiplos pontos do ambiente experimental.
-
-As características do ambiente físico incluem dimensões precisas do local de teste (5m × 8m), materiais de construção das paredes (alvenaria com reboco), presença de obstáculos metálicos e fontes potenciais de interferência eletromagnética. O posicionamento relativo entre veículo teleoperado e estação de controle é documentado com coordenadas precisas, utilizando sistema de referência baseado em marcos físicos permanentes.
-
-As condições de iluminação para os testes de câmera são padronizadas utilizando iluminação artificial controlada (lâmpadas LED 6500K, 1000 lúmens), o que reduz variações devido à iluminação natural. Os padrões de teste visual incluem alvos de calibração com dimensões conhecidas, permitindo validação da qualidade de captura de vídeo independente das condições específicas do ambiente.
-
-O controle de temperatura ambiente utiliza sistema de climatização para manter estabilidade térmica durante as sessões experimentais, evitando drift térmico excessivo nos sensores. Registros contínuos de temperatura e umidade são mantidos através de datalogger dedicado, para correlacionar variações ambientais com a performance do sistema.

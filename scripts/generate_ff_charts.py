@@ -698,11 +698,11 @@ def generate_velocity_integration_chart():
 def generate_ff_pipeline_chart():
     """
     Gráfico 10: Pipeline completo de force feedback.
-    Corrigido: sem ESP32/BTS7960, o FF vai via evdev para o G923.
+    Fluxo: BMI160 (RPi) → UDP → Forças G → FF Calculator → evdev → G923 Motor.
     """
-    fig, ax = plt.subplots(figsize=(14, 7))
-    ax.set_xlim(0, 14)
-    ax.set_ylim(0, 7)
+    fig, ax = plt.subplots(figsize=(22, 11))
+    ax.set_xlim(0, 22)
+    ax.set_ylim(0, 11)
     ax.axis('off')
 
     colors = {
@@ -714,8 +714,8 @@ def generate_ff_pipeline_chart():
         'hardware': '#F44336'
     }
 
-    def draw_box(x, y, w, h, text, color, fontsize=9):
-        box = FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0.05",
+    def draw_box(x, y, w, h, text, color, fontsize=15):
+        box = FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0.08",
                              facecolor=color, edgecolor='black', linewidth=2, alpha=0.8)
         ax.add_patch(box)
         ax.text(x + w/2, y + h/2, text, ha='center', va='center', fontsize=fontsize,
@@ -723,51 +723,51 @@ def generate_ff_pipeline_chart():
 
     def draw_arrow(x1, y1, x2, y2, style='->', color='black'):
         ax.annotate('', xy=(x2, y2), xytext=(x1, y1),
-                   arrowprops=dict(arrowstyle=style, lw=2, color=color))
+                   arrowprops=dict(arrowstyle=style, lw=2.5, color=color))
 
     # Nível 1: Sensores no veículo (Raspberry Pi)
-    draw_box(0.3, 5.5, 2.5, 1, 'BMI160 (RPi)\naccel_x, accel_y,\naccel_z, gyro_z', colors['sensor'])
-    draw_box(3.3, 5.5, 2, 1, 'G923\nVolante/Pedais', colors['sensor'])
+    draw_box(0.5, 8.5, 4.0, 1.5, 'BMI160 (RPi)\naccel_x, accel_y\naccel_z, gyro_z', colors['sensor'])
+    draw_box(5.5, 8.5, 3.5, 1.5, 'G923\nVolante / Pedais', colors['sensor'])
 
     # Nível 2: Rede
-    draw_box(0.3, 4.0, 2.5, 0.9, 'UDP 9997\n100Hz sensores', colors['network'])
+    draw_box(0.5, 6.3, 4.0, 1.2, 'UDP 9997\n100 Hz sensores', colors['network'])
 
     # Nível 3: Calculadora FF (cliente)
-    draw_box(0.3, 2.5, 2.8, 1, 'Forças G\n$G = a / 9{,}81$', colors['calc'])
-    draw_box(3.5, 2.5, 3, 1, 'FF Calculator\nFF_CONSTANT\nFF_RUMBLE', colors['calc'])
+    draw_box(0.5, 3.8, 4.0, 1.5, 'Forças G\n$G = a \\;/\\; 9{,}81$', colors['calc'])
+    draw_box(5.5, 3.8, 4.5, 1.5, 'FF Calculator\nFF_CONSTANT\nFF_RUMBLE', colors['calc'])
 
-    # Nível 3b: Efeitos dinâmicos adicionais
-    draw_box(7.0, 4.0, 2.5, 0.9, 'Sliders UI\nSens./Fric./Damp.\nFiltro/Max Force', colors['param'])
+    # Nível 3b: Sliders UI
+    draw_box(11.0, 6.3, 4.0, 1.2, 'Sliders UI\nSens. / Fric. / Damp.\nFiltro / Max Force', colors['param'])
 
     # Nível 4: Efeitos evdev
-    draw_box(7.0, 2.5, 2.5, 1, 'evdev ioctl\n8 efeitos\n(upload_effect)', colors['evdev'])
+    draw_box(11.0, 3.8, 4.0, 1.5, 'evdev ioctl\n8 efeitos\n(upload_effect)', colors['evdev'])
 
     # Efeitos individuais
-    draw_box(10.0, 5.0, 3.5, 0.7, 'Condicionais (~1kHz kernel)\nSPRING  DAMPER  FRICTION  INERTIA', colors['evdev'])
-    draw_box(10.0, 4.0, 3.5, 0.7, 'Força + Vibração (60Hz SW)\nCONSTANT×2  RUMBLE  PERIODIC', colors['evdev'])
+    draw_box(16.0, 8.0, 5.5, 1.2, 'Condicionais (~1 kHz kernel)\nSPRING   DAMPER   FRICTION   INERTIA', colors['evdev'])
+    draw_box(16.0, 6.3, 5.5, 1.2, 'Força + Vibração (60 Hz SW)\nCONSTANT×2   RUMBLE   PERIODIC', colors['evdev'])
 
     # Nível 5: Hardware G923
-    draw_box(10.5, 2.5, 2.5, 1, 'G923 Motor\nFF TRUEFORCE\n(volante)', colors['hardware'])
+    draw_box(16.5, 3.8, 4.5, 1.5, 'G923 Motor\nFF TRUEFORCE\n(volante)', colors['hardware'])
 
     # Setas
-    draw_arrow(1.55, 5.5, 1.55, 4.9)    # BMI160 → UDP
-    draw_arrow(1.55, 4.0, 1.55, 3.5)     # UDP → Forças G
-    draw_arrow(3.1, 3.0, 3.5, 3.0)       # Forças G → FF Calc
-    draw_arrow(4.3, 5.5, 4.3, 3.5)       # G923 input → FF Calc (steering etc)
-    draw_arrow(6.5, 3.0, 7.0, 3.0)       # FF Calc → evdev
-    draw_arrow(8.25, 4.0, 8.25, 3.5)     # Sliders → evdev
-    draw_arrow(9.5, 3.3, 10.0, 5.2)      # evdev → condicionais
-    draw_arrow(9.5, 2.9, 10.0, 4.3)      # evdev → força+vibração
-    draw_arrow(11.75, 4.0, 11.75, 3.5)   # efeitos → motor
+    draw_arrow(2.5, 8.5, 2.5, 7.5)       # BMI160 → UDP
+    draw_arrow(2.5, 6.3, 2.5, 5.3)       # UDP → Forças G
+    draw_arrow(4.5, 4.55, 5.5, 4.55)     # Forças G → FF Calc
+    draw_arrow(7.25, 8.5, 7.25, 5.3)     # G923 input → FF Calc
+    draw_arrow(10.0, 4.55, 11.0, 4.55)   # FF Calc → evdev
+    draw_arrow(13.0, 6.3, 13.0, 5.3)     # Sliders → evdev
+    draw_arrow(15.0, 5.0, 16.0, 8.4)     # evdev → condicionais
+    draw_arrow(15.0, 4.4, 16.0, 6.8)     # evdev → força+vibração
+    draw_arrow(18.75, 6.3, 18.75, 5.3)   # efeitos → motor
 
     # Título
-    ax.text(7, 6.8, 'Pipeline de Force Feedback', ha='center', va='center',
-           fontsize=14, fontweight='bold')
+    ax.text(11, 10.5, 'Pipeline de Force Feedback', ha='center', va='center',
+           fontsize=22, fontweight='bold')
 
     # Separador RPi / Cliente
-    ax.axhline(y=4.7, xmin=0.02, xmax=0.42, color='gray', linestyle='--', alpha=0.4)
-    ax.text(0.3, 4.75, 'Raspberry Pi', fontsize=8, color='gray', style='italic')
-    ax.text(0.3, 2.2, 'Cliente PC', fontsize=8, color='gray', style='italic')
+    ax.axhline(y=7.8, xmin=0.02, xmax=0.45, color='gray', linestyle='--', alpha=0.5)
+    ax.text(0.5, 7.9, 'Raspberry Pi', fontsize=14, color='gray', style='italic')
+    ax.text(0.5, 3.3, 'Cliente PC', fontsize=14, color='gray', style='italic')
 
     # Legenda
     legend_items = [
@@ -779,14 +779,14 @@ def generate_ff_pipeline_chart():
         (colors['hardware'], 'Hardware G923'),
     ]
     for i, (color, label) in enumerate(legend_items):
-        rect = FancyBboxPatch((0.2 + i*2.2, 0.2), 0.4, 0.4, boxstyle="round,pad=0.02",
+        rect = FancyBboxPatch((0.4 + i*3.5, 0.4), 0.6, 0.6, boxstyle="round,pad=0.03",
                              facecolor=color, edgecolor='black', alpha=0.8)
         ax.add_patch(rect)
-        ax.text(0.7 + i*2.2, 0.4, label, fontsize=8, va='center')
+        ax.text(1.1 + i*3.5, 0.7, label, fontsize=14, va='center')
 
     plt.tight_layout()
     output_path = os.path.join(OUTPUT_DIR, 'ff_pipeline.png')
-    plt.savefig(output_path)
+    plt.savefig(output_path, dpi=150)
     plt.close()
     print(f"Gerado: {output_path}")
 
