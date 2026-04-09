@@ -108,6 +108,31 @@ Os dados precisos dessas comparações estão apresentados na \autoref{tab:compa
 \section{Análise da Comunicação UDP}
 \label{sec:comunicacao-udp}
 
+A \autoref{tab:latencia-udp-medida} apresenta as latências de \texttt{sendto()} medidas no sistema após as correções de resolução \gls{mDNS} e desativação do gerenciamento de energia WiFi descritas na \autoref{subsec:evolucao-decisoes-comunicacao}. Os valores correspondem ao tempo entre a chamada \texttt{sendto()} e seu retorno, medidos via relógio monotônico do sistema operacional com precisão de nanossegundos.
+
+\begin{table}[!h]
+\captionsetup{width=16cm}
+\Caption{\label{tab:latencia-udp-medida} Latência de \texttt{sendto()} UDP medida experimentalmente no Raspberry Pi 4}
+\IBGEtab{}{%
+	\begin{tabular}{p{5.5cm}ccp{4.5cm}}
+		\toprule
+		Operação & Tamanho do Pacote & Latência Típica & Observação \\
+		\midrule \midrule
+		Sensores BMI160 (porta 9997) & $\sim$200 B & 10--13 ms & Taxa de 100 Hz \\
+		\midrule
+		Vídeo \gls{MJPEG} (porta 9999) & 10--50 KB & 20--25 ms & Taxa de 60 Hz \\
+		\midrule
+		Comandos de controle (porta 9998) & $\sim$50 B & $<$1 ms & 100 Hz (STATE) + on-demand (marcha) \\
+		\midrule
+		Latência \gls{UDP} fim a fim & --- & 1,94 ms & Média medida nos testes \\
+		\bottomrule
+	\end{tabular}%
+}{%
+\Fonte{elaborado pelo autor.}%
+\Nota{A latência de \texttt{sendto()} inclui o tempo de cópia do buffer de aplicação para o buffer do kernel e a transmissão WiFi pelo driver \texttt{brcmfmac}. A latência fim a fim (1,94~ms) é a diferença entre \textit{timestamp} de envio no Raspberry Pi e \textit{timestamp} de recepção no cliente, descontando o \textit{clock offset} entre os dispositivos.}%
+}
+\end{table}
+
 % TODO: Gerar com dados reais do network_client.py
 % Código para gerar: Coletar timestamps de pacotes recebidos e calcular deltas
 % Dados disponíveis: latência por pacote, packet loss, throughput

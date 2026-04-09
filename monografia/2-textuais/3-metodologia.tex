@@ -1,9 +1,9 @@
 \chapter{Metodologia}
 \label{chap:metodologia}
 
-Será realizado um desenvolvimento incremental e modular de um sistema completo de \gls{teleoperacao} de um veículo de Fórmula 1 com simulador (volante e pedais), sendo o veículo controlado via protocolo \gls{UDP}. A metodologia adotada é a prototipagem evolutiva, que busca o teste individual de cada componente antes da integração final. O projeto busca um objetivo semelhante ao artigo de \citeonline{shaik2025design}, conforme apresentado na fundamentação teórica.
+Este trabalho é uma pesquisa aplicada de natureza experimental, com objetivo semelhante ao de \citeonline{shaik2025design}, conforme apresentado na fundamentação teórica. A seleção de tecnologias foi exploratória: diferentes controladores e protocolos de comunicação foram testados até encontrar a combinação com menor latência. Já a caracterização do sistema final é descritiva, com medição de latência, taxa de quadros, consumo de energia e resposta háptica comparados à literatura. O procedimento de desenvolvimento segue a prototipagem evolutiva --- cada subsistema é construído, testado individualmente e integrado antes de avançar ao próximo.
 
-O projeto utiliza três camadas (\autoref{fig:arquitetura-projeto}): o veículo teleoperado com Raspberry Pi 4 embarcado, o cliente PC que exibe telemetria e encaminha comandos, e o simulador Logitech G923 conectado ao cliente via \gls{USB}. Veículo e cliente se comunicam por \gls{UDP}. A integração de múltiplos sensores segue a abordagem de \citeonline{bobrovsky2023development}. Na prática, o desenvolvimento começou pela montagem do chassi, passou pela integração dos sensores e atuadores com o Raspberry Pi, depois pela comunicação com o cliente e integração do G923, até chegar ao teste do sistema completo.
+O sistema de \gls{teleoperacao} possui três camadas (\autoref{fig:arquitetura-projeto}): o veículo teleoperado com Raspberry Pi 4 embarcado, o cliente PC que exibe telemetria e encaminha comandos, e o simulador Logitech G923 conectado ao cliente via \gls{USB}. Veículo e cliente se comunicam por \gls{UDP}, seguindo a abordagem de integração de múltiplos sensores de \citeonline{bobrovsky2023development}. O desenvolvimento começou pela montagem do chassi, passou pela integração dos sensores e atuadores com o Raspberry Pi, depois pela comunicação \gls{UDP} com o cliente e integração do G923, até chegar à validação do sistema completo em ambiente controlado e em campo, cujo protocolo é detalhado na \autoref{sec:protocolo-experimental}.
 
 \begin{figure}[!h]
 	\captionsetup{width=16cm}
@@ -145,30 +145,7 @@ A razão principal para o \gls{UDP} neste projeto é o comportamento diante de p
 
 Os \textit{buffers} de \textit{socket} foram dimensionados de acordo com cada tipo de tráfego: 64~KB para a porta de vídeo (porta 9999), onde frames de até 50~KB precisam caber inteiros; 32~KB para a porta de sensores (porta 9997), onde o pacote é pequeno mas a latência precisa ser baixa para o \textit{force feedback}; e 128~KB para a recepção de comandos no Raspberry Pi (porta 9998), para absorver picos de comandos simultâneos. \textit{Buffers} maiores absorvem picos de tráfego, mas os dados ficam mais tempo na fila antes de serem consumidos; \textit{buffers} menores descartam pacotes quando o consumidor não acompanha a taxa de produção, mas garantem que o dado lido é sempre recente.
 
-A \autoref{tab:latencia-udp-medida} mostra as latências de \texttt{sendto()} medidas no sistema após as correções de rede descritas acima. Os valores correspondem ao tempo entre a chamada \texttt{sendto()} e seu retorno, medidos via relógio monotônico do sistema operacional com precisão de nanossegundos.
-
-\begin{table}[!h]
-\captionsetup{width=16cm}
-\Caption{\label{tab:latencia-udp-medida} Latência de \texttt{sendto()} UDP medida experimentalmente no Raspberry Pi 4}
-\IBGEtab{}{%
-	\begin{tabular}{p{5.5cm}ccp{4.5cm}}
-		\toprule
-		Operação & Tamanho do Pacote & Latência Típica & Observação \\
-		\midrule \midrule
-		Sensores BMI160 (porta 9997) & $\sim$200 B & 10--13 ms & Taxa de 100 Hz \\
-		\midrule
-		Vídeo \gls{MJPEG} (porta 9999) & 10--50 KB & 20--25 ms & Taxa de 60 Hz \\
-		\midrule
-		Comandos de controle (porta 9998) & $\sim$50 B & $<$1 ms & 100 Hz (STATE) + on-demand (marcha) \\
-		\midrule
-		Latência \gls{UDP} fim a fim & --- & 1,94 ms & Média medida nos testes \\
-		\bottomrule
-	\end{tabular}%
-}{%
-\Fonte{elaborado pelo autor.}%
-\Nota{A latência de \texttt{sendto()} inclui o tempo de cópia do buffer de aplicação para o buffer do kernel e a transmissão WiFi pelo driver \texttt{brcmfmac}. A latência fim a fim (1,94~ms) é a diferença entre \textit{timestamp} de envio no Raspberry Pi e \textit{timestamp} de recepção no cliente, descontando o \textit{clock offset} entre os dispositivos.}%
-}
-\end{table}
+As latências de \texttt{sendto()} medidas no sistema final após essas correções são apresentadas no \autoref{chap:resultados}, juntamente com as demais métricas de validação da comunicação \gls{UDP}.
 
 \subsection{Limitações de Alcance e Considerações de Escala}
 \label{subsec:limitacoes-alcance}
@@ -293,45 +270,7 @@ O veículo utiliza o chassi FV01, um modelo de carro de Fórmula 1 projetado par
 
 A suspensão push rod independente transmite as forças de curva e frenagem ao chassi, onde o sensor BMI160 as detecta como variações de força G. O diferencial gera comportamento diferenciado entre rodas internas e externas em curvas.
 
-A impressão das peças do chassi foi realizada em uma impressora Creality Ender 3 S1. O fatiamento foi realizado no software Ultimaker Cura 5.11 \cite{ultimaker2024cura} com perfil de qualidade padrão. A \autoref{tab:config-impressao-3d} apresenta os parâmetros de impressão utilizados.
-
-\begin{table}[!h]
-\captionsetup{width=16cm}
-\Caption{\label{tab:config-impressao-3d} Parâmetros de impressão 3D do chassi FV01}
-\IBGEtab{}{%
-	\begin{tabular}{p{5cm}p{4cm}p{6cm}}
-		\toprule
-		Parâmetro & Valor & Observação \\
-		\midrule \midrule
-		Altura de camada & 0,2 mm & Qualidade padrão \\
-		\midrule
-		Espessura de parede & 0,8 mm & 2 linhas de parede \\
-		\midrule
-		Densidade de preenchimento & 15\% & Padrão Cubic Subdivision \\
-		\midrule
-		Temperatura de impressão & 210°C & 215°C na camada inicial \\
-		\midrule
-		Temperatura da mesa & 60°C & --- \\
-		\midrule
-		Velocidade de impressão & 60 mm/s & 25 mm/s na camada inicial \\
-		\midrule
-		Velocidade de deslocamento & 150 mm/s & --- \\
-		\midrule
-		Suporte & Tree & Ângulo de overhang 45° \\
-		\midrule
-		Adesão à mesa & Raft & Margem de 5 mm, 2 camadas \\
-		\midrule
-		Resfriamento & 100\% & Ventoinha ativada \\
-		\midrule
-		Retração & 0,8 mm & Velocidade de 40 mm/s \\
-		\bottomrule
-	\end{tabular}%
-}{%
-\Fonte{elaborado pelo autor.}%
-}
-\end{table}
-
-O preenchimento de 15\% em Cubic Subdivision foi escolhido por oferecer resistência suficiente sem consumo excessivo de material. Suporte Tree foi usado por deixar menos marcas na superfície, e Raft como adesão à mesa evita empenamento em peças maiores. A \autoref{fig:chassi-fv01} mostra o modelo original do chassi FV01.
+As peças foram impressas em uma Creality Ender 3 S1 com fatiamento no Ultimaker Cura 5.11 \cite{ultimaker2024cura}. Os parâmetros de impressão estão no \autoref{apendice:specs-equipamentos}. A \autoref{fig:chassi-fv01} mostra o modelo original do chassi FV01.
 
 \begin{figure}[!ht]
 	\captionsetup{width=16cm}
@@ -437,9 +376,9 @@ A constante de tempo efetiva combina dois fatores --- a marcha e a zona de efici
 \tau_{eff}(g, zona) = \tau_{base}(g) \times M_{zona}
 \end{equation}
 
-\noindent onde $\tau_{base}(g)$ cresce com a marcha (2~s na 1ª até 10~s na 5ª, refletindo maior inércia em marchas altas) e $M_{zona}$ é o multiplicador da zona de eficiência: $M_{IDEAL} = 1{,}0$, $M_{SUB} = 10{,}0$ e $M_{POOR} = 25{,}0$. Na zona IDEAL, o sistema responde com $\tau_{base}$; na zona SUBOPTIMAL, a resposta é 10 vezes mais lenta; na zona POOR, 25 vezes mais lenta. A zona é classificada pelo PWM atual do motor (não pelo target), de modo que a penalização ocorre em tempo real conforme o motor sai da faixa ideal. Isso força o operador a utilizar a marcha adequada para a faixa em que o motor está operando. O efeito reproduz o comportamento de uma transmissão real, onde manter uma marcha alta em baixa rotação resulta em resposta lenta.
+\noindent onde $\tau_{base}(g)$ cresce com a marcha (2~s na 1ª até 10~s na 5ª, refletindo maior inércia em marchas altas) e $M_{zona}$ é o multiplicador da zona de eficiência: $M_{IDEAL} = 1{,}0$, $M_{SUB} = 10{,}0$ e $M_{POOR} = 25{,}0$. Esses valores foram ajustados durante a prototipagem evolutiva: cada conjunto era implementado, testado em condução real e corrigido até que a penalização por operar na marcha errada fosse perceptível ao operador sem tornar o veículo inoperável nas zonas desfavoráveis. Na zona IDEAL, o sistema responde com $\tau_{base}$; na zona SUBOPTIMAL, a resposta é 10 vezes mais lenta; na zona POOR, 25 vezes mais lenta. A zona é classificada pelo PWM atual do motor (não pelo target), de modo que a penalização ocorre em tempo real conforme o motor sai da faixa ideal. Isso força o operador a utilizar a marcha adequada para a faixa em que o motor está operando. O efeito reproduz o comportamento de uma transmissão real, onde manter uma marcha alta em baixa rotação resulta em resposta lenta.
 
-A \autoref{tab:gear-params} resume os parâmetros por marcha. Os limitadores definem o ganho $K$ (PWM máximo quando o acelerador está em 100\%), e as faixas ideal\_low e ideal\_high delimitam a zona IDEAL. As zonas ideais de marchas adjacentes se sobrepõem (por exemplo, a 2ª cobre 10--25\% e a 1ª cobre 6--12\%), garantindo que no ponto de troca o PWM já esteja na zona IDEAL da próxima marcha.
+A \autoref{tab:gear-params} resume os parâmetros por marcha, calibrados em testes de bancada e em campo. Os limitadores definem o ganho $K$ (PWM máximo quando o acelerador está em 100\%) conforme a faixa de rotação útil do motor DC 775 em cada relação de transmissão. As faixas ideal\_low e ideal\_high delimitam a zona IDEAL e foram ajustadas para que a aceleração fosse progressiva dentro de cada marcha. As zonas ideais de marchas adjacentes se sobrepõem (por exemplo, a 2ª cobre 10--25\% e a 1ª cobre 6--12\%), garantindo que no ponto de troca o PWM já esteja na zona IDEAL da próxima marcha.
 
 \begin{table}[!ht]
 	\centering
@@ -662,7 +601,7 @@ O sistema de \textit{force feedback} explora a capacidade do G923 de executar 15
 }
 \end{table}
 
-Os efeitos condicionais (FF\_SPRING, FF\_DAMPER, FF\_FRICTION, FF\_INERTIA) são executados pelo \textit{firmware} do volante a aproximadamente 1kHz, o que resulta em resposta mais suave do que o cálculo equivalente em \textit{software} a 60Hz. Os efeitos de força e vibração são atualizados pelo \textit{software} a cada pacote recebido do BMI160. O ganho global (\texttt{FF\_GAIN}) limita todos os 8 efeitos simultaneamente, com valor padrão de 15\% para evitar forças excessivas que possam travar o mecanismo do volante.
+Os efeitos condicionais (FF\_SPRING, FF\_DAMPER, FF\_FRICTION, FF\_INERTIA) são executados pelo \textit{firmware} do volante a aproximadamente 1kHz, o que resulta em resposta mais suave do que o cálculo equivalente em \textit{software} a 60Hz. Os efeitos de força e vibração são atualizados pelo \textit{software} a cada pacote recebido do BMI160. O ganho global (\texttt{FF\_GAIN}) limita todos os 8 efeitos simultaneamente, com valor padrão de 15\%. Nos testes, valores acima de 25\% travavam o mecanismo do volante, e 15\% foi o ponto em que a força era perceptível sem comprometer o dispositivo.
 
 A \autoref{fig:ff-pipeline} apresenta o pipeline completo do sistema de force feedback, desde a aquisição dos dados do BMI160 no veículo até a aplicação dos efeitos nos motores do volante G923 via \textit{evdev ioctl}. O pipeline opera em duas camadas: efeitos condicionais processados pelo kernel a aproximadamente 1~kHz e controlados pelos sliders da interface, e efeitos de força e vibração calculados pelo software a 60~Hz com base nos dados sensoriais.
 
@@ -689,7 +628,7 @@ Embora o G923 possua calibração de fábrica, o software do cliente implementa 
 \section{Arquitetura do Cliente (PC)}
 \label{sec:arquitetura-cliente}
 
-O cliente PC recebe dados do veículo via \gls{UDP}, processa telemetria, calcula force feedback e transmite comandos ao veículo e ao simulador. O software foi desenvolvido em Python 3.11.2 com interface gráfica Tkinter. A \autoref{tab:bibliotecas-cliente} apresenta as bibliotecas utilizadas.
+O cliente PC recebe dados do veículo via \gls{UDP}, processa telemetria, calcula force feedback e transmite comandos ao veículo e ao simulador. O software foi desenvolvido em Python 3.11.2 com interface gráfica Tkinter. As especificações do computador utilizado estão no \autoref{apendice:specs-equipamentos}. A \autoref{tab:bibliotecas-cliente} apresenta as bibliotecas utilizadas.
 
 \begin{table}[!h]
 \captionsetup{width=16cm}
@@ -711,41 +650,6 @@ matplotlib & Renderização de gráficos de telemetria em tempo real \\
 \end{tabular}
 }{
 \Fonte{elaborado pelo autor.}
-}
-\end{table}
-
-\subsection{Especificações da Estação Cliente}
-\label{subsec:componentes-cliente}
-
-A \autoref{tab:componentes-cliente} apresenta as especificações do computador utilizado como estação cliente.
-
-\begin{table}[!h]
-\captionsetup{width=16cm}
-\Caption{\label{tab:componentes-cliente} Especificações da estação cliente}
-\IBGEtab{}{%
-	\begin{tabular}{p{3.5cm}p{6cm}p{6cm}}
-		\toprule
-		Componente & Especificação & Função no Sistema \\
-		\midrule \midrule
-		Notebook & Acer Predator Helios Neo 16 AI (PHN16-73) & Plataforma de desenvolvimento e execução do cliente \\
-		\midrule
-		Processador & Intel Core Ultra 7 255HX, 20 núcleos (8P+12E), 20 threads, até 5.3GHz & Processamento de telemetria, interface gráfica e algoritmos de force feedback \\
-		\midrule
-		GPU Dedicada & NVIDIA GeForce RTX 5070 Laptop 8GB GDDR7 & Aceleração de processamento de imagem e renderização da interface \\
-		\midrule
-		GPU Integrada & Intel Graphics (Arrow Lake) & Renderização secundária e economia de energia \\
-		\midrule
-		Memória RAM & 32GB DDR5 & Buffers de vídeo, histórico de telemetria e estruturas de dados \\
-		\midrule
-		Armazenamento & XPG GAMMIX S70 BLADE 2TB NVMe + Hynix HFS512GEJ9X125N 512GB NVMe & Armazenamento de logs, datasets e código fonte \\
-		\midrule
-		Sistema Operacional & Ubuntu 24.04.4 LTS, Kernel 6.17.0-20-generic & Ambiente de desenvolvimento e execução do sistema \\
-		\midrule
-		Conectividade & WiFi 7 (802.11be) Intel BE200, USB 3.0 & Comunicação \gls{UDP} com veículo e USB com simulador Logitech G923 \\
-		\bottomrule
-	\end{tabular}%
-}{%
-\Fonte{elaborado pelo autor.}%
 }
 \end{table}
 
@@ -773,7 +677,7 @@ A coluna direita contém os gráficos de telemetria F1 em tempo real, sliders de
 \subsection{Filtros de Processamento Digital de Imagens}
 \label{subsec:filtros-pdi}
 
-O cliente implementa filtros de \gls{PDI} combináveis. O operador pode ativar múltiplos filtros simultaneamente via checkboxes na interface. Os filtros também servem para avaliar o impacto do processamento sobre a taxa de quadros. Cada filtro adiciona latência ao pipeline de vídeo, e ao ativar combinações mais pesadas é possível observar a queda de FPS diretamente na interface. Isso permite identificar até onde o processamento pode ir sem prejudicar a operação.
+O cliente implementa filtros de \gls{PDI} combináveis. Em operação de campo, o vídeo transmitido sofre com mudanças de iluminação (sombras, reflexos solares, transições claro-escuro), baixo contraste em superfícies uniformes e artefatos da compressão \gls{MJPEG}, o que prejudica a percepção do operador. O \gls{CLAHE} corrige iluminação desigual, enquanto Sharpen e Unsharp Mask recuperam nitidez perdida na compressão JPEG. O operador pode ativar múltiplos filtros simultaneamente via checkboxes na interface, adaptando o processamento às condições do momento. Cada filtro adiciona latência ao pipeline de vídeo, e ao ativar combinações mais pesadas é possível observar a queda de FPS diretamente na interface, o que também permite identificar até onde o processamento pode ir sem prejudicar a teleoperação.
 
 A \autoref{tab:filtros-pdi} apresenta os filtros disponíveis no sistema, baseados em técnicas clássicas de processamento de imagens conforme \citeonline{gonzalez2010processamento}.
 
@@ -920,7 +824,7 @@ level = \frac{intensidade \times 32767}{100}
 
 Os quatro efeitos condicionais são executados pelo \textit{firmware} do G923 a aproximadamente 1kHz, e controlados por \textit{sliders} na interface do operador. Cada \textit{slider} é convertido para um coeficiente de 16 bits ($0$ a $32.767$) via $coeff = slider \times 32767 / 100$. A \autoref{fig:ff-parametros} ilustra o mapeamento de cada parâmetro para o coeficiente correspondente.
 
-A sensibilidade (padrão 75\%) controla o coeficiente do efeito \texttt{FF\_SPRING}, que centraliza o volante proporcionalmente à sua posição, com mínimo de 5\% para manter a sensação de coluna de direção. A fricção (padrão 30\%) ajusta o \texttt{FF\_FRICTION}, que aplica resistência constante ao movimento simulando o \textit{grip} do pneu, com mínimo de 3\%. O \textit{damping} (padrão 50\%) configura o \texttt{FF\_DAMPER}, que aplica resistência proporcional à velocidade angular do volante. A força máxima (padrão 15\%) controla o \texttt{FF\_GAIN} global do evdev, que escala todos os 8 efeitos simultaneamente. Valores acima de 25\% podem travar o mecanismo do volante. O filtro (padrão 40\%) é aplicado exclusivamente ao \texttt{FF\_CONSTANT} em \textit{software}, conforme ilustrado na \autoref{fig:ff-filtro-ema}.
+Os valores padrão de cada \textit{slider} foram ajustados durante a prototipagem, testando diferentes combinações em condução real até que a resposta tátil correspondesse às manobras do veículo. A sensibilidade (padrão 75\%) controla o coeficiente do efeito \texttt{FF\_SPRING}, que centraliza o volante proporcionalmente à sua posição, com mínimo de 5\% para manter a sensação de coluna de direção. A fricção (padrão 30\%) ajusta o \texttt{FF\_FRICTION}, que aplica resistência constante ao movimento simulando o \textit{grip} do pneu, com mínimo de 3\%. O \textit{damping} (padrão 50\%) configura o \texttt{FF\_DAMPER}, que aplica resistência proporcional à velocidade angular do volante. A força máxima (padrão 15\%) controla o \texttt{FF\_GAIN} global do evdev, que escala todos os 8 efeitos simultaneamente. O filtro (padrão 40\%) é aplicado exclusivamente ao \texttt{FF\_CONSTANT} em \textit{software}: valores mais baixos tornam o \textit{feedback} mais responsivo porém ruidoso, e 40\% foi o ponto em que a suavização eliminou oscilações perceptíveis sem introduzir atraso notável, conforme ilustrado na \autoref{fig:ff-filtro-ema}.
 
 \begin{figure}[h!]
 	\centering
@@ -1081,75 +985,12 @@ v_{final} = v(t) \times fator_{decaimento}
 \subsection{Sistema de Telemetria em Tempo Real}
 \label{subsec:telemetria-cliente}
 
-O sistema de telemetria exibe gráficos em tempo real com visual inspirado nas interfaces de engenharia de equipes de Fórmula 1, utilizando a biblioteca Matplotlib integrada ao framework gráfico Tkinter. Os dados de sensores são armazenados em \glspl{buffercircular} implementados com estruturas \textit{deque} do Python, com capacidade máxima de 500 pontos. Essa capacidade representa aproximadamente 50 segundos de histórico considerando a taxa de atualização de 10Hz, permitindo ao operador visualizar tendências recentes sem consumo excessivo de memória. O \autoref{alg:atualizar-telemetria} apresenta o processo de atualização dos gráficos.
-
-\begin{algorithm}[h!]
-	\SetSpacedAlgorithm
-	\caption{\label{alg:atualizar-telemetria}Atualização dos gráficos de telemetria}
-	\Entrada{dados\_sensores (velocidade, acelerador, freio, g\_lateral, g\_frontal)}
-	\Saida{gráficos atualizados na interface}
-	\Inicio{
-		MAX\_PONTOS $\leftarrow$ 500\;
-		JANELA\_TEMPO $\leftarrow$ 30\;
-		tempo\_atual $\leftarrow$ tempo\_sistema() - tempo\_inicio\;
-		// Adiciona ponto atual a cada buffer circular (deque com MAX\_PONTOS)\;
-		\Para{cada canal em dados\_sensores}{
-			buffer[canal].adicionar(valor\_atual)\;
-		}
-		// Ajusta janela de visualização para os últimos 30 segundos\;
-		x\_min $\leftarrow$ maximo(0, tempo\_atual - JANELA\_TEMPO)\;
-		x\_max $\leftarrow$ tempo\_atual + 1\;
-		// Redesenha todas as linhas do gráfico\;
-		\Para{cada canal em dados\_sensores}{
-			linha[canal].atualizar(buffer\_tempo, buffer[canal])\;
-		}
-		canvas.redesenhar()\;
-	}
-\end{algorithm}
+O sistema de telemetria exibe gráficos em tempo real com visual inspirado nas interfaces de engenharia de equipes de Fórmula 1, utilizando a biblioteca Matplotlib integrada ao framework gráfico Tkinter. Os dados de sensores são armazenados em \glspl{buffercircular} implementados com estruturas \textit{deque} do Python, com capacidade máxima de 500 pontos. Essa capacidade representa aproximadamente 50 segundos de histórico considerando a taxa de atualização de 10Hz, permitindo ao operador visualizar tendências recentes sem consumo excessivo de memória. O \autoref{alg:atualizar-telemetria} (ver \autoref{apendice:algoritmos-auxiliares}) detalha o processo de atualização dos gráficos.
 
 \section{Armazenamento de Logs e Validação}
 \label{sec:logs-validacao}
 
-O sistema implementa salvamento automático periódico dos dados coletados durante as sessões de operação. A cada 20 segundos, o sistema verifica se há dados novos suficientes e exporta logs, dados de sensores e telemetria para arquivos no diretório \texttt{exports/auto/}. O formato Pickle (binário nativo do Python) foi escolhido por oferecer performance 5 a 10 vezes superior ao CSV para \gls{serializacao} de estruturas de dados complexas. Após cada salvamento, os buffers são limpos para evitar duplicação. O \autoref{alg:auto-save} apresenta a lógica de verificação e salvamento.
-
-\begin{algorithm}[h!]
-	\SetSpacedAlgorithm
-	\caption{\label{alg:auto-save}Auto-save periódico de dados}
-	\Entrada{console, intervalo\_ms}
-	\Saida{arquivos\_salvos}
-	\Inicio{
-		MIN\_LOGS $\leftarrow$ 100\;
-		MIN\_SENSORES $\leftarrow$ 1000\;
-		MIN\_TELEMETRIA $\leftarrow$ 100\;
-		DIRETORIO $\leftarrow$ "exports/auto/"\;
-		// Verifica se há dados novos suficientes\;
-		qtd\_logs $\leftarrow$ contar\_linhas(console.log\_text)\;
-		qtd\_sensores $\leftarrow$ tamanho(sensor\_display.historico)\;
-		qtd\_telemetria $\leftarrow$ tamanho(telemetria.buffer\_tempo)\;
-		// Só salva se atingir mínimo E houver dados novos\;
-		\Se{(qtd\_logs $\geq$ MIN\_LOGS) OU (qtd\_sensores $\geq$ MIN\_SENSORES) OU (qtd\_telemetria $\geq$ MIN\_TELEMETRIA)}{
-			timestamp $\leftarrow$ formato\_data("YYYYMMDD\_HHMMSS")\;
-			// Salva logs em texto\;
-			\Se{qtd\_logs $\geq$ MIN\_LOGS}{
-				salvar\_arquivo(DIRETORIO + "logs\_" + timestamp + ".txt", console.log\_text)\;
-			}
-			// Salva sensores em Pickle (binário)\;
-			\Se{qtd\_sensores $\geq$ MIN\_SENSORES}{
-				pickle.salvar(DIRETORIO + "sensors\_" + timestamp + ".pkl", sensor\_display.historico)\;
-			}
-			// Salva telemetria em Pickle\;
-			\Se{qtd\_telemetria $\geq$ MIN\_TELEMETRIA}{
-				pickle.salvar(DIRETORIO + "telemetry\_" + timestamp + ".pkl", telemetria.dados)\;
-			}
-			// Limpa buffers após salvar\;
-			console.log\_text.limpar()\;
-			sensor\_display.resetar()\;
-			telemetria.resetar()\;
-		}
-		// Reagenda próximo auto-save\;
-		agendar(intervalo\_ms, auto\_save)\;
-	}
-\end{algorithm}
+O sistema implementa salvamento automático periódico dos dados coletados durante as sessões de operação. A cada 20 segundos, o sistema verifica se há dados novos suficientes e exporta logs, dados de sensores e telemetria para arquivos no diretório \texttt{exports/auto/}. O formato Pickle (binário nativo do Python) foi escolhido por oferecer performance 5 a 10 vezes superior ao CSV para \gls{serializacao} de estruturas de dados complexas. Após cada salvamento, os buffers são limpos para evitar duplicação. O \autoref{alg:auto-save} (ver \autoref{apendice:algoritmos-auxiliares}) detalha a lógica de verificação e salvamento.
 
 \subsection{Formatos de Armazenamento}
 \label{subsec:formatos-armazenamento}
@@ -1278,5 +1119,96 @@ Para permitir a replicação dos experimentos conforme as diretrizes de \citeonl
 }
 \end{table}
 
-Os datasets coletados durante as sessões experimentais estão no diretório \texttt{exports/auto/} em formato Pickle, e o diretório \texttt{scripts/} contém rotinas de análise para processamento desses dados. As especificações de hardware estão nas tabelas \autoref{tab:componentes-veiculo} e \autoref{tab:componentes-cliente}. O Raspberry Pi 4 executa Raspberry Pi OS Bullseye 64-bit (kernel 5.15.84-v8+), e a rede wireless opera em 5~GHz via roteador TP-Link Deco M4 V4 (Wi-Fi 5 AC1200). Os testes foram realizados em dois ambientes: interno, com o veículo estacionário em sala de 5m $\times$ 8m a 27$\pm$2°C para validação de comunicação e telemetria; e externo, em área de aproximadamente 700~m² para operação do veículo em movimento.
+Os datasets coletados durante as sessões experimentais estão no diretório \texttt{exports/auto/} em formato Pickle, e o diretório \texttt{scripts/} contém rotinas de análise para processamento desses dados. As especificações de hardware do veículo estão na \autoref{tab:componentes-veiculo} e as da estação cliente no \autoref{apendice:specs-equipamentos}. O Raspberry Pi 4 executa Raspberry Pi OS Bullseye 64-bit (kernel 5.15.84-v8+), e a rede wireless opera em 5~GHz via roteador TP-Link Deco M4 V4 (Wi-Fi 5 AC1200).
+
+% ============================================================================
+% PROTOCOLO EXPERIMENTAL
+% ============================================================================
+\section{Protocolo Experimental}
+\label{sec:protocolo-experimental}
+
+Os resultados obtidos a partir deste protocolo são apresentados no \autoref{chap:resultados}.
+
+\subsection{Ambientes de Teste}
+\label{subsec:ambientes-teste}
+
+Os testes foram realizados em dois ambientes. O ambiente interno é uma sala de 5m $\times$ 8m a 27$\pm$2°C, com o veículo estacionário sobre superfície plana --- sem vibração mecânica, o que permite isolar a validação de comunicação \gls{UDP}, telemetria, leitura de sensores e calibração do \textit{force feedback}. O ambiente externo é uma área aberta de aproximadamente 700~m², onde o veículo opera em movimento para validar direção, frenagem, troca de marchas e resposta do \textit{force feedback} a manobras reais.
+
+\subsection{Variáveis e Métricas}
+\label{subsec:variaveis-metricas}
+
+A \autoref{tab:variaveis-experimentais} organiza as variáveis experimentais por subsistema, distinguindo variáveis independentes (controladas pelo experimentador), dependentes (medidas pelo sistema) e controladas (mantidas constantes durante cada sessão).
+
+\begin{table}[!h]
+\captionsetup{width=16cm}
+\Caption{\label{tab:variaveis-experimentais} Variáveis experimentais por subsistema}
+\IBGEtab{}{%
+	\begin{tabular}{p{2.5cm}p{4cm}p{4cm}p{4cm}}
+		\toprule
+		Subsistema & Independentes & Dependentes & Controladas \\
+		\midrule \midrule
+		Comunicação & Ambiente (interno/ externo), distância ao roteador & Latência \gls{UDP}, \gls{jitter}, perda de pacotes, \textit{throughput} & Roteador (TP-Link Deco M4, 5~GHz), configuração de \textit{buffers} \\
+		\midrule
+		Vídeo & Resolução (480p/720p), filtros \gls{PDI} ativos & \gls{FPS} efetivo, tamanho de frame, latência de codificação & Codec (\gls{MJPEG}), iluminação do ambiente \\
+		\midrule
+		Sensores & Regime de operação (repouso/ movimento) & Taxa de amostragem, ruído, \gls{drifttermico}, recuperação de \textit{brown-out} & Configuração BMI160 ($\pm$2g, $\pm$250°/s, 100Hz), temperatura ambiente \\
+		\midrule
+		Force feedback & Cenário de condução (reta/ curva/ frenagem), parâmetros dos \textit{sliders} & Intensidade e direção do \texttt{FF\_CONSTANT}, componentes do \texttt{FF\_RUMBLE}, percepção do operador & Ganho global (15\%), filtro \gls{EMA} (40\%) \\
+		\midrule
+		Energia & Regime de operação (idle/ aceleração/ frenagem) & Corrente do motor, corrente dos servos, tensão da bateria, potência total & Bateria \gls{LiPo} 3S carregada ($>$11,4V) \\
+		\bottomrule
+	\end{tabular}%
+}{%
+\Fonte{elaborado pelo autor.}%
+}
+\end{table}
+
+\subsection{Procedimento de Coleta de Dados}
+\label{subsec:procedimento-coleta}
+
+Cada sessão segue um procedimento fixo: (1) verificar carga da bateria ($>$11,4V) e conexão WiFi em 5~GHz; (2) inicializar o sistema embarcado e o cliente PC; (3) calibrar o G923 com movimentação completa de volante e pedais; (4) aguardar 60 segundos de estabilização dos sensores; e (5) coletar dados durante 25 minutos com auto-save a cada 20 segundos. Os 25 minutos geram aproximadamente 150.000 pontos de telemetria a 100Hz e permitem observar efeitos térmicos no Raspberry Pi e na bateria.
+
+No ambiente interno, as sessões avaliam comunicação \gls{UDP} (latência, \gls{jitter}, perda de pacotes), taxa de quadros de vídeo, leitura de sensores em repouso (ruído, \textit{offset}, estabilidade) e calibração do \textit{force feedback}. No ambiente externo, avaliam o sistema em operação: resposta da direção e freios, troca de marchas, \textit{force feedback} durante manobras, consumo de energia sob carga e estabilidade térmica.
+
+\subsection{Critérios de Aceitação}
+\label{subsec:criterios-aceitacao}
+
+A \autoref{tab:criterios-aceitacao} lista os critérios mínimos de aceitação por subsistema.
+
+\begin{table}[!h]
+\captionsetup{width=16cm}
+\Caption{\label{tab:criterios-aceitacao} Critérios de aceitação por subsistema}
+\IBGEtab{}{%
+	\begin{tabular}{p{3cm}p{4.5cm}p{3.5cm}p{4cm}}
+		\toprule
+		Subsistema & Métrica & Critério & Referência \\
+		\midrule \midrule
+		Comunicação & Latência \gls{UDP} fim a fim & $<$5~ms & \citeonline{ito2025teleoperation} \\
+		\midrule
+		Comunicação & Perda de pacotes & $<$1\% & Operação em rede local \\
+		\midrule
+		Vídeo & \gls{FPS} em 480p & $\geq$25~fps & Fluidez perceptual mínima \\
+		\midrule
+		Sensores & Taxa de amostragem BMI160 & $\geq$95Hz & 95\% da taxa nominal \\
+		\midrule
+		Sensores & Recuperação de \textit{brown-out} & $<$500~ms & Requisito de segurança \\
+		\midrule
+		Force feedback & Latência sensor-atuação & $<$50~ms & Percepção tátil humana \\
+		\midrule
+		Force feedback & Coerência direcional & Direção correta $>$90\% & Correspondência com manobra \\
+		\midrule
+		Energia & Autonomia da bateria & $\geq$15~min & Duração mínima de sessão \\
+		\midrule
+		Térmico & Temperatura do RPi & $<$80°C & Limite de \textit{throttling} \\
+		\bottomrule
+	\end{tabular}%
+}{%
+\Fonte{elaborado pelo autor.}%
+}
+\end{table}
+
+\subsection{Métodos de Análise}
+\label{subsec:metodos-analise}
+
+Os dados coletados são processados por scripts Python disponíveis no diretório \texttt{scripts/} do repositório. Para comunicação \gls{UDP}, os \textit{timestamps} de cada pacote permitem calcular latência média, percentis (P50, P95, P99), \gls{jitter} (desvio padrão dos intervalos entre pacotes) e taxa de perda. Para vídeo, são extraídos \gls{FPS} efetivo, distribuição de tamanho de frames e estabilidade temporal. Os dados do BMI160 em repouso fornecem o ruído (desvio padrão) e a taxa de amostragem efetiva; os logs identificam eventos de \textit{brown-out} e o tempo de recuperação. O \textit{force feedback} é avaliado pela correlação entre as forças G medidas e a intensidade aplicada ao volante --- a coerência direcional (se a força puxa para o lado correto) e o tempo de resposta entre sensor e atuação. O consumo de energia é analisado por componente (motor, servos, Raspberry Pi), com cálculo de autonomia da bateria. Os resultados são apresentados com estatísticas descritivas (média, desvio padrão, percentis), gráficos temporais e histogramas.
 

@@ -1,0 +1,78 @@
+\chapter{Especificações Complementares de Equipamentos}
+\label{apendice:specs-equipamentos}
+
+\section{Especificações da Estação Cliente}
+
+A \autoref{tab:componentes-cliente} apresenta as especificações do computador utilizado como estação cliente.
+
+\begin{table}[!h]
+\captionsetup{width=16cm}
+\Caption{\label{tab:componentes-cliente} Especificações da estação cliente}
+\IBGEtab{}{%
+	\begin{tabular}{p{3.5cm}p{6cm}p{6cm}}
+		\toprule
+		Componente & Especificação & Função no Sistema \\
+		\midrule \midrule
+		Notebook & Acer Predator Helios Neo 16 AI (PHN16-73) & Plataforma de desenvolvimento e execução do cliente \\
+		\midrule
+		Processador & Intel Core Ultra 7 255HX, 20 núcleos (8P+12E), 20 threads, até 5.3GHz & Processamento de telemetria, interface gráfica e algoritmos de force feedback \\
+		\midrule
+		GPU Dedicada & NVIDIA GeForce RTX 5070 Laptop 8GB GDDR7 & Aceleração de processamento de imagem e renderização da interface \\
+		\midrule
+		GPU Integrada & Intel Graphics (Arrow Lake) & Renderização secundária e economia de energia \\
+		\midrule
+		Memória RAM & 32GB DDR5 & Buffers de vídeo, histórico de telemetria e estruturas de dados \\
+		\midrule
+		Armazenamento & XPG GAMMIX S70 BLADE 2TB NVMe + Hynix HFS512GEJ9X125N 512GB NVMe & Armazenamento de logs, datasets e código fonte \\
+		\midrule
+		Sistema Operacional & Ubuntu 24.04.4 LTS, Kernel 6.17.0-20-generic & Ambiente de desenvolvimento e execução do sistema \\
+		\midrule
+		Conectividade & WiFi 7 (802.11be) Intel BE200, USB 3.0 & Comunicação \gls{UDP} com veículo e USB com simulador Logitech G923 \\
+		\bottomrule
+	\end{tabular}%
+}{%
+\Fonte{elaborado pelo autor.}%
+}
+\end{table}
+
+\section{Parâmetros de Impressão 3D do Chassi FV01}
+
+A impressão das peças do chassi foi realizada em uma impressora Creality Ender 3 S1. O fatiamento foi realizado no software Ultimaker Cura 5.11 \cite{ultimaker2024cura} com perfil de qualidade padrão. A \autoref{tab:config-impressao-3d} apresenta os parâmetros de impressão utilizados.
+
+\begin{table}[!h]
+\captionsetup{width=16cm}
+\Caption{\label{tab:config-impressao-3d} Parâmetros de impressão 3D do chassi FV01}
+\IBGEtab{}{%
+	\begin{tabular}{p{5cm}p{4cm}p{6cm}}
+		\toprule
+		Parâmetro & Valor & Observação \\
+		\midrule \midrule
+		Altura de camada & 0,2 mm & Qualidade padrão \\
+		\midrule
+		Espessura de parede & 0,8 mm & 2 linhas de parede \\
+		\midrule
+		Densidade de preenchimento & 15\% & Padrão Cubic Subdivision \\
+		\midrule
+		Temperatura de impressão & 210°C & 215°C na camada inicial \\
+		\midrule
+		Temperatura da mesa & 60°C & --- \\
+		\midrule
+		Velocidade de impressão & 60 mm/s & 25 mm/s na camada inicial \\
+		\midrule
+		Velocidade de deslocamento & 150 mm/s & --- \\
+		\midrule
+		Suporte & Tree & Ângulo de overhang 45° \\
+		\midrule
+		Adesão à mesa & Raft & Margem de 5 mm, 2 camadas \\
+		\midrule
+		Resfriamento & 100\% & Ventoinha ativada \\
+		\midrule
+		Retração & 0,8 mm & Velocidade de 40 mm/s \\
+		\bottomrule
+	\end{tabular}%
+}{%
+\Fonte{elaborado pelo autor.}%
+}
+\end{table}
+
+O preenchimento de 15\% em Cubic Subdivision foi escolhido por oferecer resistência suficiente sem consumo excessivo de material. Suporte Tree foi usado por deixar menos marcas na superfície, e Raft como adesão à mesa evita empenamento em peças maiores.

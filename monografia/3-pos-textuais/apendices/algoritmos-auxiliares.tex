@@ -1,0 +1,75 @@
+\chapter{Algoritmos Auxiliares do Sistema}
+\label{apendice:algoritmos-auxiliares}
+
+Este apêndice apresenta os algoritmos de suporte do sistema que, embora necessários para o funcionamento completo, descrevem lógica de infraestrutura de software.
+
+\section*{Atualização dos Gráficos de Telemetria}
+
+O \autoref{alg:atualizar-telemetria} descreve o processo de atualização dos gráficos de telemetria em tempo real. Os dados de sensores são armazenados em \glspl{buffercircular} com capacidade máxima de 500 pontos, e os gráficos exibem uma janela deslizante dos últimos 30 segundos.
+
+\begin{algorithm}[h!]
+	\SetSpacedAlgorithm
+	\caption{\label{alg:atualizar-telemetria}Atualização dos gráficos de telemetria}
+	\Entrada{dados\_sensores (velocidade, acelerador, freio, g\_lateral, g\_frontal)}
+	\Saida{gráficos atualizados na interface}
+	\Inicio{
+		MAX\_PONTOS $\leftarrow$ 500\;
+		JANELA\_TEMPO $\leftarrow$ 30\;
+		tempo\_atual $\leftarrow$ tempo\_sistema() - tempo\_inicio\;
+		// Adiciona ponto atual a cada buffer circular (deque com MAX\_PONTOS)\;
+		\Para{cada canal em dados\_sensores}{
+			buffer[canal].adicionar(valor\_atual)\;
+		}
+		// Ajusta janela de visualização para os últimos 30 segundos\;
+		x\_min $\leftarrow$ maximo(0, tempo\_atual - JANELA\_TEMPO)\;
+		x\_max $\leftarrow$ tempo\_atual + 1\;
+		// Redesenha todas as linhas do gráfico\;
+		\Para{cada canal em dados\_sensores}{
+			linha[canal].atualizar(buffer\_tempo, buffer[canal])\;
+		}
+		canvas.redesenhar()\;
+	}
+\end{algorithm}
+
+\section*{Auto-Save Periódico de Dados}
+
+O \autoref{alg:auto-save} descreve a lógica de salvamento automático periódico. A cada 20 segundos, o sistema verifica se há dados novos suficientes e exporta logs, sensores e telemetria para o diretório \texttt{exports/auto/}.
+
+\begin{algorithm}[h!]
+	\SetSpacedAlgorithm
+	\caption{\label{alg:auto-save}Auto-save periódico de dados}
+	\Entrada{console, intervalo\_ms}
+	\Saida{arquivos\_salvos}
+	\Inicio{
+		MIN\_LOGS $\leftarrow$ 100\;
+		MIN\_SENSORES $\leftarrow$ 1000\;
+		MIN\_TELEMETRIA $\leftarrow$ 100\;
+		DIRETORIO $\leftarrow$ "exports/auto/"\;
+		// Verifica se há dados novos suficientes\;
+		qtd\_logs $\leftarrow$ contar\_linhas(console.log\_text)\;
+		qtd\_sensores $\leftarrow$ tamanho(sensor\_display.historico)\;
+		qtd\_telemetria $\leftarrow$ tamanho(telemetria.buffer\_tempo)\;
+		// Só salva se atingir mínimo E houver dados novos\;
+		\Se{(qtd\_logs $\geq$ MIN\_LOGS) OU (qtd\_sensores $\geq$ MIN\_SENSORES) OU (qtd\_telemetria $\geq$ MIN\_TELEMETRIA)}{
+			timestamp $\leftarrow$ formato\_data("YYYYMMDD\_HHMMSS")\;
+			// Salva logs em texto\;
+			\Se{qtd\_logs $\geq$ MIN\_LOGS}{
+				salvar\_arquivo(DIRETORIO + "logs\_" + timestamp + ".txt", console.log\_text)\;
+			}
+			// Salva sensores em Pickle (binário)\;
+			\Se{qtd\_sensores $\geq$ MIN\_SENSORES}{
+				pickle.salvar(DIRETORIO + "sensors\_" + timestamp + ".pkl", sensor\_display.historico)\;
+			}
+			// Salva telemetria em Pickle\;
+			\Se{qtd\_telemetria $\geq$ MIN\_TELEMETRIA}{
+				pickle.salvar(DIRETORIO + "telemetry\_" + timestamp + ".pkl", telemetria.dados)\;
+			}
+			// Limpa buffers após salvar\;
+			console.log\_text.limpar()\;
+			sensor\_display.resetar()\;
+			telemetria.resetar()\;
+		}
+		// Reagenda próximo auto-save\;
+		agendar(intervalo\_ms, auto\_save)\;
+	}
+\end{algorithm}
