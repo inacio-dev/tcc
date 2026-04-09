@@ -689,7 +689,7 @@ Embora o G923 possua calibração de fábrica, o software do cliente implementa 
 \section{Arquitetura do Cliente (PC)}
 \label{sec:arquitetura-cliente}
 
-O cliente PC é o ponto central do sistema: recebe dados do veículo via \gls{UDP}, processa telemetria, calcula force feedback e transmite comandos para simulador e veículo. O software foi desenvolvido em Python 3.11.2 utilizando o editor Visual Studio Code, com interface gráfica Tkinter. O Python foi escolhido devido à facilidade de prototipagem e disponibilidade de bibliotecas para decodificação de vídeo, interface gráfica, processamento de imagens e comunicação. A \autoref{tab:bibliotecas-cliente} apresenta as principais bibliotecas utilizadas no desenvolvimento do cliente.
+O cliente PC recebe dados do veículo via \gls{UDP}, processa telemetria, calcula force feedback e transmite comandos ao veículo e ao simulador. O software foi desenvolvido em Python 3.11.2 com interface gráfica Tkinter. A \autoref{tab:bibliotecas-cliente} apresenta as bibliotecas utilizadas.
 
 \begin{table}[!h]
 \captionsetup{width=16cm}
@@ -717,7 +717,7 @@ matplotlib & Renderização de gráficos de telemetria em tempo real \\
 \subsection{Especificações da Estação Cliente}
 \label{subsec:componentes-cliente}
 
-A \autoref{tab:componentes-cliente} apresenta as especificações do computador utilizado como estação cliente, responsável pelo processamento de telemetria, decodificação de vídeo \gls{MJPEG} e cálculo de algoritmos de force feedback.
+A \autoref{tab:componentes-cliente} apresenta as especificações do computador utilizado como estação cliente.
 
 \begin{table}[!h]
 \captionsetup{width=16cm}
@@ -752,7 +752,7 @@ A \autoref{tab:componentes-cliente} apresenta as especificações do computador 
 \subsection{Interface Gráfica}
 \label{subsec:interface-cliente}
 
-A interface gráfica utiliza layout de duas colunas: telemetria à esquerda e vídeo/controles à direita, conforme ilustrado na \autoref{fig:interface-geral}. A viabilidade técnica do streaming em tempo real com Raspberry Pi foi demonstrada por \citeonline{shendge2023development}, conforme apresentado na fundamentação teórica.
+A interface gráfica utiliza Tkinter com tema escuro e scroll vertical por canvas, conforme ilustrado na \autoref{fig:interface-geral}. O layout é dividido em três áreas: vídeo e filtros no topo (largura total), dados de telemetria na coluna esquerda e controles na coluna direita.
 
 \begin{figure}[!ht]
 	\captionsetup{width=16cm}
@@ -764,14 +764,16 @@ A interface gráfica utiliza layout de duas colunas: telemetria à esquerda e v�
 	}
 \end{figure}
 
-A coluna esquerda apresenta o status da conexão \gls{UDP} e do simulador G923, painel de instrumentos com zona de eficiência, marcha atual, painel de energia (tensão da bateria, corrente e potência do motor, servos e Raspberry Pi com indicadores coloridos por faixa de operação), temperatura do motor e eletrônica, dados brutos e físicos do sensor BMI160, forças G calculadas, velocidade estimada e componentes do cálculo de force feedback. A coluna esquerda também exibe métricas de sistema do Raspberry Pi (uso de CPU, temperatura, memória RAM, disco e taxa de transferência de rede) e do cliente PC (CPU, memória e rede), o que permite acompanhar o estado de ambos os dispositivos durante a operação. A coluna direita exibe o vídeo da câmera em tempo real, filtros de processamento de imagem e gráficos de telemetria F1.
+O topo exibe o vídeo da câmera em tempo real com controles de filtros de imagem. A decodificação \gls{MJPEG} é feita por OpenCV e a renderização no canvas Tkinter por Pillow.
 
-O painel de instrumentos exibe a porcentagem dentro da zona IDEAL de eficiência, marcha atual, posição do acelerador e velocidade estimada, atualizados em tempo real conforme dados recebidos do veículo e simulador. A visualização de vídeo utiliza OpenCV para decodificação \gls{MJPEG} e Pillow para renderização no canvas Tkinter.
+A coluna esquerda empilha verticalmente: status da conexão \gls{UDP} (FPS, tamanho de frame, pacotes), status do G923, painel de instrumentos (zona de eficiência, marcha e velocidade), monitoramento de energia (tensão da bateria, corrente e potência do motor, servos e Raspberry Pi), métricas de sistema do cliente PC e do Raspberry Pi (CPU, temperatura, memória, disco e rede), dados brutos e físicos do BMI160, componentes do force feedback e console de log.
+
+A coluna direita contém os gráficos de telemetria F1 em tempo real, sliders de controle do veículo (acelerador, freio e direção), ajuste de balanceamento de freio e indicadores de controle por teclado. Os gráficos são renderizados pela biblioteca Matplotlib integrada ao Tkinter, em três subplots: velocidade, pedais (acelerador e freio sobrepostos) e forças G (lateral e frontal). Os dados recebidos do veículo são acumulados em buffers circulares de até 500 pontos, e os gráficos exibem uma janela deslizante dos últimos 30 segundos.
 
 \subsection{Filtros de Processamento Digital de Imagens}
 \label{subsec:filtros-pdi}
 
-O cliente implementa um sistema de filtros de \gls{PDI} combináveis, permitindo ao operador ativar múltiplos filtros simultaneamente via checkboxes na interface. Os filtros são aplicados em ordem otimizada para melhorar a qualidade visual do vídeo recebido do veículo.
+O cliente implementa filtros de \gls{PDI} combináveis. O operador pode ativar múltiplos filtros simultaneamente via checkboxes na interface. Os filtros também servem para avaliar o impacto do processamento sobre a taxa de quadros. Cada filtro adiciona latência ao pipeline de vídeo, e ao ativar combinações mais pesadas é possível observar a queda de FPS diretamente na interface. Isso permite identificar até onde o processamento pode ir sem prejudicar a operação.
 
 A \autoref{tab:filtros-pdi} apresenta os filtros disponíveis no sistema, baseados em técnicas clássicas de processamento de imagens conforme \citeonline{gonzalez2010processamento}.
 
@@ -802,20 +804,16 @@ O sistema suporta aceleração por \gls{GPU} NVIDIA via biblioteca CuPy quando d
 \subsection{Arquitetura Multi-Thread e Recepção de Dados}
 \label{subsec:recepcao-cliente}
 
-O cliente PC implementa uma arquitetura multi-thread para garantir processamento paralelo e responsividade da interface gráfica. A separação em threads especializadas permite que operações de I/O (rede e evdev) não bloqueiem a renderização de vídeo ou a atualização da interface.
+Sem separação em threads, a operação mais lenta (decodificação de vídeo, leitura de rede ou cálculo de force feedback) bloquearia todas as outras, congelando a interface durante o processamento. Por isso o cliente separa operações de I/O (rede e evdev) da interface gráfica através de threads especializadas. A thread principal executa exclusivamente o loop de eventos do Tkinter, e qualquer trabalho pesado ocorre em threads secundárias. A thread de rede recebe pacotes \gls{UDP} do veículo na porta 9999 (frames \gls{MJPEG} a 60Hz). A thread de sensores recebe dados do BMI160 na porta \gls{UDP} 9997 a 100Hz. A thread do G923 lê eixos e botões do volante via evdev. Uma thread de envio transmite comandos ao veículo a 100Hz.
 
-A thread principal executa o loop de eventos do Tkinter, responsável pela renderização da interface gráfica e atualização dos widgets em tempo real. A thread de rede opera como daemon e recebe pacotes \gls{UDP} do veículo na porta 9999, decodificando frames \gls{MJPEG} e dados de telemetria consolidados a aproximadamente 60Hz. A thread do G923 recebe dados dos eixos do simulador Logitech G923 via evdev, processando comandos de acelerador, freio, direção e troca de marchas em tempo real. Adicionalmente, uma thread de sensores rápidos recebe exclusivamente dados do BMI160 na porta \gls{UDP} 9997 a 100Hz, permitindo cálculo de force feedback com baixa latência.
-
-A comunicação entre threads utiliza filas \gls{threadsafe} (\texttt{queue.Queue}) para transferência de dados à thread principal. Filas separadas são mantidas para logs, status de conexão, dados de sensores e frames de vídeo. A thread principal consome essas filas periodicamente via callbacks do Tkinter (\texttt{root.after()}), garantindo que atualizações de interface ocorram apenas na thread principal conforme exigido pelo toolkit gráfico.
-
-O filtro por \gls{IP} garante que apenas pacotes do veículo configurado sejam processados, ignorando tráfego de rede não relacionado. Essa arquitetura permite que o cliente mantenha taxa de atualização de interface de 60Hz para vídeo, 100Hz para dados de sensores e resposta imediata a comandos do operador, mesmo durante picos de processamento de filtros de imagem ou cálculos de force feedback.
+A comunicação entre threads usa filas \gls{threadsafe} (\texttt{queue.Queue}) separadas para logs, status, sensores e vídeo. A thread principal consome essas filas via callbacks do Tkinter (\texttt{root.after()}), que é o mecanismo exigido pelo toolkit para atualizações de interface. Pacotes são filtrados por \gls{IP} para ignorar tráfego não relacionado ao veículo.
 
 \subsection{Algoritmos de Cálculo de Force Feedback}
 \label{subsec:algoritmos-ff-cliente}
 
 Os algoritmos de force feedback são executados no cliente, utilizando dados do sensor BMI160 recebidos do veículo para calcular intensidade e direção da força a ser aplicada no volante.
 
-Embora algoritmos meta-heurísticos como LHHO e TLBO demonstrem vantagens conforme \citeonline{ayinla2024optimal}, optou-se por implementação direta dos algoritmos de force feedback devido às limitações computacionais e à necessidade de resposta em tempo real inferior a 5ms. A arquitetura do pipeline de force feedback foi apresentada na \autoref{fig:ff-pipeline}. As subseções a seguir detalham os algoritmos de cálculo de cada efeito.
+A arquitetura do pipeline foi apresentada na \autoref{fig:ff-pipeline}. As subseções a seguir detalham os algoritmos de cada efeito.
 
 \subsubsection{Cálculo das Forças G}
 
@@ -834,9 +832,7 @@ G_{lateral} = \frac{acelera\text{ç}\tilde{a}o_{linear\_Y}}{9.81}
 \subsubsection{Algoritmos de Controle de Force Feedback}
 \label{subsubsec:algoritmos-force-feedback}
 
-O sistema utiliza os dados de aceleração linear do sensor BMI160 para calcular as forças G experimentadas pelo veículo. O acelerômetro fornece diretamente os valores de aceleração nos três eixos, permitindo cálculo preciso das forças G frontal (eixo X) e lateral (eixo Y). Essa abordagem segue o trabalho de \citeonline{dreger2024evaluation}, que demonstraram que feedback em tempo real melhora significativamente a precisão do operador.
-
-O \autoref{alg:calcular-forcas-g} apresenta a implementação do cálculo de forças G. A \autoref{fig:ff-forcas-g} ilustra graficamente a relação entre aceleração e força G calculada.
+O \autoref{alg:calcular-forcas-g} apresenta o cálculo de forças G a partir dos dados do BMI160. A \autoref{fig:ff-forcas-g} ilustra a relação entre aceleração e força G calculada.
 
 \begin{figure}[h!]
 	\centering
@@ -940,7 +936,61 @@ A sensibilidade (padrão 75\%) controla o coeficiente do efeito \texttt{FF\_SPRI
 
 \subsubsection{Efeitos Dinâmicos de Vibração}
 
-Além do \texttt{FF\_CONSTANT} para forças direcionais, o sistema implementa efeitos de vibração que reproduzem a textura da pista, impactos e o funcionamento do motor. O efeito \texttt{FF\_RUMBLE} combina oito componentes sensoriais distribuídos nos dois motores de vibração do G923, conforme ilustrado na \autoref{fig:ff-rumble}: o motor forte (\textit{strong}) reproduz impactos bruscos como buracos, frenagens e colisões, enquanto o motor fraco (\textit{weak}) reproduz a textura contínua da pista e vibração do motor. Os componentes incluem vibração proporcional ao acelerador, desvio vertical da gravidade no acelerômetro (detecção de \textit{bumps}), impacto frontal, derivada temporal da aceleração (\textit{jerk}), mudanças bruscas nos controles do operador, rugosidade calculada pelo desvio padrão do acelerômetro vertical, estresse lateral em curvas e vibração contínua de frenagem. Cada componente possui um coeficiente de contribuição específico para cada motor, e a saída combinada é suavizada por filtro EMA com 60\% de peso para o valor novo.
+Antes de calcular os efeitos dinâmicos, o sistema mantém um buffer circular de 20 amostras ($\approx$333ms a 60Hz) com os valores de aceleração, giroscópio e controles do operador. Esse buffer alimenta dois cálculos auxiliares usados pelo \texttt{FF\_RUMBLE}:
+
+O \textit{jerk} é a derivada temporal de um sensor, calculada como a diferença entre a amostra mais recente e a mais antiga dividida pelo intervalo de tempo:
+
+\begin{equation}
+\label{eq:jerk}
+jerk = \frac{amostra_{atual} - amostra_{n-5}}{t_{atual} - t_{n-5}}
+\end{equation}
+
+\noindent O jerk é calculado para cinco sinais: aceleração frontal (partida/frenagem brusca), aceleração vertical (\textit{bumps}), acelerador, freio e direção. Valores altos indicam eventos bruscos.
+
+A rugosidade da pista é estimada pelo desvio padrão das últimas 10 amostras do acelerômetro vertical ($a_z$):
+
+\begin{equation}
+\label{eq:rugosidade}
+\sigma_{pista} = \sqrt{\frac{1}{N}\sum_{i=1}^{N}(a_{z_i} - \bar{a}_z)^2}
+\end{equation}
+
+\noindent Pista lisa produz $\sigma \approx 0{,}1$~m/s², pista irregular produz $\sigma > 1{,}0$~m/s².
+
+O sistema também detecta o contexto de condução para condicionar os efeitos: o veículo é considerado ativo quando há acelerador acima de 2\%, freio acima de 2\%, força G lateral acima de 0,12g, força G frontal acima de 0,12g ou velocidade angular acima de 2,5°/s. Quando nenhuma dessas condições é atendida, os efeitos dinâmicos decaem rapidamente para evitar \textit{feedback} residual.
+
+O efeito \texttt{FF\_RUMBLE} distribui oito componentes sensoriais entre os dois motores de vibração do G923, conforme ilustrado na \autoref{fig:ff-rumble}. O motor forte (\textit{strong}) reproduz impactos bruscos e o motor fraco (\textit{weak}) reproduz textura contínua. A \autoref{tab:rumble-componentes} detalha cada componente com seu cálculo e peso na soma ponderada de cada motor.
+
+\begin{table}[!h]
+\captionsetup{width=16cm}
+\Caption{\label{tab:rumble-componentes} Componentes do FF\_RUMBLE com cálculos e pesos por motor}
+\IBGEtab{}{%
+	\begin{tabular}{p{3cm}p{5cm}cc}
+		\toprule
+		Componente & Cálculo & Peso strong & Peso weak \\
+		\midrule
+		Motor & $throttle / 100 \times 60$ & 0,5 & 0,7 \\
+		\midrule
+		Bumps & $\min(|a_z - 9{,}81| / 9{,}81 \times 400,\; 100)$ & 0,3 & 0,3 \\
+		\midrule
+		Impacto frontal & $\min(|G_{frontal}| \times 200,\; 100)$ & 0,3 & --- \\
+		\midrule
+		Jerk BMI160 & $\min(|jerk| \times 8,\; 80)$ & 0,2 & --- \\
+		\midrule
+		Jerk controles & throttle/brake/steering burst & 1,0 & --- \\
+		\midrule
+		Rugosidade & $\min(\sigma_{pista} \times 80,\; 70)$ & --- & 1,0 \\
+		\midrule
+		Stress lateral & $\min(|G_{lateral}| \times 150,\; 80)$ & 0,3 & 0,4 \\
+		\midrule
+		Frenagem & $\min(brake / 100 \times 70,\; 70)$ & 0,5 & 0,3 \\
+		\bottomrule
+	\end{tabular}%
+}{%
+\Fonte{elaborado pelo autor.}%
+}
+\end{table}
+
+\noindent A saída de cada motor é limitada a 100\% e suavizada por filtro EMA com 60\% de peso para o valor novo.
 
 \begin{figure}[h!]
 	\centering
@@ -956,16 +1006,36 @@ O efeito \texttt{FF\_PERIODIC} gera uma onda senoidal cuja frequência é propor
 	\Caption{\label{fig:ff-periodic-inertia} FF\_PERIODIC (frequência e magnitude vs. acelerador) e FF\_INERTIA (peso do volante vs. velocidade)}
 \end{figure}
 
-O sistema implementa detecção de veículo parado: quando não há aceleração, frenagem nem movimento significativo, os efeitos dinâmicos (\texttt{FF\_CONSTANT}, \texttt{FF\_RUMBLE}) decaem rapidamente via multiplicadores de EMA reduzidos, o \texttt{FF\_PERIODIC} vai para 0\% e o \texttt{FF\_INERTIA} retorna ao mínimo de 5\%, evitando \textit{feedback} residual indesejado.
+Quando o veículo é detectado como parado (conforme os limiares descritos acima), o \texttt{FF\_CONSTANT} e \texttt{FF\_RUMBLE} decaem rapidamente, o \texttt{FF\_PERIODIC} vai para 0\% e o \texttt{FF\_INERTIA} retorna ao mínimo de 5\%.
 
 \subsubsection{Cálculo de Velocidade por Integração}
 
-A velocidade do veículo é estimada através da integração numérica da aceleração medida pelo sensor BMI160. Um fator de decaimento é aplicado para simular atrito e resistência do ar, conforme ilustrado na \autoref{fig:ff-velocidade}:
+O veículo não possui sensor de velocidade dedicado (encoder nas rodas ou GPS). A velocidade é estimada a partir dos dados de aceleração do BMI160, que já está no barramento \gls{I2C} para o sistema de force feedback.
+
+A relação entre aceleração e velocidade é dada pela definição cinemática $a = dv/dt$. Isolando $dv$:
 
 \begin{equation}
-\label{eq:velocidade-integracao}
-v(t) = v(t-1) + a \times \Delta t
+\label{eq:cinematica-base}
+dv = a \cdot dt
 \end{equation}
+
+\noindent Integrando ambos os lados para obter a velocidade:
+
+\begin{equation}
+\label{eq:velocidade-integral}
+v(t) = v(0) + \int_0^t a(\tau) \, d\tau
+\end{equation}
+
+\noindent Como o acelerômetro fornece amostras discretas a cada $\Delta t$, a integral é aproximada pelo método de Euler (ver \autoref{eq:metodo-euler}), substituindo $\int a \, d\tau$ por $a \cdot \Delta t$:
+
+\begin{equation}
+\label{eq:velocidade-euler}
+v(t) = v(t-1) + a \cdot \Delta t
+\end{equation}
+
+\noindent Essa é a mesma discretização usada no modelo do motor (\autoref{eq:euler-motor}), aplicada à relação cinemática em vez da equação diferencial do sistema de 1ª ordem. A diferença é que no motor o Euler resolve $\dot{y} = (K - y)/\tau$ (convergência a um alvo), enquanto aqui resolve $\dot{v} = a$ (acumulação livre).
+
+Essa abordagem introduz deriva ao longo do tempo, pois erros pequenos do acelerômetro se acumulam a cada integração. Para mitigar isso, três mecanismos são aplicados: um limiar de ruído que zera acelerações abaixo de 0,3~m/s² (evitando acúmulo de ruído em repouso), um fator de decaimento de 0,98 por iteração que simula atrito e puxa a velocidade para zero quando não há aceleração, e um limiar mínimo que zera velocidades abaixo de 0,1~m/s. A precisão não é comparável a um encoder, mas é suficiente para os gráficos de telemetria e o cálculo de inércia do force feedback. A \autoref{fig:ff-velocidade} ilustra o processo. O decaimento é aplicado após a integração:
 
 \begin{equation}
 \label{eq:velocidade-decaimento}
@@ -1037,10 +1107,10 @@ O sistema de telemetria exibe gráficos em tempo real com visual inspirado nas i
 	}
 \end{algorithm}
 
-\subsection{Sistema de Auto-Save e Exportação de Dados}
-\label{subsec:autosave-cliente}
+\section{Armazenamento de Logs e Validação}
+\label{sec:logs-validacao}
 
-O sistema implementa salvamento automático periódico para garantir a preservação dos dados coletados durante as sessões de operação. A cada 20 segundos, o sistema verifica se há quantidade suficiente de dados novos e, em caso positivo, exporta logs, dados de sensores e telemetria para arquivos no diretório \texttt{exports/auto/}. O formato Pickle (binário nativo do Python) foi escolhido por oferecer performance 5 a 10 vezes superior ao CSV para \gls{serializacao} de estruturas de dados complexas. Após cada salvamento, os buffers são limpos para evitar duplicação de dados em exportações subsequentes. O \autoref{alg:auto-save} apresenta a lógica de verificação e salvamento.
+O sistema implementa salvamento automático periódico dos dados coletados durante as sessões de operação. A cada 20 segundos, o sistema verifica se há dados novos suficientes e exporta logs, dados de sensores e telemetria para arquivos no diretório \texttt{exports/auto/}. O formato Pickle (binário nativo do Python) foi escolhido por oferecer performance 5 a 10 vezes superior ao CSV para \gls{serializacao} de estruturas de dados complexas. Após cada salvamento, os buffers são limpos para evitar duplicação. O \autoref{alg:auto-save} apresenta a lógica de verificação e salvamento.
 
 \begin{algorithm}[h!]
 	\SetSpacedAlgorithm
@@ -1081,29 +1151,24 @@ O sistema implementa salvamento automático periódico para garantir a preserva�
 	}
 \end{algorithm}
 
-\section{Armazenamento de Logs e Validação}
-\label{sec:logs-validacao}
-
-Os dados coletados pelo auto-save permitem validação entre sessões e análise posterior, de forma similar às equipes de Fórmula 1 que utilizam dados de sessões para otimização de desempenho.
-
 \subsection{Formatos de Armazenamento}
 \label{subsec:formatos-armazenamento}
 
-A seleção dos formatos de armazenamento considerou velocidade de serialização, tamanho dos arquivos e facilidade de processamento posterior. A \autoref{tab:formatos-armazenamento} apresenta os formatos utilizados para cada tipo de dado.
+A \autoref{tab:formatos-armazenamento} apresenta os formatos utilizados para cada tipo de dado.
 
 \begin{table}[!h]
 \captionsetup{width=16cm}
 \Caption{\label{tab:formatos-armazenamento} Formatos de armazenamento utilizados no sistema de auto-save}
 \IBGEtab{}{%
-	\begin{tabular}{p{3cm}p{2.5cm}p{4cm}p{5cm}}
+	\begin{tabular}{p{3cm}p{2.5cm}p{9cm}}
 		\toprule
-		Tipo de Dado & Formato & Nomenclatura & Justificativa \\
+		Tipo de Dado & Formato & Justificativa \\
 		\midrule \midrule
-		Logs do console & Texto (.txt) & \texttt{logs\_YYYYMMDD\_HHMMSS.txt} & Legibilidade humana, facilidade de inspeção \\
+		Logs do console & Texto (.txt) & Legibilidade humana para inspeção durante depuração \\
 		\midrule
-		Sensores brutos & Pickle (.pkl) & \texttt{sensors\_YYYYMMDD\_HHMMSS.pkl} & Serialização binária eficiente \\
+		Sensores brutos & Pickle (.pkl) & Serialização binária eficiente de dicionários com listas numéricas \\
 		\midrule
-		Telemetria & Pickle (.pkl) & \texttt{telemetry\_YYYYMMDD\_HHMMSS.pkl} & Preservação de estruturas Python complexas \\
+		Telemetria & Pickle (.pkl) & Preservação de estruturas Python com metadados de sessão \\
 		\bottomrule
 	\end{tabular}%
 }{%
@@ -1111,7 +1176,7 @@ A seleção dos formatos de armazenamento considerou velocidade de serializaçã
 }
 \end{table}
 
-O formato Pickle foi escolhido para dados numéricos por oferecer serialização binária nativa do Python, preservando estruturas complexas contendo listas e dicionários aninhados. Embora o Pickle não seja legível por humanos, a análise dos dados é realizada através de scripts Python que reconstroem as estruturas originais. Os arquivos de log mantêm formato texto para permitir inspeção manual rápida durante depuração.
+Os arquivos de log mantêm formato texto para permitir inspeção manual durante depuração.
 
 \subsection{Estrutura dos Dados Armazenados}
 \label{subsec:estrutura-dados-armazenados}
@@ -1176,19 +1241,14 @@ Os dados armazenados pelo sistema de auto-save permitem a extração de métrica
 }
 \end{table}
 
-O script \texttt{analyze\_session.py} calcula automaticamente as estatísticas principais a partir dos dados armazenados. Para métricas de comunicação, o intervalo entre timestamps consecutivos permite estimar a latência efetiva do sistema, enquanto o desvio padrão desses intervalos caracteriza o jitter. A análise de logs por expressões regulares identifica eventos de erro, permitindo cálculo da taxa de perda de pacotes.
+Os dados armazenados podem ser processados por scripts personalizados para extrair estatísticas, identificar padrões de comportamento e comparar sessões. Por exemplo, o intervalo entre timestamps consecutivos permite estimar a latência efetiva, o desvio padrão desses intervalos caracteriza o jitter, e a análise de logs identifica eventos de erro para cálculo da taxa de perda de pacotes.
 
-Para validação estatística dos resultados, o volume de dados coletado pelo sistema de auto-save garante robustez. Considerando taxa de amostragem de 100Hz para sensores e sessões típicas de 15 minutos, cada sessão gera aproximadamente 90.000 pontos de telemetria. Esse volume é muito superior ao mínimo de 384 amostras requerido para população infinita com 95\% de confiança e margem de erro de 5\%, resultando em poder estatístico superior a 99\% para detectar diferenças com tamanho de efeito médio.
+Com taxa de amostragem de 100Hz para sensores e sessões de 25 minutos (duração adotada para os testes internos e externos), cada sessão gera aproximadamente 150.000 pontos de telemetria.
 
-\section{Reprodutibilidade e Transparência Experimental}
-\label{sec:reprodutibilidade-transparencia}
+\subsection{Reprodutibilidade e Código Fonte}
+\label{subsec:reprodutibilidade-codigo}
 
-Para permitir a replicação dos experimentos, este trabalho segue as diretrizes de \citeonline{graf2024monitoring} para avaliação de desempenho de sistemas wireless, documentando configurações, código fonte e dados utilizados.
-
-\subsection{Disponibilização de Código Fonte e Datasets}
-\label{subsec:codigo-datasets}
-
-Todo o código fonte desenvolvido para este projeto está disponibilizado publicamente no repositório GitHub sob licença MIT, acessível em \url{https://github.com/inacio-dev/tcc}. O repositório contém a estrutura completa do projeto, organizada conforme a \autoref{tab:estrutura-repositorio}.
+Para permitir a replicação dos experimentos conforme as diretrizes de \citeonline{graf2024monitoring}, o código fonte está disponível no GitHub sob licença MIT em \url{https://github.com/inacio-dev/tcc}. A \autoref{tab:estrutura-repositorio} apresenta a organização do repositório.
 
 \begin{table}[!h]
 \captionsetup{width=16cm}
@@ -1218,12 +1278,5 @@ Todo o código fonte desenvolvido para este projeto está disponibilizado public
 }
 \end{table}
 
-Conforme demonstrado por \citeonline{bobrovsky2023development}, a transparência no desenvolvimento de sistemas embarcados facilita a reprodução e melhoria contínua das soluções propostas. Os datasets coletados durante as sessões experimentais, totalizando mais de 90.000 pontos de telemetria, estão disponíveis no diretório \texttt{exports/auto/} do repositório em formato Pickle, permitindo análise direta com o script \texttt{analyze\_session.py} incluso no projeto.
-
-\subsection{Protocolo Detalhado de Replicação}
-\label{subsec:protocolo-replicacao}
-
-As especificações de hardware incluem números de modelo exatos, versões de firmware e configurações específicas de cada componente utilizado no sistema. Para o Raspberry Pi 4, documenta-se a versão do Raspberry Pi OS (Bullseye 64-bit), kernel utilizado (5.15.84-v8+) e configurações específicas do arquivo config.txt para otimização da câmera OV5647.
-
-As configurações de rede wireless seguem padrões reproduzíveis, especificando canal WiFi (5~GHz), tipo de roteador utilizado (TP-Link Deco M4 V4, sistema mesh Wi-Fi 5 AC1200 Dual-Band com duas unidades interligadas via cabo Ethernet Gigabit, potência $<$23~dBm em 5~GHz, cobertura de até 350~m²) e posicionamento físico dos equipamentos. As condições ambientais durante os experimentos são registradas detalhadamente, incluindo temperatura ambiente (22±2°C), umidade relativa (45±5\%), interferências eletromagnéticas medidas e layout físico do ambiente de teste.
+Os datasets coletados durante as sessões experimentais estão no diretório \texttt{exports/auto/} em formato Pickle, e o diretório \texttt{scripts/} contém rotinas de análise para processamento desses dados. As especificações de hardware estão nas tabelas \autoref{tab:componentes-veiculo} e \autoref{tab:componentes-cliente}. O Raspberry Pi 4 executa Raspberry Pi OS Bullseye 64-bit (kernel 5.15.84-v8+), e a rede wireless opera em 5~GHz via roteador TP-Link Deco M4 V4 (Wi-Fi 5 AC1200). Os testes foram realizados em dois ambientes: interno, com o veículo estacionário em sala de 5m $\times$ 8m a 27$\pm$2°C para validação de comunicação e telemetria; e externo, em área de aproximadamente 700~m² para operação do veículo em movimento.
 
