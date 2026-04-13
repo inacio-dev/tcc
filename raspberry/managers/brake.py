@@ -274,7 +274,7 @@ class BrakeManager:
 
                 # Recalcula distribuição se freios estão aplicados
                 if self.total_brake_input > 0:
-                    self._calculate_brake_distribution(self.total_brake_input)
+                    self._calculate_brake_angles(self.total_brake_input)
 
     def apply_brake(self, brake_input: float):
         """
