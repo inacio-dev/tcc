@@ -20,14 +20,20 @@ import os
 
 GEAR_PARAMS = {
     # gear: (limiter, ideal_low, ideal_high, τ_base)
-    1: (20,   0,  15,  2.0),
-    2: (40,  12,  30,  4.0),
-    3: (60,  25,  50,  6.0),
-    4: (80,  45,  70,  8.0),
-    5: (100, 65,  95, 10.0),
+    # Teto absoluto de 50% de PWM para proteger o diferencial.
+    1: (10,   0,   7,  2.0),
+    2: (20,   6,  15,  4.0),
+    3: (30,  12,  25,  6.0),
+    4: (40,  22,  35,  8.0),
+    5: (50,  32,  48, 10.0),
 }
 
 TAU_MULTIPLIER = {"IDEAL": 1.0, "SUBOPTIMAL": 10.0, "POOR": 25.0}
+
+# Limite máximo do eixo X para gráficos de PWM. O motor é limitado a 50% de
+# duty cycle (limiter da 5ª marcha), então não faz sentido estender o eixo
+# até 100%. Mantém 55% como margem visual.
+MAX_PWM_DISPLAY = 55
 
 ZONE_COLORS = {"IDEAL": "#2ecc71", "SUBOPTIMAL": "#f39c12", "POOR": "#e74c3c"}
 GEAR_COLORS = ["#3498db", "#2ecc71", "#f39c12", "#e67e22", "#e74c3c"]
@@ -110,7 +116,7 @@ def plot_zones():
     ax.set_yticklabels(["1ª", "2ª", "3ª", "4ª", "5ª"])
     ax.set_xlabel("PWM do Motor (%)")
     ax.set_title("Zonas de Eficiência por Marcha — Sistema de 1ª Ordem")
-    ax.set_xlim(0, 105)
+    ax.set_xlim(0, MAX_PWM_DISPLAY)
 
     legend_patches = [
         mpatches.Patch(color=ZONE_COLORS["POOR"], label="POOR (τ × 25)"),
@@ -143,6 +149,7 @@ def plot_tau():
     ax.legend(fontsize=8)
     ax.set_yscale('log')
     ax.set_ylim(1, 300)
+    ax.set_xlim(0, MAX_PWM_DISPLAY)
     ax.grid(True, alpha=0.3)
 
     fig.tight_layout()
@@ -306,7 +313,7 @@ def plot_tachometer():
     ax.set_ylabel("Conta-giros (%)")
     ax.set_title("Mapeamento Conta-giros por Marcha (0% = ideal_low, 100% = ideal_high)")
     ax.legend(fontsize=8, loc='upper left')
-    ax.set_xlim(0, 105)
+    ax.set_xlim(0, MAX_PWM_DISPLAY)
     ax.set_ylim(-5, 110)
     ax.grid(True, alpha=0.3)
 

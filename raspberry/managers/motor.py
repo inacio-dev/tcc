@@ -262,14 +262,18 @@ class MotorManager:
     # Zonas ideais se sobrepõem: ideal_low(g+1) < ideal_high(g)
     # No ponto de troca, o PWM já está na zona ideal da próxima marcha.
     # 1ª marcha começa em 0% (sem zona morta).
+    #
+    # Teto absoluto do motor limitado a 50% de duty cycle para proteger o
+    # diferencial do veículo. Mesmo com throttle 100% na 5ª marcha, o PWM
+    # real enviado ao BTS7960 nunca passa de 50%.
 
     GEAR_PARAMS = {
         # gear: (limiter, ideal_low, ideal_high, τ_base)
-        1: (20,   0,  15,  2.0),  # 1ª: ideal 0-15%
-        2: (40,  12,  30,  4.0),  # 2ª: ideal 12-30% (sobrepõe 1ª em 12-15%)
-        3: (60,  25,  50,  6.0),  # 3ª: ideal 25-50% (sobrepõe 2ª em 25-30%)
-        4: (80,  45,  70,  8.0),  # 4ª: ideal 45-70% (sobrepõe 3ª em 45-50%)
-        5: (100, 65,  95, 10.0),  # 5ª: ideal 65-95% (sobrepõe 4ª em 65-70%)
+        1: (10,   0,   7,  2.0),  # 1ª: ideal 0-7%
+        2: (20,   6,  15,  4.0),  # 2ª: ideal 6-15% (sobrepõe 1ª em 6-7%)
+        3: (30,  12,  25,  6.0),  # 3ª: ideal 12-25% (sobrepõe 2ª em 12-15%)
+        4: (40,  22,  35,  8.0),  # 4ª: ideal 22-35% (sobrepõe 3ª em 22-25%)
+        5: (50,  32,  48, 10.0),  # 5ª: ideal 32-48% (sobrepõe 4ª em 32-35%)
     }
 
     # Multiplicadores de τ por zona (quanto maior, mais lento)
@@ -284,12 +288,12 @@ class MotorManager:
         """
         Classifica a zona de eficiência com base no PWM atual e marcha.
 
-        Zonas por marcha (exemplo 3ª, limiter=60%, ideal 25-50%):
-          POOR:       0% — 19%  (muito abaixo do ideal)
-          SUBOPTIMAL: 19% — 25% (abaixo do ideal, transição)
-          IDEAL:      25% — 50% (faixa eficiente)
-          SUBOPTIMAL: 50% — 56% (acima do ideal, deveria subir marcha)
-          POOR:       > 56%     (acima do limiter)
+        Zonas por marcha (exemplo 3ª, limiter=30%, ideal 12-25%):
+          POOR:       0% — 8.75%  (muito abaixo do ideal)
+          SUBOPTIMAL: 8.75% — 12% (abaixo do ideal, transição)
+          IDEAL:      12% — 25%   (faixa eficiente)
+          SUBOPTIMAL: 25% — 28.25% (acima do ideal, deveria subir marcha)
+          POOR:       > 28.25%    (acima do limiter)
         """
         _, ideal_low, ideal_high, _ = self.GEAR_PARAMS[self.current_gear]
         limiter = self.GEAR_PARAMS[self.current_gear][0]

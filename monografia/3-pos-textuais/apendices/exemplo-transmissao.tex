@@ -8,8 +8,8 @@ Para tornar concretos os cálculos descritos na \autoref{subsec:propulsao-direca
 Da \autoref{tab:gear-params}, os parâmetros da 1ª marcha são:
 
 \begin{itemize}
-	\item $K$ (limitador) = 20\% --- o PWM máximo que a 1ª marcha permite
-	\item ideal\_low = 0\%, ideal\_high = 15\% --- faixa onde o motor opera com eficiência
+	\item $K$ (limitador) = 10\% --- o PWM máximo que a 1ª marcha permite
+	\item ideal\_low = 0\%, ideal\_high = 7\% --- faixa onde o motor opera com eficiência
 	\item $\tau_{base}$ = 2,0~s --- constante de tempo na zona IDEAL
 \end{itemize}
 
@@ -18,26 +18,26 @@ Da \autoref{tab:gear-params}, os parâmetros da 1ª marcha são:
 O operador pressiona 60\% do acelerador. O software converte esse valor para o PWM alvo:
 
 \begin{equation*}
-	\text{target\_pwm} = \frac{\text{throttle}}{100} \times K = \frac{60}{100} \times 20 = 12{,}0\%
+	\text{target\_pwm} = \frac{\text{throttle}}{100} \times K = \frac{60}{100} \times 10 = 6{,}0\%
 \end{equation*}
 
-O valor 12\% cai dentro da zona IDEAL (0--15\%). Como a zona é classificada pelo PWM atual do motor (não pelo target), e o PWM vai de 0\% até 12\% neste exemplo, ele permanece na zona IDEAL durante todo o trajeto. A 1ª marcha é adequada para esse nível de acelerador.
+O valor 6\% cai dentro da zona IDEAL (0--7\%). Como a zona é classificada pelo PWM atual do motor (não pelo target), e o PWM vai de 0\% até 6\% neste exemplo, ele permanece na zona IDEAL durante todo o trajeto. A 1ª marcha é adequada para esse nível de acelerador.
 
 \section*{Classificação das zonas de eficiência}
 
 O software calcula a margem da zona SUBOPTIMAL como 25\% da largura da zona IDEAL, com mínimo de 2\%:
 
 \begin{equation*}
-	\text{margem} = \max(\text{ideal\_width} \times 0{,}25,\; 2{,}0) = \max((15 - 0) \times 0{,}25,\; 2{,}0) = \max(3{,}75,\; 2{,}0) = 3{,}75\%
+	\text{margem} = \max(\text{ideal\_width} \times 0{,}25,\; 2{,}0) = \max((7 - 0) \times 0{,}25,\; 2{,}0) = \max(1{,}75,\; 2{,}0) = 2{,}0\%
 \end{equation*}
 
 Os limites das zonas ficam:
 
 \begin{equation*}
-	\text{sub\_low} = \max(0 - 3{,}75,\; 0) = 0\% \qquad \text{sub\_high} = \min(15 + 3{,}75,\; 20) = 18{,}75\%
+	\text{sub\_low} = \max(0 - 2,\; 0) = 0\% \qquad \text{sub\_high} = \min(7 + 2,\; 10) = 9\%
 \end{equation*}
 
-Na 1ª marcha, a zona SUBOPTIMAL esquerda é inexistente porque ideal\_low já é 0\% (início da faixa operacional). Só existem SUBOPTIMAL à direita (15--18,75\%) e POOR (18,75--20\%) acima da zona IDEAL.
+Na 1ª marcha, a zona SUBOPTIMAL esquerda é inexistente porque ideal\_low já é 0\% (início da faixa operacional). Só existem SUBOPTIMAL à direita (7--9\%) e POOR (9--10\%) acima da zona IDEAL.
 
 O mapa completo da 1ª marcha é:
 
@@ -49,30 +49,30 @@ O mapa completo da 1ª marcha é:
 		\toprule
 		Faixa de PWM & Zona & $M_{zona}$ & $\tau_{eff} = \tau_{base} \times M_{zona}$ \\
 		\midrule \midrule
-		0\% a 15\% & IDEAL & 1,0 & $2{,}0 \times 1 = 2{,}0$~s \\
+		0\% a 7\% & IDEAL & 1,0 & $2{,}0 \times 1 = 2{,}0$~s \\
 		\midrule
-		15\% a 18,75\% & SUBOPTIMAL & 10,0 & $2{,}0 \times 10 = 20{,}0$~s \\
+		7\% a 9\% & SUBOPTIMAL & 10,0 & $2{,}0 \times 10 = 20{,}0$~s \\
 		\midrule
-		18,75\% a 20\% & POOR & 25,0 & $2{,}0 \times 25 = 50{,}0$~s \\
+		9\% a 10\% & POOR & 25,0 & $2{,}0 \times 25 = 50{,}0$~s \\
 		\bottomrule
 	\end{tabular}%
 }{%
 \Fonte{elaborado pelo autor.}%
-\Nota{Na 1ª marcha, a zona IDEAL começa em 0\%, então não há zonas SUBOPTIMAL nem POOR abaixo da zona IDEAL. A faixa operacional cobre continuamente 0--20\%.}%
+\Nota{Na 1ª marcha, a zona IDEAL começa em 0\%, então não há zonas SUBOPTIMAL nem POOR abaixo da zona IDEAL. A faixa operacional cobre continuamente 0--10\%.}%
 }
 \end{table}
 
 Na zona IDEAL, o motor responde com $\tau_{eff} = 2$~s. Fora dela, o multiplicador $M_{zona}$ torna a resposta 10 a 25 vezes mais lenta. O efeito prático é que o motor ``engasga'' quando a marcha não é a certa para a faixa de PWM, forçando o operador a trocar.
 
-\section*{Aceleração na zona IDEAL (0\% a 12\%)}
+\section*{Aceleração na zona IDEAL (0\% a 6\%)}
 
-Com PWM = 0\% e target = 12\%, a zona é IDEAL e $\tau_{eff} = 2{,}0$~s. O software aplica a equação diferencial de 1ª ordem via integração de Euler (conforme \autoref{eq:ode-motor}):
+Com PWM = 0\% e target = 6\%, a zona é IDEAL e $\tau_{eff} = 2{,}0$~s. O software aplica a equação diferencial de 1ª ordem via integração de Euler (conforme \autoref{eq:ode-motor}):
 
 \begin{equation*}
-	\Delta y = \frac{K - y}{\tau_{eff}} \times \Delta t = \frac{12{,}0 - \text{PWM}}{2{,}0} \times 0{,}01
+	\Delta y = \frac{K - y}{\tau_{eff}} \times \Delta t = \frac{6{,}0 - \text{PWM}}{2{,}0} \times 0{,}01
 \end{equation*}
 
-A cada iteração, o ``erro'' ($12{,}0 - \text{PWM}$) diminui, e o passo fica menor. A \autoref{tab:iteracoes-euler} mostra algumas iterações.
+A cada iteração, o ``erro'' ($6{,}0 - \text{PWM}$) diminui, e o passo fica menor. A \autoref{tab:iteracoes-euler} mostra algumas iterações.
 
 \begin{table}[!h]
 \captionsetup{width=16cm}
@@ -80,19 +80,19 @@ A cada iteração, o ``erro'' ($12{,}0 - \text{PWM}$) diminui, e o passo fica me
 \IBGEtab{}{%
 	\begin{tabular}{ccccc}
 		\toprule
-		Tempo (s) & PWM (\%) & Erro (12,0 $-$ PWM) & $\tau_{eff}$ (s) & $\Delta y$ (\%) \\
+		Tempo (s) & PWM (\%) & Erro (6,0 $-$ PWM) & $\tau_{eff}$ (s) & $\Delta y$ (\%) \\
 		\midrule \midrule
-		0,00 & 0,000 & 12,000 & 2,0 & 0,0600 \\
+		0,00 & 0,000 & 6,000 & 2,0 & 0,0300 \\
 		\midrule
-		0,50 & 2,717 & 9,283 & 2,0 & 0,0464 \\
+		0,50 & 1,326 & 4,674 & 2,0 & 0,0234 \\
 		\midrule
-		1,00 & 4,721 & 7,279 & 2,0 & 0,0364 \\
+		1,00 & 2,361 & 3,639 & 2,0 & 0,0182 \\
 		\midrule
-		2,00 & 7,386 & 4,614 & 2,0 & 0,0231 \\
+		2,00 & 3,793 & 2,207 & 2,0 & 0,0110 \\
 		\midrule
-		4,00 & 10,374 & 1,626 & 2,0 & 0,0081 \\
+		4,00 & 5,188 & 0,812 & 2,0 & 0,0041 \\
 		\midrule
-		6,00 & 11,403 & 0,597 & 2,0 & 0,0030 \\
+		6,00 & 5,701 & 0,299 & 2,0 & 0,0015 \\
 		\bottomrule
 	\end{tabular}%
 }{%
@@ -103,7 +103,7 @@ A cada iteração, o ``erro'' ($12{,}0 - \text{PWM}$) diminui, e o passo fica me
 A solução analítica da \autoref{eq:resposta-degrau}, contada a partir de $t_0 = 0$~s quando PWM~=~0\%, é:
 
 \begin{equation*}
-	y(t) = 12{,}0 \times \left(1 - e^{-t/2{,}0}\right)
+	y(t) = 6{,}0 \times \left(1 - e^{-t/2{,}0}\right)
 \end{equation*}
 
 Os marcos temporais confirmam as propriedades do sistema de 1ª ordem \cite{franklin2013sistemas}:
@@ -114,15 +114,15 @@ Os marcos temporais confirmam as propriedades do sistema de 1ª ordem \cite{fran
 \IBGEtab{}{%
 	\begin{tabular}{cccc}
 		\toprule
-		Tempo & PWM (\%) & \% do caminho (0\% $\rightarrow$ 12\%) & Propriedade \\
+		Tempo & PWM (\%) & \% do caminho (0\% $\rightarrow$ 6\%) & Propriedade \\
 		\midrule \midrule
-		$1 \times \tau = 2{,}0$~s & 7,585 & 63,2\% & Definição de $\tau$ \\
+		$1 \times \tau = 2{,}0$~s & 3,793 & 63,2\% & Definição de $\tau$ \\
 		\midrule
-		$2 \times \tau = 4{,}0$~s & 10,376 & 86,5\% & --- \\
+		$2 \times \tau = 4{,}0$~s & 5,188 & 86,5\% & --- \\
 		\midrule
-		$3 \times \tau = 6{,}0$~s & 11,403 & 95,0\% & Critério de convergência \\
+		$3 \times \tau = 6{,}0$~s & 5,701 & 95,0\% & Critério de convergência \\
 		\midrule
-		$5 \times \tau = 10{,}0$~s & 11,919 & 99,3\% & Praticamente no valor final \\
+		$5 \times \tau = 10{,}0$~s & 5,960 & 99,3\% & Praticamente no valor final \\
 		\bottomrule
 	\end{tabular}%
 }{%
@@ -134,23 +134,23 @@ Tempo total para atingir 95\% do target: $3\tau$ = \textbf{6,0~s}.
 
 \section*{O que aconteceria na zona POOR?}
 
-Se o operador estivesse na 1ª marcha com PWM em 19\% (zona POOR, entre 18,75\% e 20\%), tentando forçar o motor além da zona IDEAL sem trocar para a 2ª marcha, o $\tau_{eff}$ seria:
+Se o operador estivesse na 1ª marcha com PWM em 9,5\% (zona POOR, entre 9\% e 10\%), tentando forçar o motor além da zona IDEAL sem trocar para a 2ª marcha, o $\tau_{eff}$ seria:
 
 \begin{equation*}
 	\tau_{eff} = 2{,}0 \times 25{,}0 = 50{,}0~\text{s}
 \end{equation*}
 
-Com target em 20\% (acelerador a 100\%) e PWM atual em 19\%, o erro é apenas 1\%. Mesmo assim, o passo de Euler seria:
+Com target em 10\% (acelerador a 100\%) e PWM atual em 9,5\%, o erro é apenas 0,5\%. Mesmo assim, o passo de Euler seria:
 
 \begin{equation*}
-	\Delta y = \frac{1{,}0}{50{,}0} \times 0{,}01 = 0{,}0002\%~\text{por iteração}
+	\Delta y = \frac{0{,}5}{50{,}0} \times 0{,}01 = 0{,}0001\%~\text{por iteração}
 \end{equation*}
 
-Para comparação, na zona IDEAL com o mesmo erro de 1\% o passo seria $1{,}0 / 2{,}0 \times 0{,}01 = 0{,}005\%$ por iteração, 25 vezes mais rápido. O motor quase não responde na zona POOR, sinalizando que o operador deveria ter trocado para a 2ª marcha (cuja zona IDEAL começa em 12\%, sobrepondo a 1ª marcha em 12--15\%).
+Para comparação, na zona IDEAL com o mesmo erro de 0,5\% o passo seria $0{,}5 / 2{,}0 \times 0{,}01 = 0{,}0025\%$ por iteração, 25 vezes mais rápido. O motor quase não responde na zona POOR, sinalizando que o operador deveria ter trocado para a 2ª marcha (cuja zona IDEAL começa em 6\%, sobrepondo a 1ª marcha em 6--7\%).
 
 \section*{Desaceleração: soltar o acelerador}
 
-Com PWM = 10\% e target caindo para 0\%, o software usa $\tau$ dividido por 3 (conforme descrito na \autoref{subsec:propulsao-direcao-veiculo}):
+Com PWM = 5\% e target caindo para 0\%, o software usa $\tau$ dividido por 3 (conforme descrito na \autoref{subsec:propulsao-direcao-veiculo}):
 
 \begin{equation*}
 	\tau_{decel} = \frac{\tau_{eff}}{3} = \frac{2{,}0}{3} = 0{,}667~\text{s}
@@ -159,7 +159,7 @@ Com PWM = 10\% e target caindo para 0\%, o software usa $\tau$ dividido por 3 (c
 O passo de Euler:
 
 \begin{equation*}
-	\Delta y = \frac{10{,}0}{0{,}667} \times 0{,}01 = 0{,}15\%~\text{por iteração}
+	\Delta y = \frac{5{,}0}{0{,}667} \times 0{,}01 = 0{,}075\%~\text{por iteração}
 \end{equation*}
 
 A desaceleração é 3 vezes mais rápida que a aceleração. O motor desacelera sensivelmente em cerca de 2~s.
@@ -177,7 +177,7 @@ Se além de soltar o acelerador o operador pisar no freio a 100\%:
 \end{equation*}
 
 \begin{equation*}
-	\Delta y = \frac{10{,}0}{0{,}0667} \times 0{,}01 = 1{,}5\%~\text{por iteração}
+	\Delta y = \frac{5{,}0}{0{,}0667} \times 0{,}01 = 0{,}75\%~\text{por iteração}
 \end{equation*}
 
 A desaceleração com freio máximo é \textbf{30 vezes mais rápida} que a aceleração normal. O motor para em aproximadamente 0,07~s.
