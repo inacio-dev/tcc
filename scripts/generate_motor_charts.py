@@ -18,21 +18,18 @@ import os
 # ==================== PARÂMETROS DO MOTOR ====================
 # Copiados de raspberry/managers/motor.py
 
-DEAD_ZONE_PWM = 6.0
-
 GEAR_PARAMS = {
     # gear: (limiter, ideal_low, ideal_high, τ_base)
-    1: (16,   6,  12,  2.0),
-    2: (30,  10,  25,  4.0),
-    3: (52,  22,  45,  6.0),
-    4: (78,  40,  70,  8.0),
-    5: (100, 64,  95, 10.0),
+    1: (20,   0,  15,  2.0),
+    2: (40,  12,  30,  4.0),
+    3: (60,  25,  50,  6.0),
+    4: (80,  45,  70,  8.0),
+    5: (100, 65,  95, 10.0),
 }
 
 TAU_MULTIPLIER = {"IDEAL": 1.0, "SUBOPTIMAL": 10.0, "POOR": 25.0}
 
 ZONE_COLORS = {"IDEAL": "#2ecc71", "SUBOPTIMAL": "#f39c12", "POOR": "#e74c3c"}
-DEAD_ZONE_COLOR = "#95a5a6"
 GEAR_COLORS = ["#3498db", "#2ecc71", "#f39c12", "#e67e22", "#e74c3c"]
 
 
@@ -40,7 +37,7 @@ def classify_zone(pwm, gear):
     limiter, ideal_low, ideal_high, _ = GEAR_PARAMS[gear]
     ideal_width = ideal_high - ideal_low
     sub_margin = max(ideal_width * 0.25, 2.0)
-    sub_low = ideal_low - sub_margin
+    sub_low = max(ideal_low - sub_margin, 0)
     sub_high = min(ideal_high + sub_margin, limiter)
 
     if ideal_low <= pwm <= ideal_high:
@@ -74,17 +71,14 @@ def plot_zones():
         limiter, ideal_low, ideal_high, tau = GEAR_PARAMS[g]
         ideal_width = ideal_high - ideal_low
         sub_margin = max(ideal_width * 0.25, 2.0)
-        sub_low = max(ideal_low - sub_margin, DEAD_ZONE_PWM)
+        sub_low = max(ideal_low - sub_margin, 0)
         sub_high = min(ideal_high + sub_margin, limiter)
 
         y = 6 - g  # Inverte para 1ª ficar em cima
 
-        # Zona morta
-        ax.barh(y, DEAD_ZONE_PWM, left=0, height=0.6, color=DEAD_ZONE_COLOR, alpha=0.7)
-
-        # POOR esquerda (da zona morta até sub_low)
-        if sub_low > DEAD_ZONE_PWM:
-            ax.barh(y, sub_low - DEAD_ZONE_PWM, left=DEAD_ZONE_PWM, height=0.6,
+        # POOR esquerda (de 0 até sub_low)
+        if sub_low > 0:
+            ax.barh(y, sub_low, left=0, height=0.6,
                     color=ZONE_COLORS["POOR"], alpha=0.7)
 
         # SUBOPTIMAL esquerda
@@ -119,7 +113,6 @@ def plot_zones():
     ax.set_xlim(0, 105)
 
     legend_patches = [
-        mpatches.Patch(color=DEAD_ZONE_COLOR, label="Zona Morta (0-6%)"),
         mpatches.Patch(color=ZONE_COLORS["POOR"], label="POOR (τ × 25)"),
         mpatches.Patch(color=ZONE_COLORS["SUBOPTIMAL"], label="SUBOPTIMAL (τ × 10)"),
         mpatches.Patch(color=ZONE_COLORS["IDEAL"], label="IDEAL (τ base)"),
@@ -138,7 +131,7 @@ def plot_tau():
 
     for g in range(1, 6):
         limiter = GEAR_PARAMS[g][0]
-        pwm_range = np.linspace(DEAD_ZONE_PWM, limiter, 500)
+        pwm_range = np.linspace(0, limiter, 500)
         taus = [get_tau(p, g) for p in pwm_range]
 
         ax.plot(pwm_range, taus, color=GEAR_COLORS[g - 1], linewidth=2,
@@ -167,8 +160,8 @@ def plot_step_response():
         target = limiter  # Throttle 100%
 
         # Partida do ideal_low (como se tivesse acabado de trocar de marcha)
-        # 1ª marcha parte da zona morta (6%)
-        start_pwm = DEAD_ZONE_PWM if g == 1 else ideal_low
+        # 1ª marcha parte de 0 (ideal_low da 1ª é 0)
+        start_pwm = ideal_low
 
         # Simula resposta ao degrau
         dt = 0.01
@@ -195,7 +188,6 @@ def plot_step_response():
         ax.axhline(ideal_low, color=ZONE_COLORS["IDEAL"], linestyle='--', alpha=0.5, linewidth=0.8)
         ax.axhline(ideal_high, color=ZONE_COLORS["IDEAL"], linestyle='--', alpha=0.5, linewidth=0.8)
         ax.axhline(limiter, color='red', linestyle=':', alpha=0.5, linewidth=0.8)
-        ax.axhline(DEAD_ZONE_PWM, color=DEAD_ZONE_COLOR, linestyle=':', alpha=0.5, linewidth=0.8)
 
         ax.set_title(f"{g}ª Marcha\n(ideal: {ideal_low}-{ideal_high}%, limiter: {limiter}%)", fontsize=9)
         ax.set_xlabel("Tempo (s)")
@@ -232,13 +224,9 @@ def plot_full_simulation():
     for i, t in enumerate(t_arr):
         target = (throttle / 100.0) * GEAR_PARAMS[gear][0]
 
-        # Zona morta
-        if pwm < DEAD_ZONE_PWM:
-            pwm = min(pwm + 40.0 * dt, DEAD_ZONE_PWM)
-        else:
-            tau = get_tau(pwm, gear)
-            step = ((target - pwm) / tau) * dt
-            pwm += step
+        tau = get_tau(pwm, gear)
+        step = ((target - pwm) / tau) * dt
+        pwm += step
 
         # Auto-shift: quando tachometer > 95% e não é 5ª
         tach = tachometer_percent(pwm, gear)
@@ -313,7 +301,6 @@ def plot_tachometer():
         ax.axvspan(ideal_low, ideal_high, alpha=0.08, color=GEAR_COLORS[g - 1])
 
     ax.axhline(100, color='red', linestyle=':', alpha=0.5, label='Tachometer 100%')
-    ax.axvline(DEAD_ZONE_PWM, color=DEAD_ZONE_COLOR, linestyle=':', alpha=0.5, label='Zona Morta (6%)')
 
     ax.set_xlabel("PWM do Motor (%)")
     ax.set_ylabel("Conta-giros (%)")
@@ -344,21 +331,20 @@ def plot_tau_detailed():
         # Faixas de zona
         ideal_width = ideal_high - ideal_low
         sub_margin = max(ideal_width * 0.25, 2.0)
-        sub_low = ideal_low - sub_margin
+        sub_low = max(ideal_low - sub_margin, 0)
         sub_high = min(ideal_high + sub_margin, limiter)
 
         # PWM range completo
         pwm_range = np.linspace(0, min(limiter + 5, 105), 1000)
-        taus = np.array([get_tau(max(DEAD_ZONE_PWM, p), g) for p in pwm_range])
+        taus = np.array([get_tau(p, g) for p in pwm_range])
 
         # Plot τ
         ax.plot(pwm_range, taus, color=GEAR_COLORS[g - 1], linewidth=2.5)
 
         # Colore fundo por zona
-        ax.axvspan(0, DEAD_ZONE_PWM, alpha=0.1, color=DEAD_ZONE_COLOR, label='Zona Morta')
-        if sub_low > DEAD_ZONE_PWM:
-            ax.axvspan(DEAD_ZONE_PWM, sub_low, alpha=0.1, color=ZONE_COLORS["POOR"])
-        ax.axvspan(max(sub_low, DEAD_ZONE_PWM), ideal_low, alpha=0.1, color=ZONE_COLORS["SUBOPTIMAL"])
+        if sub_low > 0:
+            ax.axvspan(0, sub_low, alpha=0.1, color=ZONE_COLORS["POOR"])
+        ax.axvspan(sub_low, ideal_low, alpha=0.1, color=ZONE_COLORS["SUBOPTIMAL"])
         ax.axvspan(ideal_low, ideal_high, alpha=0.15, color=ZONE_COLORS["IDEAL"])
         if sub_high > ideal_high:
             ax.axvspan(ideal_high, sub_high, alpha=0.1, color=ZONE_COLORS["SUBOPTIMAL"])
@@ -396,8 +382,8 @@ def plot_tau_detailed():
         )
 
         # Anotação POOR (se existir zona POOR visível)
-        poor_pos = DEAD_ZONE_PWM + 1 if sub_low > DEAD_ZONE_PWM + 2 else limiter - 1
-        if sub_low > DEAD_ZONE_PWM + 2 or limiter > sub_high + 2:
+        if sub_low > 2 or limiter > sub_high + 2:
+            poor_pos = 1 if sub_low > 2 else limiter - 1
             ax.annotate(
                 f'POOR\nτ = {tau_base} × 25 = {tau_poor:.0f}s',
                 xy=(poor_pos, tau_poor), xytext=(poor_pos, tau_poor * 0.7),
@@ -410,7 +396,6 @@ def plot_tau_detailed():
         ax.axvline(ideal_low, color=ZONE_COLORS["IDEAL"], linestyle='--', alpha=0.6, linewidth=1)
         ax.axvline(ideal_high, color=ZONE_COLORS["IDEAL"], linestyle='--', alpha=0.6, linewidth=1)
         ax.axvline(limiter, color='red', linestyle=':', alpha=0.6, linewidth=1)
-        ax.axvline(DEAD_ZONE_PWM, color=DEAD_ZONE_COLOR, linestyle=':', alpha=0.6, linewidth=1)
 
         ax.set_title(f"{g}ª Marcha — τ_base = {tau_base}s\n"
                      f"(ideal: {ideal_low}-{ideal_high}%, limiter: {limiter}%)",
@@ -526,13 +511,9 @@ def plot_tau_evolution():
     for i, t in enumerate(t_arr):
         target = (throttle / 100.0) * GEAR_PARAMS[gear][0]
 
-        if pwm < DEAD_ZONE_PWM:
-            pwm = min(pwm + 40.0 * dt, DEAD_ZONE_PWM)
-            tau = 0.15  # τ efetivo da rampa rápida (6% / 40 %/s)
-        else:
-            tau = get_tau(pwm, gear)
-            step = ((target - pwm) / tau) * dt
-            pwm += step
+        tau = get_tau(pwm, gear)
+        step = ((target - pwm) / tau) * dt
+        pwm += step
 
         tach = tachometer_percent(pwm, gear)
         if tach >= 95 and gear < 5:
@@ -674,16 +655,10 @@ def plot_ode_equation():
     for i, t in enumerate(t_arr):
         target = (throttle / 100.0) * GEAR_PARAMS[gear][0]
 
-        if pwm < DEAD_ZONE_PWM:
-            rate = 40.0  # %/s rampa rápida
-            pwm = min(pwm + rate * dt, DEAD_ZONE_PWM)
-            tau = 0.15
-            dpwm_dt = rate
-        else:
-            tau = get_tau(pwm, gear)
-            err = target - pwm
-            dpwm_dt = err / tau
-            pwm += dpwm_dt * dt
+        tau = get_tau(pwm, gear)
+        err = target - pwm
+        dpwm_dt = err / tau
+        pwm += dpwm_dt * dt
 
         tach = tachometer_percent(pwm, gear)
         if tach >= 95 and gear < 5:
@@ -693,7 +668,7 @@ def plot_ode_equation():
         target_arr[i] = target
         tau_arr[i] = tau
         error_arr[i] = target - pwm
-        dpwm_dt_arr[i] = dpwm_dt if pwm >= DEAD_ZONE_PWM or i == 0 else dpwm_dt
+        dpwm_dt_arr[i] = dpwm_dt
         gear_arr[i] = gear
         zone_arr.append(classify_zone(pwm, gear))
 
@@ -836,10 +811,10 @@ def plot_ode_per_gear():
         # Zonas
         ideal_width = ideal_high - ideal_low
         sub_margin = max(ideal_width * 0.25, 2.0)
-        sub_low = ideal_low - sub_margin
+        sub_low = max(ideal_low - sub_margin, 0)
         sub_high = min(ideal_high + sub_margin, limiter)
 
-        pwm_range = np.linspace(DEAD_ZONE_PWM, limiter, 500)
+        pwm_range = np.linspace(0, limiter, 500)
 
         # dPWM/dt = (target - PWM) / τ_eff(PWM, g)
         rates = []
@@ -859,8 +834,9 @@ def plot_ode_per_gear():
                 ax.plot(pwm_range[mask], rates[mask], color=color, linewidth=2.5)
 
         # Fundo das zonas
-        ax.axvspan(DEAD_ZONE_PWM, max(sub_low, DEAD_ZONE_PWM), alpha=0.05, color=ZONE_COLORS["POOR"])
-        ax.axvspan(max(sub_low, DEAD_ZONE_PWM), ideal_low, alpha=0.05, color=ZONE_COLORS["SUBOPTIMAL"])
+        if sub_low > 0:
+            ax.axvspan(0, sub_low, alpha=0.05, color=ZONE_COLORS["POOR"])
+        ax.axvspan(sub_low, ideal_low, alpha=0.05, color=ZONE_COLORS["SUBOPTIMAL"])
         ax.axvspan(ideal_low, ideal_high, alpha=0.1, color=ZONE_COLORS["IDEAL"])
         if sub_high > ideal_high:
             ax.axvspan(ideal_high, sub_high, alpha=0.05, color=ZONE_COLORS["SUBOPTIMAL"])
@@ -875,12 +851,21 @@ def plot_ode_per_gear():
 
         # Anotações dos valores de dPWM/dt em pontos-chave
         key_points = [
-            (DEAD_ZONE_PWM + 0.5, "PWM=6%"),
+            (0.5, "PWM=0%"),
             (ideal_low, f"PWM={ideal_low}%"),
             ((ideal_low + ideal_high) / 2, "centro ideal"),
             (ideal_high, f"PWM={ideal_high}%"),
         ]
+        # Remove pontos duplicados (ex: 1ª marcha onde ideal_low == 0)
+        seen = set()
+        unique_key_points = []
         for pwm_pt, label in key_points:
+            key = round(pwm_pt, 1)
+            if key not in seen:
+                seen.add(key)
+                unique_key_points.append((pwm_pt, label))
+
+        for pwm_pt, label in unique_key_points:
             if pwm_pt <= limiter:
                 tau_pt = get_tau(pwm_pt, g)
                 rate_pt = (target - pwm_pt) / tau_pt

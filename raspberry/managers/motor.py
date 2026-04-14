@@ -255,21 +255,21 @@ class MotorManager:
     #
     # Parâmetros por marcha: (limiter, ideal_low, ideal_high, τ_base)
     #   - limiter:    PWM máximo da marcha (throttle 100% → limiter%)
-    #   - ideal_low:  início da zona ideal (≈ limiter da marcha anterior)
+    #   - ideal_low:  início da zona ideal
     #   - ideal_high: fim da zona ideal
     #   - τ_base:     constante de tempo na zona ideal (segundos)
-
-    DEAD_ZONE_PWM = 6.0  # Abaixo de 6% o motor não gira
+    #
+    # Zonas ideais se sobrepõem: ideal_low(g+1) < ideal_high(g)
+    # No ponto de troca, o PWM já está na zona ideal da próxima marcha.
+    # 1ª marcha começa em 0% (sem zona morta).
 
     GEAR_PARAMS = {
         # gear: (limiter, ideal_low, ideal_high, τ_base)
-        # Zonas ideais se sobrepõem: ideal_low(g+1) < ideal_high(g)
-        # No ponto de troca, o PWM já está na zona ideal da próxima marcha
-        1: (16,   6,  12,  2.0),  # 1ª: ideal 6-12%
-        2: (30,  10,  25,  4.0),  # 2ª: ideal 10-25% (sobrepõe 1ª em 10-12%)
-        3: (52,  22,  45,  6.0),  # 3ª: ideal 22-45% (sobrepõe 2ª em 22-25%)
-        4: (78,  40,  70,  8.0),  # 4ª: ideal 40-70% (sobrepõe 3ª em 40-45%)
-        5: (100, 64,  95, 10.0),  # 5ª: ideal 64-95% (sobrepõe 4ª em 64-70%)
+        1: (20,   0,  15,  2.0),  # 1ª: ideal 0-15%
+        2: (40,  12,  30,  4.0),  # 2ª: ideal 12-30% (sobrepõe 1ª em 12-15%)
+        3: (60,  25,  50,  6.0),  # 3ª: ideal 25-50% (sobrepõe 2ª em 25-30%)
+        4: (80,  45,  70,  8.0),  # 4ª: ideal 45-70% (sobrepõe 3ª em 45-50%)
+        5: (100, 65,  95, 10.0),  # 5ª: ideal 65-95% (sobrepõe 4ª em 65-70%)
     }
 
     # Multiplicadores de τ por zona (quanto maior, mais lento)
@@ -284,12 +284,12 @@ class MotorManager:
         """
         Classifica a zona de eficiência com base no PWM atual e marcha.
 
-        Zonas por marcha (exemplo 3ª, limiter=45%):
-          POOR:       0% — 20%  (muito abaixo do ideal)
-          SUBOPTIMAL: 20% — 25% (abaixo do ideal, transição)
-          IDEAL:      25% — 40% (faixa eficiente)
-          SUBOPTIMAL: 40% — 45% (acima do ideal, deveria subir marcha)
-          POOR:       > 45%     (acima do limiter)
+        Zonas por marcha (exemplo 3ª, limiter=60%, ideal 25-50%):
+          POOR:       0% — 19%  (muito abaixo do ideal)
+          SUBOPTIMAL: 19% — 25% (abaixo do ideal, transição)
+          IDEAL:      25% — 50% (faixa eficiente)
+          SUBOPTIMAL: 50% — 56% (acima do ideal, deveria subir marcha)
+          POOR:       > 56%     (acima do limiter)
         """
         _, ideal_low, ideal_high, _ = self.GEAR_PARAMS[self.current_gear]
         limiter = self.GEAR_PARAMS[self.current_gear][0]
@@ -347,7 +347,6 @@ class MotorManager:
         Fora dela, τ cresce e a resposta fica lenta (penaliza marcha errada).
 
         Para desaceleração, τ é reduzido (mais responsivo ao soltar acelerador).
-        Zona morta (0-6%): rampa rápida para pular região sem torque.
         """
         zone = self._classify_zone(self.current_pwm)
 
@@ -365,28 +364,20 @@ class MotorManager:
         tau = self._get_tau(self.current_pwm)
 
         if pwm_diff > 0:  # ACELERANDO
-            if self.current_pwm < self.DEAD_ZONE_PWM and self.target_pwm >= self.DEAD_ZONE_PWM:
-                # Rampa rápida para atravessar zona morta (0-6%)
-                self.current_pwm = min(self.current_pwm + 40.0 * dt, self.DEAD_ZONE_PWM)
-            else:
-                # dPWM/dt = (target - PWM) / τ
-                step = (pwm_diff / tau) * dt
-                self.current_pwm += step
+            # dPWM/dt = (target - PWM) / τ
+            step = (pwm_diff / tau) * dt
+            self.current_pwm += step
 
         else:  # DESACELERANDO
-            if self.current_pwm <= self.DEAD_ZONE_PWM and self.target_pwm < self.DEAD_ZONE_PWM:
-                # Queda rápida na zona morta
-                self.current_pwm = max(self.current_pwm - 40.0 * dt, 0.0)
-            else:
-                # Desaceleração: τ dividido por 3 (mais responsivo ao soltar)
-                tau_decel = tau / 3.0
+            # Desaceleração: τ dividido por 3 (mais responsivo ao soltar)
+            tau_decel = tau / 3.0
 
-                # Freio multiplica a responsividade (0%=1x, 100%=10x)
-                brake_boost = 1.0 + (self.brake_input / 100.0) * 9.0
-                tau_decel /= brake_boost
+            # Freio multiplica a responsividade (0%=1x, 100%=10x)
+            brake_boost = 1.0 + (self.brake_input / 100.0) * 9.0
+            tau_decel /= brake_boost
 
-                step = (abs(pwm_diff) / tau_decel) * dt
-                self.current_pwm -= min(step, abs(pwm_diff))
+            step = (abs(pwm_diff) / tau_decel) * dt
+            self.current_pwm -= min(step, abs(pwm_diff))
 
         # Debug a cada 1s
         now = time.time()

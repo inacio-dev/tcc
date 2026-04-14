@@ -378,7 +378,7 @@ A constante de tempo efetiva combina dois fatores --- a marcha e a zona de efici
 
 \noindent onde $\tau_{base}(g)$ cresce com a marcha (2~s na 1ª até 10~s na 5ª, refletindo maior inércia em marchas altas) e $M_{zona}$ é o multiplicador da zona de eficiência: $M_{IDEAL} = 1{,}0$, $M_{SUB} = 10{,}0$ e $M_{POOR} = 25{,}0$. Esses valores foram ajustados durante a prototipagem evolutiva: cada conjunto era implementado, testado em condução real e corrigido até que a penalização por operar na marcha errada fosse perceptível ao operador sem tornar o veículo inoperável nas zonas desfavoráveis. Na zona IDEAL, o sistema responde com $\tau_{base}$; na zona SUBOPTIMAL, a resposta é 10 vezes mais lenta; na zona POOR, 25 vezes mais lenta. A zona é classificada pelo PWM atual do motor (não pelo target), de modo que a penalização ocorre em tempo real conforme o motor sai da faixa ideal. Isso força o operador a utilizar a marcha adequada para a faixa em que o motor está operando. O efeito reproduz o comportamento de uma transmissão real, onde manter uma marcha alta em baixa rotação resulta em resposta lenta.
 
-A \autoref{tab:gear-params} resume os parâmetros por marcha, calibrados em testes de bancada e em campo. Os limitadores definem o ganho $K$ (PWM máximo quando o acelerador está em 100\%) conforme a faixa de rotação útil do motor DC 775 em cada relação de transmissão. As faixas ideal\_low e ideal\_high delimitam a zona IDEAL e foram ajustadas para que a aceleração fosse progressiva dentro de cada marcha. As zonas ideais de marchas adjacentes se sobrepõem (por exemplo, a 2ª cobre 10--25\% e a 1ª cobre 6--12\%), garantindo que no ponto de troca o PWM já esteja na zona IDEAL da próxima marcha.
+A \autoref{tab:gear-params} resume os parâmetros por marcha, calibrados em testes de bancada e em campo. Os limitadores definem o ganho $K$ (PWM máximo quando o acelerador está em 100\%) conforme a faixa de rotação útil do motor DC 775 em cada relação de transmissão. As faixas ideal\_low e ideal\_high delimitam a zona IDEAL e foram ajustadas para que a aceleração fosse progressiva dentro de cada marcha. As zonas ideais de marchas adjacentes se sobrepõem (por exemplo, a 2ª cobre 12--30\% e a 1ª cobre 0--15\%), garantindo que no ponto de troca o PWM já esteja na zona IDEAL da próxima marcha.
 
 \begin{table}[!ht]
 	\centering
@@ -388,11 +388,11 @@ A \autoref{tab:gear-params} resume os parâmetros por marcha, calibrados em test
 			\toprule
 			Marcha & $K$ (limitador) & Zona IDEAL & $\tau_{base}$ & $\tau_{IDEAL}$ & $\tau_{SUB}$ & $\tau_{POOR}$ \\
 			\midrule
-			1ª & 16\% & 6--12\% & 2,0~s & 2~s & 20~s & 50~s \\
-			2ª & 30\% & 10--25\% & 4,0~s & 4~s & 40~s & 100~s \\
-			3ª & 52\% & 22--45\% & 6,0~s & 6~s & 60~s & 150~s \\
-			4ª & 78\% & 40--70\% & 8,0~s & 8~s & 80~s & 200~s \\
-			5ª & 100\% & 64--95\% & 10,0~s & 10~s & 100~s & 250~s \\
+			1ª & 20\% & 0--15\% & 2,0~s & 2~s & 20~s & 50~s \\
+			2ª & 40\% & 12--30\% & 4,0~s & 4~s & 40~s & 100~s \\
+			3ª & 60\% & 25--50\% & 6,0~s & 6~s & 60~s & 150~s \\
+			4ª & 80\% & 45--70\% & 8,0~s & 8~s & 80~s & 200~s \\
+			5ª & 100\% & 65--95\% & 10,0~s & 10~s & 100~s & 250~s \\
 			\bottomrule
 		\end{tabular}
 	}{
@@ -400,7 +400,7 @@ A \autoref{tab:gear-params} resume os parâmetros por marcha, calibrados em test
 	}
 \end{table}
 
-A \autoref{fig:zonas-eficiencia-marchas} ilustra as zonas de eficiência por marcha. Na zona IDEAL (verde), $\tau_{eff} = \tau_{base}$; na SUBOPTIMAL (laranja), $\tau_{eff} = 10 \times \tau_{base}$; na POOR (vermelho), $\tau_{eff} = 25 \times \tau_{base}$. A margem da zona SUBOPTIMAL corresponde a 25\% da largura da zona IDEAL em cada borda, com mínimo de 2\%. Todas as marchas possuem uma zona morta de 0 a 6\% do PWM (cinza), faixa na qual o motor não possui torque suficiente para movimentar o veículo. Essa faixa é atravessada automaticamente por uma rampa linear de 40~\%/s (tempo de travessia de 0,15~s).
+A \autoref{fig:zonas-eficiencia-marchas} ilustra as zonas de eficiência por marcha. Na zona IDEAL (verde), $\tau_{eff} = \tau_{base}$; na SUBOPTIMAL (laranja), $\tau_{eff} = 10 \times \tau_{base}$; na POOR (vermelho), $\tau_{eff} = 25 \times \tau_{base}$. A margem da zona SUBOPTIMAL corresponde a 25\% da largura da zona IDEAL em cada borda, com mínimo de 2\%. A 1ª marcha inicia em 0\% de PWM, de modo que a modelagem cobre continuamente toda a faixa operacional sem descontinuidades.
 
 \begin{figure}[!ht]
 	\captionsetup{width=16cm}
@@ -448,7 +448,7 @@ A \autoref{fig:ode-decomposicao} decompõe a equação diferencial durante uma s
 	}
 \end{figure}
 
-O \autoref{apendice:exemplo-transmissao} apresenta um exemplo numérico completo com todos os cálculos para a 1ª marcha com acelerador a 60\%, incluindo a travessia da zona morta, a integração de Euler iteração por iteração e a comparação entre zonas IDEAL e POOR\@.
+O \autoref{apendice:exemplo-transmissao} apresenta um exemplo numérico completo com todos os cálculos para a 1ª marcha com acelerador a 60\%, incluindo a integração de Euler iteração por iteração e a comparação entre zonas IDEAL e POOR\@.
 
 Para a desaceleração, o sistema utiliza a mesma formulação de 1ª ordem com $\tau$ reduzido: $\tau_{decel} = \tau_{eff} / 3$, tornando a resposta 3 vezes mais rápida ao soltar o acelerador. Quando o freio é acionado, um fator multiplicativo adicional é aplicado: $\tau_{decel} = \tau_{eff} / (3 \times boost_{freio})$, onde $boost_{freio} = 1 + 9 \times (freio/100)$, resultando em desaceleração até 30 vezes mais rápida com frenagem máxima.
 
