@@ -382,6 +382,105 @@ class CameraManager:
             warn(f"Erro ao ajustar controles: {e}", "CAMERA")
             return False
 
+    def set_resolution(self, resolution_name: str) -> bool:
+        """
+        Muda a resolução da câmera em tempo real.
+
+        Reconfigura o pipeline picamera2 completo (stream + encoder + buffer).
+        A câmera precisa ser parada e reconfigurada — não há mudança on-the-fly
+        de resolução no picamera2.
+
+        Args:
+            resolution_name (str): "480p", "720p" ou "1080p"
+
+        Returns:
+            bool: True se mudança aplicada com sucesso
+        """
+        if resolution_name not in self.RESOLUTION_PRESETS:
+            warn(f"Resolução desconhecida: {resolution_name}", "CAMERA")
+            return False
+
+        new_res = self.RESOLUTION_PRESETS[resolution_name]
+        if new_res == self.resolution:
+            info(f"Resolução já está em {resolution_name}", "CAMERA")
+            return True
+
+        if self.camera is None:
+            warn("Câmera não inicializada — não é possível mudar resolução", "CAMERA")
+            return False
+
+        try:
+            info(
+                f"Mudando resolução: {self.resolution[0]}x{self.resolution[1]} → "
+                f"{new_res[0]}x{new_res[1]}",
+                "CAMERA",
+            )
+
+            # Bloqueia capture_frame() durante reconfiguração
+            self.is_initialized = False
+
+            # Para encoder e câmera
+            if self.is_recording:
+                self.camera.stop_encoder()
+                self.is_recording = False
+            self.camera.stop()
+
+            # Reconfigura com nova resolução
+            self.resolution = new_res
+            config = self.camera.create_video_configuration(
+                main={"size": self.resolution, "format": "XBGR8888"},
+                encode="main",
+                buffer_count=4,
+            )
+            self.camera.configure(config)
+
+            # Reaplica frame rate e controles de imagem
+            try:
+                frame_duration = 1000000 // self.frame_rate
+                controls = {
+                    "FrameDurationLimits": (frame_duration, frame_duration),
+                }
+                if self.sharpness != 1.0:
+                    controls["Sharpness"] = self.sharpness
+                if self.contrast != 1.0:
+                    controls["Contrast"] = self.contrast
+                if self.saturation != 1.0:
+                    controls["Saturation"] = self.saturation
+                if self.brightness != 0.0:
+                    controls["Brightness"] = self.brightness
+                self.camera.set_controls(controls)
+            except Exception as e:
+                warn(f"Alguns controles não reaplicados após resize: {e}", "CAMERA")
+
+            # Recria encoder (picamera2 exige encoder novo após stop)
+            try:
+                self.encoder = MJPEGEncoder(quality=self.quality)
+            except TypeError:
+                self.encoder = MJPEGEncoder()
+
+            # Recria buffer circular e output
+            self.buffer = CircularBuffer(max_frames=10)
+            self.output = FileOutput(self.buffer)
+
+            # Reinicia câmera e encoder
+            self.camera.start()
+            time.sleep(0.2)
+            self.camera.start_encoder(self.encoder, self.output)
+            self.is_recording = True
+
+            self.is_initialized = True
+            info(
+                f"Resolução alterada: {resolution_name} "
+                f"({new_res[0]}x{new_res[1]}) | MJPEG Q={self.quality} | {self.frame_rate}fps",
+                "CAMERA",
+            )
+            return True
+
+        except Exception as e:
+            error(f"Erro ao mudar resolução: {e}", "CAMERA")
+            self.is_initialized = False
+            return False
+
     def cleanup(self):
         """Libera recursos da câmera e encoder"""
         try:

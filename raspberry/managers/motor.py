@@ -457,10 +457,6 @@ class MotorManager:
                 ),
                 # === STATUS TÉCNICO ===
                 "is_initialized": self.is_initialized,
-                "motor_temperature": round(
-                    25 + (self.current_pwm * 0.6), 1
-                ),  # Simulado
-                "motor_current": round(0.5 + (self.current_pwm * 0.1), 2),  # Simulado
                 # === HARDWARE ===
                 "rpwm_pin": self.rpwm_pin,
                 "pwm_frequency": self.PWM_FREQUENCY,

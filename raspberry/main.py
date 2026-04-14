@@ -741,6 +741,14 @@ class F1CarMultiThreadSystem:
                         self.camera_mgr.quality = max(1, min(100, quality))
                         info(f"Qualidade MJPEG: {quality} (requer restart do encoder)", "CMD")
 
+                elif control_cmd.startswith("CAMERA_RESOLUTION:"):
+                    resolution = control_cmd[18:].strip()
+                    if self.camera_mgr:
+                        if self.camera_mgr.set_resolution(resolution):
+                            info(f"Resolução da câmera: {resolution}", "CMD")
+                        else:
+                            warn(f"Falha ao alterar resolução para {resolution}", "CMD")
+
                 elif control_cmd.startswith("CAMERA_CONTROLS:"):
                     # Formato: CAMERA_CONTROLS:sharpness:contrast:saturation:brightness
                     try:

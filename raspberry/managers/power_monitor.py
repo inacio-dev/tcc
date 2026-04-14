@@ -417,9 +417,9 @@ class PowerMonitorManager:
                 self.current_servos = filtered_servos
                 self.current_motor = filtered_motor
 
-                # Calcula percentual da bateria (3S LiPo: 9.0V-12.6V)
+                # Calcula percentual da bateria (3S LiPo calibrado na bancada: 11.0V = 0%, 13.6V = 100%)
                 if filtered_battery > 0:
-                    pct = (filtered_battery - 9.0) / (12.6 - 9.0) * 100.0
+                    pct = (filtered_battery - 11.0) / (13.6 - 11.0) * 100.0
                     self.battery_percentage = max(0.0, min(100.0, pct))
                 else:
                     self.battery_percentage = 0.0

@@ -9,6 +9,7 @@ CLAUDE.md
 artigos/
 datasheets/
 .claude/
+sessoes/
 
 # Monografia - arquivos auxiliares gerados pelo make compile
 monografia/*.aux
