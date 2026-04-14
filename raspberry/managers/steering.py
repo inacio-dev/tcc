@@ -65,8 +65,8 @@ CARACTERÍSTICAS UBEC 15A:
 MAPEAMENTO COMPLETO DOS CANAIS PCA9685:
 ======================================
 Canal 0: Direção (steering_manager.py) <-- ESTE ARQUIVO
-Canal 4: Freio frontal (brake_manager.py)
-Canal 8: Freio traseiro (brake_manager.py)
+Canal 3: Freio frontal (brake_manager.py)
+Canal 7: Freio traseiro (brake_manager.py)
 Demais canais: Disponíveis para expansão
 
 CARACTERÍSTICAS MG996R (DIREÇÃO):

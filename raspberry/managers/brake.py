@@ -29,12 +29,12 @@ Diagrama de conexão PCA9685:
 Servo Freio Dianteiro -> PCA9685
   - VCC (Vermelho)  -> V+ do PCA9685 (alimentado pelo UBEC)
   - GND (Marrom)    -> GND
-  - Signal (Laranja)-> Canal 4 do PCA9685
+  - Signal (Laranja)-> Canal 3 do PCA9685
 
 Servo Freio Traseiro -> PCA9685
   - VCC (Vermelho)  -> V+ do PCA9685 (alimentado pelo UBEC)
   - GND (Marrom)    -> GND
-  - Signal (Laranja)-> Canal 8 do PCA9685
+  - Signal (Laranja)-> Canal 7 do PCA9685
 
 ALIMENTAÇÃO DOS SERVOS - UBEC 15A:
 ==================================
@@ -55,9 +55,9 @@ Diagrama de alimentação:
     └────┬────┘
          │ 5.25V
     ┌────┴────┐
-    │ PCA9685 │──── Servo Freio Frontal (Canal 0) ← ESTE ARQUIVO
-    │   V+    │──── Servo Freio Traseiro (Canal 1) ← ESTE ARQUIVO
-    └─────────┘──── Servo Direção (Canal 2)
+    │ PCA9685 │──── Servo Freio Frontal (Canal 3) ← ESTE ARQUIVO
+    │   V+    │──── Servo Freio Traseiro (Canal 7) ← ESTE ARQUIVO
+    └─────────┘──── Servo Direção (Canal 0)
 
 CARACTERÍSTICAS UBEC 15A:
 =========================
@@ -118,8 +118,8 @@ class BrakeManager:
     # ================== CONFIGURAÇÕES FÍSICAS ==================
 
     # Canais PCA9685 dos servos (mapeamento completo do projeto)
-    FRONT_BRAKE_CHANNEL = 4  # Canal 4 do PCA9685 - Freio frontal
-    REAR_BRAKE_CHANNEL = 8  # Canal 8 do PCA9685 - Freio traseiro
+    FRONT_BRAKE_CHANNEL = 3  # Canal 3 do PCA9685 - Freio frontal
+    REAR_BRAKE_CHANNEL = 7  # Canal 7 do PCA9685 - Freio traseiro
     # STEERING_CHANNEL = 0     # Canal 0 do PCA9685 - Direção (usado pelo steering_manager)
 
     # Endereço I2C do PCA9685

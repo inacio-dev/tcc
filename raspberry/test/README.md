@@ -81,10 +81,10 @@ python test/steering_direto_simples.py
 
 Teste direto dos servos de freio dianteiro e traseiro via PCA9685.
 
-**Hardware:** PCA9685 I2C `0x41`, Canal 4 (freio frontal), Canal 8 (freio traseiro), 50Hz, pulso 1000-2000μs
+**Hardware:** PCA9685 I2C `0x41`, Canal 3 (freio frontal), Canal 7 (freio traseiro), 50Hz, pulso 1000-2000μs
 
 **Fluxo do teste:**
-1. Inicializa PCA9685 e cria dois servos (canais 4 e 8)
+1. Inicializa PCA9685 e cria dois servos (canais 3 e 7)
 2. Teste do freio frontal: 8 posições progressivas (0° → 30° → 60° → 90° → 120° → 150° → 180° → 90°, 1.5s cada)
 3. Teste do freio traseiro: mesma sequência
 4. Teste combinado: 8 combinações incluindo balanço estilo F1 (ex: frontal 180° / traseiro 170°), frenagem de emergência (180°/180°)

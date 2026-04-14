@@ -458,7 +458,7 @@ Quando as rodas giram livremente com o motor desligado, o motor atua como gerado
 
 A direção usa um servo MG996R no canal 0 do PCA9685. O servo gira de 0° a 180° com centro mecânico em 90°, e o software mapeia a entrada do operador ($-100\%$ a $+100\%$) linearmente para essa faixa: $-100\%$ vai para 0° (esquerda máxima), $0\%$ para 90° (centro) e $+100\%$ para 180° (direita máxima). Os pulsos \gls{PWM} vão de 1,0ms a 2,0ms a 50Hz.
 
-O freio usa dois servos MG996R separados: um para o freio dianteiro (canal 4) e outro para o traseiro (canal 8). O balanceamento padrão é 40\% dianteiro e 60\% traseiro (\texttt{brake\_balance = 60}, onde o valor é a porcentagem traseira). O operador pode ajustar esse balanceamento pelo cliente.
+O freio usa dois servos MG996R separados: um para o freio dianteiro (canal 3) e outro para o traseiro (canal 7). O balanceamento padrão é 40\% dianteiro e 60\% traseiro (\texttt{brake\_balance = 60}, onde o valor é a porcentagem traseira). O operador pode ajustar esse balanceamento pelo cliente.
 
 \subsection{Arquitetura Multi-Thread}
 \label{subsec:multithread-veiculo}

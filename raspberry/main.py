@@ -284,7 +284,7 @@ class F1CarMultiThreadSystem:
         if self.brake_mgr.initialize():
             self.system_status["brakes"] = "Online"
             success_count += 1
-            info("Freios inicializados - PCA9685 canais 4/8", "MAIN")
+            info("Freios inicializados - PCA9685 canais 3/7", "MAIN")
         else:
             error("Freios não inicializados", "MAIN")
 
