@@ -85,6 +85,37 @@ def load_sensors(data_dir: Path) -> dict[str, np.ndarray]:
     return out
 
 
+def load_ff(data_dir: Path) -> dict[str, np.ndarray] | None:
+    """Carrega todos os ff_*.pkl e retorna dict concatenado.
+
+    Retorna None se não houver arquivos (sessões antigas).
+    Campos string (ff_context, steering_feedback_direction) são mantidos como list.
+    """
+    files = sorted(glob.glob(str(data_dir / "ff_*.pkl")))
+    if not files:
+        return None
+
+    raw: dict[str, list] = {}
+    for f in files:
+        with open(f, "rb") as fh:
+            d = pickle.load(fh)
+        for k, v in d.items():
+            vals = v if isinstance(v, list) else list(v)
+            raw.setdefault(k, []).extend(vals)
+
+    out: dict = {}
+    for k, v in raw.items():
+        # Campos string ficam como list
+        if any(isinstance(x, str) for x in v if x is not None):
+            out[k] = list(v)
+            continue
+        try:
+            out[k] = np.array([x if x is not None else np.nan for x in v], dtype=float)
+        except (ValueError, TypeError):
+            out[k] = list(v)
+    return out
+
+
 # ── helpers ────────────────────────────────────────────────────────────────────
 
 def setup_ax(ax, title: str, ylabel: str):
@@ -318,6 +349,197 @@ def plot_rpi(data, times, out: Path):
     plt.close()
 
 
+def plot_timings(data, times, out: Path):
+    """Gráfico dedicado para todos os timings do pipeline."""
+    # NÃO usar sharex=True — o histograma de latência (axes[2,1]) tem eixo x em ms,
+    # não em datetime. Compartilhar x com subplots de série temporal causa o
+    # matplotlib a tentar gerar milhões de ticks no histograma (loop infinito).
+    fig, axes = plt.subplots(3, 2, figsize=(15, 11))
+    fig.suptitle("Timings do Pipeline — RPi e Cliente", fontweight="bold", fontsize=13)
+
+    ts = data["timestamp"]
+
+    # RPi timings (alta amostragem)
+    ax = axes[0, 0]
+    ax.plot(times, data.get("timing_bmi160_read_ms"), color=COLORS["accel_x"], linewidth=0.4, alpha=0.7, label="BMI160 read")
+    ax.plot(times, data.get("timing_power_ms"),       color=COLORS["motor"],   linewidth=0.4, alpha=0.7, label="Power read")
+    setup_ax(ax, "RPi — leituras de sensor", "ms")
+    ax.legend(loc="upper right", framealpha=0.3, fontsize=8)
+    ax.set_ylim(0, 10)
+    ax.axhline(10, color="#FF5555", linestyle=":", linewidth=0.6, alpha=0.5, label="budget 100Hz")
+
+    ax = axes[0, 1]
+    ax.plot(times, data.get("timing_total_pre_send_ms"), color=COLORS["power"], linewidth=0.4, alpha=0.8, label="total pre-send")
+    ax.plot(times, data.get("timing_state_cmd_ms"),      color=COLORS["temp_body"], linewidth=0.4, alpha=0.7, label="state cmd")
+    ax.plot(times, data.get("timing_status_ms"),         color=COLORS["temp_rpi"], linewidth=0.4, alpha=0.7, label="status collect")
+    setup_ax(ax, "RPi — caminho crítico", "ms")
+    ax.legend(loc="upper right", framealpha=0.3, fontsize=8)
+    ax.set_ylim(0, 5)
+
+    # Cliente timings — só os que têm n=102046
+    ax = axes[1, 0]
+    ax.plot(times, data.get("client_timing_json_decode_ms"), color=COLORS["temp_mot"], linewidth=0.4, alpha=0.7)
+    setup_ax(ax, "Cliente — JSON decode", "ms")
+    ax.set_ylim(0, 0.3)
+
+    # Cliente timings — scatter dos esparsos (n não alinha com ts principal)
+    # Distribui uniformemente ao longo do eixo temporal da sessão
+    from datetime import datetime as _dt
+    ax = axes[1, 1]
+    sparse_fields = [
+        ("client_timing_total_ms",        COLORS["power"],     "total"),
+        ("client_timing_calc_ms",         COLORS["motor"],     "calc"),
+        ("client_timing_video_decode_ms", COLORS["temp_body"], "video decode"),
+    ]
+    t_start = ts[0]
+    t_end   = ts[-1]
+    for key, color, label in sparse_fields:
+        arr = data.get(key)
+        if arr is None or len(arr) == 0:
+            continue
+        valid = arr[~np.isnan(arr) & (arr > 0)]
+        if len(valid) == 0:
+            continue
+        # Distribui uniformemente no tempo (os originais não têm timestamp próprio)
+        t_synthetic = np.linspace(t_start, t_end, len(valid))
+        t_synthetic_dt = [_dt.fromtimestamp(t) for t in t_synthetic]
+        ax.scatter(t_synthetic_dt, valid, c=color, s=8, alpha=0.8, label=f"{label} (n={len(valid)})")
+    ax.axhline(16.67, color="#FF5555", linestyle=":", linewidth=0.6, alpha=0.5, label="budget 60Hz")
+    setup_ax(ax, "Cliente — amostras esparsas", "ms")
+    ax.legend(loc="upper right", framealpha=0.3, fontsize=7)
+    ax.set_ylim(0, 35)
+
+    # Latência de rede com distribuição
+    ax = axes[2, 0]
+    lat = data.get("net_latency_ms")
+    if lat is not None:
+        valid = lat > 0
+        ax.scatter(np.array(times)[valid], lat[valid], c=COLORS["latency"], s=0.8, alpha=0.4)
+    setup_ax(ax, "Rede UDP — latência (pontos ≥ 0)", "ms")
+    ax.set_ylim(0, 250)
+
+    # Histograma de latência
+    ax = axes[2, 1]
+    if lat is not None:
+        valid_lat = lat[lat > 0]
+        ax.hist(valid_lat, bins=60, range=(0, 200), color=COLORS["latency"], alpha=0.8, edgecolor="#555", linewidth=0.3)
+        p50 = np.percentile(valid_lat, 50)
+        p99 = np.percentile(valid_lat, 99)
+        ax.axvline(p50, color="#00FF00", linestyle="--", linewidth=1, label=f"p50={p50:.0f}ms")
+        ax.axvline(p99, color="#FF5555", linestyle="--", linewidth=1, label=f"p99={p99:.0f}ms")
+        ax.legend(loc="upper right", framealpha=0.3, fontsize=8)
+    ax.set_title("Distribuição da latência UDP", color="white", fontweight="bold")
+    ax.set_xlabel("Latência (ms)")
+    ax.set_ylabel("Frequência")
+    ax.grid(True, alpha=0.4)
+
+    plt.tight_layout()
+    plt.savefig(out / "09_timings.png", dpi=130)
+    plt.close()
+
+
+def plot_force_feedback(ff_data: dict, out: Path):
+    """Gráfico dedicado para todos os efeitos calculados de Force Feedback.
+
+    Produz um painel 4×2 cobrindo:
+      - Inputs do G923 (steering/throttle/brake)
+      - Forças G calculadas (lateral/frontal/vertical)
+      - Ângulos integrados (roll/pitch/yaw)
+      - FF_CONSTANT (steering_feedback_intensity)
+      - FF_RUMBLE (strong/weak)
+      - FF_PERIODIC (magnitude + period)
+      - FF_INERTIA
+      - Jerks detectados (derivadas)
+    """
+    ts = ff_data.get("timestamp")
+    if ts is None or len(ts) == 0:
+        print("    (sem dados de FF para plotar)")
+        return
+
+    times = [datetime.fromtimestamp(t) for t in ts]
+
+    fig, axes = plt.subplots(4, 2, figsize=(16, 13), sharex=True)
+    fig.suptitle("Force Feedback — Efeitos calculados no cliente", fontweight="bold", fontsize=14)
+
+    # 1. Inputs do G923
+    ax = axes[0, 0]
+    ax.plot(times, ff_data.get("g923_steering"), color=COLORS["steering"], linewidth=0.6, label="Steering (°)")
+    ax.set_ylabel("Steering (°)", color=COLORS["steering"])
+    ax.set_title("G923 — Input de direção", color="white", fontweight="bold")
+    ax.grid(True, alpha=0.4)
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M:%S"))
+    ax.tick_params(axis='y', labelcolor=COLORS["steering"])
+    ax2 = ax.twinx()
+    ax2.plot(times, ff_data.get("g923_throttle"), color=COLORS["motor"], linewidth=0.5, alpha=0.6, label="Throttle (%)")
+    ax2.plot(times, ff_data.get("g923_brake"), color=COLORS["brake"], linewidth=0.5, alpha=0.6, label="Brake (%)")
+    ax2.set_ylabel("Throttle/Brake (%)", color="white")
+    ax2.tick_params(axis='y', labelcolor="white")
+    ax2.set_ylim(-5, 105)
+    ax.set_xlabel("")
+
+    # 2. Forças G (BMI160 → g_force_*)
+    ax = axes[0, 1]
+    ax.plot(times, ff_data.get("g_force_lateral"),  color=COLORS["accel_y"], linewidth=0.6, alpha=0.9, label="Lateral")
+    ax.plot(times, ff_data.get("g_force_frontal"),  color=COLORS["accel_x"], linewidth=0.6, alpha=0.9, label="Frontal")
+    ax.plot(times, ff_data.get("g_force_vertical"), color=COLORS["accel_z"], linewidth=0.6, alpha=0.9, label="Vertical")
+    setup_ax(ax, "Forças G calculadas", "g")
+    ax.legend(loc="upper right", framealpha=0.3, fontsize=8)
+
+    # 3. Ângulos integrados
+    ax = axes[1, 0]
+    ax.plot(times, ff_data.get("roll_angle"),  color=COLORS["accel_x"], linewidth=0.6, label="Roll")
+    ax.plot(times, ff_data.get("pitch_angle"), color=COLORS["accel_y"], linewidth=0.6, label="Pitch")
+    ax.plot(times, ff_data.get("yaw_angle"),   color=COLORS["accel_z"], linewidth=0.6, label="Yaw (drift)")
+    setup_ax(ax, "Ângulos (roll/pitch static, yaw integrado)", "°")
+    ax.legend(loc="upper right", framealpha=0.3, fontsize=8)
+
+    # 4. FF_CONSTANT
+    ax = axes[1, 1]
+    ax.plot(times, ff_data.get("steering_feedback_intensity"), color=COLORS["power"], linewidth=0.8)
+    setup_ax(ax, "FF_CONSTANT — intensidade do puxão lateral", "%")
+    ax.set_ylim(-5, 105)
+
+    # 5. FF_RUMBLE
+    ax = axes[2, 0]
+    ax.plot(times, ff_data.get("rumble_strong"), color=COLORS["brake"],  linewidth=0.6, alpha=0.9, label="Strong")
+    ax.plot(times, ff_data.get("rumble_weak"),   color=COLORS["motor"],  linewidth=0.6, alpha=0.9, label="Weak")
+    setup_ax(ax, "FF_RUMBLE — vibrações (motor + bump + jerk)", "%")
+    ax.legend(loc="upper right", framealpha=0.3, fontsize=8)
+    ax.set_ylim(-5, 105)
+
+    # 6. FF_PERIODIC
+    ax = axes[2, 1]
+    ax.plot(times, ff_data.get("periodic_magnitude"), color=COLORS["rpm"], linewidth=0.6, label="Magnitude")
+    ax.set_ylabel("Magnitude (%)", color=COLORS["rpm"])
+    ax.set_ylim(-5, 105)
+    ax.set_title("FF_PERIODIC — vibração do motor (senoidal)", color="white", fontweight="bold")
+    ax.grid(True, alpha=0.4)
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M:%S"))
+    ax.tick_params(axis='y', labelcolor=COLORS["rpm"])
+    ax2 = ax.twinx()
+    ax2.plot(times, ff_data.get("periodic_period_ms"), color=COLORS["temp_rpi"], linewidth=0.6, alpha=0.7, label="Period")
+    ax2.set_ylabel("Period (ms)", color=COLORS["temp_rpi"])
+    ax2.tick_params(axis='y', labelcolor=COLORS["temp_rpi"])
+
+    # 7. FF_INERTIA
+    ax = axes[3, 0]
+    ax.plot(times, ff_data.get("inertia"), color=COLORS["gear"], linewidth=0.8)
+    setup_ax(ax, "FF_INERTIA — peso do volante", "%")
+    ax.set_ylim(0, 85)
+
+    # 8. Jerks detectados (derivadas)
+    ax = axes[3, 1]
+    ax.plot(times, ff_data.get("ff_jerk_steering"), color=COLORS["steering"], linewidth=0.5, alpha=0.8, label="Steering")
+    ax.plot(times, ff_data.get("ff_jerk_frontal"),  color=COLORS["accel_x"],  linewidth=0.5, alpha=0.8, label="Frontal")
+    ax.plot(times, ff_data.get("ff_jerk_vertical"), color=COLORS["accel_z"],  linewidth=0.5, alpha=0.8, label="Vertical")
+    setup_ax(ax, "Jerks (derivadas para detecção de eventos bruscos)", "unidade/s")
+    ax.legend(loc="upper right", framealpha=0.3, fontsize=8)
+
+    plt.tight_layout()
+    plt.savefig(out / "10_force_feedback.png", dpi=130)
+    plt.close()
+
+
 def plot_dashboard(data, times, out: Path):
     fig = plt.figure(figsize=(16, 10))
     fig.suptitle("Dashboard — Sessão F1 Car", fontweight="bold", fontsize=14)
@@ -374,7 +596,14 @@ def main():
     print(f"  Sessão: {session_dir.name}")
     print(f"  Lendo : {exports_dir}")
     data = load_sensors(exports_dir)
-    print(f"  {len(data)} campos | {len(data['timestamp'])} amostras")
+    print(f"  sensors: {len(data)} campos | {len(data['timestamp'])} amostras")
+
+    ff_data = load_ff(exports_dir)
+    if ff_data is not None:
+        ff_n = len(ff_data.get("timestamp", []))
+        print(f"  ff     : {len(ff_data)} campos | {ff_n} amostras")
+    else:
+        print(f"  ff     : (nenhum ff_*.pkl encontrado — sessão antiga)")
 
     ts = data["timestamp"]
     times = [datetime.fromtimestamp(t) for t in ts]
@@ -389,6 +618,9 @@ def main():
     plot_direcao_freio(data, times, out_dir)   ; print("    ✓ 06_direcao_freio.png")
     plot_rede(data, times, out_dir)            ; print("    ✓ 07_rede.png")
     plot_rpi(data, times, out_dir)             ; print("    ✓ 08_rpi.png")
+    plot_timings(data, times, out_dir)         ; print("    ✓ 09_timings.png")
+    if ff_data is not None:
+        plot_force_feedback(ff_data, out_dir)  ; print("    ✓ 10_force_feedback.png")
 
     print(f"\n  Salvos em: {out_dir}")
 

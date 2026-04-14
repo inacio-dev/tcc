@@ -545,18 +545,27 @@ class SensorDisplay:
             for key in self.raw_buffer:
                 self.raw_buffer[key] = self.raw_buffer[key][trim:]
 
-    def inject_client_timings(self, timings: dict):
-        """Injeta timings do client no último registro do raw_buffer.
-        Chamado após o processamento do pacote mais recente."""
+    def inject_into_last_raw_row(self, fields: dict):
+        """Injeta campos adicionais no último registro do raw_buffer.
+
+        Usado para persistir dados calculados no cliente (timings, force feedback,
+        velocidades, etc.) junto com o pacote mais recente vindo do RPi, para que
+        tudo seja exportado no auto-save (.pkl).
+
+        Chamado após o processamento do pacote mais recente.
+        """
         with self.data_lock:
             n = len(self.raw_buffer.get("timestamp", []))
             if n == 0:
                 return
-            for key, value in timings.items():
+            for key, value in fields.items():
                 if key not in self.raw_buffer:
                     self.raw_buffer[key] = [None] * n
                 # Sobrescreve o último valor (pacote processado)
                 self.raw_buffer[key][-1] = value
+
+    # Alias retrocompatível (nome antigo)
+    inject_client_timings = inject_into_last_raw_row
 
     def reset_statistics(self):
         """Reseta estatísticas do processador"""

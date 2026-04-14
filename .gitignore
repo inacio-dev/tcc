@@ -10,6 +10,7 @@ artigos/
 datasheets/
 .claude/
 sessoes/
+tools/
 
 # Monografia - arquivos auxiliares gerados pelo make compile
 monografia/*.aux

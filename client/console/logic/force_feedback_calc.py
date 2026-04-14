@@ -24,8 +24,9 @@ Detecção de eventos via histórico do BMI160 (~333ms de buffer a 60Hz):
 """
 
 import math
+import threading
 import time
-from collections import deque
+from collections import defaultdict, deque
 
 from managers.simple_logger import error
 
@@ -46,6 +47,44 @@ class ForceFeedbackCalculator:
     # Histórico do BMI160 para detecção de eventos
     HISTORY_SIZE = 20                # ~333ms a 60Hz
 
+    # Buffer de exportação (para auto-save em ff_*.pkl)
+    EXPORT_BUFFER_MAX_ROWS = 30000   # ~5 min a 100Hz
+
+    # Campos persistidos no ff_*.pkl (além de timestamp)
+    # O nome do arquivo é "ff" por histórico, mas o buffer guarda qualquer
+    # métrica calculada no cliente a cada tick (~100Hz) — FF, velocidade,
+    # vídeo, filtros PDI. Todas alinhadas ao mesmo timestamp.
+    EXPORT_FIELDS = (
+        # Forças G
+        "g_force_frontal", "g_force_lateral", "g_force_vertical",
+        # Ângulos
+        "roll_angle", "pitch_angle", "yaw_angle",
+        # FF_CONSTANT
+        "steering_feedback_intensity", "steering_feedback_direction",
+        # FF_RUMBLE
+        "rumble_strong", "rumble_weak",
+        # FF_PERIODIC
+        "periodic_period_ms", "periodic_magnitude",
+        # FF_INERTIA
+        "inertia",
+        # Contexto + derivadas
+        "ff_context",
+        "ff_jerk_frontal", "ff_jerk_vertical",
+        "ff_jerk_throttle", "ff_jerk_brake", "ff_jerk_steering",
+        "ff_roughness",
+        # Inputs do G923 (espelho do hardware para correlação)
+        "g923_steering", "g923_throttle", "g923_brake",
+        # Vídeo — decode + filtros PDI (populados pelo loop do cliente
+        # a partir do VideoDisplay antes de chamar calculate_g_forces_and_ff)
+        "video_decode_ms", "video_filter_ms", "video_filters_active",
+        "video_resolution",
+        # Timing individual por filtro PDI (None quando filtro inativo)
+        "filter_timing_sharpen_ms", "filter_timing_unsharp_ms",
+        "filter_timing_high_boost_ms", "filter_timing_clahe_ms",
+        "filter_timing_bilateral_ms", "filter_timing_super_res_ms",
+        "filter_timing_brightness_up_ms", "filter_timing_brightness_down_ms",
+    )
+
     def __init__(self, console):
         """
         Args:
@@ -65,6 +104,12 @@ class ForceFeedbackCalculator:
         # Integração de ângulos (roll/pitch estático via accel, yaw via gyro)
         self._yaw_angle = 0.0
         self._last_angle_time = None
+
+        # Buffer de exportação — chave → lista de valores (inclui timestamp).
+        # Cada append é uma amostra com todos os campos calculados na mesma iteração.
+        # Acessado pela thread de sensores (writer) e pela thread de auto-save (reader).
+        self._export_buffer = defaultdict(list)
+        self._export_lock = threading.Lock()
 
     # ================================================================
     # HISTÓRICO E DETECÇÃO DE EVENTOS
@@ -401,8 +446,58 @@ class ForceFeedbackCalculator:
             sensor_data["seat_tilt_x"] = 0.0
             sensor_data["seat_tilt_y"] = 0.0
 
+            # Captura inputs atuais do G923 (para correlação no ff_*.pkl)
+            if g923 and g923.is_connected():
+                sensor_data.setdefault("g923_steering", g923._steering)
+                sensor_data.setdefault("g923_throttle", g923._throttle)
+                sensor_data.setdefault("g923_brake", g923._brake)
+
+            # Persiste amostra completa no buffer de exportação
+            self._append_export(sensor_data)
+
         except Exception as e:
             error(f"Erro ao calcular forças G e force feedback: {e}", "CONSOLE")
+
+    # ================================================================
+    # BUFFER DE EXPORTAÇÃO (para auto-save em ff_*.pkl)
+    # ================================================================
+
+    def _append_export(self, sensor_data: dict) -> None:
+        """Adiciona uma amostra ao buffer de exportação.
+
+        Invariante: todas as colunas têm o mesmo tamanho após o append.
+        Campos ausentes são gravados como None para manter o alinhamento.
+        """
+        ts = time.time()
+        with self._export_lock:
+            self._export_buffer["timestamp"].append(ts)
+            for key in self.EXPORT_FIELDS:
+                self._export_buffer[key].append(sensor_data.get(key))
+
+            # Trim para evitar crescimento ilimitado
+            n = len(self._export_buffer["timestamp"])
+            if n > self.EXPORT_BUFFER_MAX_ROWS:
+                trim = 5000
+                for k in self._export_buffer:
+                    self._export_buffer[k] = self._export_buffer[k][trim:]
+
+    def get_export_snapshot(self) -> dict:
+        """Retorna uma cópia rasa do buffer (para exportação) sem limpar.
+
+        Chamado pela thread do auto-save. A cópia é barata — usa slices.
+        """
+        with self._export_lock:
+            return {k: list(v) for k, v in self._export_buffer.items()}
+
+    def get_export_size(self) -> int:
+        """Retorna o número atual de amostras no buffer."""
+        with self._export_lock:
+            return len(self._export_buffer.get("timestamp", []))
+
+    def reset_export_buffer(self) -> None:
+        """Limpa o buffer (chamado após auto-save bem-sucedido)."""
+        with self._export_lock:
+            self._export_buffer.clear()
 
     # ================================================================
     # EFEITOS DE HARDWARE (sliders)

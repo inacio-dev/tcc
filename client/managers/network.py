@@ -418,46 +418,41 @@ class NetworkClient:
 
     def _parse_complete_packet(self, packet):
         """
-        Analisa pacote completo (após reassembly de fragmentos).
+        Analisa pacote completo após reassembly de fragmentos.
+
+        O RPi envia vídeo fragmentado como <4 bytes frame_size><frame_data>
+        (mesmo formato que pacotes únicos em send_video_frame). O formato antigo
+        com sensor_size embutido no pacote de vídeo foi descontinuado — sensores
+        vão pela porta 9997.
 
         Args:
-            packet (bytes): Pacote completo
+            packet (bytes): Pacote completo reassemblado
 
         Returns:
-            tuple: (frame_data, sensor_data)
+            tuple: (frame_data, None) — sempre None no segundo elemento, mantido
+                   apenas para retrocompatibilidade do chamador que espera tupla
         """
         try:
-            if len(packet) < 8:
+            if len(packet) < 4:
                 return None, None
 
-            frame_size, sensor_size = struct.unpack("<II", packet[:8])
+            frame_size = struct.unpack("<I", packet[:4])[0]
 
-            if frame_size == 0 and sensor_size == 0:
-                return "TERMINATE", None
-
-            frame_start = 8
-            frame_end = frame_start + frame_size
-            sensor_start = frame_end
-            sensor_end = sensor_start + sensor_size
-
-            expected_size = 8 + frame_size + sensor_size
-            if len(packet) < expected_size:
+            if frame_size == 0:
                 return None, None
 
-            frame_data = packet[frame_start:frame_end] if frame_size > 0 else None
+            if len(packet) < 4 + frame_size:
+                self._log(
+                    "ERROR",
+                    f"Pacote reassemblado incompleto: {len(packet)} < {4 + frame_size}",
+                )
+                return None, None
 
-            sensor_data = None
-            if sensor_size > 0:
-                try:
-                    sensor_bytes = packet[sensor_start:sensor_end]
-                    sensor_json = sensor_bytes.decode("utf-8")
-                    sensor_data = json.loads(sensor_json)
-                except (json.JSONDecodeError, UnicodeDecodeError):
-                    pass
+            frame_data = packet[4:4 + frame_size]
+            return frame_data, None
 
-            return frame_data, sensor_data
-
-        except Exception:
+        except Exception as e:
+            self._log("ERROR", f"Erro em _parse_complete_packet: {e}")
             return None, None
 
     def _cleanup_old_fragments(self, current_time):
@@ -660,7 +655,12 @@ class NetworkClient:
             if len(packet) >= 4:
                 magic = struct.unpack("<I", packet[:4])[0]
                 if magic == self.FRAG_MAGIC:
-                    return self._handle_fragment(packet)
+                    # _handle_fragment retorna (frame_data, sensor_data).
+                    # Aqui só nos interessa o frame — sensores vêm na porta 9997.
+                    result = self._handle_fragment(packet)
+                    if isinstance(result, tuple):
+                        return result[0]
+                    return result
 
             frame_size = struct.unpack("<I", packet[:4])[0]
 

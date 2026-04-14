@@ -26,7 +26,10 @@ from ..utils.constants import (
 
 
 class AutoSaveManager:
-    """Gerencia auto-save periódico de logs, dados de sensores e telemetria"""
+    """Gerencia auto-save periódico de logs, dados de sensores, telemetria e FF"""
+
+    # Mínimo de amostras de FF para disparar o save (~1s a 100Hz)
+    MIN_FF_FOR_SAVE = 100
 
     def __init__(self, console):
         """
@@ -37,6 +40,7 @@ class AutoSaveManager:
         self.last_log_count = 0
         self.last_sensor_count = 0
         self.last_telemetry_count = 0
+        self.last_ff_count = 0
 
     def auto_export_on_limit(self):
         """Exporta automaticamente logs e dados quando o limite é atingido.
@@ -74,6 +78,18 @@ class AutoSaveManager:
                 except Exception:
                     pass
 
+            ff_snapshot = None
+            if (
+                hasattr(self.console, "ff_calculator")
+                and self.console.ff_calculator
+            ):
+                try:
+                    ff_snapshot = self.console.ff_calculator.get_export_snapshot()
+                    if not ff_snapshot.get("timestamp"):
+                        ff_snapshot = None
+                except Exception:
+                    pass
+
             # I/O em thread background
             def _write_files():
                 try:
@@ -107,6 +123,17 @@ class AutoSaveManager:
                         )
                         with open(telemetry_filename, "wb") as f:
                             pickle.dump(telemetry_snapshot, f)
+
+                    if ff_snapshot is not None:
+                        ff_filename = os.path.join(
+                            AUTO_EXPORT_DIR, f"ff_{timestamp}.pkl"
+                        )
+                        with open(ff_filename, "wb") as f:
+                            pickle.dump(
+                                ff_snapshot,
+                                f,
+                                protocol=pickle.HIGHEST_PROTOCOL,
+                            )
 
                     info(f"Dados salvos em: {AUTO_EXPORT_DIR}/", "AUTO-EXPORT")
                 except Exception as e:
@@ -158,15 +185,27 @@ class AutoSaveManager:
                 except Exception:
                     pass
 
+            current_ff_count = 0
+            if (
+                hasattr(self.console, "ff_calculator")
+                and self.console.ff_calculator
+            ):
+                try:
+                    current_ff_count = self.console.ff_calculator.get_export_size()
+                except Exception:
+                    pass
+
             # Só salva se houver dados significativos e novos
             has_new_data = (
                 current_log_count >= MIN_LOGS_FOR_SAVE
                 or current_sensor_count >= MIN_SENSORS_FOR_SAVE
                 or current_telemetry_count >= MIN_TELEMETRY_FOR_SAVE
+                or current_ff_count >= self.MIN_FF_FOR_SAVE
             ) and (
                 current_log_count > self.last_log_count
                 or current_sensor_count > self.last_sensor_count
                 or current_telemetry_count > self.last_telemetry_count
+                or current_ff_count > self.last_ff_count
             )
 
             if not has_new_data:
@@ -176,6 +215,7 @@ class AutoSaveManager:
             self.last_log_count = current_log_count
             self.last_sensor_count = current_sensor_count
             self.last_telemetry_count = current_telemetry_count
+            self.last_ff_count = current_ff_count
 
             # --- Fase 2: Snapshot rápido dos dados (thread UI, sem I/O) ---
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -209,6 +249,14 @@ class AutoSaveManager:
             if current_telemetry_count >= MIN_TELEMETRY_FOR_SAVE:
                 try:
                     telemetry_snapshot = self.console.telemetry_plotter.get_data_dict()
+                except Exception:
+                    pass
+
+            # Snapshot de force feedback (cópia rasa, thread-safe)
+            ff_snapshot = None
+            if current_ff_count >= self.MIN_FF_FOR_SAVE:
+                try:
+                    ff_snapshot = self.console.ff_calculator.get_export_snapshot()
                 except Exception:
                     pass
 
@@ -252,6 +300,18 @@ class AutoSaveManager:
                             f"{current_telemetry_count} telemetria"
                         )
 
+                    if ff_snapshot is not None:
+                        ff_filename = os.path.join(
+                            AUTO_EXPORT_DIR, f"ff_{timestamp}.pkl"
+                        )
+                        with open(ff_filename, "wb") as f:
+                            pickle.dump(
+                                ff_snapshot,
+                                f,
+                                protocol=pickle.HIGHEST_PROTOCOL,
+                            )
+                        saved_items.append(f"{current_ff_count} FF")
+
                     if saved_items:
                         info(
                             f"{', '.join(saved_items)} -> {AUTO_EXPORT_DIR}/",
@@ -267,6 +327,7 @@ class AutoSaveManager:
                             log_snapshot is not None,
                             sensor_snapshot is not None,
                             telemetry_snapshot is not None,
+                            ff_snapshot is not None,
                         ))
                 except Exception:
                     pass
@@ -279,7 +340,7 @@ class AutoSaveManager:
 
         self._schedule_next()
 
-    def _reset_after_save(self, reset_logs, reset_sensors, reset_telemetry):
+    def _reset_after_save(self, reset_logs, reset_sensors, reset_telemetry, reset_ff=False):
         """Reseta dados após save bem-sucedido (executado na thread UI)"""
         try:
             if reset_logs and self.console.log_text:
@@ -291,6 +352,9 @@ class AutoSaveManager:
             if reset_telemetry and self.console.telemetry_plotter:
                 self.console.telemetry_plotter.reset()
                 self.last_telemetry_count = 0
+            if reset_ff and self.console.ff_calculator:
+                self.console.ff_calculator.reset_export_buffer()
+                self.last_ff_count = 0
         except Exception:
             pass
 

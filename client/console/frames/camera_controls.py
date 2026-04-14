@@ -7,8 +7,9 @@ from tkinter import ttk
 
 # Alturas do container por resolução (proporcional à largura típica da UI ~1200px)
 RESOLUTION_HEIGHTS = {
-    "480p": 480,   # 640x480 - proporção 4:3
-    "720p": 540,   # 960x540 - proporção 16:9 (720p escalado)
+    "480p":  480,   # 640x480   - proporção 4:3
+    "720p":  540,   # 960x540   - proporção 16:9 (720p escalado)
+    "1080p": 675,   # 1200x675  - proporção 16:9 (1080p escalado)
 }
 
 
@@ -45,7 +46,7 @@ def create_camera_controls_frame(console, parent=None):
     console.camera_resolution_var = tk.StringVar(value="480p")
 
     # Botões de resolução
-    resolutions = ["480p", "720p"]
+    resolutions = ["480p", "720p", "1080p"]
     console.resolution_buttons = {}
 
     for res in resolutions:

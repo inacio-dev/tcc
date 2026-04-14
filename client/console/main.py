@@ -1015,6 +1015,23 @@ class ConsoleInterface:
 
                     sensor_data = self.sensor_display.get_display_data()
 
+                    # Popula métricas de vídeo/filtros para persistência no ff_*.pkl
+                    # (feito ANTES do calculate_g_forces_and_ff para o _append_export
+                    #  do FF buffer encontrar esses campos no sensor_data)
+                    if self.video_display:
+                        sensor_data["video_decode_ms"] = round(self.video_display._last_decode_ms, 2)
+                        sensor_data["video_filter_ms"] = round(self.video_display._last_filter_ms, 2)
+                        active = self.video_display._last_active_filters
+                        sensor_data["video_filters_active"] = ",".join(active) if active else ""
+                        sensor_data["video_resolution"] = (
+                            f"{self.video_display.original_width}x{self.video_display.original_height}"
+                            if self.video_display.original_width else ""
+                        )
+                        # Timings individuais por filtro (apenas os ativos terão valor)
+                        if self.video_display.image_filter:
+                            for fk, fms in self.video_display.image_filter.last_filter_timings.items():
+                                sensor_data[f"filter_timing_{fk}_ms"] = fms
+
                     # Cálculos (sem Tkinter — thread-safe)
                     t_calc = time.monotonic()
                     self.velocity_calculator.calculate_velocity(sensor_data)
@@ -1036,7 +1053,9 @@ class ConsoleInterface:
                         sensor_data["g923_throttle"] = self.g923_manager._throttle
                         sensor_data["g923_brake"] = self.g923_manager._brake
 
-                    # Writeback ao sensor_display para histórico/export
+                    # Writeback ao sensor_display para atualização da UI
+                    # (os campos calculados são persistidos separadamente pelo
+                    #  ForceFeedbackCalculator em seu próprio buffer → ff_*.pkl)
                     t_wb = time.monotonic()
                     with self.sensor_display.data_lock:
                         for _k in _calculated:
@@ -1068,7 +1087,7 @@ class ConsoleInterface:
                         if self.video_display.image_filter:
                             for fk, fms in self.video_display.image_filter.last_filter_timings.items():
                                 client_timings[f"client_timing_filter_{fk}_ms"] = fms
-                    self.sensor_display.inject_client_timings(client_timings)
+                    self.sensor_display.inject_into_last_raw_row(client_timings)
                     with self.sensor_display.data_lock:
                         self.sensor_display.display_data.update(client_timings)
 
